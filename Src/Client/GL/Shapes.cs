@@ -8,16 +8,16 @@ namespace USharpLibs.Engine.Client.GL {
 	}
 
 	public static class Cubes {
-		public static readonly Direction[] All = EnumUtils.Values<Direction>();
+		private static readonly Direction[] All = EnumUtils.Values<Direction>();
 
 		public static Shape S(float s) => Cube(0, 0, 0, s, s, s, 0, 0, 1, 0, 0, 1, 1, 1);
 		public static Shape XYZS(float x, float y, float z, float s) => Cube(x, y, z, x + s, y + s, z + s, 0, 0, 1, 0, 0, 1, 1, 1);
 
-		public static Shape WH(float w, float h, float z) => Cube(0, 0, 0, w, h, z, 0, 0, 1, 0, 0, 1, 1, 1);
-		public static Shape WH(float w, float h, float z, float tx0, float ty0, float tx1, float ty1, float tx2, float ty2, float tx3, float ty3) => Cube(0, 0, 0, w, h, z, tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3);
+		public static Shape WHD(float w, float h, float d) => Cube(0, 0, 0, w, h, d, 0, 0, 1, 0, 0, 1, 1, 1);
+		public static Shape WHD(float w, float h, float d, float tx0, float ty0, float tx1, float ty1, float tx2, float ty2, float tx3, float ty3) => Cube(0, 0, 0, w, h, d, tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3);
 
-		public static Shape XYWH(float x, float y, float z, float w, float h, float d) => Cube(x, y, z, x + w, y + h, d, 0, 0, 1, 0, 0, 1, 1, 1);
-		public static Shape XYWH(float x, float y, float z, float w, float h, float d, float tx0, float ty0, float tx1, float ty1, float tx2, float ty2, float tx3, float ty3) => Cube(x, y, z, w, h, d, tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3);
+		public static Shape XYZWHD(float x, float y, float z, float w, float h, float d) => Cube(x, y, z, x + w, y + h, d, 0, 0, 1, 0, 0, 1, 1, 1);
+		public static Shape XYZWHD(float x, float y, float z, float w, float h, float d, float tx0, float ty0, float tx1, float ty1, float tx2, float ty2, float tx3, float ty3) => Cube(x, y, z, w, h, d, tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3);
 
 		public static Shape XYZ(float x0, float y0, float z0, float x1, float y1, float z1) => Cube(x0, y0, z0, x1, y1, z1, 0, 0, 1, 0, 0, 1, 1, 1);
 		public static Shape XYZ(float x0, float y0, float z0, float x1, float y1, float z1, float tx0, float ty0, float tx1, float ty1, float tx2, float ty2, float tx3, float ty3) => Cube(x0, y0, z0, x1, y1, z1, tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3);
@@ -75,7 +75,7 @@ namespace USharpLibs.Engine.Client.GL {
 				x0, y0, z0, tx3, ty3,
 				x1, y0, z0, tx2, ty2,
 			},
-			_ => throw new NotImplementedException()
+			_ => throw new NotImplementedException(),
 		};
 
 		private static Shape Cube(float x0, float y0, float z0, float x1, float y1, float z1, float tx0, float ty0, float tx1, float ty1, float tx2, float ty2, float tx3, float ty3) {
