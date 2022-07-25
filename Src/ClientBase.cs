@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
@@ -27,6 +28,7 @@ namespace USharpLibs.Engine {
 
 		[SuppressMessage("IDE", "SA1401")]
 		internal static uint RawFPS, RawTPS;
+
 		[SuppressMessage("IDE", "SA1401")]
 		internal static double RawframeFrequency, RawTickFrequency;
 
@@ -106,6 +108,7 @@ namespace USharpLibs.Engine {
 		protected internal virtual void OnMousePress(MouseButtonEventArgs e) { }
 		protected internal virtual void OnMouseRelease(MouseButtonEventArgs e) { }
 		protected internal virtual void OnMouseScroll(MouseWheelEventArgs e) { }
+		protected internal virtual void OnClosing(CancelEventArgs e) { }
 
 		protected virtual void AddRenderers(List<IRenderer> renderers) { }
 	}

@@ -33,6 +33,7 @@ namespace USharpLibs.Engine.Client {
 			MouseDown += client.OnMousePress;
 			MouseUp += client.OnMouseRelease;
 			MouseWheel += client.OnMouseScroll;
+			Closing += client.OnClosing;
 		}
 
 		public EngineWindow(ClientBase client) : this(client, 856, 482) { }
@@ -52,14 +53,13 @@ namespace USharpLibs.Engine.Client {
 		}
 
 		private static void Calc(double time, ref uint counter, ref double timeCounter, ref double frequency, ref uint result) {
-			counter++;
-			timeCounter += time;
 			frequency = time * 1000;
+			counter++;
 
-			if (timeCounter >= 1) {
+			if ((timeCounter += time) >= 1) {
 				result = counter;
 				counter = 0;
-				timeCounter = 0;
+				timeCounter -= 1;
 			}
 		}
 	}

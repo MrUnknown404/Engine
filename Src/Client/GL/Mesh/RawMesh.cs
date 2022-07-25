@@ -32,10 +32,6 @@ namespace USharpLibs.Engine.Client.GL.Mesh {
 
 		public virtual void Reset() {
 			MeshData.Reset();
-			WasSetup = false;
-			VAO = 0;
-			VBO = 0;
-			EBO = 0;
 			Count = 0;
 		}
 	}
