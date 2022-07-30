@@ -19,22 +19,23 @@ namespace USharpLibs.Engine {
 		protected internal event Func<HashSet<IUnboundShader>> ShaderCreationEvent;
 		protected internal event Func<HashSet<DynamicFont>> FontCreationEvent;
 		protected internal event Func<HashSet<RawTexture>> TextureCreationEvent;
+		protected internal event Action<WindowState>? FullscreenToggleEvent;
 
 		public static EngineWindow Window { get; private set; } = default!;
 		public static Logger Logger { get; private set; } = default!;
 		public static string Source { get; private set; } = string.Empty;
 		public static LoadState LoadState { get; protected internal set; }
 		public static bool IsDebug { get; private set; }
+		public static bool CloseRequested { get; private set; } // I don't like this but GameWindow#IsExiting doesn't seem to work sometimes
 
 		[SuppressMessage("IDE", "SA1401")]
 		internal static uint RawFPS, RawTPS;
-
 		[SuppressMessage("IDE", "SA1401")]
-		internal static double RawframeFrequency, RawTickFrequency;
+		internal static double RawFrameFrequency, RawTickFrequency;
 
 		public static uint FPS { get => RawFPS; protected set => RawFPS = value; }
 		public static uint TPS { get => RawTPS; protected set => RawTPS = value; }
-		public static double FrameFrequency { get => RawframeFrequency; protected set => RawframeFrequency = value; }
+		public static double FrameFrequency { get => RawFrameFrequency; protected set => RawFrameFrequency = value; }
 		public static double TickFrequency { get => RawTickFrequency; protected set => RawTickFrequency = value; }
 
 		public string Title { get; protected set; } = string.Empty;
@@ -67,6 +68,7 @@ namespace USharpLibs.Engine {
 		}
 
 		internal void OnWindowCreation(EngineWindow window) => WindowCreationEvent?.Invoke(window);
+		internal void OnFullscreenToggle(WindowState state) => FullscreenToggleEvent?.Invoke(state);
 
 		protected virtual void Init() { }
 
@@ -108,7 +110,7 @@ namespace USharpLibs.Engine {
 		protected internal virtual void OnMousePress(MouseButtonEventArgs e) { }
 		protected internal virtual void OnMouseRelease(MouseButtonEventArgs e) { }
 		protected internal virtual void OnMouseScroll(MouseWheelEventArgs e) { }
-		protected internal virtual void OnClosing(CancelEventArgs e) { }
+		protected internal virtual void OnClosing(CancelEventArgs e) { CloseRequested = true; }
 
 		protected virtual void AddRenderers(List<IRenderer> renderers) { }
 	}

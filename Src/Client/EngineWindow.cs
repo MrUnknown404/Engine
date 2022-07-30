@@ -38,8 +38,13 @@ namespace USharpLibs.Engine.Client {
 
 		public EngineWindow(ClientBase client) : this(client, 856, 482) { }
 
+		public virtual void ToggleFullscreen() {
+			WindowState = WindowState == WindowState.Normal ? WindowState.Fullscreen : WindowState.Normal;
+			client.OnFullscreenToggle(WindowState);
+		}
+
 		protected override void OnRenderFrame(FrameEventArgs args) {
-			Calc(args.Time, ref frameCounter, ref frameTimeCounter, ref ClientBase.RawframeFrequency, ref ClientBase.RawFPS);
+			Calc(args.Time, ref frameCounter, ref frameTimeCounter, ref ClientBase.RawFrameFrequency, ref ClientBase.RawFPS);
 
 			OpenGL4.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 			client.Render(args.Time);
