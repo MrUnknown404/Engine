@@ -23,10 +23,10 @@ namespace USharpLibs.Engine.Client.GL {
 		public static Shape XYZ(float x0, float y0, float z0, float x1, float y1, float z1, float tx0, float ty0, float tx1, float ty1, float tx2, float ty2, float tx3, float ty3) => Cube(x0, y0, z0, x1, y1, z1, tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3);
 
 		public static Shape FaceShape(Direction face, float x, float y, float z, float size) => FaceShape(face, x, y, z, size, 0, 0, 1, 0, 0, 1, 1, 1);
-		public static Shape FaceShape(Direction face, float x, float y, float z, float size, float tx0, float ty0, float tx1, float ty1, float tx2, float ty2, float tx3, float ty3) => FaceShape(face, x, y, z, x + size, y + size, z + size, tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3);
+		public static Shape FaceShape(Direction face, float x, float y, float z, float size, float tx0, float ty0, float tx1, float ty1, float tx2, float ty2, float tx3, float ty3) => FaceShapeXYZ(face, x, y, z, x + size, y + size, z + size, tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3);
 
-		public static Shape FaceShape(Direction face, float x0, float y0, float z0, float x1, float y1, float z1, float tx0, float ty0, float tx1, float ty1, float tx2, float ty2, float tx3, float ty3) => new(FaceVerts(face, x0, y0, z0, x1, y1, z1, tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3));
-		public static float[] FaceVerts(Direction face, float x0, float y0, float z0, float x1, float y1, float z1, float tx0, float ty0, float tx1, float ty1, float tx2, float ty2, float tx3, float ty3) => face switch {
+		public static Shape FaceShapeXYZ(Direction face, float x0, float y0, float z0, float x1, float y1, float z1, float tx0, float ty0, float tx1, float ty1, float tx2, float ty2, float tx3, float ty3) => new(FaceVertsXYZ(face, x0, y0, z0, x1, y1, z1, tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3));
+		public static float[] FaceVertsXYZ(Direction face, float x0, float y0, float z0, float x1, float y1, float z1, float tx0, float ty0, float tx1, float ty1, float tx2, float ty2, float tx3, float ty3) => face switch {
 			Direction.North => new[] {
 				x0, y1, z0, tx3, ty3,
 				x1, y1, z0, tx2, ty2,
@@ -80,7 +80,7 @@ namespace USharpLibs.Engine.Client.GL {
 
 		private static Shape Cube(float x0, float y0, float z0, float x1, float y1, float z1, float tx0, float ty0, float tx1, float ty1, float tx2, float ty2, float tx3, float ty3) {
 			List<float> verts = new(All.Length * 6 * 5);
-			foreach (Direction side in All) { verts.AddRange(FaceVerts(side, x0, y0, z0, x1, y1, z1, tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3)); }
+			foreach (Direction side in All) { verts.AddRange(FaceVertsXYZ(side, x0, y0, z0, x1, y1, z1, tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3)); }
 			return new(verts.ToArray());
 		}
 	}

@@ -9,6 +9,10 @@ namespace USharpLibs.Engine.Client.GL {
 		public static int CurrentVAO { get; private set; }
 		public static int CurrentTexture { get; private set; }
 
+		/// <summary> Binds the provided shader for use. </summary>
+		/// <typeparam name="T"> The type of shader that is in use. </typeparam>
+		/// <param name="shader"> An unbound shader to bind and use. </param>
+		/// <param name="use"> An Action to run using the bound shader. </param>
 		public static void Bind<T>(UnboundShader<T> shader, Action<T> use) where T : RawShader {
 			T s = shader.Shader;
 			if (CurrentShader == s.Handle) {
@@ -21,6 +25,10 @@ namespace USharpLibs.Engine.Client.GL {
 			use(s);
 		}
 
+		/// <summary> Binds the provided mesh for use. </summary>
+		/// <typeparam name="T"> The type of mesh that will be returned. </typeparam>
+		/// <param name="mesh"> An unbound mesh to bind and use. </param>
+		/// <returns> A bound mesh object if everything was successful. If an error occurred null will be returned. </returns>
 		public static T? Bind<T>(UnboundIMesh<T> mesh) where T : RawMesh {
 			T imesh = mesh.IMesh;
 			if (!imesh.WasSetup) {
@@ -43,8 +51,8 @@ namespace USharpLibs.Engine.Client.GL {
 
 		public static void Bind(DynamicFont font) => Bind(font.Texture, TextureUnit.Texture0);
 
-		public static void UnbindShader() {
-			if (CurrentShader == 0) { return; }
+		public static void UnbindShader(bool force = false) {
+			if (CurrentShader == 0 && !force) { return; }
 
 			CurrentShader = 0;
 			OpenGL4.UseProgram(0);

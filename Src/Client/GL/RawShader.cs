@@ -1,5 +1,6 @@
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
+using OpenTK.Windowing.Common;
 using USharpLibs.Engine.Utils;
 using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
@@ -22,19 +23,21 @@ namespace USharpLibs.Engine.Client.GL {
 		}
 
 		protected abstract void ISetupGL();
+		protected internal virtual void OnResize(ResizeEventArgs args) { }
 
 		protected static void CompileShader(ShaderType type, string name, out int shader) {
 			OpenGL4.ShaderSource(shader = OpenGL4.CreateShader(type), File.ReadAllText($"Assets/Shaders/{name}.{type.ToFileFormat<ShaderType>()}"));
 			OpenGL4.CompileShader(shader);
 			OpenGL4.GetShader(shader, ShaderParameter.CompileStatus, out int code);
-			if (code != (int)All.True) {
-				throw new Exception($"Error occurred whilst compiling Shader({shader}).\n\n{OpenGL4.GetShaderInfoLog(shader)}");
-			}
+			if (code != (int)All.True) { throw new Exception($"Error occurred whilst compiling Shader({shader}).\n\n{OpenGL4.GetShaderInfoLog(shader)}"); }
 		}
 
 		protected void SetData<V>(string name, V data, Action<int, V> apply) {
 			if (GLH.CurrentShader != Handle && ClientBase.LoadState != LoadState.GL) {
 				ClientBase.Logger.WarnLine("Trying to use an unbound shader!");
+				return;
+			} else if (!UniformLocations.ContainsKey(name)) {
+				ClientBase.Logger.WarnLine($"Tried to set variable named '{name}' in shader '{VertName}/{FragName}' but it doesn't exist!");
 				return;
 			}
 
@@ -44,6 +47,9 @@ namespace USharpLibs.Engine.Client.GL {
 		protected void SetMatrix(string name, bool flag, Matrix4 data) {
 			if (GLH.CurrentShader != Handle && ClientBase.LoadState != LoadState.GL) {
 				ClientBase.Logger.WarnLine("Trying to use an unbound shader!");
+				return;
+			} else if (!UniformLocations.ContainsKey(name)) {
+				ClientBase.Logger.WarnLine($"Tried to set variable named '{name}' in shader '{VertName}/{FragName}' but it doesn't exist!");
 				return;
 			}
 

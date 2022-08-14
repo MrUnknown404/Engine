@@ -23,7 +23,7 @@ namespace USharpLibs.Engine {
 
 		public static EngineWindow Window { get; private set; } = default!;
 		public static Logger Logger { get; private set; } = default!;
-		public static string Source { get; private set; } = string.Empty;
+		public static string Source { get; private set; } = string.Empty; //TODO remove this
 		public static LoadState LoadState { get; protected internal set; }
 		public static bool IsDebug { get; private set; }
 		public static bool CloseRequested { get; private set; } // I don't like this but GameWindow#IsExiting doesn't seem to work sometimes
@@ -55,10 +55,13 @@ namespace USharpLibs.Engine {
 			Logger = Logger.More(Source);
 		}
 
-		public static void Start(ClientBase instance) {
+		public static void Start(ClientBase instance) => Start(instance, 856, 482);
+
+		public static void Start(ClientBase instance, ushort width, ushort height) {
 			Logger.WriteLine($"Starting {instance.Title}! Today is: {DateTime.Now:d/M/yyyy HH:mm:ss}");
 
-			using (Window = new(ClientBase.instance = instance)) {
+			using (Window = new(ClientBase.instance = instance, width, height)) {
+				instance.OnWindowCreation(Window);
 				LoadState = LoadState.Init;
 				Logger.WriteLine($"Running Init took {TimeH.Time(() => instance.Init()).Milliseconds}ms");
 				Window.Run();
@@ -71,6 +74,7 @@ namespace USharpLibs.Engine {
 		internal void OnFullscreenToggle(WindowState state) => FullscreenToggleEvent?.Invoke(state);
 
 		protected virtual void Init() { }
+		protected internal virtual void OnSetupFinished() { }
 
 		protected internal virtual void SetupGL() {
 			Logger.WriteLine($"Setting up OpenGL! Running OpenGL version: {OpenGL4.GetString(StringName.Version)}");
@@ -86,14 +90,17 @@ namespace USharpLibs.Engine {
 
 			AddRenderers(renderers);
 
-			void Fonts() {
-				fonts.ForEach(f => {
-					f.SetupGL();
-					textures.Add(f.Texture);
-				});
-			}
+			void Fonts() => fonts.ForEach(f => {
+				f.SetupGL();
+				textures.Add(f.Texture);
+			});
 
-			Logger.WriteLine($"Setting up {shaders.Count} shaders took {TimeH.Time(() => shaders.ForEach(s => s.SetupGL())).Milliseconds}ms");
+			void Shaders() => shaders.ForEach(s => {
+				s.SetupGL();
+				Window.Resize += s.OnResize;
+			});
+
+			Logger.WriteLine($"Setting up {shaders.Count} shaders took {TimeH.Time(Shaders).Milliseconds}ms");
 			Logger.WriteLine($"Setting up {fonts.Count} fonts took {TimeH.Time(Fonts).Milliseconds}ms");
 			Logger.WriteLine($"Setting up {textures.Count} textures took {TimeH.Time(() => textures.ForEach(t => t.SetupGL())).Milliseconds}ms");
 			Logger.WriteLine($"Setting up {renderers.Count} renderers took {TimeH.Time(() => renderers.ForEach(r => r.SetupGL())).Milliseconds}ms");

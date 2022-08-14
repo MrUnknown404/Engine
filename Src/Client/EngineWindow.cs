@@ -11,7 +11,7 @@ namespace USharpLibs.Engine.Client {
 		private uint frameCounter, tickCounter;
 		private double frameTimeCounter, tickTimeCounter;
 
-		public EngineWindow(ClientBase client, int width, int height) : base(GameWindowSettings.Default, new NativeWindowSettings {
+		public EngineWindow(ClientBase client, ushort width, ushort height) : base(GameWindowSettings.Default, new NativeWindowSettings {
 			MinimumSize = new(width, height),
 			Size = new(width, height),
 			Title = client.Title,
@@ -20,11 +20,11 @@ namespace USharpLibs.Engine.Client {
 			BaseTitle = client.Title;
 			UpdateFrequency = 60;
 
-			client.OnWindowCreation(this);
 			Load += () => {
 				ClientBase.LoadState = LoadState.GL;
 				client.SetupGL();
 				ClientBase.LoadState = LoadState.Done;
+				client.OnSetupFinished();
 			};
 			Resize += e => client.OnResize(e, Size);
 			KeyDown += client.OnKeyPress;
@@ -35,8 +35,6 @@ namespace USharpLibs.Engine.Client {
 			MouseWheel += client.OnMouseScroll;
 			Closing += client.OnClosing;
 		}
-
-		public EngineWindow(ClientBase client) : this(client, 856, 482) { }
 
 		public virtual void ToggleFullscreen() {
 			WindowState = WindowState == WindowState.Normal ? WindowState.Fullscreen : WindowState.Normal;
