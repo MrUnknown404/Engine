@@ -11,9 +11,9 @@ namespace USharpLibs.Engine.Client {
 		private uint frameCounter, tickCounter;
 		private double frameTimeCounter, tickTimeCounter;
 
-		public EngineWindow(ClientBase client, ushort width, ushort height) : base(GameWindowSettings.Default, new NativeWindowSettings {
-			MinimumSize = new(width, height),
-			Size = new(width, height),
+		public EngineWindow(ClientBase client, ushort minWidth, ushort minHeight) : base(GameWindowSettings.Default, new NativeWindowSettings {
+			MinimumSize = new(minWidth, minHeight),
+			Size = new(minWidth, minHeight),
 			Title = client.Title,
 		}) {
 			this.client = client;

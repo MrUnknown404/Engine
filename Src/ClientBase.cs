@@ -23,7 +23,7 @@ namespace USharpLibs.Engine {
 
 		public static EngineWindow Window { get; private set; } = default!;
 		public static Logger Logger { get; private set; } = default!;
-		public static string Source { get; private set; } = string.Empty; //TODO remove this
+		public static string Source { get; private set; } = string.Empty; // TODO remove this
 		public static LoadState LoadState { get; protected internal set; }
 		public static bool IsDebug { get; private set; }
 		public static bool CloseRequested { get; private set; } // I don't like this but GameWindow#IsExiting doesn't seem to work sometimes
@@ -38,15 +38,19 @@ namespace USharpLibs.Engine {
 		public static double FrameFrequency { get => RawFrameFrequency; protected set => RawFrameFrequency = value; }
 		public static double TickFrequency { get => RawTickFrequency; protected set => RawTickFrequency = value; }
 
-		public string Title { get; protected set; } = string.Empty;
+		public string Title { get; protected set; }
+		public ushort MinWidth { get; protected set; }
+		public ushort MinHeight { get; protected set; }
 		private readonly List<IRenderer> renderers = new();
 		private readonly HashSet<IUnboundShader> shaders = new();
 		private readonly HashSet<DynamicFont> fonts = new();
 		private readonly HashSet<RawTexture> textures = new();
 
-		protected ClientBase(string source, string title, Func<HashSet<IUnboundShader>> shaderCreationEvent, Func<HashSet<DynamicFont>> fontCreationEvent, Func<HashSet<RawTexture>> textureCreationEvent, bool isDebug = false) {
+		protected ClientBase(string source, string title, ushort minWidth, ushort minHeight, Func<HashSet<IUnboundShader>> shaderCreationEvent, Func<HashSet<DynamicFont>> fontCreationEvent, Func<HashSet<RawTexture>> textureCreationEvent, bool isDebug = false) {
 			Source = source;
 			Title = title;
+			MinWidth = minWidth;
+			MinHeight = minHeight;
 			IsDebug = isDebug;
 			ShaderCreationEvent += shaderCreationEvent;
 			FontCreationEvent += fontCreationEvent;
@@ -55,12 +59,12 @@ namespace USharpLibs.Engine {
 			Logger = Logger.More(Source);
 		}
 
-		public static void Start(ClientBase instance) => Start(instance, 856, 482);
+		protected ClientBase(string source, string title, Func<HashSet<IUnboundShader>> shaderCreationEvent, Func<HashSet<DynamicFont>> fontCreationEvent, Func<HashSet<RawTexture>> textureCreationEvent, bool isDebug = false) : this(source, title, 856, 482, shaderCreationEvent, fontCreationEvent, textureCreationEvent, isDebug) { }
 
-		public static void Start(ClientBase instance, ushort width, ushort height) {
+		public static void Start(ClientBase instance) {
 			Logger.WriteLine($"Starting {instance.Title}! Today is: {DateTime.Now:d/M/yyyy HH:mm:ss}");
 
-			using (Window = new(ClientBase.instance = instance, width, height)) {
+			using (Window = new(ClientBase.instance = instance, instance.MinWidth, instance.MinHeight)) {
 				instance.OnWindowCreation(Window);
 				LoadState = LoadState.Init;
 				Logger.WriteLine($"Running Init took {TimeH.Time(() => instance.Init()).Milliseconds}ms");
@@ -100,10 +104,10 @@ namespace USharpLibs.Engine {
 				Window.Resize += s.OnResize;
 			});
 
-			Logger.WriteLine($"Setting up {shaders.Count} shaders took {TimeH.Time(Shaders).Milliseconds}ms");
-			Logger.WriteLine($"Setting up {fonts.Count} fonts took {TimeH.Time(Fonts).Milliseconds}ms");
-			Logger.WriteLine($"Setting up {textures.Count} textures took {TimeH.Time(() => textures.ForEach(t => t.SetupGL())).Milliseconds}ms");
-			Logger.WriteLine($"Setting up {renderers.Count} renderers took {TimeH.Time(() => renderers.ForEach(r => r.SetupGL())).Milliseconds}ms");
+			if (shaders.Count != 0) { Logger.WriteLine($"Setting up {shaders.Count} shaders took {TimeH.Time(Shaders).Milliseconds}ms"); }
+			if (fonts.Count != 0) { Logger.WriteLine($"Setting up {fonts.Count} fonts took {TimeH.Time(Fonts).Milliseconds}ms"); }
+			if (textures.Count != 0) { Logger.WriteLine($"Setting up {textures.Count} textures took {TimeH.Time(() => textures.ForEach(t => t.SetupGL())).Milliseconds}ms"); }
+			if (renderers.Count != 0) { Logger.WriteLine($"Setting up {renderers.Count} renderers took {TimeH.Time(() => renderers.ForEach(r => r.SetupGL())).Milliseconds}ms"); }
 		}
 
 		public virtual void Tick(double time) { }

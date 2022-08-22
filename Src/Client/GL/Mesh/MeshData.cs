@@ -21,7 +21,7 @@ namespace USharpLibs.Engine.Client.GL.Mesh {
 		private void RebuildCache() {
 			requiresCacheReset = false;
 
-			//Vertices
+			// Vertices
 			List<ValueTuple<float, float, float, float, float>> vertexList = new();
 			foreach (Shape data in datas) {
 				for (int i = 0; i < data.Vertices.Length / 5; i++) {
@@ -41,7 +41,7 @@ namespace USharpLibs.Engine.Client.GL.Mesh {
 				verticesCache[i * 5 + 4] = vertex.Item5;
 			}
 
-			//Indices
+			// Indices
 			List<uint> indexList = new();
 			Dictionary<ValueTuple<float, float, float, float, float>, uint> indexMap = new();
 			foreach (Shape data in datas) {
