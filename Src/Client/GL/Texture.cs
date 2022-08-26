@@ -10,11 +10,14 @@ namespace USharpLibs.Engine.Client.GL {
 			Handle = OpenGL4.GenTexture();
 			GLH.Bind(this, TextureUnit.Texture0);
 
-			StbImage.stbi_set_flip_vertically_on_load(1);
-			using (Stream stream = File.OpenRead($"Assets/Textures/{Name}.png")) {
-				ImageResult image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
-				OpenGL4.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, image.Width, image.Height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, image.Data);
-			}
+			string streamName = $"{ClientBase.InstanceAssembly.Value.GetName().Name}.Assets.Textures.{Name}.png";
+			if (ClientBase.InstanceAssembly.Value.GetManifestResourceStream(streamName) is Stream stream) {
+				using (stream) {
+					StbImage.stbi_set_flip_vertically_on_load(1);
+					ImageResult image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
+					OpenGL4.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, image.Width, image.Height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, image.Data);
+				}
+			} else { throw new Exception($"Could not find file '{Name}' at '{streamName}'"); }
 
 			OpenGL4.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)MinFilter);
 			OpenGL4.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)MagFilter);

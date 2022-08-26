@@ -26,7 +26,14 @@ namespace USharpLibs.Engine.Client.GL {
 		protected internal virtual void OnResize(ResizeEventArgs args) { }
 
 		protected static void CompileShader(ShaderType type, string name, out int shader) {
-			OpenGL4.ShaderSource(shader = OpenGL4.CreateShader(type), File.ReadAllText($"Assets/Shaders/{name}.{type.ToFileFormat<ShaderType>()}"));
+			string streamName = $"{ClientBase.InstanceAssembly.Value.GetName().Name}.Assets.Shaders.{name}.{type.ToFileFormat<ShaderType>()}";
+			string result;
+			if (ClientBase.InstanceAssembly.Value.GetManifestResourceStream(streamName) is Stream stream) {
+				using (stream)
+				using (StreamReader reader = new(stream)) { result = reader.ReadToEnd(); }
+			} else { throw new Exception($"Could not find file '{name}' at '{streamName}'"); }
+
+			OpenGL4.ShaderSource(shader = OpenGL4.CreateShader(type), result);
 			OpenGL4.CompileShader(shader);
 			OpenGL4.GetShader(shader, ShaderParameter.CompileStatus, out int code);
 			if (code != (int)All.True) { throw new Exception($"Error occurred whilst compiling Shader({shader}).\n\n{OpenGL4.GetShaderInfoLog(shader)}"); }
