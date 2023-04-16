@@ -1,23 +1,25 @@
+using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
 namespace USharpLibs.Engine.Client {
-	public class EngineWindow : GameWindow {
-		private readonly ClientBase client;
-		public string BaseTitle { get; private set; }
+	[PublicAPI]
+	public sealed class EngineWindow : GameWindow {
+		private ClientBase Client { get; }
 
 		private uint frameCounter, tickCounter;
 		private double frameTimeCounter, tickTimeCounter;
 
-		public EngineWindow(ClientBase client, ushort minWidth, ushort minHeight) : base(GameWindowSettings.Default, new NativeWindowSettings {
-			MinimumSize = new(minWidth, minHeight),
-			Size = new(minWidth, minHeight),
-			Title = client.Title,
-		}) {
-			this.client = client;
-			BaseTitle = client.Title;
+		public EngineWindow(ClientBase client) : base(GameWindowSettings.Default,
+				new NativeWindowSettings {
+						MinimumSize = new(client.MinWidth, client.MinHeight),
+						MaximumSize = client.MaxWidth == 0 || client.MaxHeight == 0 ? null : new(client.MaxWidth, client.MaxHeight),
+						Size = new(client.MinWidth, client.MinHeight),
+						Title = client.OriginalTitle,
+				}) {
+			Client = client;
 			UpdateFrequency = 60;
 
 			Load += () => {
@@ -26,6 +28,7 @@ namespace USharpLibs.Engine.Client {
 				ClientBase.LoadState = LoadState.Done;
 				client.OnSetupFinished();
 			};
+
 			Resize += e => client.OnResize(e, Size);
 			KeyDown += client.OnKeyPress;
 			KeyUp += client.OnKeyRelease;
@@ -33,29 +36,32 @@ namespace USharpLibs.Engine.Client {
 			MouseDown += client.OnMousePress;
 			MouseUp += client.OnMouseRelease;
 			MouseWheel += client.OnMouseScroll;
+			Closing += _ => ClientBase.CloseRequested = true;
 			Closing += client.OnClosing;
+
+			client.OnWindowCreation(this);
 		}
 
-		public virtual void ToggleFullscreen() {
+		public void ToggleFullscreen() {
 			WindowState = WindowState == WindowState.Normal ? WindowState.Fullscreen : WindowState.Normal;
-			client.OnFullscreenToggle(WindowState);
+			Client.OnFullscreenToggle(WindowState);
 		}
 
 		protected override void OnRenderFrame(FrameEventArgs args) {
-			Calc(args.Time, ref frameCounter, ref frameTimeCounter, ref ClientBase.RawFrameFrequency, ref ClientBase.RawFPS);
+			Calc(args.Time, ref frameCounter, ref frameTimeCounter, out ClientBase.RawFrameFrequency, ref ClientBase.RawFPS);
 
 			OpenGL4.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-			client.Render(args.Time);
+			Client.Render(args.Time);
 			SwapBuffers();
 		}
 
 		protected override void OnUpdateFrame(FrameEventArgs args) {
-			Calc(args.Time, ref tickCounter, ref tickTimeCounter, ref ClientBase.RawTickFrequency, ref ClientBase.RawTPS);
+			Calc(args.Time, ref tickCounter, ref tickTimeCounter, out ClientBase.RawTickFrequency, ref ClientBase.RawTPS);
 
-			client.Tick(args.Time);
+			Client.Tick(args.Time);
 		}
 
-		private static void Calc(double time, ref uint counter, ref double timeCounter, ref double frequency, ref uint result) {
+		private static void Calc(double time, ref uint counter, ref double timeCounter, out double frequency, ref uint result) {
 			frequency = time * 1000;
 			counter++;
 

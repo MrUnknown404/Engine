@@ -1,3 +1,4 @@
+using JetBrains.Annotations;
 using OpenTK.Mathematics;
 
 namespace USharpLibs.Engine.Utils {
@@ -10,15 +11,17 @@ namespace USharpLibs.Engine.Utils {
 		Down,
 	}
 
+	[PublicAPI]
 	public static class DirectionExtensions {
-		public static Vector3i Offset(this Direction self) => self switch {
-			Direction.North => -Vector3i.UnitZ,
-			Direction.East => Vector3i.UnitX,
-			Direction.South => Vector3i.UnitZ,
-			Direction.West => -Vector3i.UnitX,
-			Direction.Up => Vector3i.UnitY,
-			Direction.Down => -Vector3i.UnitY,
-			_ => throw new NotImplementedException(),
-		};
+		public static Vector3i Offset(this Direction self) =>
+				self switch {
+						Direction.North => -Vector3i.UnitZ,
+						Direction.East => Vector3i.UnitX,
+						Direction.South => Vector3i.UnitZ,
+						Direction.West => -Vector3i.UnitX,
+						Direction.Up => Vector3i.UnitY,
+						Direction.Down => -Vector3i.UnitY,
+						_ => throw new NotImplementedException(),
+				};
 	}
 }

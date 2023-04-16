@@ -1,10 +1,17 @@
 using OpenTK.Windowing.Common;
-using USharpLibs.Engine.Client.GL.Mesh;
+using USharpLibs.Engine.Client.GL.Model;
+using USharpLibs.Engine.Client.GL.OldMesh;
 
 namespace USharpLibs.Engine.Client.GL {
-	public struct UnboundIMesh<T> where T : RawMesh {
+	[Obsolete("Going to be removed.")]
+	public sealed class UnboundIMesh<T> where T : IRawMesh {
 		public readonly T IMesh;
 		public UnboundIMesh(T mesh) => IMesh = mesh;
+	}
+
+	public sealed class UnboundModel<T> where T : RawModel {
+		public T Model { get; }
+		public UnboundModel(T model) => Model = model;
 	}
 
 	public interface IUnboundShader {
@@ -12,8 +19,8 @@ namespace USharpLibs.Engine.Client.GL {
 		internal void OnResize(ResizeEventArgs args);
 	}
 
-	public readonly struct UnboundShader<T> : IUnboundShader where T : RawShader {
-		internal readonly T Shader;
+	public sealed class UnboundShader<T> : IUnboundShader where T : RawShader {
+		internal T Shader { get; }
 		public UnboundShader(T shader) => Shader = shader;
 
 		void IUnboundShader.SetupGL() => Shader.SetupGL();

@@ -1,6 +1,5 @@
 namespace USharpLibs.Engine.Client.Font {
-	internal readonly struct Glyph {
-		internal char Char { get; }
+	internal sealed class Glyph {
 		internal float W { get; }
 		internal float H { get; }
 		internal float X0 { get; }
@@ -12,8 +11,7 @@ namespace USharpLibs.Engine.Client.Font {
 		internal float X3 { get; }
 		internal float Y3 { get; }
 
-		internal Glyph(char @char, float x, float y, float w, float h) {
-			Char = @char;
+		internal Glyph(float x, float y, float w, float h) {
 			W = w;
 			H = h;
 

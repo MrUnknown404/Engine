@@ -1,12 +1,17 @@
+using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
+using USharpLibs.Common.Utils;
 using USharpLibs.Engine.Utils;
 using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
 namespace USharpLibs.Engine.Client.GL {
+	[PublicAPI]
 	public abstract class RawShader {
-		protected Dictionary<string, int> UniformLocations { get; private set; } = new();
+		public const uint PositionLocation = 0, TextureLocation = 1;
+
+		protected Dictionary<string, int> UniformLocations { get; } = new();
 
 		public int Handle { get; protected set; }
 		protected string VertName { get; }
@@ -26,8 +31,8 @@ namespace USharpLibs.Engine.Client.GL {
 		protected internal virtual void OnResize(ResizeEventArgs args) { }
 
 		protected static void CompileShader(ShaderType type, string name, out int shader) {
-			string streamName = $"{ClientBase.InstanceAssembly.Value.GetName().Name}.Assets.Shaders.{name}.{type.ToFileFormat<ShaderType>()}";
-			string result;
+			string streamName = $"{ClientBase.InstanceAssembly.Value.GetName().Name}.Assets.Shaders.{name}.{type.ToFileFormat()}", result;
+
 			if (ClientBase.InstanceAssembly.Value.GetManifestResourceStream(streamName) is Stream stream) {
 				using (stream)
 				using (StreamReader reader = new(stream)) { result = reader.ReadToEnd(); }
@@ -41,10 +46,10 @@ namespace USharpLibs.Engine.Client.GL {
 
 		protected void SetData<V>(string name, V data, Action<int, V> apply) {
 			if (GLH.CurrentShader != Handle && ClientBase.LoadState != LoadState.GL) {
-				ClientBase.Logger.WarnLine("Trying to use an unbound shader!");
+				Logger.Warn("Trying to use an unbound shader!");
 				return;
 			} else if (!UniformLocations.ContainsKey(name)) {
-				ClientBase.Logger.WarnLine($"Tried to set variable named '{name}' in shader '{VertName}/{FragName}' but it doesn't exist!");
+				Logger.Warn($"Tried to set variable named '{name}' in shader '{VertName}/{FragName}' but it doesn't exist!");
 				return;
 			}
 
@@ -53,14 +58,26 @@ namespace USharpLibs.Engine.Client.GL {
 
 		protected void SetMatrix(string name, bool flag, Matrix4 data) {
 			if (GLH.CurrentShader != Handle && ClientBase.LoadState != LoadState.GL) {
-				ClientBase.Logger.WarnLine("Trying to use an unbound shader!");
+				Logger.Warn("Trying to use an unbound shader!");
 				return;
 			} else if (!UniformLocations.ContainsKey(name)) {
-				ClientBase.Logger.WarnLine($"Tried to set variable named '{name}' in shader '{VertName}/{FragName}' but it doesn't exist!");
+				Logger.Warn($"Tried to set variable named '{name}' in shader '{VertName}/{FragName}' but it doesn't exist!");
 				return;
 			}
 
 			OpenGL4.UniformMatrix4(UniformLocations[name], flag, ref data);
+		}
+
+		protected void SetMatrix4Array(string name, bool flag, Matrix4[] datas) {
+			if (GLH.CurrentShader != Handle && ClientBase.LoadState != LoadState.GL) {
+				Logger.Warn("Trying to use an unbound shader!");
+				return;
+			} else if (!UniformLocations.ContainsKey(name)) {
+				Logger.Warn($"Tried to set variable named '{name}' in shader '{VertName}/{FragName}' but it doesn't exist!");
+				return;
+			}
+
+			OpenGL4.UniformMatrix4(UniformLocations[name], datas.Length, flag, ref datas[0].Row0.X);
 		}
 
 		public void SetInt(string name, int data) => SetData(name, data, OpenGL4.Uniform1);
@@ -69,6 +86,7 @@ namespace USharpLibs.Engine.Client.GL {
 		public void SetVector3(string name, Vector3 data) => SetData(name, data, OpenGL4.Uniform3);
 		public void SetVector4(string name, Vector4 data) => SetData(name, data, OpenGL4.Uniform4);
 		public void SetMatrix4(string name, Matrix4 data) => SetMatrix(name, true, data);
+		public void SetMatrix4Array(string name, Matrix4[] data) => SetMatrix4Array(name, true, data);
 		public void SetColor(string name, Color4 data) => SetData(name, data, OpenGL4.Uniform4);
 	}
 }

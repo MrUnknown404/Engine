@@ -1,7 +1,10 @@
-using USharpLibs.Common.Utils.Extensions;
+using JetBrains.Annotations;
+using USharpLibs.Common.Utils;
 
-namespace USharpLibs.Engine.Client.GL.Mesh {
-	public class MeshData {
+namespace USharpLibs.Engine.Client.GL.OldMesh {
+	[Obsolete("Going to be removed.")]
+	[PublicAPI]
+	public class AutoIndexMeshData : IMeshData {
 		private readonly List<Shape> datas = new();
 
 		private float[] verticesCache = Array.Empty<float>();
@@ -13,7 +16,7 @@ namespace USharpLibs.Engine.Client.GL.Mesh {
 			requiresCacheReset = true;
 		}
 
-		public virtual void Reset() {
+		public void Reset() {
 			datas.Clear();
 			requiresCacheReset = true;
 		}
@@ -21,11 +24,17 @@ namespace USharpLibs.Engine.Client.GL.Mesh {
 		private void RebuildCache() {
 			requiresCacheReset = false;
 
-			// Vertices
+			List<uint> indexList = new();
+			Dictionary<ValueTuple<float, float, float, float, float>, uint> indexMap = new();
 			List<ValueTuple<float, float, float, float, float>> vertexList = new();
+
 			foreach (Shape data in datas) {
 				for (int i = 0; i < data.Vertices.Length / 5; i++) {
-					vertexList.Add(new(data.Vertices[i * 5], data.Vertices[i * 5 + 1], data.Vertices[i * 5 + 2], data.Vertices[i * 5 + 3], data.Vertices[i * 5 + 4]));
+					ValueTuple<float, float, float, float, float> d = new(data.Vertices[i * 5], data.Vertices[i * 5 + 1], data.Vertices[i * 5 + 2],
+						data.Vertices[i * 5 + 3], data.Vertices[i * 5 + 4]);
+
+					vertexList.Add(d);
+					indexList.Add(indexMap.ComputeIfAbsent(d, _ => (uint)indexMap.Count));
 				}
 			}
 
@@ -39,15 +48,6 @@ namespace USharpLibs.Engine.Client.GL.Mesh {
 				verticesCache[i * 5 + 2] = vertex.Item3;
 				verticesCache[i * 5 + 3] = vertex.Item4;
 				verticesCache[i * 5 + 4] = vertex.Item5;
-			}
-
-			// Indices
-			List<uint> indexList = new();
-			Dictionary<ValueTuple<float, float, float, float, float>, uint> indexMap = new();
-			foreach (Shape data in datas) {
-				for (int i = 0; i < data.Vertices.Length / 5; i++) {
-					indexList.Add(indexMap.ComputeIfAbsent(new(data.Vertices[i * 5], data.Vertices[i * 5 + 1], data.Vertices[i * 5 + 2], data.Vertices[i * 5 + 3], data.Vertices[i * 5 + 4]), key => (uint)indexMap.Count));
-				}
 			}
 
 			indicesCache = indexList.ToArray();

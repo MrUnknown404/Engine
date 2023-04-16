@@ -8,7 +8,7 @@ namespace USharpLibs.Engine.Client.GL {
 
 		protected override void ISetupGL() {
 			Handle = OpenGL4.GenTexture();
-			GLH.Bind(this, TextureUnit.Texture0);
+			GLH.Bind(this);
 
 			string streamName = $"{ClientBase.InstanceAssembly.Value.GetName().Name}.Assets.Textures.{Name}.png";
 			if (ClientBase.InstanceAssembly.Value.GetManifestResourceStream(streamName) is Stream stream) {
@@ -24,9 +24,7 @@ namespace USharpLibs.Engine.Client.GL {
 			OpenGL4.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)WrapMode);
 			OpenGL4.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)WrapMode);
 
-			if (GenMipMap) {
-				OpenGL4.GenerateMipmap(GenerateMipmapTarget.Texture2D);
-			}
+			if (GenMipMap) { OpenGL4.GenerateMipmap(GenerateMipmapTarget.Texture2D); }
 
 			GLH.UnbindTexture();
 		}

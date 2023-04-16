@@ -1,12 +1,26 @@
+using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
+using USharpLibs.Common.Utils;
 using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
-namespace USharpLibs.Engine.Client.GL.Mesh {
-	public abstract class RawMesh {
+namespace USharpLibs.Engine.Client.GL.OldMesh {
+	[Obsolete("Going to be removed.")]
+	public interface IRawMesh {
+		public int VAO { get; }
+		public bool WasSetup { get; }
+
+		public void SetupGL();
+		public void Draw();
+		public void Reset();
+	}
+
+	[Obsolete("Going to be removed.")]
+	[PublicAPI]
+	public abstract class RawMesh<T> : IRawMesh where T : IMeshData, new() {
 		public int VAO { get; protected set; }
 		public bool WasSetup { get; protected set; }
 
-		protected MeshData MeshData { get; } = new();
+		protected T MeshData { get; } = new();
 		protected BufferUsageHint BufferHint { get; }
 		protected int VBO { get; set; }
 		protected int EBO { get; set; }
@@ -14,19 +28,19 @@ namespace USharpLibs.Engine.Client.GL.Mesh {
 
 		protected RawMesh(BufferUsageHint bufferHint) => BufferHint = bufferHint;
 
+		public abstract void SetupGL();
+
 		public void Draw() {
 			if (!WasSetup) {
-				ClientBase.Logger.WarnLine("Mesh was not setup!");
+				Logger.Warn("Mesh was not setup!");
 				return;
 			} else if (GLH.CurrentVAO != VAO) {
-				ClientBase.Logger.WarnLine("Mesh is not bound!");
+				Logger.Warn("Mesh is not bound!");
 				return;
 			}
 
 			IDraw();
 		}
-
-		public abstract void SetupGL();
 
 		protected virtual void IDraw() => OpenGL4.DrawElements(PrimitiveType.Triangles, Count, DrawElementsType.UnsignedInt, 0);
 
