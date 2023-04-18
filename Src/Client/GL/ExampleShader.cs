@@ -5,11 +5,11 @@ using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
 namespace USharpLibs.Engine.Client.GL {
 	[PublicAPI]
-	public class Shader : RawShader {
+	public class ExampleShader : RawShader {
 		public Matrix4 Projection { get; set; }
 
-		public Shader(string vertName, string fragName, Matrix4 projection) : base(vertName, fragName) => Projection = projection;
-		public Shader(string name, Matrix4 projection) : this(name, name, projection) { }
+		public ExampleShader(string vertName, string fragName, Matrix4 projection) : base(vertName, fragName) => Projection = projection;
+		public ExampleShader(string name, Matrix4 projection) : this(name, name, projection) { }
 
 		protected override void ISetupGL() {
 			CompileShader(ShaderType.VertexShader, VertName, out int vertexShader);

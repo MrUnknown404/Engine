@@ -8,6 +8,7 @@ using USharpLibs.Common.Utils;
 using USharpLibs.Engine.Client;
 using USharpLibs.Engine.Client.Font;
 using USharpLibs.Engine.Client.GL;
+using USharpLibs.Engine.Client.UI;
 using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
 namespace USharpLibs.Engine {
@@ -21,14 +22,16 @@ namespace USharpLibs.Engine {
 
 		protected internal event Action<EngineWindow>? WindowCreationEvent;
 		protected internal event Action<WindowState>? FullscreenToggleEvent;
-		protected internal event Func<HashSet<IUnboundShader>> ShaderCreationEvent;
-		protected internal event Func<HashSet<DynamicFont>> FontCreationEvent;
-		protected internal event Func<HashSet<RawTexture>> TextureCreationEvent;
+		protected internal event Func<HashSet<IUnboundShader>>? ShaderCreationEvent;
+		protected internal event Func<HashSet<DynamicFont>>? FontCreationEvent;
+		protected internal event Func<HashSet<RawTexture>>? TextureCreationEvent;
+		protected internal event Func<HashSet<Screen>>? ScreenCreationEvent;
 
 		public static EngineWindow Window { get; set; } = default!;
 		public static LoadState LoadState { get; protected internal set; } = LoadState.NotStarted;
 		public static bool IsDebug { get; private set; }
 		public static bool CloseRequested { get; internal set; } // I don't like this but GameWindow#IsExiting doesn't seem to work sometimes
+		public static Screen? CurrentScreen { get; set; }
 
 		internal static uint RawFPS, RawTPS;
 		internal static double RawFrameFrequency, RawTickFrequency;
@@ -39,9 +42,7 @@ namespace USharpLibs.Engine {
 		public static double TickFrequency => RawTickFrequency;
 
 		private List<IRenderer> Renderers { get; } = new();
-		private HashSet<IUnboundShader> Shaders { get; } = new();
-		private HashSet<DynamicFont> Fonts { get; } = new();
-		private HashSet<RawTexture> Textures { get; } = new();
+		private HashSet<Screen> Screens { get; } = new();
 
 		public string OriginalTitle { get; }
 		protected ushort MaxAmountOfLogs { private get; set; } = 5;
@@ -92,8 +93,7 @@ namespace USharpLibs.Engine {
 			}
 		}
 
-		protected ClientBase(string title, ushort minWidth, ushort minHeight, ushort maxWidth, ushort maxHeight, Func<HashSet<IUnboundShader>> shaderCreationEvent, Func<HashSet<DynamicFont>> fontCreationEvent,
-				Func<HashSet<RawTexture>> textureCreationEvent, bool isDebug = false) {
+		protected ClientBase(string title, ushort minWidth, ushort minHeight, ushort maxWidth, ushort maxHeight, bool isDebug = false) {
 			OriginalTitle = title;
 			this.title = title;
 			this.minWidth = minWidth;
@@ -101,24 +101,19 @@ namespace USharpLibs.Engine {
 			this.maxWidth = maxWidth;
 			this.maxHeight = maxHeight;
 			IsDebug = isDebug;
-			ShaderCreationEvent += shaderCreationEvent;
-			FontCreationEvent += fontCreationEvent;
-			TextureCreationEvent += textureCreationEvent;
 
 			Logger.LogLevel = LogLevel.More;
 			Logger.SetupDefaultLogFolder(5, $"Starting Client! Today is: {DateTime.Now:d/M/yyyy HH:mm:ss}");
 		}
 
-		protected ClientBase(string title, ushort minWidth, ushort minHeight, Func<HashSet<IUnboundShader>> shaderCreationEvent, Func<HashSet<DynamicFont>> fontCreationEvent, Func<HashSet<RawTexture>> textureCreationEvent,
-				bool isDebug = false) : this(title, minWidth, minHeight, 0, 0, shaderCreationEvent, fontCreationEvent, textureCreationEvent, isDebug) { }
-
-		protected ClientBase(string title, Func<HashSet<IUnboundShader>> shaderCreationEvent, Func<HashSet<DynamicFont>> fontCreationEvent, Func<HashSet<RawTexture>> textureCreationEvent, bool isDebug = false) : this(title, 856,
-				482, 0, 0, shaderCreationEvent, fontCreationEvent, textureCreationEvent, isDebug) { }
+		protected ClientBase(string title, ushort minWidth, ushort minHeight, bool isDebug = false) : this(title, minWidth, minHeight, 0, 0, isDebug) { }
+		protected ClientBase(string title, bool isDebug = false) : this(title, 856, 482, 0, 0, isDebug) { }
 
 		public static void Start(ClientBase instance) {
 			LoadState = LoadState.PreInit;
 			using (Window = new(ClientBase.instance = instance)) {
 				LoadState = LoadState.Init;
+				instance.Screens.UnionWith(instance.ScreenCreationEvent?.Invoke() ?? new());
 				Logger.Debug($"Running Init took {TimeH.Time(instance.Init).Milliseconds}ms");
 				Window.Run();
 			}
@@ -142,25 +137,26 @@ namespace USharpLibs.Engine {
 
 			AddRenderers(Renderers);
 
-			this.Shaders.UnionWith(ShaderCreationEvent());
-			this.Fonts.UnionWith(FontCreationEvent());
-			Textures.UnionWith(TextureCreationEvent());
+			HashSet<IUnboundShader> shaders = ShaderCreationEvent?.Invoke() ?? new();
+			HashSet<DynamicFont> fonts = FontCreationEvent?.Invoke() ?? new();
+			HashSet<RawTexture> textures = TextureCreationEvent?.Invoke() ?? new();
 
 			void Fonts() =>
-					this.Fonts.ForEach(f => {
+					fonts.ForEach(f => {
 						f.SetupGL();
-						Textures.Add(f.Texture);
+						textures.Add(f.Texture);
 					});
 
 			void Shaders() =>
-					this.Shaders.ForEach(s => {
+					shaders.ForEach(s => {
 						s.SetupGL();
 						Window.Resize += s.OnResize;
 					});
 
-			if (this.Shaders.Count != 0) { Logger.Debug($"Setting up {this.Shaders.Count} shaders took {TimeH.Time(Shaders).Milliseconds}ms"); }
-			if (this.Fonts.Count != 0) { Logger.Debug($"Setting up {this.Fonts.Count} fonts took {TimeH.Time(Fonts).Milliseconds}ms"); }
-			if (Textures.Count != 0) { Logger.Debug($"Setting up {Textures.Count} textures took {TimeH.Time(() => Textures.ForEach(t => t.SetupGL())).Milliseconds}ms"); }
+			if (shaders.Count != 0) { Logger.Debug($"Setting up {shaders.Count} shaders took {TimeH.Time(Shaders).Milliseconds}ms"); }
+			if (fonts.Count != 0) { Logger.Debug($"Setting up {fonts.Count} fonts took {TimeH.Time(Fonts).Milliseconds}ms"); }
+			if (textures.Count != 0) { Logger.Debug($"Setting up {textures.Count} textures took {TimeH.Time(() => textures.ForEach(t => t.SetupGL())).Milliseconds}ms"); }
+			if (Screens.Count != 0) { Logger.Debug($"Setting up {Screens.Count} screens took {TimeH.Time(() => Screens.ForEach(r => r.SetupGL())).Milliseconds}ms"); }
 			if (Renderers.Count != 0) { Logger.Debug($"Setting up {Renderers.Count} renderers took {TimeH.Time(() => Renderers.ForEach(r => r.SetupGL())).Milliseconds}ms"); }
 		}
 

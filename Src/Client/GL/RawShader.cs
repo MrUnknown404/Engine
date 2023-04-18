@@ -1,3 +1,4 @@
+using System.Reflection;
 using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
@@ -10,6 +11,7 @@ namespace USharpLibs.Engine.Client.GL {
 	[PublicAPI]
 	public abstract class RawShader {
 		public const uint PositionLocation = 0, TextureLocation = 1;
+		public Assembly? AssemblyOverride { get; init; }
 
 		protected Dictionary<string, int> UniformLocations { get; } = new();
 
@@ -30,10 +32,11 @@ namespace USharpLibs.Engine.Client.GL {
 		protected abstract void ISetupGL();
 		protected internal virtual void OnResize(ResizeEventArgs args) { }
 
-		protected static void CompileShader(ShaderType type, string name, out int shader) {
-			string streamName = $"{ClientBase.InstanceAssembly.Value.GetName().Name}.Assets.Shaders.{name}.{type.ToFileFormat()}", result;
+		protected void CompileShader(ShaderType type, string name, out int shader) {
+			Assembly assembly = AssemblyOverride ?? ClientBase.InstanceAssembly.Value;
+			string streamName = $"{assembly.GetName().Name}.Assets.Shaders.{name}.{type.ToFileFormat()}", result;
 
-			if (ClientBase.InstanceAssembly.Value.GetManifestResourceStream(streamName) is Stream stream) {
+			if (assembly.GetManifestResourceStream(streamName) is Stream stream) {
 				using (stream)
 				using (StreamReader reader = new(stream)) { result = reader.ReadToEnd(); }
 			} else { throw new Exception($"Could not find file '{name}' at '{streamName}'"); }
