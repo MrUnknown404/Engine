@@ -9,7 +9,7 @@ using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
 namespace USharpLibs.Engine.Client.GL {
 	[PublicAPI]
-	public abstract class RawShader {
+	public abstract class Shader {
 		public const uint PositionLocation = 0, TextureLocation = 1;
 		public Assembly? AssemblyOverride { get; init; }
 
@@ -19,7 +19,7 @@ namespace USharpLibs.Engine.Client.GL {
 		protected string VertName { get; }
 		protected string FragName { get; }
 
-		protected RawShader(string vertName, string fragName) {
+		protected Shader(string vertName, string fragName) {
 			VertName = vertName;
 			FragName = fragName;
 		}

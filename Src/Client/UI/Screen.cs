@@ -1,3 +1,4 @@
+using OpenTK.Windowing.GraphicsLibraryFramework;
 using USharpLibs.Common.Utils;
 using USharpLibs.Engine.Client.GL;
 using USharpLibs.Engine.Client.UI.Elements;
@@ -6,6 +7,8 @@ namespace USharpLibs.Engine.Client.UI {
 	public abstract class Screen {
 		private Dictionary<string, UiElement> Elements { get; } = new();
 		private HoverableUiElement? currentlyHovered;
+		private FocusableUiElement? currentlyFocused;
+		private ClickableUiElement? currentlyPressed;
 
 		protected void AddElement(string key, UiElement e, bool replace = false) {
 			if (ClientBase.LoadState != LoadState.Init) {
@@ -41,10 +44,47 @@ namespace USharpLibs.Engine.Client.UI {
 			shader.SetVector3("Position", new());
 		}
 
-		public void CheckForHover(ushort x, ushort y) {
-
+		internal void CheckForPress(MouseButton button, ushort mouseX, ushort mouseY) {
 			foreach (UiElement element in Elements.Values) {
-				if (element is HoverableUiElement e && e.CheckForHover(x, y)) {
+				if (element is ClickableUiElement e && e.CheckForPress(mouseX, mouseY)) {
+					if (e == currentlyPressed) { return; }
+
+					if (e.OnPress(button)) {
+						currentlyPressed = e;
+						return;
+					}
+				}
+			}
+
+			currentlyPressed = null;
+		}
+
+		internal void CheckForRelease(MouseButton button, ushort mouseX, ushort mouseY) {
+			if ((currentlyPressed?.CheckForRelease(mouseX, mouseY) ?? false) && (currentlyPressed?.OnRelease(button) ?? false)) { currentlyPressed = null; }
+
+			currentlyPressed?.OnReleaseFailed(button);
+			currentlyPressed = null;
+		}
+
+		internal void CheckForFocus(ushort mouseX, ushort mouseY) {
+			foreach (UiElement element in Elements.Values) {
+				if (element is FocusableUiElement e && e.CheckForFocus(mouseX, mouseY)) {
+					if (e == currentlyFocused) { return; }
+
+					currentlyFocused?.InvokeFocusLost();
+					currentlyFocused = e;
+					currentlyFocused.InvokeFocusGain();
+					return;
+				}
+			}
+
+			currentlyFocused?.InvokeFocusLost();
+			currentlyFocused = null;
+		}
+
+		internal void CheckForHover(ushort mouseX, ushort mouseY) {
+			foreach (UiElement element in Elements.Values) {
+				if (element is HoverableUiElement e && e.CheckForHover(mouseX, mouseY)) {
 					if (e == currentlyHovered) { return; }
 
 					currentlyHovered?.InvokeHoverLost();

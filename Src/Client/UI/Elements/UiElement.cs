@@ -23,6 +23,6 @@ namespace USharpLibs.Engine.Client.UI.Elements {
 		}
 
 		protected abstract void ISetupGL();
-		public abstract void Render(RawShader shader, double time);
+		public abstract void Render(Shader shader, double time);
 	}
 }

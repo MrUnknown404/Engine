@@ -62,10 +62,10 @@ namespace USharpLibs.Engine.Client.GL.Model {
 			OpenGL4.BindBuffer(BufferTarget.ArrayBuffer, VBO);
 			OpenGL4.BufferData(BufferTarget.ArrayBuffer, VertexCache.Length * sizeof(float), VertexCache, BufferHint);
 
-			OpenGL4.EnableVertexAttribArray(RawShader.PositionLocation);
-			OpenGL4.EnableVertexAttribArray(RawShader.TextureLocation);
-			OpenGL4.VertexAttribPointer(RawShader.PositionLocation, 3, VertexAttribPointerType.Float, false, sizeof(float) * 5, 0);
-			OpenGL4.VertexAttribPointer(RawShader.TextureLocation, 2, VertexAttribPointerType.Float, false, sizeof(float) * 5, sizeof(float) * 3);
+			OpenGL4.EnableVertexAttribArray(Shader.PositionLocation);
+			OpenGL4.EnableVertexAttribArray(Shader.TextureLocation);
+			OpenGL4.VertexAttribPointer(Shader.PositionLocation, 3, VertexAttribPointerType.Float, false, sizeof(float) * 5, 0);
+			OpenGL4.VertexAttribPointer(Shader.TextureLocation, 2, VertexAttribPointerType.Float, false, sizeof(float) * 5, sizeof(float) * 3);
 
 			OpenGL4.BindBuffer(BufferTarget.ElementArrayBuffer, EBO);
 			OpenGL4.BufferData(BufferTarget.ElementArrayBuffer, IndexCache.Length * sizeof(uint), IndexCache, BufferHint);

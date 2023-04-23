@@ -19,7 +19,7 @@ namespace USharpLibs.Engine.Client.GL {
 		internal void OnResize(ResizeEventArgs args);
 	}
 
-	public sealed class UnboundShader<T> : IUnboundShader where T : RawShader {
+	public sealed class UnboundShader<T> : IUnboundShader where T : Shader {
 		internal T Shader { get; }
 		public UnboundShader(T shader) => Shader = shader;
 

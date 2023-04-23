@@ -5,7 +5,7 @@ using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
 namespace USharpLibs.Engine.Client.GL {
 	[PublicAPI]
-	public class ExampleShader : RawShader {
+	public class ExampleShader : Shader {
 		public Matrix4 Projection { get; set; }
 
 		public ExampleShader(string vertName, string fragName, Matrix4 projection) : base(vertName, fragName) => Projection = projection;

@@ -19,7 +19,7 @@ namespace USharpLibs.Engine.Client.GL {
 		/// <typeparam name="T"> The type of shader that is in use. </typeparam>
 		/// <param name="shader"> An unbound shader to bind and use. </param>
 		/// <param name="use"> An Action to run using the bound shader. </param>
-		public static void Bind<T>(UnboundShader<T> shader, Action<T> use) where T : RawShader {
+		public static void Bind<T>(UnboundShader<T> shader, Action<T> use) where T : Shader {
 			T s = shader.Shader;
 			if (CurrentShader == s.Handle) {
 				use(s);

@@ -27,7 +27,7 @@ namespace USharpLibs.Engine {
 		protected internal event Func<HashSet<RawTexture>>? TextureCreationEvent;
 		protected internal event Func<HashSet<Screen>>? ScreenCreationEvent;
 
-		public static EngineWindow Window { get; set; } = default!;
+		private static EngineWindow Window { get; set; } = default!;
 		public static LoadState LoadState { get; protected internal set; } = LoadState.NotStarted;
 		public static bool IsDebug { get; private set; }
 		public static bool CloseRequested { get; internal set; } // I don't like this but GameWindow#IsExiting doesn't seem to work sometimes
@@ -46,6 +46,9 @@ namespace USharpLibs.Engine {
 
 		public string OriginalTitle { get; }
 		protected ushort MaxAmountOfLogs { private get; set; } = 5;
+
+		public static ushort MouseX { get; internal set; }
+		public static ushort MouseY { get; internal set; }
 
 		private string title;
 		private ushort minWidth;
@@ -122,7 +125,6 @@ namespace USharpLibs.Engine {
 		}
 
 		internal void OnWindowCreation(EngineWindow window) => WindowCreationEvent?.Invoke(window);
-		internal void OnFullscreenToggle(WindowState state) => FullscreenToggleEvent?.Invoke(state);
 
 		protected virtual void Init() { }
 		protected internal virtual void OnSetupFinished() { }
@@ -174,6 +176,11 @@ namespace USharpLibs.Engine {
 		protected internal virtual void OnClosing(CancelEventArgs e) { }
 
 		protected virtual void AddRenderers(List<IRenderer> renderers) { }
+
+		public void ToggleFullscreen() {
+			Window.WindowState = Window.WindowState == WindowState.Normal ? WindowState.Fullscreen : WindowState.Normal;
+			FullscreenToggleEvent?.Invoke(Window.WindowState);
+		}
 	}
 
 	public enum LoadState {

@@ -2,6 +2,8 @@ using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
+using OpenTK.Windowing.GraphicsLibraryFramework;
+using USharpLibs.Common.Utils;
 using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
 namespace USharpLibs.Engine.Client {
@@ -30,21 +32,34 @@ namespace USharpLibs.Engine.Client {
 			};
 
 			Resize += e => client.OnResize(e, Size);
-			KeyDown += client.OnKeyPress;
-			KeyUp += client.OnKeyRelease;
-			MouseMove += client.OnMouseMove;
-			MouseDown += client.OnMousePress;
-			MouseUp += client.OnMouseRelease;
-			MouseWheel += client.OnMouseScroll;
 			Closing += _ => ClientBase.CloseRequested = true;
 			Closing += client.OnClosing;
 
-			client.OnWindowCreation(this);
-		}
+			KeyDown += client.OnKeyPress;
+			KeyUp += client.OnKeyRelease;
+			MouseWheel += client.OnMouseScroll;
 
-		public void ToggleFullscreen() {
-			WindowState = WindowState == WindowState.Normal ? WindowState.Fullscreen : WindowState.Normal;
-			Client.OnFullscreenToggle(WindowState);
+			MouseMove += client.OnMouseMove;
+			MouseMove += args => {
+				ClientBase.MouseX = (ushort)MathH.Floor(args.X);
+				ClientBase.MouseY = (ushort)MathH.Floor(args.Y);
+				ClientBase.CurrentScreen?.CheckForHover(ClientBase.MouseX, ClientBase.MouseY);
+			};
+
+			MouseDown += client.OnMousePress;
+			MouseDown += args => {
+				if (args.Action != InputAction.Repeat) {
+					if (args.Button is MouseButton.Left or MouseButton.Right) { ClientBase.CurrentScreen?.CheckForFocus(ClientBase.MouseX, ClientBase.MouseY); }
+					ClientBase.CurrentScreen?.CheckForPress(args.Button, ClientBase.MouseX, ClientBase.MouseY);
+				}
+			};
+
+			MouseUp += client.OnMouseRelease;
+			MouseUp += args => {
+				if (args.Button is MouseButton.Left or MouseButton.Right && args.Action != InputAction.Repeat) { ClientBase.CurrentScreen?.CheckForRelease(args.Button, ClientBase.MouseX, ClientBase.MouseY); }
+			};
+
+			client.OnWindowCreation(this);
 		}
 
 		protected override void OnRenderFrame(FrameEventArgs args) {

@@ -20,18 +20,28 @@ namespace USharpLibs.Engine.Client.GL.Shapes2D {
 		/// <seealso cref="Mesh"/>
 		/// <seealso cref="Matrix4.CreateOrthographicOffCenter(float, float, float, float, float, float, out Matrix4)"> Matrix4.CreateOrthographicOffCenter() </seealso>
 		///
-		/// <param name="x"> The X coordinate. </param>
-		/// <param name="y"> The Y coordinate. </param>
 		/// <param name="w"> The Width of the quad. </param>
 		/// <param name="h"> The Height of the quad. </param>
 		/// <param name="z"> The Z coordinate. </param>
-		public static Mesh WH_Flipped(float x, float y, float w, float h, float z) => WH_Flipped(x, y, w, h, z, 0, 0, 1, 1);
+		public static Mesh WH_Flipped(float w, float h, float z = 0) => WH_Flipped(0, 0, w, h, z, 0, 0, 1, 1);
 
-		/// <inheritdoc cref="WH_Flipped(float, float, float, float, float)"/>
+		/// <inheritdoc cref="WH_Flipped(float, float, float)"/>
 		/// <param name="u0"> The top left texture coordinate. </param>
 		/// <param name="v0"> The top right texture coordinate. </param>
 		/// <param name="u1"> The bottom left texture coordinate. </param>
 		/// <param name="v1"> The bottom right texture coordinate. </param>
+		[SuppressMessage("ReSharper", "InvalidXmlDocComment")]
+		public static Mesh WH_Flipped(float w, float h, float z, float u0, float v0, float u1, float v1) => Raw(0, h, w, 0, z, u0, v0, u1, v1);
+
+		/// <param name="x"> The X coordinate. </param>
+		/// <param name="y"> The Y coordinate. </param>
+		/// <inheritdoc cref="WH_Flipped(float, float, float)"/>
+		[SuppressMessage("ReSharper", "InvalidXmlDocComment")]
+		public static Mesh WH_Flipped(float x, float y, float w, float h, float z = 0) => WH_Flipped(x, y, w, h, z, 0, 0, 1, 1);
+
+		/// <param name="x"> The X coordinate. </param>
+		/// <param name="y"> The Y coordinate. </param>
+		/// <inheritdoc cref="WH_Flipped(float, float, float, float, float, float, float)"/>
 		[SuppressMessage("ReSharper", "InvalidXmlDocComment")]
 		public static Mesh WH_Flipped(float x, float y, float w, float h, float z, float u0, float v0, float u1, float v1) => Raw(x, y + h, x + w, y, z, u0, v0, u1, v1);
 
@@ -39,18 +49,28 @@ namespace USharpLibs.Engine.Client.GL.Shapes2D {
 		///
 		/// <seealso cref="Mesh"/>
 		///
-		/// <param name="x"> The X coordinate. </param>
-		/// <param name="y"> The Y coordinate. </param>
 		/// <param name="w"> The Width of the quad. </param>
 		/// <param name="h"> The Height of the quad. </param>
 		/// <param name="z"> The Z coordinate. </param>
-		public static Mesh WH(float x, float y, float w, float h, float z) => WH(x, y, w, h, z, 0, 0, 1, 1);
+		public static Mesh WH(float w, float h, float z) => WH(0, 0, w, h, z, 0, 0, 1, 1);
 
 		/// <inheritdoc cref="WH(float, float, float, float, float)"/>
 		/// <param name="u0"> The top left texture coordinate. </param>
 		/// <param name="v0"> The top right texture coordinate. </param>
 		/// <param name="u1"> The bottom left texture coordinate. </param>
 		/// <param name="v1"> The bottom right texture coordinate. </param>
+		[SuppressMessage("ReSharper", "InvalidXmlDocComment")]
+		public static Mesh WH(float w, float h, float z, float u0, float v0, float u1, float v1) => Raw(0, 0, w, h, z, u0, v0, u1, v1);
+
+		/// <param name="x"> The X coordinate. </param>
+		/// <param name="y"> The Y coordinate. </param>
+		/// <inheritdoc cref="WH(float, float, float)"/>
+		[SuppressMessage("ReSharper", "InvalidXmlDocComment")]
+		public static Mesh WH(float x, float y, float w, float h, float z) => WH(x, y, w, h, z, 0, 0, 1, 1);
+
+		/// <param name="x"> The X coordinate. </param>
+		/// <param name="y"> The Y coordinate. </param>
+		/// <inheritdoc cref="WH(float, float, float, float, float, float, float)"/>
 		[SuppressMessage("ReSharper", "InvalidXmlDocComment")]
 		public static Mesh WH(float x, float y, float w, float h, float z, float u0, float v0, float u1, float v1) => Raw(x, y, x + w, y + h, z, u0, v0, u1, v1);
 
