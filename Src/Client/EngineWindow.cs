@@ -9,12 +9,12 @@ using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 namespace USharpLibs.Engine.Client {
 	[PublicAPI]
 	public sealed class EngineWindow : GameWindow {
-		private ClientBase Client { get; }
+		private GameEngine Client { get; }
 
 		private uint frameCounter, tickCounter;
 		private double frameTimeCounter, tickTimeCounter;
 
-		public EngineWindow(ClientBase client) : base(GameWindowSettings.Default,
+		public EngineWindow(GameEngine client) : base(GameWindowSettings.Default,
 				new NativeWindowSettings {
 						MinimumSize = new(client.MinWidth, client.MinHeight),
 						MaximumSize = client.MaxWidth == 0 || client.MaxHeight == 0 ? null : new(client.MaxWidth, client.MaxHeight),
@@ -25,17 +25,17 @@ namespace USharpLibs.Engine.Client {
 			UpdateFrequency = 60;
 
 			Load += () => {
-				ClientBase.LoadState = LoadState.CreateGL;
-                ClientBase.CreateGL();
-				ClientBase.LoadState = LoadState.SetupGL;
+				GameEngine.LoadState = LoadState.CreateGL;
+                GameEngine.CreateGL();
+				GameEngine.LoadState = LoadState.SetupGL;
 				client.SetupLoadingScreen();
 				client.SetupGL();
-				ClientBase.LoadState = LoadState.Done;
+				GameEngine.LoadState = LoadState.Done;
 				client.OnSetupFinished();
 			};
 
 			Resize += e => client.OnResize(e, Size);
-			Closing += _ => ClientBase.CloseRequested = true;
+			Closing += _ => GameEngine.CloseRequested = true;
 			Closing += client.OnClosing;
 
 			KeyDown += client.OnKeyPress;
@@ -44,29 +44,29 @@ namespace USharpLibs.Engine.Client {
 
 			MouseMove += client.OnMouseMove;
 			MouseMove += args => {
-				ClientBase.MouseX = (ushort)MathH.Floor(args.X);
-				ClientBase.MouseY = (ushort)MathH.Floor(args.Y);
-				ClientBase.CurrentScreen?.CheckForHover(ClientBase.MouseX, ClientBase.MouseY);
+				GameEngine.MouseX = (ushort)MathH.Floor(args.X);
+				GameEngine.MouseY = (ushort)MathH.Floor(args.Y);
+				GameEngine.CurrentScreen?.CheckForHover(GameEngine.MouseX, GameEngine.MouseY);
 			};
 
 			MouseDown += client.OnMousePress;
 			MouseDown += args => {
 				if (args.Action != InputAction.Repeat) {
-					if (args.Button is MouseButton.Left or MouseButton.Right) { ClientBase.CurrentScreen?.CheckForFocus(ClientBase.MouseX, ClientBase.MouseY); }
-					ClientBase.CurrentScreen?.CheckForPress(args.Button, ClientBase.MouseX, ClientBase.MouseY);
+					if (args.Button is MouseButton.Left or MouseButton.Right) { GameEngine.CurrentScreen?.CheckForFocus(GameEngine.MouseX, GameEngine.MouseY); }
+					GameEngine.CurrentScreen?.CheckForPress(args.Button, GameEngine.MouseX, GameEngine.MouseY);
 				}
 			};
 
 			MouseUp += client.OnMouseRelease;
 			MouseUp += args => {
-				if (args.Button is MouseButton.Left or MouseButton.Right && args.Action != InputAction.Repeat) { ClientBase.CurrentScreen?.CheckForRelease(args.Button, ClientBase.MouseX, ClientBase.MouseY); }
+				if (args.Button is MouseButton.Left or MouseButton.Right && args.Action != InputAction.Repeat) { GameEngine.CurrentScreen?.CheckForRelease(args.Button, GameEngine.MouseX, GameEngine.MouseY); }
 			};
 
 			client.OnWindowCreation(this);
 		}
 
 		protected override void OnRenderFrame(FrameEventArgs args) {
-			Calc(args.Time, ref frameCounter, ref frameTimeCounter, out ClientBase.RawFrameFrequency, ref ClientBase.RawFPS);
+			Calc(args.Time, ref frameCounter, ref frameTimeCounter, out GameEngine.RawFrameFrequency, ref GameEngine.RawFPS);
 
 			OpenGL4.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 			Client.Render(args.Time);
@@ -74,7 +74,7 @@ namespace USharpLibs.Engine.Client {
 		}
 
 		protected override void OnUpdateFrame(FrameEventArgs args) {
-			Calc(args.Time, ref tickCounter, ref tickTimeCounter, out ClientBase.RawTickFrequency, ref ClientBase.RawTPS);
+			Calc(args.Time, ref tickCounter, ref tickTimeCounter, out GameEngine.RawTickFrequency, ref GameEngine.RawTPS);
 
 			Client.Tick(args.Time);
 		}

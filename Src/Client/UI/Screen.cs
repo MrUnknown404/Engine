@@ -13,8 +13,8 @@ namespace USharpLibs.Engine.Client.UI {
 		private ClickableUiElement? currentlyPressed;
 
 		protected void AddElement(string key, UiElement e, bool replace = false) {
-			if (ClientBase.LoadState != LoadState.Init) {
-				Logger.Warn($"Cannot add UiElement during {ClientBase.LoadState}");
+			if (GameEngine.LoadState != LoadState.Init) {
+				Logger.Warn($"Cannot add UiElement during {GameEngine.LoadState}");
 				return;
 			}
 
@@ -27,7 +27,7 @@ namespace USharpLibs.Engine.Client.UI {
 		}
 
 		internal void SetupGL() {
-			if (ClientBase.LoadState != LoadState.SetupGL) { throw new Exception($"Cannot setup Screen OpenGL during {ClientBase.LoadState}"); }
+			if (GameEngine.LoadState != LoadState.SetupGL) { throw new Exception($"Cannot setup Screen OpenGL during {GameEngine.LoadState}"); }
 			ISetupGL();
 		}
 

@@ -12,10 +12,10 @@ using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
 namespace USharpLibs.Engine {
 	[PublicAPI]
-	public abstract class ClientBase {
-		private static ClientBase instance = default!;
+	public abstract class GameEngine {
+		private static GameEngine instance = default!;
 
-		protected static T Instance<T>() where T : ClientBase => (T)instance;
+		protected static T Instance<T>() where T : GameEngine => (T)instance;
 		private static Lazy<Type> InstanceType { get; } = new(() => instance.GetType());
 		public static Lazy<Assembly> InstanceAssembly { get; } = new(() => Assembly.GetAssembly(InstanceType.Value) ?? throw new Exception("Assembly cannot be found."));
 
@@ -95,7 +95,7 @@ namespace USharpLibs.Engine {
 			}
 		}
 
-		protected ClientBase(string title, ushort minWidth, ushort minHeight, ushort maxWidth, ushort maxHeight, bool isDebug = false) {
+		protected GameEngine(string title, ushort minWidth, ushort minHeight, ushort maxWidth, ushort maxHeight, bool isDebug = false) {
 			OriginalTitle = title;
 			this.title = title;
 			this.minWidth = minWidth;
@@ -108,12 +108,12 @@ namespace USharpLibs.Engine {
 			Logger.SetupDefaultLogFolder(5, $"Starting Client! Today is: {DateTime.Now:d/M/yyyy HH:mm:ss}");
 		}
 
-		protected ClientBase(string title, ushort minWidth, ushort minHeight, bool isDebug = false) : this(title, minWidth, minHeight, 0, 0, isDebug) { }
-		protected ClientBase(string title, bool isDebug = false) : this(title, 856, 482, 0, 0, isDebug) { }
+		protected GameEngine(string title, ushort minWidth, ushort minHeight, bool isDebug = false) : this(title, minWidth, minHeight, 0, 0, isDebug) { }
+		protected GameEngine(string title, bool isDebug = false) : this(title, 856, 482, 0, 0, isDebug) { }
 
-		public static void Start(ClientBase instance) {
+		public static void Start(GameEngine instance) {
 			LoadState = LoadState.PreInit;
-			using (Window = new(ClientBase.instance = instance)) {
+			using (Window = new(GameEngine.instance = instance)) {
 				LoadState = LoadState.Init;
 				instance.Screens.UnionWith(instance.ScreenCreationEvent?.Invoke() ?? new());
 				Logger.Debug($"Running Init took {TimeH.Time(instance.Init).Milliseconds}ms");

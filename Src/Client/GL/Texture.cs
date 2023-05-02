@@ -17,7 +17,7 @@ namespace USharpLibs.Engine.Client.GL {
 		}
 
 		internal void SetupGL() {
-			if (ClientBase.LoadState != LoadState.SetupGL) { throw new Exception($"Cannot setup texture during {ClientBase.LoadState}"); }
+			if (GameEngine.LoadState != LoadState.SetupGL) { throw new Exception($"Cannot setup texture during {GameEngine.LoadState}"); }
 			ISetupGL();
 			WasSetup = true;
 		}

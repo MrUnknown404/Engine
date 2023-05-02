@@ -14,7 +14,7 @@ namespace USharpLibs.Engine.Client.GL.Models {
 		internal Model(BufferUsageHint bufferHint) => BufferHint = bufferHint;
 
 		public void SetupGL() {
-			if (ClientBase.LoadState < LoadState.SetupGL) { throw new Exception("Cannot setup a model's GL code too early!"); }
+			if (GameEngine.LoadState < LoadState.SetupGL) { throw new Exception("Cannot setup a model's GL code too early!"); }
 			ISetupGL();
 		}
 

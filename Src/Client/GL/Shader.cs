@@ -26,7 +26,7 @@ namespace USharpLibs.Engine.Client.GL {
 		}
 
 		internal void SetupGL() {
-			if (ClientBase.LoadState != LoadState.SetupGL) { throw new Exception($"Cannot setup shader during {ClientBase.LoadState}"); }
+			if (GameEngine.LoadState != LoadState.SetupGL) { throw new Exception($"Cannot setup shader during {GameEngine.LoadState}"); }
 			ISetupGL();
 			WasSetup = true;
 		}
@@ -35,7 +35,7 @@ namespace USharpLibs.Engine.Client.GL {
 		protected internal virtual void OnResize(ResizeEventArgs args) { }
 
 		protected void CompileShader(ShaderType type, string name, out int shader) {
-			Assembly assembly = AssemblyOverride ?? ClientBase.InstanceAssembly.Value;
+			Assembly assembly = AssemblyOverride ?? GameEngine.InstanceAssembly.Value;
 			string streamName = $"{assembly.GetName().Name}.Assets.Shaders.{name}.{type.ToFileFormat()}", result;
 
 			if (assembly.GetManifestResourceStream(streamName) is Stream stream) {
@@ -50,7 +50,7 @@ namespace USharpLibs.Engine.Client.GL {
 		}
 
 		protected void SetData<V>(string name, V data, Action<int, V> apply) {
-			if (GLH.CurrentShader != Handle && ClientBase.LoadState != LoadState.SetupGL) {
+			if (GLH.CurrentShader != Handle && GameEngine.LoadState != LoadState.SetupGL) {
 				Logger.Warn("Trying to use an unbound shader!");
 				return;
 			} else if (!UniformLocations.ContainsKey(name)) {
@@ -62,7 +62,7 @@ namespace USharpLibs.Engine.Client.GL {
 		}
 
 		protected void SetMatrix(string name, bool flag, Matrix4 data) {
-			if (GLH.CurrentShader != Handle && ClientBase.LoadState != LoadState.SetupGL) {
+			if (GLH.CurrentShader != Handle && GameEngine.LoadState != LoadState.SetupGL) {
 				Logger.Warn("Trying to use an unbound shader!");
 				return;
 			} else if (!UniformLocations.ContainsKey(name)) {
@@ -74,7 +74,7 @@ namespace USharpLibs.Engine.Client.GL {
 		}
 
 		protected void SetMatrix4Array(string name, bool flag, Matrix4[] datas) {
-			if (GLH.CurrentShader != Handle && ClientBase.LoadState != LoadState.SetupGL) {
+			if (GLH.CurrentShader != Handle && GameEngine.LoadState != LoadState.SetupGL) {
 				Logger.Warn("Trying to use an unbound shader!");
 				return;
 			} else if (!UniformLocations.ContainsKey(name)) {

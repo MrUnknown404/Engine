@@ -27,8 +27,8 @@ namespace USharpLibs.Engine.Client.GL {
 			OpenGL4.BindTexture(TextureTarget.Texture2D, Handle);
 
 			if (Name != null) {
-				string streamName = $"{ClientBase.InstanceAssembly.Value.GetName().Name}.Assets.Textures.{Name}.png";
-				if (ClientBase.InstanceAssembly.Value.GetManifestResourceStream(streamName) is Stream stream) {
+				string streamName = $"{GameEngine.InstanceAssembly.Value.GetName().Name}.Assets.Textures.{Name}.png";
+				if (GameEngine.InstanceAssembly.Value.GetManifestResourceStream(streamName) is Stream stream) {
 					using (stream) {
 						StbImage.stbi_set_flip_vertically_on_load(1);
 						ImageResult image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
