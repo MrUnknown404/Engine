@@ -1,15 +1,8 @@
 using OpenTK.Windowing.Common;
-using USharpLibs.Engine.Client.GL.Model;
-using USharpLibs.Engine.Client.GL.OldMesh;
+using USharpLibs.Engine.Client.GL.Models;
 
 namespace USharpLibs.Engine.Client.GL {
-	[Obsolete("Going to be removed.")]
-	public sealed class UnboundIMesh<T> where T : IRawMesh {
-		public readonly T IMesh;
-		public UnboundIMesh(T mesh) => IMesh = mesh;
-	}
-
-	public sealed class UnboundModel<T> where T : RawModel {
+	public sealed class UnboundModel<T> where T : Model {
 		public T Model { get; }
 		public UnboundModel(T model) => Model = model;
 	}

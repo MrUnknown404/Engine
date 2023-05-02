@@ -1,6 +1,6 @@
 using JetBrains.Annotations;
 
-namespace USharpLibs.Engine.Client.GL.Model {
+namespace USharpLibs.Engine.Client.GL.Models {
 	[PublicAPI]
 	public class Mesh {
 		public float[] Vertices { get; protected set; }

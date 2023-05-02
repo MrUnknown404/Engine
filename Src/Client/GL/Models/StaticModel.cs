@@ -3,21 +3,23 @@ using OpenTK.Graphics.OpenGL4;
 using USharpLibs.Common.Utils;
 using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
-namespace USharpLibs.Engine.Client.GL.Model {
+namespace USharpLibs.Engine.Client.GL.Models {
 	[PublicAPI]
-	public class Model : RawModel {
-		protected bool IsDirty = true;
-
+	public class StaticModel : Model<StaticModel> {
 		protected List<Mesh> Meshes { get; } = new();
 		protected float[] VertexCache = Array.Empty<float>();
 		protected uint[] IndexCache = Array.Empty<uint>();
 
-		public Model(BufferUsageHint bufferHint) : base(bufferHint) { }
+		public StaticModel(BufferUsageHint bufferHint) : base(bufferHint) { }
 
-		public Model AddMesh(Mesh mesh, params Mesh[] meshes)  {
+		public override StaticModel SetMesh(Mesh mesh, params Mesh[] meshes) {
 			Meshes.Add(mesh);
 			Meshes.AddRange(meshes);
-			IsDirty = true;
+			return this;
+		}
+
+		public override StaticModel SetMesh(List<Mesh> meshes) {
+			Meshes.AddRange(meshes);
 			return this;
 		}
 
@@ -25,37 +27,35 @@ namespace USharpLibs.Engine.Client.GL.Model {
 			if (Meshes.Count == 0) {
 				Logger.Warn("Tried to setup an empty model!");
 				return;
+			} else if (WasSetup) {
+				Logger.Warn("This model was already setup!");
+				return;
 			}
 
-			if (!WasSetup) {
-				WasSetup = true;
+			WasSetup = true;
 
-				VAO = OpenGL4.GenVertexArray();
-				VBO = OpenGL4.GenBuffer();
-				EBO = OpenGL4.GenBuffer();
-			}
+			VAO = OpenGL4.GenVertexArray();
+			VBO = OpenGL4.GenBuffer();
+			EBO = OpenGL4.GenBuffer();
 
-			if (IsDirty) {
-				List<float> vertices = new();
-				List<uint> indices = new();
-				uint indexOffset = 0;
+			List<float> vertices = new();
+			List<uint> indices = new();
+			uint indexOffset = 0;
 
-				foreach (Mesh part in Meshes) {
-					vertices.AddRange(part.Vertices);
+			foreach (Mesh part in Meshes) {
+				vertices.AddRange(part.Vertices);
 
-					uint highestIndex = 0;
-					foreach (uint i in part.Indices) {
-						if (i > highestIndex) { highestIndex = i; }
-						indices.Add(i + indexOffset);
-					}
-
-					indexOffset += highestIndex + 1;
+				uint highestIndex = 0;
+				foreach (uint i in part.Indices) {
+					if (i > highestIndex) { highestIndex = i; }
+					indices.Add(i + indexOffset);
 				}
 
-				VertexCache = vertices.ToArray();
-				IndexCache = indices.ToArray();
-				IsDirty = false;
+				indexOffset += highestIndex + 1;
 			}
+
+			VertexCache = vertices.ToArray();
+			IndexCache = indices.ToArray();
 
 			OpenGL4.BindVertexArray(VAO);
 

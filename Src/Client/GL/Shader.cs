@@ -18,6 +18,7 @@ namespace USharpLibs.Engine.Client.GL {
 		public int Handle { get; protected set; }
 		protected string VertName { get; }
 		protected string FragName { get; }
+		public bool WasSetup { get; private set; }
 
 		protected Shader(string vertName, string fragName) {
 			VertName = vertName;
@@ -25,8 +26,9 @@ namespace USharpLibs.Engine.Client.GL {
 		}
 
 		internal void SetupGL() {
-			if (ClientBase.LoadState != LoadState.GL) { throw new Exception($"Cannot setup shader during {ClientBase.LoadState}"); }
+			if (ClientBase.LoadState != LoadState.SetupGL) { throw new Exception($"Cannot setup shader during {ClientBase.LoadState}"); }
 			ISetupGL();
+			WasSetup = true;
 		}
 
 		protected abstract void ISetupGL();
@@ -48,7 +50,7 @@ namespace USharpLibs.Engine.Client.GL {
 		}
 
 		protected void SetData<V>(string name, V data, Action<int, V> apply) {
-			if (GLH.CurrentShader != Handle && ClientBase.LoadState != LoadState.GL) {
+			if (GLH.CurrentShader != Handle && ClientBase.LoadState != LoadState.SetupGL) {
 				Logger.Warn("Trying to use an unbound shader!");
 				return;
 			} else if (!UniformLocations.ContainsKey(name)) {
@@ -60,7 +62,7 @@ namespace USharpLibs.Engine.Client.GL {
 		}
 
 		protected void SetMatrix(string name, bool flag, Matrix4 data) {
-			if (GLH.CurrentShader != Handle && ClientBase.LoadState != LoadState.GL) {
+			if (GLH.CurrentShader != Handle && ClientBase.LoadState != LoadState.SetupGL) {
 				Logger.Warn("Trying to use an unbound shader!");
 				return;
 			} else if (!UniformLocations.ContainsKey(name)) {
@@ -72,7 +74,7 @@ namespace USharpLibs.Engine.Client.GL {
 		}
 
 		protected void SetMatrix4Array(string name, bool flag, Matrix4[] datas) {
-			if (GLH.CurrentShader != Handle && ClientBase.LoadState != LoadState.GL) {
+			if (GLH.CurrentShader != Handle && ClientBase.LoadState != LoadState.SetupGL) {
 				Logger.Warn("Trying to use an unbound shader!");
 				return;
 			} else if (!UniformLocations.ContainsKey(name)) {

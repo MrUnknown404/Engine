@@ -25,7 +25,10 @@ namespace USharpLibs.Engine.Client {
 			UpdateFrequency = 60;
 
 			Load += () => {
-				ClientBase.LoadState = LoadState.GL;
+				ClientBase.LoadState = LoadState.CreateGL;
+                ClientBase.CreateGL();
+				ClientBase.LoadState = LoadState.SetupGL;
+				client.SetupLoadingScreen();
 				client.SetupGL();
 				ClientBase.LoadState = LoadState.Done;
 				client.OnSetupFinished();

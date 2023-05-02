@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using JetBrains.Annotations;
 using OpenTK.Mathematics;
-using USharpLibs.Engine.Client.GL.Model;
+using USharpLibs.Engine.Client.GL.Models;
 
 namespace USharpLibs.Engine.Client.GL.Shapes2D {
 	[PublicAPI]
@@ -52,7 +52,7 @@ namespace USharpLibs.Engine.Client.GL.Shapes2D {
 		/// <param name="w"> The Width of the quad. </param>
 		/// <param name="h"> The Height of the quad. </param>
 		/// <param name="z"> The Z coordinate. </param>
-		public static Mesh WH(float w, float h, float z) => WH(0, 0, w, h, z, 0, 0, 1, 1);
+		public static Mesh WH(float w, float h, float z = 0) => WH(0, 0, w, h, z, 0, 0, 1, 1);
 
 		/// <inheritdoc cref="WH(float, float, float, float, float)"/>
 		/// <param name="u0"> The top left texture coordinate. </param>
@@ -66,7 +66,7 @@ namespace USharpLibs.Engine.Client.GL.Shapes2D {
 		/// <param name="y"> The Y coordinate. </param>
 		/// <inheritdoc cref="WH(float, float, float)"/>
 		[SuppressMessage("ReSharper", "InvalidXmlDocComment")]
-		public static Mesh WH(float x, float y, float w, float h, float z) => WH(x, y, w, h, z, 0, 0, 1, 1);
+		public static Mesh WH(float x, float y, float w, float h, float z = 0) => WH(x, y, w, h, z, 0, 0, 1, 1);
 
 		/// <param name="x"> The X coordinate. </param>
 		/// <param name="y"> The Y coordinate. </param>
@@ -83,7 +83,7 @@ namespace USharpLibs.Engine.Client.GL.Shapes2D {
 		/// <param name="x1"> The X to coordinate. </param>
 		/// <param name="y1"> The Y to coordinate. </param>
 		/// <param name="z"> The Z coordinate. </param>
-		public static Mesh XYZ(float x0, float y0, float x1, float y1, float z) => XYZ(x0, y0, x1, y1, z, 0, 0, 1, 1);
+		public static Mesh XYZ(float x0, float y0, float x1, float y1, float z = 0) => XYZ(x0, y0, x1, y1, z, 0, 0, 1, 1);
 
 		/// <inheritdoc cref="XYZ(float, float, float, float, float)"/>
 		/// <param name="u0"> The top left texture coordinate. </param>

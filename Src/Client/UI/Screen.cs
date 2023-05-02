@@ -1,9 +1,11 @@
+using JetBrains.Annotations;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using USharpLibs.Common.Utils;
 using USharpLibs.Engine.Client.GL;
 using USharpLibs.Engine.Client.UI.Elements;
 
 namespace USharpLibs.Engine.Client.UI {
+	[PublicAPI]
 	public abstract class Screen {
 		private Dictionary<string, UiElement> Elements { get; } = new();
 		private HoverableUiElement? currentlyHovered;
@@ -25,7 +27,7 @@ namespace USharpLibs.Engine.Client.UI {
 		}
 
 		internal void SetupGL() {
-			if (ClientBase.LoadState != LoadState.GL) { throw new Exception($"Cannot setup Screen OpenGL during {ClientBase.LoadState}"); }
+			if (ClientBase.LoadState != LoadState.SetupGL) { throw new Exception($"Cannot setup Screen OpenGL during {ClientBase.LoadState}"); }
 			ISetupGL();
 		}
 

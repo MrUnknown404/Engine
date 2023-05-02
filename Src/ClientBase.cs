@@ -6,7 +6,6 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using USharpLibs.Common.Utils;
 using USharpLibs.Engine.Client;
-using USharpLibs.Engine.Client.Font;
 using USharpLibs.Engine.Client.GL;
 using USharpLibs.Engine.Client.UI;
 using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
@@ -23,8 +22,8 @@ namespace USharpLibs.Engine {
 		protected internal event Action<EngineWindow>? WindowCreationEvent;
 		protected internal event Action<WindowState>? FullscreenToggleEvent;
 		protected internal event Func<HashSet<IUnboundShader>>? ShaderCreationEvent;
-		protected internal event Func<HashSet<DynamicFont>>? FontCreationEvent;
-		protected internal event Func<HashSet<RawTexture>>? TextureCreationEvent;
+		protected internal event Func<HashSet<IFont>>? FontCreationEvent;
+		protected internal event Func<HashSet<Texture>>? TextureCreationEvent;
 		protected internal event Func<HashSet<Screen>>? ScreenCreationEvent;
 
 		private static EngineWindow Window { get; set; } = default!;
@@ -129,24 +128,25 @@ namespace USharpLibs.Engine {
 		protected virtual void Init() { }
 		protected internal virtual void OnSetupFinished() { }
 
-		protected internal virtual void SetupGL() {
+		internal static void CreateGL() {
 			Logger.Info($"Setting up OpenGL! Running OpenGL version: {OpenGL4.GetString(StringName.Version)}");
 			OpenGL4.ClearColor(0.1f, 0.1f, 0.1f, 1f);
 			OpenGL4.Enable(EnableCap.Blend);
 			OpenGL4.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 			GLH.EnableDepthTest();
 			GLH.EnableCulling();
+		}
 
+		protected internal virtual void SetupGL() {
 			AddRenderers(Renderers);
 
 			HashSet<IUnboundShader> shaders = ShaderCreationEvent?.Invoke() ?? new();
-			HashSet<DynamicFont> fonts = FontCreationEvent?.Invoke() ?? new();
-			HashSet<RawTexture> textures = TextureCreationEvent?.Invoke() ?? new();
+			HashSet<IFont> fonts = FontCreationEvent?.Invoke() ?? new();
+			HashSet<Texture> textures = TextureCreationEvent?.Invoke() ?? new();
 
 			void Fonts() =>
 					fonts.ForEach(f => {
-						f.SetupGL();
-						textures.Add(f.Texture);
+						if (f.Setup() is { } texture) { textures.Add(texture); }
 					});
 
 			void Shaders() =>
@@ -155,9 +155,9 @@ namespace USharpLibs.Engine {
 						Window.Resize += s.OnResize;
 					});
 
-			if (shaders.Count != 0) { Logger.Debug($"Setting up {shaders.Count} shaders took {TimeH.Time(Shaders).Milliseconds}ms"); }
 			if (fonts.Count != 0) { Logger.Debug($"Setting up {fonts.Count} fonts took {TimeH.Time(Fonts).Milliseconds}ms"); }
 			if (textures.Count != 0) { Logger.Debug($"Setting up {textures.Count} textures took {TimeH.Time(() => textures.ForEach(t => t.SetupGL())).Milliseconds}ms"); }
+			if (shaders.Count != 0) { Logger.Debug($"Setting up {shaders.Count} shaders took {TimeH.Time(Shaders).Milliseconds}ms"); }
 			if (Screens.Count != 0) { Logger.Debug($"Setting up {Screens.Count} screens took {TimeH.Time(() => Screens.ForEach(r => r.SetupGL())).Milliseconds}ms"); }
 			if (Renderers.Count != 0) { Logger.Debug($"Setting up {Renderers.Count} renderers took {TimeH.Time(() => Renderers.ForEach(r => r.SetupGL())).Milliseconds}ms"); }
 		}
@@ -165,6 +165,7 @@ namespace USharpLibs.Engine {
 		public virtual void Tick(double time) { }
 		public virtual void Render(double time) => Renderers.ForEach(r => r.Render(time));
 
+		protected internal virtual void SetupLoadingScreen() { }
 		protected internal virtual void OnResize(ResizeEventArgs e, Vector2i size) => OpenGL4.Viewport(0, 0, size.X, size.Y);
 
 		protected internal virtual void OnKeyPress(KeyboardKeyEventArgs e) { }
@@ -187,7 +188,8 @@ namespace USharpLibs.Engine {
 		NotStarted = 0,
 		PreInit,
 		Init,
-		GL,
+		CreateGL,
+		SetupGL,
 		Done,
 	}
 }

@@ -1,5 +1,5 @@
 using JetBrains.Annotations;
-using USharpLibs.Engine.Client.GL.Model;
+using USharpLibs.Engine.Client.GL.Models;
 
 namespace USharpLibs.Engine.Client.GL.Shapes2D {
 	[PublicAPI]
