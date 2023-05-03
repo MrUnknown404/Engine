@@ -6,7 +6,7 @@ using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 namespace USharpLibs.Engine.Client.GL.Models {
 	[PublicAPI]
 	public class DynamicModel : Model<DynamicModel> {
-		protected bool IsDirty = true;
+		protected bool IsDirty;
 
 		protected List<Mesh> Meshes { get; } = new();
 		protected float[] VertexCache = Array.Empty<float>();
@@ -38,10 +38,7 @@ namespace USharpLibs.Engine.Client.GL.Models {
 		}
 
 		protected override void ISetupGL() {
-			if (Meshes.Count == 0) {
-				Logger.Warn("Tried to setup an empty model!");
-				return;
-			} else if (WasSetup) {
+			if (WasSetup) {
 				Logger.Warn("This model was already setup!");
 				return;
 			}
@@ -52,7 +49,7 @@ namespace USharpLibs.Engine.Client.GL.Models {
 			VBO = OpenGL4.GenBuffer();
 			EBO = OpenGL4.GenBuffer();
 
-			RefreshModelData();
+			if (Meshes.Count != 0) { RefreshModelData(); }
 		}
 
 		public void ClearModelData() {

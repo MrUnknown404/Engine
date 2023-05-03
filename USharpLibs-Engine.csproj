@@ -4,8 +4,9 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<NoWarn>SA0001</NoWarn>
-		<RootNamespace>USharpLibs.Engine</RootNamespace>
 		<OutputType>Library</OutputType>
+		<RootNamespace>USharpLibs.Engine</RootNamespace>
+		<AssemblyName>USharpLibs.Engine</AssemblyName>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -13,5 +14,9 @@
 		<PackageReference Include="OpenTK" Version="4.7.4" />
 		<PackageReference Include="StbImageSharp" Version="2.27.11" />
 		<ProjectReference Include="..\USharpLibs-Common\USharpLibs-Common.csproj" />
+
+		<EmbeddedResource Include="Assets\**">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</EmbeddedResource>
 	</ItemGroup>
 </Project>
