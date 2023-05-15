@@ -26,7 +26,7 @@ namespace USharpLibs.Engine.Client {
 
 			Load += () => {
 				GameEngine.LoadState = LoadState.CreateGL;
-                GameEngine.CreateGL();
+				GameEngine.CreateGL();
 				GameEngine.LoadState = LoadState.SetupGL;
 				client.SetupLoadingScreen();
 				client.SetupGL();
@@ -42,14 +42,14 @@ namespace USharpLibs.Engine.Client {
 			KeyUp += client.OnKeyRelease;
 			MouseWheel += client.OnMouseScroll;
 
-			MouseMove += client.OnMouseMove;
 			MouseMove += args => {
 				GameEngine.MouseX = (ushort)MathH.Floor(args.X);
 				GameEngine.MouseY = (ushort)MathH.Floor(args.Y);
 				GameEngine.CurrentScreen?.CheckForHover(GameEngine.MouseX, GameEngine.MouseY);
 			};
 
-			MouseDown += client.OnMousePress;
+			MouseMove += client.OnMouseMove;
+
 			MouseDown += args => {
 				if (args.Action != InputAction.Repeat) {
 					if (args.Button is MouseButton.Left or MouseButton.Right) { GameEngine.CurrentScreen?.CheckForFocus(GameEngine.MouseX, GameEngine.MouseY); }
@@ -57,10 +57,13 @@ namespace USharpLibs.Engine.Client {
 				}
 			};
 
-			MouseUp += client.OnMouseRelease;
+			MouseDown += client.OnMousePress;
+
 			MouseUp += args => {
 				if (args.Button is MouseButton.Left or MouseButton.Right && args.Action != InputAction.Repeat) { GameEngine.CurrentScreen?.CheckForRelease(args.Button, GameEngine.MouseX, GameEngine.MouseY); }
 			};
+
+			MouseUp += client.OnMouseRelease;
 
 			client.OnWindowCreation(this);
 		}

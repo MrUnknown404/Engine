@@ -8,6 +8,7 @@ using USharpLibs.Common.Utils;
 using USharpLibs.Engine.Client;
 using USharpLibs.Engine.Client.GL;
 using USharpLibs.Engine.Client.UI;
+using USharpLibs.Engine.Init;
 using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
 namespace USharpLibs.Engine {
@@ -18,11 +19,12 @@ namespace USharpLibs.Engine {
 		protected static T Instance<T>() where T : GameEngine => (T)instance;
 		private static Lazy<Type> InstanceType { get; } = new(() => instance.GetType());
 		public static Lazy<Assembly> InstanceAssembly { get; } = new(() => Assembly.GetAssembly(InstanceType.Value) ?? throw new Exception("Assembly cannot be found."));
+		public static Lazy<Assembly> USharpEngineAssembly { get; } = new(() => Assembly.GetAssembly(typeof(GameEngine)) ?? throw new Exception("Assembly cannot be found."));
 
 		protected internal event Action<EngineWindow>? WindowCreationEvent;
 		protected internal event Action<WindowState>? FullscreenToggleEvent;
 		protected internal event Func<HashSet<IUnboundShader>>? ShaderCreationEvent;
-		protected internal event Func<HashSet<IFont>>? FontCreationEvent;
+		protected internal event Func<HashSet<RawFont>>? FontCreationEvent;
 		protected internal event Func<HashSet<Texture>>? TextureCreationEvent;
 		protected internal event Func<HashSet<Screen>>? ScreenCreationEvent;
 
@@ -95,6 +97,9 @@ namespace USharpLibs.Engine {
 			}
 		}
 
+		public static ushort Width => (ushort)Window.Size.X;
+		public static ushort Height => (ushort)Window.Size.Y;
+
 		protected GameEngine(string title, ushort minWidth, ushort minHeight, ushort maxWidth, ushort maxHeight, bool isDebug = false) {
 			OriginalTitle = title;
 			this.title = title;
@@ -106,6 +111,8 @@ namespace USharpLibs.Engine {
 
 			Logger.LogLevel = LogLevel.More;
 			Logger.SetupDefaultLogFolder(5, $"Starting Client! Today is: {DateTime.Now:d/M/yyyy HH:mm:ss}");
+
+			ShaderCreationEvent += () => DefaultShaders.AllShaders;
 		}
 
 		protected GameEngine(string title, ushort minWidth, ushort minHeight, bool isDebug = false) : this(title, minWidth, minHeight, 0, 0, isDebug) { }
@@ -115,7 +122,11 @@ namespace USharpLibs.Engine {
 			LoadState = LoadState.PreInit;
 			using (Window = new(GameEngine.instance = instance)) {
 				LoadState = LoadState.Init;
-				instance.Screens.UnionWith(instance.ScreenCreationEvent?.Invoke() ?? new());
+
+				if (instance.ScreenCreationEvent != null) {
+					foreach (Delegate d in instance.ScreenCreationEvent.GetInvocationList()) { instance.Screens.UnionWith((HashSet<Screen>)(d.DynamicInvoke() ?? new HashSet<Screen>())); }
+				}
+
 				Logger.Debug($"Running Init took {TimeH.Time(instance.Init).Milliseconds}ms");
 				Window.Run();
 			}
@@ -138,11 +149,21 @@ namespace USharpLibs.Engine {
 		}
 
 		protected internal virtual void SetupGL() {
-			AddRenderers(Renderers);
+			HashSet<IUnboundShader> shaders = new();
+			HashSet<RawFont> fonts = new();
+			HashSet<Texture> textures = new();
 
-			HashSet<IUnboundShader> shaders = ShaderCreationEvent?.Invoke() ?? new();
-			HashSet<IFont> fonts = FontCreationEvent?.Invoke() ?? new();
-			HashSet<Texture> textures = TextureCreationEvent?.Invoke() ?? new();
+			if (ShaderCreationEvent != null) {
+				foreach (Delegate d in ShaderCreationEvent.GetInvocationList()) { shaders.UnionWith((HashSet<IUnboundShader>)(d.DynamicInvoke() ?? new HashSet<IUnboundShader>())); }
+			}
+
+			if (FontCreationEvent != null) {
+				foreach (Delegate d in FontCreationEvent.GetInvocationList()) { fonts.UnionWith((HashSet<RawFont>)(d.DynamicInvoke() ?? new HashSet<RawFont>())); }
+			}
+
+			if (TextureCreationEvent != null) {
+				foreach (Delegate d in TextureCreationEvent.GetInvocationList()) { textures.UnionWith((HashSet<Texture>)(d.DynamicInvoke() ?? new HashSet<Texture>())); }
+			}
 
 			void Fonts() =>
 					fonts.ForEach(f => {
@@ -159,6 +180,8 @@ namespace USharpLibs.Engine {
 			if (textures.Count != 0) { Logger.Debug($"Setting up {textures.Count} textures took {TimeH.Time(() => textures.ForEach(t => t.SetupGL())).Milliseconds}ms"); }
 			if (shaders.Count != 0) { Logger.Debug($"Setting up {shaders.Count} shaders took {TimeH.Time(Shaders).Milliseconds}ms"); }
 			if (Screens.Count != 0) { Logger.Debug($"Setting up {Screens.Count} screens took {TimeH.Time(() => Screens.ForEach(r => r.SetupGL())).Milliseconds}ms"); }
+
+			AddRenderers(Renderers);
 			if (Renderers.Count != 0) { Logger.Debug($"Setting up {Renderers.Count} renderers took {TimeH.Time(() => Renderers.ForEach(r => r.SetupGL())).Milliseconds}ms"); }
 		}
 
@@ -181,6 +204,13 @@ namespace USharpLibs.Engine {
 		public void ToggleFullscreen() {
 			Window.WindowState = Window.WindowState == WindowState.Normal ? WindowState.Fullscreen : WindowState.Normal;
 			FullscreenToggleEvent?.Invoke(Window.WindowState);
+		}
+
+		public static void ForceInLoadState(LoadState loadState, Action todo) {
+			LoadState old = LoadState;
+			LoadState = loadState;
+			todo();
+			LoadState = old;
 		}
 	}
 

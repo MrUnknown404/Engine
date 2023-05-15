@@ -1,17 +1,19 @@
 using JetBrains.Annotations;
+using USharpLibs.Common.Utils;
 using USharpLibs.Engine.Client.GL.Models;
 
 namespace USharpLibs.Engine.Client.GL.Shapes2D {
+	// TODO figure out how to texture this
+	// TODO document this
 	[PublicAPI]
-	public static class Hexagons { // TODO document this
-		public const float Sqrt3 = 1.73205080757f; // MathF.Sqrt(3)
-		public const float HalfSqrt3 = Sqrt3 / 2f;
+	public static class Hexagons {
+		public static Mesh HollowFlatTop_Flipped(float size, float thickness, float z = 0) => HollowFlatTop_Flipped(0, 0, size, thickness, z);
 
-		public static Mesh HollowFlatTop_Flipped(float x, float y, float size, float thickness, float z) {
+		public static Mesh HollowFlatTop_Flipped(float x, float y, float size, float thickness, float z = 0) {
 			if (size <= 0) { throw new ArgumentException("Size cannot be equal to or below 0"); } else if (thickness <= 0) { throw new ArgumentException("Thickness cannot be equal to or below 0"); }
 
-			float r = size / 2f, r2 = r / 2f, r3 = r * HalfSqrt3;
-			float ir = (size - thickness) / 2f, ir2 = ir / 2f, ir3 = ir * HalfSqrt3;
+			float r = size / 2f, r2 = r / 2f, r3 = r * MathH.HalfSqrt3;
+			float ir = (size - thickness) / 2f, ir2 = ir / 2f, ir3 = ir * MathH.HalfSqrt3;
 
 			//@formatter:off
 			return new(new[] {
@@ -32,11 +34,13 @@ namespace USharpLibs.Engine.Client.GL.Shapes2D {
 			//@formatter:on
 		}
 
-		public static Mesh HollowPointyTop_Flipped(float x, float y, float size, float thickness, float z) { // TODO figure out how to texture this
+		public static Mesh HollowPointyTop_Flipped(float size, float thickness, float z = 0) => HollowPointyTop_Flipped(0, 0, size, thickness, z);
+
+		public static Mesh HollowPointyTop_Flipped(float x, float y, float size, float thickness, float z = 0) {
 			if (size <= 0) { throw new ArgumentException("Size cannot be equal to or below 0"); } else if (thickness <= 0) { throw new ArgumentException("Thickness cannot be equal to or below 0"); }
 
-			float r = size / 2f, r2 = r / 2f, r3 = r * HalfSqrt3;
-			float ir = (size - thickness) / 2f, ir2 = ir / 2f, ir3 = ir * HalfSqrt3;
+			float r = size / 2f, r2 = r / 2f, r3 = r * MathH.HalfSqrt3;
+			float ir = (size - thickness) / 2f, ir2 = ir / 2f, ir3 = ir * MathH.HalfSqrt3;
 
 			//@formatter:off
 			return new(new[] {
@@ -57,10 +61,12 @@ namespace USharpLibs.Engine.Client.GL.Shapes2D {
 			//@formatter:on
 		}
 
-		public static Mesh FlatTop_Flipped(float x, float y, float size, float z) { // TODO figure out how to texture this
+		public static Mesh FlatTop_Flipped(float size, float z = 0) => FlatTop_Flipped(0, 0, size, z);
+
+		public static Mesh FlatTop_Flipped(float x, float y, float size, float z = 0) {
 			if (size <= 0) { throw new ArgumentException("Size cannot be equal to or below 0"); }
 
-			float r = size / 2f, r2 = r / 2f, r3 = r * HalfSqrt3;
+			float r = size / 2f, r2 = r / 2f, r3 = r * MathH.HalfSqrt3;
 
 			//@formatter:off
 			return new(new[] {
@@ -74,10 +80,12 @@ namespace USharpLibs.Engine.Client.GL.Shapes2D {
 			//@formatter:on
 		}
 
-		public static Mesh PointyTop_Flipped(float x, float y, float size, float z) { // TODO figure out how to texture this
+		public static Mesh PointyTop_Flipped(float size, float z = 0) => PointyTop_Flipped(0, 0, size, z);
+
+		public static Mesh PointyTop_Flipped(float x, float y, float size, float z = 0) {
 			if (size <= 0) { throw new ArgumentException("Size cannot be equal to or below 0"); }
 
-			float r = size / 2f, r2 = r / 2f, r3 = r * HalfSqrt3;
+			float r = size / 2f, r2 = r / 2f, r3 = r * MathH.HalfSqrt3;
 
 			//@formatter:off
 			return new(new[] {
@@ -91,11 +99,13 @@ namespace USharpLibs.Engine.Client.GL.Shapes2D {
 			//@formatter:on
 		}
 
-		public static Mesh HollowFlatTop(float x, float y, float size, float thickness, float z) { // TODO figure out how to texture this
+		public static Mesh HollowFlatTop(float size, float thickness, float z = 0) => HollowFlatTop(0, 0, size, thickness, z);
+
+		public static Mesh HollowFlatTop(float x, float y, float size, float thickness, float z = 0) {
 			if (size <= 0) { throw new ArgumentException("Size cannot be equal to or below 0"); } else if (thickness <= 0) { throw new ArgumentException("Thickness cannot be equal to or below 0"); }
 
-			float r = size / 2f, r2 = r / 2f, r3 = r * HalfSqrt3;
-			float ir = (size - thickness) / 2f, ir2 = ir / 2f, ir3 = ir * HalfSqrt3;
+			float r = size / 2f, r2 = r / 2f, r3 = r * MathH.HalfSqrt3;
+			float ir = (size - thickness) / 2f, ir2 = ir / 2f, ir3 = ir * MathH.HalfSqrt3;
 
 			//@formatter:off
 			return new(new[] {
@@ -116,11 +126,13 @@ namespace USharpLibs.Engine.Client.GL.Shapes2D {
 			//@formatter:on
 		}
 
-		public static Mesh HollowPointyTop(float x, float y, float size, float thickness, float z) { // TODO figure out how to texture this
+		public static Mesh HollowPointyTop(float size, float thickness, float z = 0) => HollowPointyTop(0, 0, size, thickness, z);
+
+		public static Mesh HollowPointyTop(float x, float y, float size, float thickness, float z = 0) {
 			if (size <= 0) { throw new ArgumentException("Size cannot be equal to or below 0"); } else if (thickness <= 0) { throw new ArgumentException("Thickness cannot be equal to or below 0"); }
 
-			float r = size / 2f, r2 = r / 2f, r3 = r * HalfSqrt3;
-			float ir = (size - thickness) / 2f, ir2 = ir / 2f, ir3 = ir * HalfSqrt3;
+			float r = size / 2f, r2 = r / 2f, r3 = r * MathH.HalfSqrt3;
+			float ir = (size - thickness) / 2f, ir2 = ir / 2f, ir3 = ir * MathH.HalfSqrt3;
 
 			//@formatter:off
 			return new(new[] {
@@ -141,10 +153,12 @@ namespace USharpLibs.Engine.Client.GL.Shapes2D {
 			//@formatter:on
 		}
 
-		public static Mesh FlatTop(float x, float y, float size, float z) { // TODO figure out how to texture this
+		public static Mesh FlatTop(float size, float z = 0) => FlatTop(0, 0, size, z);
+
+		public static Mesh FlatTop(float x, float y, float size, float z = 0) {
 			if (size <= 0) { throw new ArgumentException("Size cannot be equal to or below 0"); }
 
-			float r = size / 2f, r2 = r / 2f, r3 = r * HalfSqrt3;
+			float r = size / 2f, r2 = r / 2f, r3 = r * MathH.HalfSqrt3;
 
 			//@formatter:off
 			return new(new[] {
@@ -158,10 +172,12 @@ namespace USharpLibs.Engine.Client.GL.Shapes2D {
 			//@formatter:on
 		}
 
-		public static Mesh PointyTop(float x, float y, float size, float z) { // TODO figure out how to texture this
+		public static Mesh PointyTop(float size, float z = 0) => PointyTop(0, 0, size, z);
+
+		public static Mesh PointyTop(float x, float y, float size, float z = 0) {
 			if (size <= 0) { throw new ArgumentException("Size cannot be equal to or below 0"); }
 
-			float r = size / 2f, r2 = r / 2f, r3 = r * HalfSqrt3;
+			float r = size / 2f, r2 = r / 2f, r3 = r * MathH.HalfSqrt3;
 
 			//@formatter:off
 			return new(new[] {
