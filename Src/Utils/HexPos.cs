@@ -6,6 +6,15 @@ namespace USharpLibs.Engine.Utils {
 	public readonly struct HexPos : IEquatable<HexPos> {
 		public static HexPos Identity { get; } = new();
 
+		public static HexPos East { get; } = new(1, 0, -1);
+		public static HexPos NorthEast { get; } = new(1, -1, 0);
+		public static HexPos NorthWest { get; } = new(0, -1, 1);
+		public static HexPos West { get; } = new(-1, 0, 1);
+		public static HexPos SouthWest { get; } = new(-1, 1, 0);
+		public static HexPos SouthEast { get; } = new(0, 1, -1);
+
+		public static HexPos[] Directions { get; } = { East, NorthEast, NorthWest, West, SouthWest, SouthEast, };
+
 		public int Q { get; } = 0;
 		public int R { get; } = 0;
 		public int S { get; } = 0;
