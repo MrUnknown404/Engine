@@ -3,6 +3,7 @@ using OpenTK.Graphics.OpenGL4;
 using USharpLibs.Common.Utils;
 
 namespace USharpLibs.Engine.Client.GL.Models {
+	[PublicAPI]
 	public abstract class Model {
 		protected BufferUsageHint BufferHint { get; }
 
@@ -11,7 +12,7 @@ namespace USharpLibs.Engine.Client.GL.Models {
 		protected int EBO { get; set; }
 		public bool WasSetup { get; protected set; }
 
-		internal Model(BufferUsageHint bufferHint) => BufferHint = bufferHint;
+		protected Model(BufferUsageHint bufferHint) => BufferHint = bufferHint;
 
 		public void SetupGL() {
 			if (GameEngine.LoadState < LoadState.SetupGL) { throw new Exception("Cannot setup a model's GL code too early!"); }
@@ -32,13 +33,5 @@ namespace USharpLibs.Engine.Client.GL.Models {
 
 		protected abstract void ISetupGL();
 		protected abstract void IDraw();
-	}
-
-	[PublicAPI]
-	public abstract class Model<T> : Model where T : Model {
-		protected Model(BufferUsageHint bufferHint) : base(bufferHint) { }
-
-		public abstract T SetMesh(Mesh mesh, params Mesh[] meshes);
-		public abstract T SetMesh(List<Mesh> meshes);
 	}
 }

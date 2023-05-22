@@ -5,33 +5,22 @@ using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
 namespace USharpLibs.Engine.Client.GL.Models {
 	[PublicAPI]
-	public class DynamicModel : Model {
+	public class KeyedModel<K> : Model where K : notnull {
 		protected bool IsDirty;
 
-		protected List<Mesh> Meshes { get; } = new();
+		protected Dictionary<K, Mesh> Meshes { get; } = new();
 		protected int IndicesLength;
 
-		public DynamicModel(BufferUsageHint bufferHint) : base(bufferHint) { }
+		public KeyedModel(BufferUsageHint bufferHint) : base(bufferHint) { }
 
-		public DynamicModel SetMesh(Mesh mesh, params Mesh[] meshes) {
-			ClearModelData();
-			return AddMesh(mesh, meshes);
-		}
-
-		public DynamicModel SetMesh(List<Mesh> meshes) {
-			ClearModelData();
-			return AddMesh(meshes);
-		}
-
-		public DynamicModel AddMesh(Mesh mesh, params Mesh[] meshes) {
-			Meshes.Add(mesh);
-			Meshes.AddRange(meshes);
+		public KeyedModel<K> AddMesh(in K key, Mesh mesh) {
+			Meshes[key] = mesh;
 			IsDirty = true;
 			return this;
 		}
 
-		public DynamicModel AddMesh(List<Mesh> meshes) {
-			Meshes.AddRange(meshes);
+		public KeyedModel<K> RemoveMesh(in K key) {
+			Meshes.Remove(key);
 			IsDirty = true;
 			return this;
 		}
@@ -62,7 +51,7 @@ namespace USharpLibs.Engine.Client.GL.Models {
 				List<uint> indices = new();
 				uint indexOffset = 0;
 
-				foreach (Mesh part in Meshes) {
+				foreach (Mesh part in Meshes.Values) {
 					vertices.AddRange(part.Vertices);
 
 					uint highestIndex = 0;

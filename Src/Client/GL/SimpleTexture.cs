@@ -6,16 +6,20 @@ using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 namespace USharpLibs.Engine.Client.GL {
 	[PublicAPI]
 	public class SimpleTexture : Texture {
+		public ColorComponents ColorComponent { get; init; } = ColorComponents.RedGreenBlueAlpha;
+		public PixelInternalFormat PixelInternalFormat { get; init; } = PixelInternalFormat.Rgba;
+		public PixelFormat PixelFormat { get; init; } = PixelFormat.Rgba;
+
 		protected string? Name { get; }
-		protected IntPtr Data { get; }
+		protected byte[]? Data { get; }
 		public int Width { get; }
 		public int Height { get; }
 
 		public SimpleTexture(string name, TextureMinFilter minFilter, TextureMagFilter magFilter, TextureWrapMode wrapMode = TextureWrapMode.Repeat, bool genMipMap = true) : base(minFilter, magFilter, wrapMode, genMipMap) =>
 				Name = name;
 
-		public SimpleTexture(IntPtr data, int width, int height, TextureMinFilter minFilter, TextureMagFilter magFilter, TextureWrapMode wrapMode = TextureWrapMode.Repeat, bool genMipMap = true) : base(minFilter, magFilter, wrapMode,
-				genMipMap) {
+		public SimpleTexture(byte[] data, int width, int height, TextureMinFilter minFilter, TextureMagFilter magFilter, TextureWrapMode wrapMode = TextureWrapMode.Repeat, bool genMipMap = true) : base(minFilter, magFilter,
+				wrapMode, genMipMap) {
 			Data = data;
 			Width = width;
 			Height = height;
@@ -31,11 +35,13 @@ namespace USharpLibs.Engine.Client.GL {
 				if (GameEngine.InstanceAssembly.Value.GetManifestResourceStream(streamName) is Stream stream) {
 					using (stream) {
 						StbImage.stbi_set_flip_vertically_on_load(1);
-						ImageResult image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
-						OpenGL4.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, image.Width, image.Height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, image.Data);
+						ImageResult image = ImageResult.FromStream(stream, ColorComponent);
+						OpenGL4.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat, image.Width, image.Height, 0, PixelFormat, PixelType.UnsignedByte, image.Data);
 					}
 				} else { throw new Exception($"Could not find file '{Name}' at '{streamName}'"); }
-			} else { OpenGL4.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, Width, Height, 0, PixelFormat.Bgra, PixelType.UnsignedByte, Data); }
+			} else if (Data != null) { OpenGL4.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat, Width, Height, 0, PixelFormat, PixelType.UnsignedByte, Data); } else {
+				throw new Exception("Cannot load texture because no data was given! how'd you do that?");
+			}
 
 			OpenGL4.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)MinFilter);
 			OpenGL4.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)MagFilter);

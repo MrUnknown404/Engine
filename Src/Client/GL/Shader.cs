@@ -85,6 +85,7 @@ namespace USharpLibs.Engine.Client.GL {
 			OpenGL4.UniformMatrix4(UniformLocations[name], datas.Length, flag, ref datas[0].Row0.X);
 		}
 
+		public void SetBool(string name, bool data) => SetData(name, data ? 1 : 0, OpenGL4.Uniform1);
 		public void SetInt(string name, int data) => SetData(name, data, OpenGL4.Uniform1);
 		public void SetFloat(string name, float data) => SetData(name, data, OpenGL4.Uniform1);
 		public void SetVector2(string name, Vector2 data) => SetData(name, data, OpenGL4.Uniform2);
