@@ -6,14 +6,22 @@ namespace USharpLibs.Engine.Utils {
 	public readonly struct HexPos : IEquatable<HexPos> {
 		public static HexPos Identity { get; } = new();
 
-		public static HexPos East { get; } = new(1, 0, -1);
-		public static HexPos NorthEast { get; } = new(1, -1, 0);
-		public static HexPos NorthWest { get; } = new(0, -1, 1);
-		public static HexPos West { get; } = new(-1, 0, 1);
-		public static HexPos SouthWest { get; } = new(-1, 1, 0);
-		public static HexPos SouthEast { get; } = new(0, 1, -1);
+		public static HexPos FlatNorth { get; } = new(0, -1, 1);
+		public static HexPos FlatNorthEast { get; } = new(1, -1, 0);
+		public static HexPos FlatSouthEast { get; } = new(1, 0, -1);
+		public static HexPos FlatSouth { get; } = new(0, 1, -1);
+		public static HexPos FlatSouthWest { get; } = new(-1, 1, 0);
+		public static HexPos FlatNorthWest { get; } = new(-1, 0, 1);
 
-		public static HexPos[] Directions { get; } = { East, NorthEast, NorthWest, West, SouthWest, SouthEast, };
+		public static HexPos PointyEast { get; } = new(1, 0, -1);
+		public static HexPos PointyNorthEast { get; } = new(1, -1, 0);
+		public static HexPos PointyNorthWest { get; } = new(0, -1, 1);
+		public static HexPos PointyWest { get; } = new(-1, 0, 1);
+		public static HexPos PointySouthWest { get; } = new(-1, 1, 0);
+		public static HexPos PointySouthEast { get; } = new(0, 1, -1);
+
+		public static HexPos[] PointyDirections { get; } = { PointyEast, PointyNorthEast, PointyNorthWest, PointyWest, PointySouthWest, PointySouthEast, };
+		public static HexPos[] FlatDirections { get; } = { FlatNorth, FlatNorthEast, FlatSouthEast, FlatSouth, FlatSouthWest, FlatNorthWest, };
 
 		public int Q { get; } = 0;
 		public int R { get; } = 0;

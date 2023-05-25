@@ -7,12 +7,15 @@ namespace USharpLibs.Engine.Client.GL.Models {
 	public abstract class Model {
 		protected BufferUsageHint BufferHint { get; }
 
-		public int VAO { get; protected set; } // TODO remove public access. protected internal
+		protected internal int VAO { get; set; }
 		protected int VBO { get; set; }
 		protected int EBO { get; set; }
 		public bool WasSetup { get; protected set; }
 
 		protected Model(BufferUsageHint bufferHint) => BufferHint = bufferHint;
+
+		/// <summary> This method can be dangerous so should be avoided unless you know what you're doing! </summary>
+		public void ForceSetupGL(bool doYouKnowWhatYouAreDoing) => ISetupGL();
 
 		public void SetupGL() {
 			if (GameEngine.LoadState < LoadState.SetupGL) { throw new Exception("Cannot setup a model's GL code too early!"); }
