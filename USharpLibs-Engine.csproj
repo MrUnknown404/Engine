@@ -3,7 +3,6 @@
 		<TargetFramework>net6.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<NoWarn>SA0001</NoWarn>
 		<OutputType>Library</OutputType>
 		<RootNamespace>USharpLibs.Engine</RootNamespace>
 		<AssemblyName>USharpLibs.Engine</AssemblyName>
