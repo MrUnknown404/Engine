@@ -8,12 +8,124 @@ namespace USharpLibs.Engine.Client.GL.Shapes2D {
 	// TODO document this
 	[PublicAPI]
 	public static class Hexagons {
+		public static Mesh HollowFlatTopSideWithCorner(FlatHexagonDirection side, float size, float thickness, float z = 0) => HollowFlatTopSideWithCorner(side, 0, 0, size, thickness, z);
+
+		public static Mesh HollowFlatTopSideWithCorner(FlatHexagonDirection side, float x, float y, float size, float thickness, float z = 0) {
+			if (size <= 0) { throw new ArgumentException("Size cannot be equal to or below 0"); } else if (thickness <= 0) { throw new ArgumentException("Thickness cannot be equal to or below 0"); }
+			float r = size / 2f, r2 = r / 2f, r3 = r * MathH.HalfSqrt3;
+			float ir = (size - thickness * 2) / 2f, ir2 = ir / 2f, ir3 = ir * MathH.HalfSqrt3;
+			float xOff = -ir2 + r2, yOff = xOff * 2 * MathH.HalfSqrt3;
+			r3 = -r3;
+			ir3 = -ir3;
+
+			//@formatter:off
+			float[] vertices = side switch {
+					FlatHexagonDirection.North => new[] {
+							x + r2,        y + r3,  z, 0, 0,
+							x - r2,        y + r3,  z, 0, 0,
+							x + r2 + xOff, y + ir3, z, 0, 0,
+							x - r2 - xOff, y + ir3, z, 0, 0,
+					},
+					FlatHexagonDirection.NorthEast => new[] {
+							x + r,          y,              z, 0, 0,
+							x + r2,         y + r3,         z, 0, 0,
+							x + ir + xOff,  y + yOff,       z, 0, 0,
+							x + ir2 - xOff, y + ir3 - yOff, z, 0, 0,
+					},
+					FlatHexagonDirection.SouthEast => new[] {
+							x + r2,         y - r3,         z, 0, 0,
+							x + r,          y,              z, 0, 0,
+							x + ir2 - xOff, y - ir3 + yOff, z, 0, 0,
+							x + ir + xOff,  y - yOff,       z, 0, 0,
+					},
+					FlatHexagonDirection.South => new[] {
+							x - r2,        y - r3,  z, 0, 0,
+							x + r2,        y - r3,  z, 0, 0,
+							x - r2 - xOff, y - ir3, z, 0, 0,
+					 		x + r2 + xOff, y - ir3, z, 0, 0,
+					},
+					FlatHexagonDirection.SouthWest => new[] {
+							x - r,          y,              z, 0, 0,
+					 		x - r2,         y - r3,         z, 0, 0,
+							x - ir - xOff,  y - yOff,       z, 0, 0,
+							x - ir2 + xOff, y - ir3 + yOff, z, 0, 0,
+					},
+					FlatHexagonDirection.NorthWest => new[] {
+							x - r2,         y + r3,          z, 0, 0,
+							x - r,          y,               z, 0, 0,
+							x - ir2 + xOff, y + ir3 - yOff , z, 0, 0,
+							x - ir - xOff,  y + yOff,        z, 0, 0,
+					},
+					_ => throw new ArgumentOutOfRangeException(nameof(side), side, null),
+			};
+			//@formatter:on
+
+			return new(vertices, new uint[] { 0, 1, 2, 1, 3, 2, });
+		}
+
+		public static Mesh HollowPointyTopSideWithCorner(PointyHexagonDirection side, float size, float thickness, float z = 0) => HollowPointyTopSideWithCorner(side, 0, 0, size, thickness, z);
+
+		public static Mesh HollowPointyTopSideWithCorner(PointyHexagonDirection side, float x, float y, float size, float thickness, float z = 0) {
+			if (size <= 0) { throw new ArgumentException("Size cannot be equal to or below 0"); } else if (thickness <= 0) { throw new ArgumentException("Thickness cannot be equal to or below 0"); }
+			float r = size / 2f, r2 = r / 2f, r3 = r * MathH.HalfSqrt3;
+			float ir = (size - thickness * 2) / 2f, ir2 = ir / 2f, ir3 = ir * MathH.HalfSqrt3;
+			float yOff = -ir2 + r2, xOff = yOff * 2 * MathH.HalfSqrt3;
+			r = -r;
+			r2 = -r2;
+			ir = -ir;
+			ir2 = -ir2;
+
+			//@formatter:off
+			float[] vertices = side switch {
+					PointyHexagonDirection.East => new[] {
+							x + r3,  y - r2,        z, 0, 0,
+							x + r3,  y + r2,        z, 0, 0,
+							x + ir3, y - r2 + yOff, z, 0, 0,
+							x + ir3, y + r2 - yOff, z, 0, 0,
+					},
+					PointyHexagonDirection.NorthEast => new[] {
+							x + r3,         y + r2,         z, 0, 0,
+							x,              y + r,          z, 0, 0,
+							x + ir3 + xOff, y + ir2 + yOff, z, 0, 0,
+							x - xOff,       y + ir - yOff,  z, 0, 0,
+					},
+					PointyHexagonDirection.NorthWest => new[] {
+							x,             y + r,          z, 0, 0,
+			 				x - r3,        y + r2,         z, 0, 0,
+							x + xOff,      y + ir - yOff,  z, 0, 0,
+							x - xOff- ir3, y + ir2 + yOff, z, 0, 0,
+					},
+					PointyHexagonDirection.West => new[] {
+							x - r3,  y + r2,        z, 0, 0,
+							x - r3,  y - r2,        z, 0, 0,
+							x - ir3, y + r2 - yOff, z, 0, 0,
+							x - ir3, y - r2 + yOff, z, 0, 0,
+					},
+					PointyHexagonDirection.SouthWest => new[] {
+							x - r3,         y - r2,         z, 0, 0,
+							x,              y - r,          z, 0, 0,
+							x - ir3 - xOff, y - ir2 - yOff, z, 0, 0,
+							x + xOff,       y - ir + yOff,  z, 0, 0,
+					},
+					PointyHexagonDirection.SouthEast => new[] {
+							x,              y - r,           z, 0, 0,
+							x + r3,         y - r2,          z, 0, 0,
+							x - xOff,       y - ir + yOff,   z, 0, 0,
+							x + ir3 + xOff, y - ir2 -  yOff, z, 0, 0,
+					},
+					_ => throw new ArgumentOutOfRangeException(nameof(side), side, null),
+			};
+			//@formatter:on
+
+			return new(vertices, new uint[] { 0, 1, 2, 1, 3, 2, });
+		}
+
 		public static Mesh HollowFlatTopSide(FlatHexagonDirection side, float size, float thickness, float z = 0) => HollowFlatTopSide(side, 0, 0, size, thickness, z);
 
 		public static Mesh HollowFlatTopSide(FlatHexagonDirection side, float x, float y, float size, float thickness, float z = 0) {
 			if (size <= 0) { throw new ArgumentException("Size cannot be equal to or below 0"); } else if (thickness <= 0) { throw new ArgumentException("Thickness cannot be equal to or below 0"); }
 			float r = size / 2f, r2 = r / 2f, r3 = r * MathH.HalfSqrt3;
-			float ir = (size - thickness) / 2f, ir2 = ir / 2f, ir3 = ir * MathH.HalfSqrt3;
+			float ir = (size - thickness * 2) / 2f, ir2 = ir / 2f, ir3 = ir * MathH.HalfSqrt3;
 			r3 = -r3;
 			ir3 = -ir3;
 
@@ -67,7 +179,7 @@ namespace USharpLibs.Engine.Client.GL.Shapes2D {
 		public static Mesh HollowPointyTopSide(PointyHexagonDirection side, float x, float y, float size, float thickness, float z = 0) {
 			if (size <= 0) { throw new ArgumentException("Size cannot be equal to or below 0"); } else if (thickness <= 0) { throw new ArgumentException("Thickness cannot be equal to or below 0"); }
 			float r = size / 2f, r2 = r / 2f, r3 = r * MathH.HalfSqrt3;
-			float ir = (size - thickness) / 2f, ir2 = ir / 2f, ir3 = ir * MathH.HalfSqrt3;
+			float ir = (size - thickness * 2) / 2f, ir2 = ir / 2f, ir3 = ir * MathH.HalfSqrt3;
 			r = -r;
 			r2 = -r2;
 			ir = -ir;
@@ -124,7 +236,7 @@ namespace USharpLibs.Engine.Client.GL.Shapes2D {
 			if (size <= 0) { throw new ArgumentException("Size cannot be equal to or below 0"); } else if (thickness <= 0) { throw new ArgumentException("Thickness cannot be equal to or below 0"); }
 
 			float r = size / 2f, r2 = r / 2f, r3 = r * MathH.HalfSqrt3;
-			float ir = (size - thickness) / 2f, ir2 = ir / 2f, ir3 = ir * MathH.HalfSqrt3;
+			float ir = (size - thickness * 2) / 2f, ir2 = ir / 2f, ir3 = ir * MathH.HalfSqrt3;
 			r3 = -r3;
 			ir3 = -ir3;
 
@@ -152,7 +264,7 @@ namespace USharpLibs.Engine.Client.GL.Shapes2D {
 		public static Mesh HollowPointyTop(float x, float y, float size, float thickness, float z = 0) {
 			if (size <= 0) { throw new ArgumentException("Size cannot be equal to or below 0"); } else if (thickness <= 0) { throw new ArgumentException("Thickness cannot be equal to or below 0"); }
 			float r = size / 2f, r2 = r / 2f, r3 = r * MathH.HalfSqrt3;
-			float ir = (size - thickness) / 2f, ir2 = ir / 2f, ir3 = ir * MathH.HalfSqrt3;
+			float ir = (size - thickness * 2) / 2f, ir2 = ir / 2f, ir3 = ir * MathH.HalfSqrt3;
 			r = -r;
 			r2 = -r2;
 			ir = -ir;
