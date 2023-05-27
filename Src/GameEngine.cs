@@ -6,6 +6,7 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using USharpLibs.Common.Utils;
 using USharpLibs.Engine.Client;
+using USharpLibs.Engine.Client.Fonts;
 using USharpLibs.Engine.Client.GL;
 using USharpLibs.Engine.Client.UI;
 using USharpLibs.Engine.Init;
