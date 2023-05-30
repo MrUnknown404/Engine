@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using FreeTypeSharp;
 using FreeTypeSharp.Native;
+using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 using USharpLibs.Common.Utils;
 using USharpLibs.Engine.Client.GL;
@@ -9,19 +10,22 @@ using USharpLibs.Engine.Client.GL.Models;
 using USharpLibs.Engine.Client.GL.Shapes2D;
 
 namespace USharpLibs.Engine.Client.Fonts {
-	public sealed class OutlineableFont : RawFont {
+	[PublicAPI]
+	public sealed class FontTTF : RawFont {
 		private const byte AtlasGridSize = 10;
 
 		public Assembly? AssemblyOverride { get; init; }
 
+		public string Name { get; }
+		public byte FontSize { get; }
+		public byte Padding { get; }
+
 		private Dictionary<char, Glyph> GlyphMap { get; } = new();
-		private FreeTypeFaceFacade fontFacade = default!;
-		private string Name { get; }
-		private byte FontSize { get; }
-		private byte Padding { get; }
+		private FreeTypeFaceFacade? fontFacade;
+
 		private ushort biggestGlyph, spaceSize;
 
-		public OutlineableFont(string name, byte fontSize, byte padding) {
+		public FontTTF(string name, byte fontSize, byte padding) {
 			Name = name;
 			FontSize = fontSize;
 			Padding = padding;
@@ -105,13 +109,18 @@ namespace USharpLibs.Engine.Client.Fonts {
 			return FontTexture = new SimpleTexture(finalImage, imageSize, imageSize, TextureMinFilter.Linear, TextureMagFilter.Linear) { PixelFormat = PixelFormat.Red, PixelInternalFormat = PixelInternalFormat.R8, };
 		}
 
-		public List<Mesh> GetOutlineMesh(string text, float z = 0) {
+		public List<Mesh> GetMesh(string text, float sizeOffset, float z = 0) {
+			if (sizeOffset > Padding) {
+				Logger.Warn($"SizeOffset cannot be above Padding ({Padding}). Was {sizeOffset}. Clamping to Padding...");
+				sizeOffset = Padding;
+			}
+
 			List<Mesh> meshes = new();
 
 			float x = 0;
 			float y = 0; // TODO setup wordwrap
 
-			float offset = Padding / 2f;
+			float offset = sizeOffset / 2f;
 			float uvoffset = offset / ((SimpleTexture)FontTexture).Width; // Only works because AtlasGridSize is hardcoded to be square
 
 			foreach (char c in text) {
@@ -130,25 +139,19 @@ namespace USharpLibs.Engine.Client.Fonts {
 			return meshes;
 		}
 
-		public List<Mesh> GetMesh(string text, float z = 0) {
-			List<Mesh> meshes = new();
-
-			float x = 0;
-			float y = 0; // TODO setup wordwrap
+		public float GetWidth(string text) {
+			float curX = 0;
 
 			foreach (char c in text) {
 				if (c == ' ') {
-					x += spaceSize;
+					curX += spaceSize;
 					continue;
 				}
 
-				Glyph glyph = GlyphMap[c];
-				meshes.Add(Quads.WH(x + glyph.BearingX, y + glyph.BearingY + (biggestGlyph - glyph.Height), glyph.Width, glyph.Height, z, glyph.U0, glyph.V0, glyph.U1, glyph.V1));
-
-				x += glyph.Advance;
+				curX += GlyphMap[c].Advance;
 			}
 
-			return meshes;
+			return curX;
 		}
 	}
 }
