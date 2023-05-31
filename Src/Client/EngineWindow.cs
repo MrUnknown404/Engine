@@ -12,7 +12,7 @@ namespace USharpLibs.Engine.Client {
 		private uint frameCounter, tickCounter;
 		private double frameTimeCounter, tickTimeCounter;
 
-		public EngineWindow(GameEngine client) : base(GameWindowSettings.Default,
+		internal EngineWindow(GameEngine client) : base(GameWindowSettings.Default,
 				new NativeWindowSettings {
 						MinimumSize = new(client.MinWidth, client.MinHeight),
 						MaximumSize = client.MaxWidth == 0 || client.MaxHeight == 0 ? null : new(client.MaxWidth, client.MaxHeight),

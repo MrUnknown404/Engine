@@ -16,56 +16,92 @@ namespace USharpLibs.Engine {
 	public abstract class GameEngine {
 		private static GameEngine instance = default!;
 
+		/// <typeparam name="T"> The <see cref="Type"/> of your program. </typeparam>
+		/// <returns> The instance of your program. </returns>
 		protected static T Instance<T>() where T : GameEngine => (T)instance;
+
 		private static Lazy<Type> InstanceType { get; } = new(() => instance.GetType());
+		/// <summary> A <see cref="Lazy{T}"/> access to the instance's assembly. </summary>
 		public static Lazy<Assembly> InstanceAssembly { get; } = new(() => Assembly.GetAssembly(InstanceType.Value) ?? throw new Exception("Assembly cannot be found."));
+		/// <summary> A <see cref="Lazy{T}"/> access to USharpEngine's assembly. </summary>
 		public static Lazy<Assembly> USharpEngineAssembly { get; } = new(() => Assembly.GetAssembly(typeof(GameEngine)) ?? throw new Exception("Assembly cannot be found."));
 
-		protected internal event Action<EngineWindow>? WindowCreationEvent;
-		protected internal event Action<WindowState>? FullscreenToggleEvent;
-		protected internal event Func<HashSet<IUnboundShader>>? ShaderCreationEvent;
-		protected internal event Func<HashSet<RawFont>>? FontCreationEvent;
-		protected internal event Func<HashSet<Texture>>? TextureCreationEvent;
-		protected internal event Func<HashSet<Screen>>? ScreenCreationEvent;
+		/// <summary> Called after fullscreen mode has been toggled. </summary>
+		protected event Action<WindowState>? FullscreenToggleEvent;
+		/// <summary> Called when the program is ready for shader creation. The return value is all of your program's shaders. </summary>
+		protected event Func<HashSet<IUnboundShader>>? ShaderCreationEvent;
+		/// <summary> Called when the program is ready for font creation. The return value is all of your program's fonts. </summary>
+		protected event Func<HashSet<RawFont>>? FontCreationEvent;
+		/// <summary> Called when the program is ready for texture creation. The return value is all of your program's textures. </summary>
+		protected event Func<HashSet<Texture>>? TextureCreationEvent;
+		/// <summary> Called when the program is ready for screen creation. The return value is all of your program's screens. </summary>
+		protected event Func<HashSet<Screen>>? ScreenCreationEvent;
 
-		protected internal event Action? OnSetupLoadingScreenEvent;
-		protected internal event Action? OnClosingEvent;
+		/// <summary> Called after the OpenGL window has been created. </summary>
+		protected event Action<EngineWindow>? WindowCreationEvent;
+		/// <summary> Called before <see cref="SetupGL"/> but after OpenGL has been initialized. </summary>
+		protected event Action? OnSetupLoadingScreenEvent;
+		/// <summary> Called before the program is closed by the user. </summary>
+		protected event Action? OnClosingEvent;
+		/// <summary> Called after fonts have finished being setup. </summary>
 		protected event Action? OnFontsFinishedEvent;
+		/// <summary> Called after textures have finished being setup. </summary>
 		protected event Action? OnTexturesFinishedEvent;
+		/// <summary> Called after shaders have finished being setup. </summary>
 		protected event Action? OnShadersFinishedEvent;
+		/// <summary> Called after screens have finished being setup. </summary>
 		protected event Action? OnScreensFinishedEvent;
+		/// <summary> Called after renderers have finished being setup. </summary>
 		protected event Action? OnRenderersFinishedEvent;
+		/// <summary> Called after all setup has finished and the program is ready. </summary>
 		protected event Action? OnSetupFinishedEvent;
 
+		/// <summary> Called when a key has been pressed. </summary>
 		protected internal event Action<KeyboardKeyEventArgs>? OnKeyPressEvent;
+		/// <summary> Called when a key has been released. </summary>
 		protected internal event Action<KeyboardKeyEventArgs>? OnKeyReleaseEvent;
+		/// <summary> Called when the mouse has been moved. </summary>
 		protected internal event Action<MouseMoveEventArgs>? OnMouseMoveEvent;
+		/// <summary> Called when a mouse button has been pressed. </summary>
 		protected internal event Action<MouseButtonEventArgs>? OnMousePressEvent;
+		/// <summary> Called when a mouse button has been released. </summary>
 		protected internal event Action<MouseButtonEventArgs>? OnMouseReleaseEvent;
+		/// <summary> Called when the scroll wheel has been moved. </summary>
 		protected internal event Action<MouseWheelEventArgs>? OnMouseScrollEvent;
 
 		private static EngineWindow Window { get; set; } = default!;
-		public static LoadState LoadState { get; protected internal set; } = LoadState.NotStarted;
+		/// <summary> The current load state of the program. <seealso cref="LoadState"/> </summary>
+		public static LoadState LoadState { get; internal set; } = LoadState.NotStarted;
+		/// <summary> Whether or not the program is in Debug mode. </summary>
 		public static bool IsDebug { get; protected set; }
+		/// <summary> Whether or not a close has been requested. </summary>
 		public static bool CloseRequested { get; internal set; } // I don't like this but GameWindow#IsExiting doesn't seem to work sometimes
+		/// <summary> The current Screen <seealso cref="Screen"/> </summary>
 		public static Screen? CurrentScreen { get; set; }
 
 		internal static uint RawFPS, RawTPS;
 		internal static double RawFrameFrequency, RawTickFrequency;
 
+		/// <summary> The current FPS. </summary>
 		public static uint FPS => RawFPS;
+		/// <summary> The Current TPS. </summary>
 		public static uint TPS => RawTPS;
+		/// <summary> The amount of time since the last frame draw in milliseconds. </summary>
 		public static double FrameFrequency => RawFrameFrequency;
+		/// <summary> The amount of time since the last tick in milliseconds. </summary>
 		public static double TickFrequency => RawTickFrequency;
 
 		private List<IRenderer> Renderers { get; } = new();
 		private HashSet<Screen> Screens { get; } = new();
 
+		/// <summary> The original title given in the constructor. <seealso cref="GameEngine(string, ushort, ushort, ushort, ushort, bool)"/> </summary>
 		public string OriginalTitle { get; }
 		protected internal bool ShouldScreenCheckCancelMouseEvent { get; set; } = true;
 		protected ushort MaxAmountOfLogs { private get; set; } = 5;
 
+		/// <summary> The mouse's current X coordinate. </summary>
 		public static ushort MouseX { get; set; }
+		/// <summary> The mouse's current Y coordinate. </summary>
 		public static ushort MouseY { get; set; }
 
 		private string title;
@@ -74,6 +110,7 @@ namespace USharpLibs.Engine {
 		private ushort maxWidth;
 		private ushort maxHeight;
 
+		/// <summary> The program's current title. <remarks> Changes will be automatically reflected into OpenGL. </remarks> </summary>
 		public string Title {
 			get => title;
 			protected set {
@@ -82,6 +119,7 @@ namespace USharpLibs.Engine {
 			}
 		}
 
+		/// <summary> The program's current minimum window width. <remarks> Changes will be automatically reflected into OpenGL. </remarks> </summary>
 		public ushort MinWidth {
 			get => minWidth;
 			protected set {
@@ -90,6 +128,7 @@ namespace USharpLibs.Engine {
 			}
 		}
 
+		/// <summary> The program's current minimum window height. <remarks> Changes will be automatically reflected into OpenGL. </remarks> </summary>
 		public ushort MinHeight {
 			get => minHeight;
 			protected set {
@@ -98,6 +137,7 @@ namespace USharpLibs.Engine {
 			}
 		}
 
+		/// <summary> The program's current maximum window width. <remarks> Changes will be automatically reflected into OpenGL. </remarks> </summary>
 		public ushort MaxWidth {
 			get => maxWidth;
 			protected set {
@@ -106,6 +146,7 @@ namespace USharpLibs.Engine {
 			}
 		}
 
+		/// <summary> The program's current maximum window height. <remarks> Changes will be automatically reflected into OpenGL. </remarks> </summary>
 		public ushort MaxHeight {
 			get => maxHeight;
 			protected set {
@@ -114,7 +155,9 @@ namespace USharpLibs.Engine {
 			}
 		}
 
+		/// <summary> The program's current window width </summary>
 		public static ushort Width => (ushort)Window.Size.X;
+		/// <summary> The program's current window height </summary>
 		public static ushort Height => (ushort)Window.Size.Y;
 
 		protected GameEngine(string title, ushort minWidth, ushort minHeight, ushort maxWidth, ushort maxHeight, bool isDebug = false) {
@@ -141,6 +184,10 @@ namespace USharpLibs.Engine {
 		protected GameEngine(string title, ushort minWidth, ushort minHeight, bool isDebug = false) : this(title, minWidth, minHeight, 0, 0, isDebug) { }
 		protected GameEngine(string title, bool isDebug = false) : this(title, 856, 482, 0, 0, isDebug) { }
 
+		/// <summary> This method will start all the behind the scenes logic. </summary>
+		/// <remarks> This should be called only once at the start of your main method. Example below. </remarks>
+		/// <example> <code> private static void Main() => Start(new Program()); </code> </example>
+		/// <param name="instance"> The instance of your program. This will be stored for your later use automatically. See <see cref="Instance{T}()"/> </param>
 		public static void Start(GameEngine instance) {
 			LoadState = LoadState.PreInit;
 			using (Window = new(GameEngine.instance = instance)) {
@@ -169,6 +216,7 @@ namespace USharpLibs.Engine {
 		internal void InvokeOnMouseReleaseEvent(MouseButtonEventArgs e) => OnMouseReleaseEvent?.Invoke(e);
 		internal void InvokeOnMouseScrollEvent(MouseWheelEventArgs e) => OnMouseScrollEvent?.Invoke(e);
 
+		/// <summary> Called before OpenGL has been initialized but after the constructor. </summary>
 		protected virtual void Init() { }
 
 		internal static void CreateGL() {
@@ -180,7 +228,7 @@ namespace USharpLibs.Engine {
 			GLH.EnableCulling();
 		}
 
-		protected internal virtual void SetupGL() {
+		internal void SetupGL() {
 			HashSet<IUnboundShader> shaders = new();
 			HashSet<RawFont> fonts = new();
 			HashSet<Texture> textures = new();
@@ -226,7 +274,12 @@ namespace USharpLibs.Engine {
 			OnRenderersFinishedEvent?.Invoke();
 		}
 
+		/// <summary> Called 60 times a second. </summary>
+		/// <param name="time"> The time since the last tick. </param>
 		public virtual void Tick(double time) { }
+
+		/// <summary> Called every time a frame is requested. </summary>
+		/// <param name="time"> The time since the last frame was drawn. </param>
 		public virtual void Render(double time) => Renderers.ForEach(r => r.Render(time));
 
 		/// <returns> <c>true</c> if mouse event should be canceled. Otherwise <c>false</c>. </returns>
@@ -243,14 +296,17 @@ namespace USharpLibs.Engine {
 			return false;
 		}
 
+		/// <param name="renderers"> The list to append renderers too. </param>
 		protected abstract void AddRenderers(List<IRenderer> renderers);
 
+		/// <summary> Toggles fullscreen. </summary>
 		public void ToggleFullscreen() {
 			Window.WindowState = Window.WindowState == WindowState.Normal ? WindowState.Fullscreen : WindowState.Normal;
 			FullscreenToggleEvent?.Invoke(Window.WindowState);
 		}
 
-		public static void ForceInLoadState(LoadState loadState, Action todo) {
+		/// <summary> Call some code while in a specific load state. <br/> You should probably avoid calling this method since it can be dangerous. <br/> You have been warned. <seealso cref="LoadState"/> </summary>
+		public static void CallWhileInLoadState(LoadState loadState, Action todo) {
 			LoadState old = LoadState;
 			LoadState = loadState;
 			todo();
@@ -258,7 +314,7 @@ namespace USharpLibs.Engine {
 		}
 	}
 
-	public enum LoadState {
+	public enum LoadState : byte {
 		NotStarted = 0,
 		PreInit,
 		Init,
