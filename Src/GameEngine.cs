@@ -1,9 +1,8 @@
-using System.ComponentModel;
 using System.Reflection;
 using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 using USharpLibs.Common.Utils;
 using USharpLibs.Engine.Client;
 using USharpLibs.Engine.Client.Fonts;
@@ -29,9 +28,25 @@ namespace USharpLibs.Engine {
 		protected internal event Func<HashSet<Texture>>? TextureCreationEvent;
 		protected internal event Func<HashSet<Screen>>? ScreenCreationEvent;
 
+		protected internal event Action? OnSetupLoadingScreenEvent;
+		protected internal event Action? OnClosingEvent;
+		protected event Action? OnFontsFinishedEvent;
+		protected event Action? OnTexturesFinishedEvent;
+		protected event Action? OnShadersFinishedEvent;
+		protected event Action? OnScreensFinishedEvent;
+		protected event Action? OnRenderersFinishedEvent;
+		protected event Action? OnSetupFinishedEvent;
+
+		protected internal event Action<KeyboardKeyEventArgs>? OnKeyPressEvent;
+		protected internal event Action<KeyboardKeyEventArgs>? OnKeyReleaseEvent;
+		protected internal event Action<MouseMoveEventArgs>? OnMouseMoveEvent;
+		protected internal event Action<MouseButtonEventArgs>? OnMousePressEvent;
+		protected internal event Action<MouseButtonEventArgs>? OnMouseReleaseEvent;
+		protected internal event Action<MouseWheelEventArgs>? OnMouseScrollEvent;
+
 		private static EngineWindow Window { get; set; } = default!;
 		public static LoadState LoadState { get; protected internal set; } = LoadState.NotStarted;
-		public static bool IsDebug { get; private set; }
+		public static bool IsDebug { get; protected set; }
 		public static bool CloseRequested { get; internal set; } // I don't like this but GameWindow#IsExiting doesn't seem to work sometimes
 		public static Screen? CurrentScreen { get; set; }
 
@@ -47,10 +62,11 @@ namespace USharpLibs.Engine {
 		private HashSet<Screen> Screens { get; } = new();
 
 		public string OriginalTitle { get; }
+		protected internal bool ShouldScreenCheckCancelMouseEvent { get; set; } = true;
 		protected ushort MaxAmountOfLogs { private get; set; } = 5;
 
-		public static ushort MouseX { get; internal set; }
-		public static ushort MouseY { get; internal set; }
+		public static ushort MouseX { get; set; }
+		public static ushort MouseY { get; set; }
 
 		private string title;
 		private ushort minWidth;
@@ -114,6 +130,12 @@ namespace USharpLibs.Engine {
 			Logger.SetupDefaultLogFolder(5, $"Starting Client! Today is: {DateTime.Now:d/M/yyyy HH:mm:ss}");
 
 			ShaderCreationEvent += () => DefaultShaders.AllShaders;
+
+			OnMouseMoveEvent += e => {
+				MouseX = (ushort)MathH.Floor(e.X);
+				MouseY = (ushort)MathH.Floor(e.Y);
+				CurrentScreen?.CheckForHover(MouseX, MouseY);
+			};
 		}
 
 		protected GameEngine(string title, ushort minWidth, ushort minHeight, bool isDebug = false) : this(title, minWidth, minHeight, 0, 0, isDebug) { }
@@ -135,10 +157,19 @@ namespace USharpLibs.Engine {
 			Logger.Info("Goodbye!");
 		}
 
-		internal void OnWindowCreation(EngineWindow window) => WindowCreationEvent?.Invoke(window);
+		internal void InvokeWindowCreationEvent(EngineWindow window) => WindowCreationEvent?.Invoke(window);
+		internal void InvokeOnSetupLoadingScreenEvent() => OnSetupLoadingScreenEvent?.Invoke();
+		internal void InvokeOnSetupFinishEvent() => OnSetupFinishedEvent?.Invoke();
+		internal void InvokeOnClosingEvent() => OnClosingEvent?.Invoke();
+
+		internal void InvokeOnKeyPressEvent(KeyboardKeyEventArgs e) => OnKeyPressEvent?.Invoke(e);
+		internal void InvokeOnKeyReleaseEvent(KeyboardKeyEventArgs e) => OnKeyReleaseEvent?.Invoke(e);
+		internal void InvokeOnMouseMoveEvent(MouseMoveEventArgs e) => OnMouseMoveEvent?.Invoke(e);
+		internal void InvokeOnMousePressEvent(MouseButtonEventArgs e) => OnMousePressEvent?.Invoke(e);
+		internal void InvokeOnMouseReleaseEvent(MouseButtonEventArgs e) => OnMouseReleaseEvent?.Invoke(e);
+		internal void InvokeOnMouseScrollEvent(MouseWheelEventArgs e) => OnMouseScrollEvent?.Invoke(e);
 
 		protected virtual void Init() { }
-		protected internal virtual void OnSetupFinished() { }
 
 		internal static void CreateGL() {
 			Logger.Info($"Setting up OpenGL! Running OpenGL version: {OpenGL4.GetString(StringName.Version)}");
@@ -178,29 +209,41 @@ namespace USharpLibs.Engine {
 					});
 
 			if (fonts.Count != 0) { Logger.Debug($"Setting up {fonts.Count} fonts took {TimeH.Time(Fonts).Milliseconds}ms"); }
+			OnFontsFinishedEvent?.Invoke();
+
+			// Java lets me do this nicer ): `Class::Method`
 			if (textures.Count != 0) { Logger.Debug($"Setting up {textures.Count} textures took {TimeH.Time(() => textures.ForEach(t => t.SetupGL())).Milliseconds}ms"); }
+			OnTexturesFinishedEvent?.Invoke();
+
 			if (shaders.Count != 0) { Logger.Debug($"Setting up {shaders.Count} shaders took {TimeH.Time(Shaders).Milliseconds}ms"); }
+			OnShadersFinishedEvent?.Invoke();
+
 			if (Screens.Count != 0) { Logger.Debug($"Setting up {Screens.Count} screens took {TimeH.Time(() => Screens.ForEach(r => r.SetupGL())).Milliseconds}ms"); }
+			OnScreensFinishedEvent?.Invoke();
 
 			AddRenderers(Renderers);
 			if (Renderers.Count != 0) { Logger.Debug($"Setting up {Renderers.Count} renderers took {TimeH.Time(() => Renderers.ForEach(r => r.SetupGL())).Milliseconds}ms"); }
+			OnRenderersFinishedEvent?.Invoke();
 		}
 
 		public virtual void Tick(double time) { }
 		public virtual void Render(double time) => Renderers.ForEach(r => r.Render(time));
 
-		protected internal virtual void SetupLoadingScreen() { }
-		protected internal virtual void OnResize(ResizeEventArgs e, Vector2i size) => OpenGL4.Viewport(0, 0, size.X, size.Y);
+		/// <returns> <c>true</c> if mouse event should be canceled. Otherwise <c>false</c>. </returns>
+		protected internal virtual bool CheckScreenMouseRelease(MouseButtonEventArgs e) =>
+				e.Button is MouseButton.Left or MouseButton.Right && e.Action != InputAction.Repeat && (CurrentScreen?.CheckForRelease(e.Button, MouseX, MouseY) ?? false);
 
-		protected internal virtual void OnKeyPress(KeyboardKeyEventArgs e) { }
-		protected internal virtual void OnKeyRelease(KeyboardKeyEventArgs e) { }
-		protected internal virtual void OnMouseMove(MouseMoveEventArgs e) { }
-		protected internal virtual void OnMousePress(MouseButtonEventArgs e) { }
-		protected internal virtual void OnMouseRelease(MouseButtonEventArgs e) { }
-		protected internal virtual void OnMouseScroll(MouseWheelEventArgs e) { }
-		protected internal virtual void OnClosing(CancelEventArgs e) { }
+		/// <returns> <c>true</c> if mouse event should be canceled. Otherwise <c>false</c>. </returns>
+		protected internal virtual bool CheckScreenMousePress(MouseButtonEventArgs e) {
+			if (e.Action != InputAction.Repeat) {
+				if (e.Button is MouseButton.Left or MouseButton.Right) { CurrentScreen?.CheckForFocus(MouseX, MouseY); }
+				return CurrentScreen?.CheckForPress(e.Button, MouseX, MouseY) ?? false;
+			}
 
-		protected virtual void AddRenderers(List<IRenderer> renderers) { }
+			return false;
+		}
+
+		protected abstract void AddRenderers(List<IRenderer> renderers);
 
 		public void ToggleFullscreen() {
 			Window.WindowState = Window.WindowState == WindowState.Normal ? WindowState.Fullscreen : WindowState.Normal;

@@ -3,11 +3,12 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 using USharpLibs.Common.Utils;
 using USharpLibs.Engine.Client.GL;
 using USharpLibs.Engine.Client.UI.Elements;
+using USharpLibs.Engine.Init;
 
 namespace USharpLibs.Engine.Client.UI {
 	[PublicAPI]
 	public abstract class Screen {
-		private Dictionary<string, UiElement> Elements { get; } = new();
+		protected Dictionary<string, UiElement> Elements { get; } = new();
 		private HoverableUiElement? currentlyHovered;
 		private FocusableUiElement? currentlyFocused;
 		private ClickableUiElement? currentlyPressed;
@@ -35,37 +36,44 @@ namespace USharpLibs.Engine.Client.UI {
 			foreach (UiElement e in Elements.Values) { e.SetupGL(); }
 		}
 
-		public virtual void Render(ExampleShader shader, double time) {
-			foreach (UiElement e in Elements.Values) {
-				if (e.IsEnabled) {
-					shader.SetVector3("Position", new(e.X, e.Y, e.Z));
-					e.Render(shader, time);
+		public virtual void Render(double time) {
+			GLH.Bind(DefaultShaders.DefaultHud, s => {
+				foreach (UiElement e in Elements.Values) {
+					if (e.IsEnabled) {
+						s.SetVector3("Position", new(e.X, e.Y, e.Z));
+						e.Render(s, time);
+					}
 				}
-			}
 
-			shader.SetVector3("Position", new());
+				s.SetVector3("Position", new());
+			});
 		}
 
-		internal void CheckForPress(MouseButton button, ushort mouseX, ushort mouseY) {
+		internal bool CheckForPress(MouseButton button, ushort mouseX, ushort mouseY) {
 			foreach (UiElement element in Elements.Values) {
 				if (element is ClickableUiElement e && e.CheckForPress(mouseX, mouseY)) {
-					if (e == currentlyPressed) { return; }
+					if (e == currentlyPressed) { return true; }
 
 					if (e.OnPress(button)) {
 						currentlyPressed = e;
-						return;
+						return true;
 					}
 				}
 			}
 
 			currentlyPressed = null;
+			return false;
 		}
 
-		internal void CheckForRelease(MouseButton button, ushort mouseX, ushort mouseY) {
-			if ((currentlyPressed?.CheckForRelease(mouseX, mouseY) ?? false) && (currentlyPressed?.OnRelease(button) ?? false)) { currentlyPressed = null; }
+		internal bool CheckForRelease(MouseButton button, ushort mouseX, ushort mouseY) {
+			if ((currentlyPressed?.CheckForRelease(mouseX, mouseY) ?? false) && (currentlyPressed?.OnRelease(button) ?? false)) {
+				currentlyPressed = null;
+				return true;
+			}
 
 			currentlyPressed?.OnReleaseFailed(button);
 			currentlyPressed = null;
+			return false;
 		}
 
 		internal void CheckForFocus(ushort mouseX, ushort mouseY) {

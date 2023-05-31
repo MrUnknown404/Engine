@@ -2,8 +2,6 @@ using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
-using OpenTK.Windowing.GraphicsLibraryFramework;
-using USharpLibs.Common.Utils;
 using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
 namespace USharpLibs.Engine.Client {
@@ -28,44 +26,32 @@ namespace USharpLibs.Engine.Client {
 				GameEngine.LoadState = LoadState.CreateGL;
 				GameEngine.CreateGL();
 				GameEngine.LoadState = LoadState.SetupGL;
-				client.SetupLoadingScreen();
+				client.InvokeOnSetupLoadingScreenEvent();
 				client.SetupGL();
 				GameEngine.LoadState = LoadState.Done;
-				client.OnSetupFinished();
+				client.InvokeOnSetupFinishEvent();
 			};
 
-			Resize += e => client.OnResize(e, Size);
-			Closing += _ => GameEngine.CloseRequested = true;
-			Closing += client.OnClosing;
-
-			KeyDown += client.OnKeyPress;
-			KeyUp += client.OnKeyRelease;
-			MouseWheel += client.OnMouseScroll;
-
-			MouseMove += args => {
-				GameEngine.MouseX = (ushort)MathH.Floor(args.X);
-				GameEngine.MouseY = (ushort)MathH.Floor(args.Y);
-				GameEngine.CurrentScreen?.CheckForHover(GameEngine.MouseX, GameEngine.MouseY);
+			Resize += e => OpenGL4.Viewport(0, 0, e.Width, e.Height);
+			Closing += _ => {
+				GameEngine.CloseRequested = true;
+				client.InvokeOnClosingEvent();
 			};
 
-			MouseMove += client.OnMouseMove;
+			KeyDown += client.InvokeOnKeyPressEvent;
+			KeyUp += client.InvokeOnKeyReleaseEvent;
+			MouseWheel += client.InvokeOnMouseScrollEvent;
+			MouseMove += client.InvokeOnMouseMoveEvent;
 
-			MouseDown += args => {
-				if (args.Action != InputAction.Repeat) {
-					if (args.Button is MouseButton.Left or MouseButton.Right) { GameEngine.CurrentScreen?.CheckForFocus(GameEngine.MouseX, GameEngine.MouseY); }
-					GameEngine.CurrentScreen?.CheckForPress(args.Button, GameEngine.MouseX, GameEngine.MouseY);
-				}
+			MouseDown += e => {
+				if (!client.CheckScreenMousePress(e) || !client.ShouldScreenCheckCancelMouseEvent) { client.InvokeOnMousePressEvent(e); }
 			};
 
-			MouseDown += client.OnMousePress;
-
-			MouseUp += args => {
-				if (args.Button is MouseButton.Left or MouseButton.Right && args.Action != InputAction.Repeat) { GameEngine.CurrentScreen?.CheckForRelease(args.Button, GameEngine.MouseX, GameEngine.MouseY); }
+			MouseUp += e => {
+				if (!client.CheckScreenMouseRelease(e) || !client.ShouldScreenCheckCancelMouseEvent) { client.InvokeOnMouseReleaseEvent(e); }
 			};
 
-			MouseUp += client.OnMouseRelease;
-
-			client.OnWindowCreation(this);
+			client.InvokeWindowCreationEvent(this);
 		}
 
 		protected override void OnRenderFrame(FrameEventArgs args) {
