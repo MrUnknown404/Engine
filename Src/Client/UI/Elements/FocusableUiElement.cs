@@ -8,7 +8,7 @@ namespace USharpLibs.Engine.Client.UI.Elements {
 		protected event Action? OnFocusGainEvent;
 		protected event Action? OnFocusLostEvent;
 
-		protected FocusableUiElement(short x, short y, short z, ushort width, ushort height) : base(x, y, z, width, height) { }
+		protected FocusableUiElement(short x, short y, float z, ushort width, ushort height) : base(x, y, z, width, height) { }
 
 		internal bool CheckForFocus(ushort mouseX, ushort mouseY) => IsFocused = mouseX >= X && mouseY >= Y && mouseX <= X + Width && mouseY <= Y + Height;
 

@@ -8,7 +8,7 @@ namespace USharpLibs.Engine.Client.UI.Elements {
 		protected event Action? OnHoverGainEvent;
 		protected event Action? OnHoverLostEvent;
 
-		protected HoverableUiElement(short x, short y, short z, ushort width, ushort height) : base(x, y, z, width, height) { }
+		protected HoverableUiElement(short x, short y, float z, ushort width, ushort height) : base(x, y, z, width, height) { }
 
 		internal bool CheckForHover(ushort mouseX, ushort mouseY) => IsHovered = mouseX >= X && mouseY >= Y && mouseX <= X + Width && mouseY <= Y + Height;
 
