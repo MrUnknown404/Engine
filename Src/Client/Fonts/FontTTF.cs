@@ -132,6 +132,11 @@ namespace USharpLibs.Engine.Client.Fonts {
 					continue;
 				}
 
+				if (!GlyphMap.ContainsKey(c)) {
+					Logger.Warn($"Tried to load unknown character. Id: {(ushort)c}");
+					continue;
+				}
+
 				Glyph glyph = GlyphMap[c];
 				meshes.Add(Quads.WH(x - offset + glyph.BearingX, y + glyph.BearingY + (biggestGlyph - glyph.Height) - offset, glyph.Width + offset * 2f, glyph.Height + offset * 2f, z, glyph.U0 - uvoffset, glyph.V0 + uvoffset,
 						glyph.U1 + uvoffset, glyph.V1 - uvoffset));
