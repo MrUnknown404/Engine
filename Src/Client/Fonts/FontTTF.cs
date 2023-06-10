@@ -32,7 +32,7 @@ namespace USharpLibs.Engine.Client.Fonts {
 		}
 
 		protected internal override Texture Setup() {
-			if (GameEngine.LoadState != LoadState.SetupGL) { throw new Exception($"Cannot setup fonts during {GameEngine.LoadState}"); }
+			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupGL) { throw new Exception($"Cannot setup fonts during {GameEngine.CurrentLoadState}"); }
 
 			Assembly assembly = AssemblyOverride ?? GameEngine.InstanceAssembly.Value;
 			string streamName = $"{assembly.GetName().Name}.Assets.Fonts.{Name}.ttf";

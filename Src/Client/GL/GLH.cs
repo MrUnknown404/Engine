@@ -51,6 +51,9 @@ namespace USharpLibs.Engine.Client.GL {
 			return imodel;
 		}
 
+		/// <summary> Binds the provided texture for use. </summary>
+		/// <param name="texture"> The texture to bind and use. </param>
+		/// <param name="unit"> Which <see cref="TextureUnit"/> to use. Default is <see cref="TextureUnit.Texture0"/>. </param>
 		public static void Bind(Texture texture, TextureUnit unit = TextureUnit.Texture0) {
 			if (!texture.WasSetup) {
 				Logger.Warn("Texture was not setup!");
@@ -62,6 +65,8 @@ namespace USharpLibs.Engine.Client.GL {
 			OpenGL4.BindTexture(TextureTarget.Texture2D, texture.Handle);
 		}
 
+		/// <summary> Unbinds the current shader. </summary>
+		/// <param name="force"> Whether or not to ignore any checks and force a shader unbind. </param>
 		public static void UnbindShader(bool force = false) {
 			if (CurrentShader == 0 && !force) { return; }
 
@@ -69,15 +74,19 @@ namespace USharpLibs.Engine.Client.GL {
 			OpenGL4.UseProgram(0);
 		}
 
-		public static void UnbindVAO() {
-			if (CurrentVAO == 0) { return; }
+		/// <summary> Unbinds the current VAO. </summary>
+		/// <param name="force"> Whether or not to ignore any checks and force a VAO unbind. </param>
+		public static void UnbindVAO(bool force = false) {
+			if (CurrentVAO == 0 && !force) { return; }
 
 			CurrentVAO = 0;
 			OpenGL4.BindVertexArray(0);
 		}
 
-		public static void UnbindTexture() {
-			if (CurrentTexture == 0) { return; }
+		/// <summary> Unbinds the current texture. </summary>
+		/// <param name="force"> Whether or not to ignore any checks and force a texture unbind. </param>
+		public static void UnbindTexture(bool force = false) {
+			if (CurrentTexture == 0 && !force) { return; }
 
 			CurrentTexture = 0;
 			OpenGL4.BindTexture(TextureTarget.Texture2D, 0);

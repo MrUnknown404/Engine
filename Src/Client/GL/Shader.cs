@@ -26,7 +26,7 @@ namespace USharpLibs.Engine.Client.GL {
 		}
 
 		internal void SetupGL() {
-			if (GameEngine.LoadState != LoadState.SetupGL) { throw new Exception($"Cannot setup shader during {GameEngine.LoadState}"); }
+			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupGL) { throw new Exception($"Cannot setup shader during {GameEngine.CurrentLoadState}"); }
 			ISetupGL();
 			WasSetup = true;
 		}
@@ -50,7 +50,7 @@ namespace USharpLibs.Engine.Client.GL {
 		}
 
 		protected void SetData<V>(string name, V data, Action<int, V> apply) {
-			if (GLH.CurrentShader != Handle && GameEngine.LoadState != LoadState.SetupGL) {
+			if (GLH.CurrentShader != Handle && GameEngine.CurrentLoadState != GameEngine.LoadState.SetupGL) {
 				Logger.Warn("Trying to use an unbound shader!");
 				return;
 			} else if (!UniformLocations.ContainsKey(name)) {
@@ -62,7 +62,7 @@ namespace USharpLibs.Engine.Client.GL {
 		}
 
 		protected void SetMatrix(string name, bool flag, Matrix4 data) {
-			if (GLH.CurrentShader != Handle && GameEngine.LoadState != LoadState.SetupGL) {
+			if (GLH.CurrentShader != Handle && GameEngine.CurrentLoadState != GameEngine.LoadState.SetupGL) {
 				Logger.Warn("Trying to use an unbound shader!");
 				return;
 			} else if (!UniformLocations.ContainsKey(name)) {
@@ -74,7 +74,7 @@ namespace USharpLibs.Engine.Client.GL {
 		}
 
 		protected void SetMatrix4Array(string name, bool flag, Matrix4[] datas) {
-			if (GLH.CurrentShader != Handle && GameEngine.LoadState != LoadState.SetupGL) {
+			if (GLH.CurrentShader != Handle && GameEngine.CurrentLoadState != GameEngine.LoadState.SetupGL) {
 				Logger.Warn("Trying to use an unbound shader!");
 				return;
 			} else if (!UniformLocations.ContainsKey(name)) {

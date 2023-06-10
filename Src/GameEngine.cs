@@ -69,9 +69,9 @@ namespace USharpLibs.Engine {
 		/// <summary> Called when the scroll wheel has been moved. </summary>
 		protected internal event Action<MouseWheelEventArgs>? OnMouseScrollEvent;
 
-		private static EngineWindow Window { get; set; } = default!;
+		private static GameWindow Window { get; set; } = default!;
 		/// <summary> The current load state of the program. <seealso cref="LoadState"/> </summary>
-		public static LoadState LoadState { get; internal set; } = LoadState.NotStarted;
+		public static LoadState CurrentLoadState { get; internal set; } = LoadState.NotStarted;
 		/// <summary> Whether or not the program is in Debug mode. </summary>
 		public static bool IsDebug { get; protected set; }
 		/// <summary> Whether or not a close has been requested. </summary>
@@ -94,7 +94,7 @@ namespace USharpLibs.Engine {
 		private List<IRenderer> Renderers { get; } = new();
 		private HashSet<Screen> Screens { get; } = new();
 
-		/// <summary> The original title given in the constructor. <seealso cref="GameEngine(string, ushort, ushort, ushort, ushort, bool)"/> </summary>
+		/// <summary> The original title given in the constructor. <seealso cref="GameEngine(string, ushort, ushort, ushort, ushort, LogLevel, bool)"/> </summary>
 		public string OriginalTitle { get; }
 		protected internal bool ShouldScreenCheckCancelMouseEvent { get; set; } = true;
 		protected ushort MaxAmountOfLogs { private get; set; } = 5;
@@ -160,7 +160,7 @@ namespace USharpLibs.Engine {
 		/// <summary> The program's current window height </summary>
 		public static ushort Height => (ushort)Window.Size.Y;
 
-		protected GameEngine(string title, ushort minWidth, ushort minHeight, ushort maxWidth, ushort maxHeight, bool isDebug = false) {
+		protected GameEngine(string title, ushort minWidth, ushort minHeight, ushort maxWidth, ushort maxHeight, LogLevel logLevel = LogLevel.More, bool isDebug = false) {
 			OriginalTitle = title;
 			this.title = title;
 			this.minWidth = minWidth;
@@ -169,7 +169,8 @@ namespace USharpLibs.Engine {
 			this.maxHeight = maxHeight;
 			IsDebug = isDebug;
 
-			Logger.LogLevel = LogLevel.More;
+			Thread.CurrentThread.Name = "Main";
+			Logger.LogLevel = logLevel;
 			Logger.SetupDefaultLogFolder(5, $"Starting Client! Today is: {DateTime.Now:d/M/yyyy HH:mm:ss}");
 
 			ShaderCreationEvent += () => DefaultShaders.AllShaders;
@@ -181,17 +182,17 @@ namespace USharpLibs.Engine {
 			};
 		}
 
-		protected GameEngine(string title, ushort minWidth, ushort minHeight, bool isDebug = false) : this(title, minWidth, minHeight, 0, 0, isDebug) { }
-		protected GameEngine(string title, bool isDebug = false) : this(title, 856, 482, 0, 0, isDebug) { }
+		protected GameEngine(string title, ushort minWidth, ushort minHeight, LogLevel logLevel = LogLevel.More, bool isDebug = false) : this(title, minWidth, minHeight, 0, 0, logLevel, isDebug) { }
+		protected GameEngine(string title, LogLevel logLevel = LogLevel.More, bool isDebug = false) : this(title, 856, 482, 0, 0, logLevel, isDebug) { }
 
 		/// <summary> This method will start all the behind the scenes logic. </summary>
 		/// <remarks> This should be called only once at the start of your main method. Example below. </remarks>
 		/// <example> <code> private static void Main() => Start(new Program()); </code> </example>
 		/// <param name="instance"> The instance of your program. This will be stored for your later use automatically. See <see cref="Instance{T}()"/> </param>
 		public static void Start(GameEngine instance) {
-			LoadState = LoadState.PreInit;
-			using (Window = new(GameEngine.instance = instance)) {
-				LoadState = LoadState.Init;
+			CurrentLoadState = LoadState.PreInit;
+			using (Window = (GameEngine.instance = instance).ProvideWindow()) {
+				CurrentLoadState = LoadState.Init;
 
 				if (instance.ScreenCreationEvent != null) {
 					foreach (Delegate d in instance.ScreenCreationEvent.GetInvocationList()) { instance.Screens.UnionWith((HashSet<Screen>)(d.DynamicInvoke() ?? new HashSet<Screen>())); }
@@ -307,19 +308,23 @@ namespace USharpLibs.Engine {
 
 		/// <summary> Call some code while in a specific load state. <br/> You should probably avoid calling this method since it can be dangerous. <br/> You have been warned. <seealso cref="LoadState"/> </summary>
 		public static void CallWhileInLoadState(LoadState loadState, Action todo) {
-			LoadState old = LoadState;
-			LoadState = loadState;
+			LoadState old = CurrentLoadState;
+			CurrentLoadState = loadState;
 			todo();
-			LoadState = old;
+			CurrentLoadState = old;
 		}
-	}
 
-	public enum LoadState : byte {
-		NotStarted = 0,
-		PreInit,
-		Init,
-		CreateGL,
-		SetupGL,
-		Done,
+		public static void CallOnMainThread(Action toCall) => Window.CallOnMainThreadQueue.Enqueue(toCall);
+
+		protected virtual GameWindow ProvideWindow() => new EngineWindow(this);
+
+		public enum LoadState : byte {
+			NotStarted = 0,
+			PreInit,
+			Init,
+			CreateGL,
+			SetupGL,
+			Done,
+		}
 	}
 }

@@ -18,7 +18,7 @@ namespace USharpLibs.Engine.Client.GL.Models {
 		public void ForceSetupGL(bool iKnowWhatIAmDoing) => ISetupGL();
 
 		public void SetupGL() {
-			if (GameEngine.LoadState < LoadState.SetupGL) { throw new Exception("Cannot setup a model's GL code too early!"); }
+			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupGL) { throw new Exception("Cannot setup a model's GL code too early/late!"); }
 			ISetupGL();
 		}
 
@@ -34,7 +34,9 @@ namespace USharpLibs.Engine.Client.GL.Models {
 			IDraw();
 		}
 
+		/// <summary> Set up any OpenGL code here. </summary>
 		protected abstract void ISetupGL();
+
 		protected abstract void IDraw();
 	}
 }

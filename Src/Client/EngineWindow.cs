@@ -1,6 +1,5 @@
 using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
@@ -12,7 +11,7 @@ namespace USharpLibs.Engine.Client {
 		private uint frameCounter, tickCounter;
 		private double frameTimeCounter, tickTimeCounter;
 
-		internal EngineWindow(GameEngine client) : base(GameWindowSettings.Default,
+		internal EngineWindow(GameEngine client) : base(0, 60,
 				new NativeWindowSettings {
 						MinimumSize = new(client.MinWidth, client.MinHeight),
 						MaximumSize = client.MaxWidth == 0 || client.MaxHeight == 0 ? null : new(client.MaxWidth, client.MaxHeight),
@@ -20,15 +19,14 @@ namespace USharpLibs.Engine.Client {
 						Title = client.OriginalTitle,
 				}) {
 			Client = client;
-			UpdateFrequency = 60;
 
 			Load += () => {
-				GameEngine.LoadState = LoadState.CreateGL;
+				GameEngine.CurrentLoadState = GameEngine.LoadState.CreateGL;
 				GameEngine.CreateGL();
-				GameEngine.LoadState = LoadState.SetupGL;
+				GameEngine.CurrentLoadState = GameEngine.LoadState.SetupGL;
 				client.InvokeOnSetupLoadingScreenEvent();
 				client.SetupGL();
-				GameEngine.LoadState = LoadState.Done;
+				GameEngine.CurrentLoadState = GameEngine.LoadState.Done;
 				client.InvokeOnSetupFinishEvent();
 			};
 
@@ -54,18 +52,18 @@ namespace USharpLibs.Engine.Client {
 			client.InvokeWindowCreationEvent(this);
 		}
 
-		protected override void OnRenderFrame(FrameEventArgs args) {
-			Calc(args.Time, ref frameCounter, ref frameTimeCounter, out GameEngine.RawFrameFrequency, ref GameEngine.RawFPS);
+		protected override void OnRenderFrame(double time) {
+			Calc(time, ref frameCounter, ref frameTimeCounter, out GameEngine.RawFrameFrequency, ref GameEngine.RawFPS);
 
 			OpenGL4.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-			Client.Render(args.Time);
+			Client.Render(time);
 			SwapBuffers();
 		}
 
-		protected override void OnUpdateFrame(FrameEventArgs args) {
-			Calc(args.Time, ref tickCounter, ref tickTimeCounter, out GameEngine.RawTickFrequency, ref GameEngine.RawTPS);
+		protected override void OnUpdateFrame(double time) {
+			Calc(time, ref tickCounter, ref tickTimeCounter, out GameEngine.RawTickFrequency, ref GameEngine.RawTPS);
 
-			Client.Tick(args.Time);
+			Client.Tick(time);
 		}
 
 		private static void Calc(double time, ref uint counter, ref double timeCounter, out double frequency, ref uint result) {

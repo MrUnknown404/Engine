@@ -20,12 +20,14 @@ namespace USharpLibs.Engine.Client.UI.Elements {
 		}
 
 		internal void SetupGL() {
-			if (GameEngine.LoadState != LoadState.SetupGL) { throw new Exception($"Cannot setup UiElement OpenGL during {GameEngine.LoadState}"); }
+			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupGL) { throw new Exception($"Cannot setup UiElement OpenGL during {GameEngine.CurrentLoadState}"); }
 			ISetupGL();
 		}
 
+		/// <summary> Called at the start once the OpenGL context is created. Set up any OpenGL code here. </summary>
 		protected abstract void ISetupGL();
 
+		/// <summary> By default, <see cref="Screen"/> calls this every frame. You can re-implement this if you wish. </summary>
 		public virtual void Render(Shader shader, double time) { }
 	}
 }

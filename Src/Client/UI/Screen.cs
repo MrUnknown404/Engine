@@ -9,13 +9,17 @@ namespace USharpLibs.Engine.Client.UI {
 	[PublicAPI]
 	public abstract class Screen {
 		protected Dictionary<string, UiElement> Elements { get; } = new();
-		private HoverableUiElement? currentlyHovered;
-		private FocusableUiElement? currentlyFocused;
-		private ClickableUiElement? currentlyPressed;
+		protected HoverableUiElement? CurrentlyHovered { get; private set; }
+		protected FocusableUiElement? CurrentlyFocused { get; private set; }
+		protected ClickableUiElement? CurrentlyPressed { get; private set; }
 
+		/// <summary> Adds a <see cref="UiElement"/> to the list of elements. </summary>
+		/// <param name="key"> The internal key for the given element. This is so you can find a specific element later. </param>
+		/// <param name="e"> The element to add. </param>
+		/// <param name="replace"> Whether or not to replace an element if the given key is already present. </param>
 		protected void AddElement(string key, UiElement e, bool replace = false) {
-			if (GameEngine.LoadState != LoadState.Init) {
-				Logger.Warn($"Cannot add UiElement during {GameEngine.LoadState}");
+			if (GameEngine.CurrentLoadState != GameEngine.LoadState.Init) {
+				Logger.Warn($"Cannot add UiElement during {GameEngine.CurrentLoadState}");
 				return;
 			}
 
@@ -28,14 +32,16 @@ namespace USharpLibs.Engine.Client.UI {
 		}
 
 		internal void SetupGL() {
-			if (GameEngine.LoadState != LoadState.SetupGL) { throw new Exception($"Cannot setup Screen OpenGL during {GameEngine.LoadState}"); }
+			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupGL) { throw new Exception($"Cannot setup Screen OpenGL during {GameEngine.CurrentLoadState}"); }
 			ISetupGL();
 		}
 
+		/// <summary> Called at the start once the OpenGL context is created. Set up any OpenGL code here. </summary>
 		protected virtual void ISetupGL() {
 			foreach (UiElement e in Elements.Values) { e.SetupGL(); }
 		}
 
+		/// <summary> Called every frame. </summary>
 		public virtual void Render(double time) {
 			GLH.Bind(DefaultShaders.DefaultHud, s => {
 				foreach (UiElement e in Elements.Values) {
@@ -52,60 +58,60 @@ namespace USharpLibs.Engine.Client.UI {
 		internal bool CheckForPress(MouseButton button, ushort mouseX, ushort mouseY) {
 			foreach (UiElement element in Elements.Values) {
 				if (element is ClickableUiElement e && e.CheckForPress(mouseX, mouseY)) {
-					if (e == currentlyPressed) { return true; }
+					if (e == CurrentlyPressed) { return true; }
 
 					if (e.OnPress(button)) {
-						currentlyPressed = e;
+						CurrentlyPressed = e;
 						return true;
 					}
 				}
 			}
 
-			currentlyPressed = null;
+			CurrentlyPressed = null;
 			return false;
 		}
 
 		internal bool CheckForRelease(MouseButton button, ushort mouseX, ushort mouseY) {
-			if ((currentlyPressed?.CheckForRelease(mouseX, mouseY) ?? false) && (currentlyPressed?.OnRelease(button) ?? false)) {
-				currentlyPressed = null;
+			if ((CurrentlyPressed?.CheckForRelease(mouseX, mouseY) ?? false) && (CurrentlyPressed?.OnRelease(button) ?? false)) {
+				CurrentlyPressed = null;
 				return true;
 			}
 
-			currentlyPressed?.OnReleaseFailed(button);
-			currentlyPressed = null;
+			CurrentlyPressed?.OnReleaseFailed(button);
+			CurrentlyPressed = null;
 			return false;
 		}
 
 		internal void CheckForFocus(ushort mouseX, ushort mouseY) {
 			foreach (UiElement element in Elements.Values) {
 				if (element is FocusableUiElement e && e.CheckForFocus(mouseX, mouseY)) {
-					if (e == currentlyFocused) { return; }
+					if (e == CurrentlyFocused) { return; }
 
-					currentlyFocused?.InvokeFocusLost();
-					currentlyFocused = e;
-					currentlyFocused.InvokeFocusGain();
+					CurrentlyFocused?.InvokeFocusLost();
+					CurrentlyFocused = e;
+					CurrentlyFocused.InvokeFocusGain();
 					return;
 				}
 			}
 
-			currentlyFocused?.InvokeFocusLost();
-			currentlyFocused = null;
+			CurrentlyFocused?.InvokeFocusLost();
+			CurrentlyFocused = null;
 		}
 
 		internal void CheckForHover(ushort mouseX, ushort mouseY) {
 			foreach (UiElement element in Elements.Values) {
 				if (element is HoverableUiElement e && e.CheckForHover(mouseX, mouseY)) {
-					if (e == currentlyHovered) { return; }
+					if (e == CurrentlyHovered) { return; }
 
-					currentlyHovered?.InvokeHoverLost();
-					currentlyHovered = e;
-					currentlyHovered.InvokeHoverGain();
+					CurrentlyHovered?.InvokeHoverLost();
+					CurrentlyHovered = e;
+					CurrentlyHovered.InvokeHoverGain();
 					return;
 				}
 			}
 
-			currentlyHovered?.InvokeHoverLost();
-			currentlyHovered = null;
+			CurrentlyHovered?.InvokeHoverLost();
+			CurrentlyHovered = null;
 		}
 	}
 }
