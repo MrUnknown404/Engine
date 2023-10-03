@@ -45,7 +45,7 @@ namespace USharpLibs.Engine.Client.Fonts {
 
 					// ReSharper disable once MustUseReturnValue
 					stream.Read(fontData, 0, fontStreamLength);
-					IntPtr data = Marshal.AllocCoTaskMem(fontStreamLength);
+					nint data = Marshal.AllocCoTaskMem(fontStreamLength);
 					Marshal.Copy(fontData, 0, data, fontStreamLength);
 
 					(fontFacade = new(new(), data, fontStreamLength)).SelectCharSize(FontSize, 96, 96);
