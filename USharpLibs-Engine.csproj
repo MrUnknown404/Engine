@@ -7,6 +7,7 @@
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<RootNamespace>USharpLibs.Engine</RootNamespace>
 		<AssemblyName>USharpLibs.Engine</AssemblyName>
+		<DebugType>embedded</DebugType>
 	</PropertyGroup>
 
 	<ItemGroup>
