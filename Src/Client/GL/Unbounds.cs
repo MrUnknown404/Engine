@@ -5,6 +5,7 @@ namespace USharpLibs.Engine.Client.GL {
 	public sealed class UnboundModel<T> where T : Model {
 		public T Model { get; }
 		public UnboundModel(T model) => Model = model;
+		public void SetupGL() => Model.SetupGL();
 	}
 
 	public interface IUnboundShader {
