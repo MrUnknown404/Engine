@@ -9,9 +9,15 @@ namespace USharpLibs.Engine.Client.UI {
 	[PublicAPI]
 	public abstract class Screen {
 		protected Dictionary<string, UiElement> Elements { get; } = new();
+		protected Dictionary<string, TextElement> TextElements { get; } = new();
+
 		protected HoverableUiElement? CurrentlyHovered { get; private set; }
 		protected FocusableUiElement? CurrentlyFocused { get; private set; }
 		protected ClickableUiElement? CurrentlyPressed { get; private set; }
+
+		protected Screen() {
+			if (GameEngine.CurrentLoadState != GameEngine.LoadState.Init) { Logger.Warn($"Cannot create new Screen during {GameEngine.CurrentLoadState}. Use GameEngine#ScreenCreationEvent"); }
+		}
 
 		/// <summary> Adds a <see cref="UiElement"/> to the list of elements. </summary>
 		/// <param name="key"> The internal key for the given element. This is so you can find a specific element later. </param>
@@ -23,12 +29,14 @@ namespace USharpLibs.Engine.Client.UI {
 				return;
 			}
 
-			if (Elements.ContainsKey(key)) {
-				if (replace) { Elements.Add(key, e); } else { Logger.Warn($"Duplicate key '{key}' found. If this was intentional set 'replace' to true"); }
-				return;
+			if (AllUiKeys().Contains(key)) {
+				if (!replace) {
+					Logger.Warn($"Duplicate key '{key}' found. If this was intentional set 'replace' to true");
+					return;
+				}
 			}
 
-			Elements.Add(key, e);
+			if (e is TextElement te) { TextElements.Add(key, te); } else { Elements.Add(key, e); }
 		}
 
 		internal void SetupGL() {
@@ -38,25 +46,50 @@ namespace USharpLibs.Engine.Client.UI {
 
 		/// <summary> Called at the start once the OpenGL context is created. Set up any OpenGL code here. </summary>
 		protected virtual void ISetupGL() {
-			foreach (UiElement e in Elements.Values) { e.SetupGL(); }
+			foreach (UiElement e in AllUiElements()) { e.SetupGL(); }
 		}
 
-		/// <summary> Called every frame. </summary>
+		/// <summary> Called 60 times a second. </summary>
+		/// <param name="time"> The time since the last tick. </param>
+		public virtual void Tick(double time) { }
+
+		/// <summary> Called every time a frame is requested. </summary>
+		/// <param name="time"> The time since the last frame was drawn. </param>
 		public virtual void Render(double time) {
 			GLH.Bind(DefaultShaders.DefaultHud, s => {
-				foreach (UiElement e in Elements.Values) {
-					if (e.IsEnabled) {
-						s.SetVector3("Position", new(e.X, e.Y, e.Z));
-						e.Render(s, time);
-					}
+				foreach (UiElement e in Elements.Values.Where(e => e.IsEnabled)) {
+					s.SetVector3("Position", new(e.X, e.Y, e.Z));
+					e.Render(s, time);
 				}
 
 				s.SetVector3("Position", new());
 			});
+
+			GLH.Bind(DefaultShaders.DefaultFont, s => {
+				foreach (TextElement e in TextElements.Values.Where(e => e.IsEnabled)) {
+					if (e is { DrawFont: false, DrawOutline: false, }) { continue; }
+
+					s.SetVector3("Position", new(e.X, e.Y, e.Z));
+					if (e.DrawFont != DefaultShaders.DefaultDrawFont) { s.SetBool("DrawFont", e.DrawFont); }
+					if (e.DrawOutline != DefaultShaders.DefaultDrawOutline) { s.SetBool("DrawFont", e.DrawOutline); }
+					if (e.FontColor != DefaultShaders.DefaultFontColor) { s.SetColor("FontColor", e.FontColor); }
+					if (e.OutlineColor != DefaultShaders.DefaultOutlineColor) { s.SetColor("OutlineColor", e.OutlineColor); }
+					if (e.OutlineSize == DefaultShaders.DefaultOutlineSize) { s.SetInt("OutlineSize", e.OutlineSize); }
+
+					e.Render(s, time);
+				}
+
+				s.SetVector3("Position", new());
+				s.SetBool("DrawFont", DefaultShaders.DefaultDrawFont);
+				s.SetBool("DrawOutline", DefaultShaders.DefaultDrawOutline);
+				s.SetColor("FontColor", DefaultShaders.DefaultFontColor);
+				s.SetColor("OutlineColor", DefaultShaders.DefaultOutlineColor);
+				s.SetInt("OutlineSize", DefaultShaders.DefaultOutlineSize);
+			});
 		}
 
 		internal bool CheckForPress(MouseButton button, ushort mouseX, ushort mouseY) {
-			foreach (UiElement element in Elements.Values) {
+			foreach (UiElement element in AllUiElements()) {
 				if (element is ClickableUiElement e && e.CheckForPress(mouseX, mouseY)) {
 					if (e == CurrentlyPressed) { return true; }
 
@@ -83,7 +116,7 @@ namespace USharpLibs.Engine.Client.UI {
 		}
 
 		internal void CheckForFocus(ushort mouseX, ushort mouseY) {
-			foreach (UiElement element in Elements.Values) {
+			foreach (UiElement element in AllUiElements()) {
 				if (element is FocusableUiElement e && e.CheckForFocus(mouseX, mouseY)) {
 					if (e == CurrentlyFocused) { return; }
 
@@ -99,7 +132,7 @@ namespace USharpLibs.Engine.Client.UI {
 		}
 
 		internal void CheckForHover(ushort mouseX, ushort mouseY) {
-			foreach (UiElement element in Elements.Values) {
+			foreach (UiElement element in AllUiElements()) {
 				if (element is HoverableUiElement e && e.CheckForHover(mouseX, mouseY)) {
 					if (e == CurrentlyHovered) { return; }
 
@@ -112,6 +145,20 @@ namespace USharpLibs.Engine.Client.UI {
 
 			CurrentlyHovered?.InvokeHoverLost();
 			CurrentlyHovered = null;
+		}
+
+		public List<string> AllUiKeys() {
+			List<string> keys = new();
+			keys.AddRange(Elements.Keys);
+			keys.AddRange(TextElements.Keys);
+			return keys;
+		}
+
+		public List<UiElement> AllUiElements() {
+			List<UiElement> elements = new();
+			elements.AddRange(Elements.Values);
+			elements.AddRange(TextElements.Values);
+			return elements;
 		}
 	}
 }

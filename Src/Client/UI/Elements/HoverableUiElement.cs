@@ -2,7 +2,7 @@ using JetBrains.Annotations;
 
 namespace USharpLibs.Engine.Client.UI.Elements {
 	[PublicAPI]
-	public abstract class HoverableUiElement : UiElement {
+	public abstract class HoverableUiElement : SizableUiElement {
 		public bool IsHovered { get; private set; }
 
 		protected event Action? OnHoverGainEvent;

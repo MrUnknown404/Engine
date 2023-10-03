@@ -11,25 +11,17 @@ using USharpLibs.Engine.Client.GL.Shapes2D;
 
 namespace USharpLibs.Engine.Client.Fonts {
 	[PublicAPI]
-	public sealed class FontTTF : RawFont {
+	public sealed class FontTTF : Font {
 		private const byte AtlasGridSize = 10;
 
 		public Assembly? AssemblyOverride { get; init; }
-
-		public string Name { get; }
-		public byte FontSize { get; }
-		public byte Padding { get; }
 
 		private Dictionary<char, Glyph> GlyphMap { get; } = new();
 		private FreeTypeFaceFacade? fontFacade;
 
 		private ushort biggestGlyph, spaceSize;
 
-		public FontTTF(string name, byte fontSize, byte padding) {
-			Name = name;
-			FontSize = fontSize;
-			Padding = padding;
-		}
+		public FontTTF(string name, byte fontSize, byte padding) : base(name, fontSize, padding) { }
 
 		protected internal override Texture Setup() {
 			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupGL) { throw new Exception($"Cannot setup fonts during {GameEngine.CurrentLoadState}"); }
@@ -112,7 +104,7 @@ namespace USharpLibs.Engine.Client.Fonts {
 		/// <param name="text"> The text that should be used for mesh calculations. </param>
 		/// <param name="sizeOffset"> The amount of extra space to add to the mesh to account for overdraw.  </param>
 		/// <param name="z"> The depth of the meshes. </param>
-		public List<Mesh> GetMesh(string text, float sizeOffset, float z = 0) {
+		public override List<Mesh> GetMesh(string text, float sizeOffset, float z = 0) {
 			if (sizeOffset > Padding) {
 				Logger.Warn($"SizeOffset cannot be above Padding ({Padding}). Was {sizeOffset}. Clamping to Padding...");
 				sizeOffset = Padding;

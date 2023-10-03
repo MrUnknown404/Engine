@@ -1,0 +1,29 @@
+using JetBrains.Annotations;
+using USharpLibs.Engine.Client.GL;
+using USharpLibs.Engine.Client.GL.Models;
+
+namespace USharpLibs.Engine.Client.Fonts {
+	[PublicAPI]
+	public abstract class Font {
+		public Texture FontTexture { get; protected set; } = default!;
+
+		public string Name { get; }
+		public byte FontSize { get; }
+		public byte Padding { get; }
+
+		protected Font(string name, byte fontSize, byte padding) {
+			Name = name;
+			FontSize = fontSize;
+			Padding = padding;
+		}
+
+		/// <summary> Called at the start once the OpenGL context is created. </summary>
+		/// <returns> The font's texture atlas for later use. </returns>
+		protected internal abstract Texture? Setup();
+
+		/// <param name="text"> The text that should be used for mesh calculations. </param>
+		/// <param name="sizeOffset"> The amount of extra space to add to the mesh to account for overdraw.  </param>
+		/// <param name="z"> The depth of the meshes. </param>
+		public abstract List<Mesh> GetMesh(string text, float sizeOffset, float z = 0);
+	}
+}

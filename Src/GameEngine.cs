@@ -31,7 +31,7 @@ namespace USharpLibs.Engine {
 		/// <summary> Called when the program is ready for shader creation. The return value is all of your program's shaders. </summary>
 		protected event Func<HashSet<IUnboundShader>>? ShaderCreationEvent;
 		/// <summary> Called when the program is ready for font creation. The return value is all of your program's fonts. </summary>
-		protected event Func<HashSet<RawFont>>? FontCreationEvent;
+		protected event Func<HashSet<Font>>? FontCreationEvent;
 		/// <summary> Called when the program is ready for texture creation. The return value is all of your program's textures. </summary>
 		protected event Func<HashSet<Texture>>? TextureCreationEvent;
 		/// <summary> Called when the program is ready for screen creation. The return value is all of your program's screens. </summary>
@@ -231,7 +231,7 @@ namespace USharpLibs.Engine {
 
 		internal void SetupGL() {
 			HashSet<IUnboundShader> shaders = new();
-			HashSet<RawFont> fonts = new();
+			HashSet<Font> fonts = new();
 			HashSet<Texture> textures = new();
 
 			if (ShaderCreationEvent != null) {
@@ -239,7 +239,7 @@ namespace USharpLibs.Engine {
 			}
 
 			if (FontCreationEvent != null) {
-				foreach (Delegate d in FontCreationEvent.GetInvocationList()) { fonts.UnionWith((HashSet<RawFont>)(d.DynamicInvoke() ?? new HashSet<RawFont>())); }
+				foreach (Delegate d in FontCreationEvent.GetInvocationList()) { fonts.UnionWith((HashSet<Font>)(d.DynamicInvoke() ?? new HashSet<Font>())); }
 			}
 
 			if (TextureCreationEvent != null) {
@@ -277,7 +277,7 @@ namespace USharpLibs.Engine {
 
 		/// <summary> Called 60 times a second. </summary>
 		/// <param name="time"> The time since the last tick. </param>
-		public virtual void Tick(double time) { }
+		public virtual void Tick(double time) => CurrentScreen?.Tick(time);
 
 		/// <summary> Called every time a frame is requested. </summary>
 		/// <param name="time"> The time since the last frame was drawn. </param>
