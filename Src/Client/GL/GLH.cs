@@ -18,6 +18,20 @@ namespace USharpLibs.Engine.Client.GL {
 		/// <summary> Binds the provided shader for use. </summary>
 		/// <typeparam name="T"> The type of shader that is in use. </typeparam>
 		/// <param name="shader"> An unbound shader to bind and use. </param>
+		public static void Rebind<T>(UnboundShader<T> shader) where T : Shader {
+			T s = shader.Shader;
+			if (!s.WasSetup) {
+				Logger.Warn("Shader was not setup!");
+				return;
+			} else if (CurrentShader == s.Handle) { return; }
+
+			CurrentShader = s.Handle;
+			OpenGL4.UseProgram(s.Handle);
+		}
+
+		/// <summary> Binds the provided shader for use. </summary>
+		/// <typeparam name="T"> The type of shader that is in use. </typeparam>
+		/// <param name="shader"> An unbound shader to bind and use. </param>
 		/// <param name="use"> An Action to run using the bound shader. </param>
 		public static void Bind<T>(UnboundShader<T> shader, Action<T> use) where T : Shader {
 			T s = shader.Shader;

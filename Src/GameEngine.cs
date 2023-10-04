@@ -70,6 +70,8 @@ namespace USharpLibs.Engine {
 		protected internal event Action<MouseWheelEventArgs>? OnMouseScrollEvent;
 		/// <summary> Called when text input has been received. </summary>
 		protected internal event Action<TextInputEventArgs>? OnTextInputEvent;
+		/// <summary> Called when the window is resized. </summary>
+		protected internal event Action<ResizeEventArgs>? OnWindowResizeEvent;
 
 		private static GameWindow Window { get; set; } = default!;
 		/// <summary> The current load state of the program. <seealso cref="LoadState"/> </summary>
@@ -176,6 +178,7 @@ namespace USharpLibs.Engine {
 			Logger.SetupDefaultLogFolder(5, $"Starting Client! Today is: {DateTime.Now:d/M/yyyy HH:mm:ss}");
 
 			ShaderCreationEvent += () => DefaultShaders.AllShaders;
+			OnFontsFinishedEvent += () => GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
 
 			OnMouseMoveEvent += e => {
 				MouseX = (ushort)MathH.Floor(e.X);
@@ -219,6 +222,7 @@ namespace USharpLibs.Engine {
 		internal void InvokeOnMouseReleaseEvent(MouseButtonEventArgs e) => OnMouseReleaseEvent?.Invoke(e);
 		internal void InvokeOnMouseScrollEvent(MouseWheelEventArgs e) => OnMouseScrollEvent?.Invoke(e);
 		internal void InvokeOnTextInputEvent(TextInputEventArgs e) => OnTextInputEvent?.Invoke(e);
+		internal void InvokeOnWindowResizeEvent(ResizeEventArgs e) => OnWindowResizeEvent?.Invoke(e);
 
 		/// <summary> Called before OpenGL has been initialized but after the constructor. </summary>
 		protected virtual void Init() { }

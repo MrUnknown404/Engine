@@ -31,6 +31,8 @@ namespace USharpLibs.Engine.Client {
 			};
 
 			Resize += e => OpenGL4.Viewport(0, 0, e.Width, e.Height);
+			Resize += client.InvokeOnWindowResizeEvent;
+
 			Closing += _ => {
 				GameEngine.CloseRequested = true;
 				client.InvokeOnClosingEvent();
