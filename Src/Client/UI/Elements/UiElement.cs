@@ -16,7 +16,7 @@ namespace USharpLibs.Engine.Client.UI.Elements {
 			Z = z;
 		}
 
-		internal void SetupGL() {
+		public void SetupGL() {
 			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupGL) { throw new Exception($"Cannot setup UiElement OpenGL during {GameEngine.CurrentLoadState}"); }
 			ISetupGL();
 		}
