@@ -68,6 +68,8 @@ namespace USharpLibs.Engine {
 		protected internal event Action<MouseButtonEventArgs>? OnMouseReleaseEvent;
 		/// <summary> Called when the scroll wheel has been moved. </summary>
 		protected internal event Action<MouseWheelEventArgs>? OnMouseScrollEvent;
+		/// <summary> Called when text input has been received. </summary>
+		protected internal event Action<TextInputEventArgs>? OnTextInputEvent;
 
 		private static GameWindow Window { get; set; } = default!;
 		/// <summary> The current load state of the program. <seealso cref="LoadState"/> </summary>
@@ -216,6 +218,7 @@ namespace USharpLibs.Engine {
 		internal void InvokeOnMousePressEvent(MouseButtonEventArgs e) => OnMousePressEvent?.Invoke(e);
 		internal void InvokeOnMouseReleaseEvent(MouseButtonEventArgs e) => OnMouseReleaseEvent?.Invoke(e);
 		internal void InvokeOnMouseScrollEvent(MouseWheelEventArgs e) => OnMouseScrollEvent?.Invoke(e);
+		internal void InvokeOnTextInputEvent(TextInputEventArgs e) => OnTextInputEvent?.Invoke(e);
 
 		/// <summary> Called before OpenGL has been initialized but after the constructor. </summary>
 		protected virtual void Init() { }
@@ -305,6 +308,9 @@ namespace USharpLibs.Engine {
 			Window.WindowState = Window.WindowState == WindowState.Normal ? WindowState.Fullscreen : WindowState.Normal;
 			FullscreenToggleEvent?.Invoke(Window.WindowState);
 		}
+
+		/// <inheritdoc cref="OpenTK.Windowing.Desktop.NativeWindow.IsKeyDown"/>
+		public static bool IsKeyDown(Keys key) => Window.IsKeyDown(key);
 
 		/// <summary> Call some code while in a specific load state. <br/> You should probably avoid calling this method since it can be dangerous. <br/> You have been warned. <seealso cref="LoadState"/> </summary>
 		public static void CallWhileInLoadState(LoadState loadState, Action todo) {

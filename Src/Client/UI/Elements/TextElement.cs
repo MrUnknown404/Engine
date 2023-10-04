@@ -50,7 +50,7 @@ namespace USharpLibs.Engine.Client.UI.Elements {
 				isDirty = false;
 			}
 
-			if (Text.Length != 0) { GLH.Bind(TextModel)?.Draw(); }
+			if (Text.Length != 0 && (DrawOutline || DrawFont)) { GLH.Bind(TextModel)?.Draw(); }
 		}
 	}
 }

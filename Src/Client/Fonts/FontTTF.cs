@@ -101,9 +101,6 @@ namespace USharpLibs.Engine.Client.Fonts {
 			return FontTexture = new SimpleTexture(finalImage, imageSize, imageSize, TextureMinFilter.Linear, TextureMagFilter.Linear) { PixelFormat = PixelFormat.Red, PixelInternalFormat = PixelInternalFormat.R8, };
 		}
 
-		/// <param name="text"> The text that should be used for mesh calculations. </param>
-		/// <param name="sizeOffset"> The amount of extra space to add to the mesh to account for overdraw.  </param>
-		/// <param name="z"> The depth of the meshes. </param>
 		public override List<Mesh> GetMesh(string text, float sizeOffset, float z = 0) {
 			if (sizeOffset > Padding) {
 				Logger.Warn($"SizeOffset cannot be above Padding ({Padding}). Was {sizeOffset}. Clamping to Padding...");
@@ -139,9 +136,7 @@ namespace USharpLibs.Engine.Client.Fonts {
 			return meshes;
 		}
 
-		/// <param name="text"> The text to calculate from. </param>
-		/// <returns> The width of the given text in pixels </returns>
-		public float GetWidth(string text) {
+		public override float GetWidth(string text) {
 			float curX = 0;
 
 			foreach (char c in text) {

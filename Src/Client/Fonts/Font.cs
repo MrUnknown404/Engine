@@ -25,5 +25,9 @@ namespace USharpLibs.Engine.Client.Fonts {
 		/// <param name="sizeOffset"> The amount of extra space to add to the mesh to account for overdraw.  </param>
 		/// <param name="z"> The depth of the meshes. </param>
 		public abstract List<Mesh> GetMesh(string text, float sizeOffset, float z = 0);
+
+		/// <param name="text"> The text to calculate from. </param>
+		/// <returns> The width of the given text in pixels </returns>
+		public abstract float GetWidth(string text);
 	}
 }

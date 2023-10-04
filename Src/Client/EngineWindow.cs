@@ -49,6 +49,8 @@ namespace USharpLibs.Engine.Client {
 				if (!client.CheckScreenMouseRelease(e) || !client.ShouldScreenCheckCancelMouseEvent) { client.InvokeOnMouseReleaseEvent(e); }
 			};
 
+			TextInput += client.InvokeOnTextInputEvent;
+
 			client.InvokeWindowCreationEvent(this);
 		}
 

@@ -1,4 +1,5 @@
 using JetBrains.Annotations;
+using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using USharpLibs.Common.Utils;
 using USharpLibs.Engine.Client.GL;
@@ -62,24 +63,22 @@ namespace USharpLibs.Engine.Client.UI {
 					e.Render(s, time);
 				}
 
-				s.SetVector3("Position", new());
+				s.SetVector3("Position", Vector3.Zero);
 			});
 
 			GLH.Bind(DefaultShaders.DefaultFont, s => {
-				foreach (TextElement e in TextElements.Values.Where(e => e.IsEnabled)) {
-					if (e is { DrawFont: false, DrawOutline: false, }) { continue; }
-
+				foreach (TextElement e in TextElements.Values.Where(e => e.IsEnabled && (e.DrawFont || e.DrawOutline))) {
 					s.SetVector3("Position", new(e.X, e.Y, e.Z));
-					if (e.DrawFont != DefaultShaders.DefaultDrawFont) { s.SetBool("DrawFont", e.DrawFont); }
-					if (e.DrawOutline != DefaultShaders.DefaultDrawOutline) { s.SetBool("DrawFont", e.DrawOutline); }
-					if (e.FontColor != DefaultShaders.DefaultFontColor) { s.SetColor("FontColor", e.FontColor); }
-					if (e.OutlineColor != DefaultShaders.DefaultOutlineColor) { s.SetColor("OutlineColor", e.OutlineColor); }
-					if (e.OutlineSize == DefaultShaders.DefaultOutlineSize) { s.SetInt("OutlineSize", e.OutlineSize); }
+					s.SetBool("DrawFont", e.DrawFont);
+					s.SetBool("DrawFont", e.DrawOutline);
+					s.SetColor("FontColor", e.FontColor);
+					s.SetColor("OutlineColor", e.OutlineColor);
+					s.SetInt("OutlineSize", e.OutlineSize);
 
 					e.Render(s, time);
 				}
 
-				s.SetVector3("Position", new());
+				s.SetVector3("Position", Vector3.Zero);
 				s.SetBool("DrawFont", DefaultShaders.DefaultDrawFont);
 				s.SetBool("DrawOutline", DefaultShaders.DefaultDrawOutline);
 				s.SetColor("FontColor", DefaultShaders.DefaultFontColor);

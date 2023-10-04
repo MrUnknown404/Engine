@@ -14,6 +14,7 @@ namespace USharpLibs.Engine.Client.GL {
 		public Assembly? AssemblyOverride { get; init; }
 
 		protected Dictionary<string, int> UniformLocations { get; } = new();
+		protected Dictionary<string, object?> LastValues { get; } = new();
 
 		public int Handle { get; protected set; }
 		protected string VertName { get; }
@@ -59,6 +60,7 @@ namespace USharpLibs.Engine.Client.GL {
 			}
 
 			apply(UniformLocations[name], data);
+			LastValues[name] = data;
 		}
 
 		protected void SetMatrix(string name, bool flag, Matrix4 data) {
@@ -71,6 +73,7 @@ namespace USharpLibs.Engine.Client.GL {
 			}
 
 			OpenGL4.UniformMatrix4(UniformLocations[name], flag, ref data);
+			LastValues[name] = data;
 		}
 
 		protected void SetMatrix4Array(string name, bool flag, Matrix4[] datas) {
@@ -83,6 +86,7 @@ namespace USharpLibs.Engine.Client.GL {
 			}
 
 			OpenGL4.UniformMatrix4(UniformLocations[name], datas.Length, flag, ref datas[0].Row0.X);
+			LastValues[name] = datas;
 		}
 
 		public void SetBool(string name, bool data) => SetData(name, data ? 1 : 0, OpenGL4.Uniform1);
@@ -94,5 +98,10 @@ namespace USharpLibs.Engine.Client.GL {
 		public void SetMatrix4(string name, Matrix4 data) => SetMatrix(name, true, data);
 		public void SetMatrix4Array(string name, Matrix4[] data) => SetMatrix4Array(name, true, data);
 		public void SetColor(string name, Color4 data) => SetData(name, data, OpenGL4.Uniform4);
+
+		public T? GetLastValue<T>(string name) where T : notnull {
+			LastValues.TryGetValue(name, out object? value);
+			return (T?)value;
+		}
 	}
 }
