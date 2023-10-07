@@ -97,7 +97,6 @@ namespace USharpLibs.Engine.Client.Fonts {
 			if (error != FT_Error.FT_Err_Ok) { throw new Exception($"Error loading font. Error code: {error}"); }
 			spaceSize = (ushort)fontFacade.GlyphMetricHorizontalAdvance;
 
-			OpenTK.Graphics.OpenGL4.GL.PixelStore(PixelStoreParameter.UnpackAlignment, 1);
 			return FontTexture = new SimpleTexture(finalImage, imageSize, imageSize, TextureMinFilter.Linear, TextureMagFilter.Linear) { PixelFormat = PixelFormat.Red, PixelInternalFormat = PixelInternalFormat.R8, };
 		}
 

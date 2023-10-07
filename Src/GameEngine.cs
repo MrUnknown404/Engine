@@ -178,7 +178,6 @@ namespace USharpLibs.Engine {
 			Logger.SetupDefaultLogFolder(5, $"Starting Client! Today is: {DateTime.Now:d/M/yyyy HH:mm:ss}");
 
 			ShaderCreationEvent += () => DefaultShaders.AllShaders;
-			OnFontsFinishedEvent += () => GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
 
 			OnMouseMoveEvent += e => {
 				MouseX = (ushort)MathH.Floor(e.X);
@@ -240,6 +239,7 @@ namespace USharpLibs.Engine {
 			HashSet<IUnboundShader> shaders = new();
 			HashSet<Font> fonts = new();
 			HashSet<Texture> textures = new();
+			HashSet<Texture> fontTextures = new();
 
 			if (ShaderCreationEvent != null) {
 				foreach (Delegate d in ShaderCreationEvent.GetInvocationList()) { shaders.UnionWith((HashSet<IUnboundShader>)(d.DynamicInvoke() ?? new HashSet<IUnboundShader>())); }
@@ -255,7 +255,7 @@ namespace USharpLibs.Engine {
 
 			void Fonts() =>
 					fonts.ForEach(f => {
-						if (f.Setup() is { } texture) { textures.Add(texture); }
+						if (f.Setup() is { } texture) { fontTextures.Add(texture); }
 					});
 
 			void Shaders() =>
@@ -269,6 +269,13 @@ namespace USharpLibs.Engine {
 
 			// Java lets me do this nicer ): `Class::Method`
 			if (textures.Count != 0) { Logger.Debug($"Setting up {textures.Count} textures took {TimeH.Time(() => textures.ForEach(t => t.SetupGL())).Milliseconds}ms"); }
+
+			if (fontTextures.Count != 0) {
+				GL.PixelStore(PixelStoreParameter.UnpackAlignment, 1);
+				Logger.Debug($"Setting up {fontTextures.Count} font textures took {TimeH.Time(() => fontTextures.ForEach(t => t.SetupGL())).Milliseconds}ms");
+				GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
+			}
+
 			OnTexturesFinishedEvent?.Invoke();
 
 			if (shaders.Count != 0) { Logger.Debug($"Setting up {shaders.Count} shaders took {TimeH.Time(Shaders).Milliseconds}ms"); }
