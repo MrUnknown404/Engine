@@ -12,6 +12,13 @@ using USharpLibs.Engine.Init;
 using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
 namespace USharpLibs.Engine {
+	/// <summary> The main engine class. To use:<br/>
+	/// Have a class extend this and call <see cref="Start"/> and supply your instance. This will store your instance in memory for later use. See <see cref="Instance{T}"/>.<br/>
+	/// Use <see cref="Tick"/> for code that needs to run periodically.<br/>
+	/// Use <see cref="AddRenderers"/> to add renderers that you wish to use.<br/>
+	/// Use <see cref="Init"/> to run initialization code.<br/>
+	/// Read the source code for more methods/variables you should use.
+	/// </summary>
 	[PublicAPI]
 	public abstract class GameEngine {
 		private static GameEngine instance = default!;
@@ -100,7 +107,9 @@ namespace USharpLibs.Engine {
 
 		/// <summary> The original title given in the constructor. <seealso cref="GameEngine(string, ushort, ushort, ushort, ushort, LogLevel, bool)"/> </summary>
 		public string OriginalTitle { get; }
+		/// <summary> Whether or not when the screen checks UI collision, if the mouse click should be canceled if UI is hit. Default behavior is to cancel </summary>
 		protected internal bool ShouldScreenCheckCancelMouseEvent { get; set; } = true;
+		/// <summary> The max amount of log files to keep on disk. </summary>
 		protected ushort MaxAmountOfLogs { private get; set; } = 5;
 
 		/// <summary> The mouse's current X coordinate. </summary>
@@ -331,8 +340,14 @@ namespace USharpLibs.Engine {
 			CurrentLoadState = old;
 		}
 
+		/// <summary> Calls code on the Main <see cref="Thread"/>. Used for MultiThreaded projects. </summary>
+		/// <param name="toCall"></param>
 		public static void CallOnMainThread(Action toCall) => Window.CallOnMainThreadQueue.Enqueue(toCall);
 
+		/// <summary> Used for custom windows. Do not override this unless you know what you are doing. <br/>
+		/// In the event the default window lacks required functionally, you can extend <see cref="GameWindow"/> and provide a new class instance here.
+		/// </summary>
+		/// <returns> A new instance of a <see cref="GameWindow"/> class for use. </returns>
 		protected virtual GameWindow ProvideWindow() => new EngineWindow(this);
 
 		public enum LoadState : byte {
