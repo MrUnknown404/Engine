@@ -42,15 +42,21 @@ namespace USharpLibs.Engine.Client.UI.Elements {
 
 		public TextElement(short x, short y, float z) : base(x, y, z) { }
 
-		protected override void ISetupGL() => TextModel.SetupGL();
+		public override void SetupGL() => TextModel.SetupGL();
 
 		public override void Render(Shader shader, double time) {
-			if (isDirty && Font != null) {
+			if (Font == null) { return; }
+			if (isDirty) {
 				TextModel.Model.SetMesh(Font.GetMesh(Text, Font.Padding)).RefreshModelData();
 				isDirty = false;
 			}
 
-			if (Text.Length != 0 && (DrawOutline || DrawFont)) { GLH.Bind(TextModel)?.Draw(); }
+			if (Text.Length != 0 && (DrawOutline || DrawFont)) {
+				GLH.Bind(Font.FontTexture);
+				GLH.Bind(TextModel)?.Draw();
+			}
 		}
+
+		public float GetTextWidth() => Font?.GetWidth(Text) ?? throw new NullReferenceException();
 	}
 }

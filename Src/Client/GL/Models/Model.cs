@@ -14,14 +14,6 @@ namespace USharpLibs.Engine.Client.GL.Models {
 
 		protected Model(BufferUsageHint bufferHint) => BufferHint = bufferHint;
 
-		/// <summary> This method can be dangerous so it should be avoided unless you know what you're doing! </summary>
-		public void ForceSetupGL(bool iKnowWhatIAmDoing) => ISetupGL();
-
-		public void SetupGL() {
-			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupGL) { throw new Exception("Cannot setup a model's GL code too early/late!"); }
-			ISetupGL();
-		}
-
 		public void Draw() {
 			if (!WasSetup) {
 				Logger.Warn("Model was not setup!");
@@ -35,7 +27,7 @@ namespace USharpLibs.Engine.Client.GL.Models {
 		}
 
 		/// <summary> Set up any OpenGL code here. </summary>
-		protected abstract void ISetupGL();
+		public abstract void SetupGL();
 
 		protected abstract void IDraw();
 	}

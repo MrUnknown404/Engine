@@ -1,89 +1,135 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using JetBrains.Annotations;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using USharpLibs.Common.Utils;
 
 namespace USharpLibs.Engine.Client {
 	[PublicAPI]
-	public abstract class GameWindow : NativeWindow {
+	public class GameWindow : NativeWindow {
 		internal Queue<Action> CallOnMainThreadQueue { get; } = new();
 
-		protected event Action? Load;
-		protected event Action? Unload;
-		protected bool IsRunningSlowly { get; private set; }
-
-		private Stopwatch WatchRender { get; } = new();
 		private Stopwatch WatchUpdate { get; } = new();
-		private double RenderFrequency { get; }
-		private double UpdateFrequency { get; }
-		private double updateEpsilon;
 
-		protected GameWindow(byte maxFps, byte maxTps, NativeWindowSettings nativeWindowSettings) : base(nativeWindowSettings) {
-			RenderFrequency = maxFps * 2; // Why does this need to be * 2??
-			UpdateFrequency = maxTps;
-		}
+		protected bool IsRunningSlowly { get; private set; }
+		public double UpdateTime { get; protected set; }
+		public double UpdateFrequency { get; }
+		public int ExpectedSchedulerPeriod { get; set; } = 16;
 
-		public virtual unsafe void Run() {
+		private int slowUpdates;
+
+		public GameWindow(ushort updateFrequency, NativeWindowSettings nativeWindowSettings) : base(nativeWindowSettings) => UpdateFrequency = Math.Clamp(updateFrequency, 0d, 60d);
+
+		public virtual unsafe void Run(GameEngine client) {
+			const int TimePeriod = 8;
+
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+				SetThreadAffinityMask(GetCurrentThread(), new IntPtr(1));
+
+#pragma warning disable CA1806
+				timeBeginPeriod(TimePeriod);
+#pragma warning restore CA1806
+				ExpectedSchedulerPeriod = TimePeriod;
+			} else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) || RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD)) { ExpectedSchedulerPeriod = 1; } else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
+				ExpectedSchedulerPeriod = 1;
+			}
+
 			Context?.MakeCurrent();
-			Load?.Invoke();
-			OnResize(new(Size));
 
-			WatchRender.Start();
+			Logger.Info("Running SetupGL");
+			Logger.Debug($"Running SetupGL took {TimeH.Time(() => {
+				GameEngine.CurrentLoadState = GameEngine.LoadState.CreateGL;
+				client.InvokeOnSetupGLEvent();
+				GameEngine.CurrentLoadState = GameEngine.LoadState.SetupGL;
+				client.InvokeOnSetupGLObjectsEvent();
+			}).Milliseconds}ms");
+
+			OnResize(new(ClientSize));
+
+			Logger.Info("Running Setup");
+			Logger.Debug($"Running SetupEngine took {TimeH.Time(() => {
+				GameEngine.CurrentLoadState = GameEngine.LoadState.SetupEngine;
+				client.InvokeOnSetupEngineEvent();
+				client.InvokeOnSetupLoadingScreenEvent();
+				GameEngine.CurrentLoadState = GameEngine.LoadState.Setup;
+				client.InvokeOnSetupEvent();
+			}).Milliseconds}ms");
+
+			Logger.Info("Running PostInit");
+			Logger.Debug($"Running PostInit took {TimeH.Time(() => {
+				GameEngine.CurrentLoadState = GameEngine.LoadState.PostInit;
+				client.InvokeOnPostInitEvent();
+			}).Milliseconds}ms");
+
+			Logger.Info("Running SetupFinished");
+			GameEngine.CurrentLoadState = GameEngine.LoadState.Done;
+			client.InvokeOnSetupFinishedEvent();
+
 			WatchUpdate.Start();
-
 			while (!GLFW.WindowShouldClose(WindowPtr)) {
-				if (CallOnMainThreadQueue.Count != 0) { CallOnMainThreadQueue.Dequeue()(); }
+				if (CallOnMainThreadQueue.Count != 0) { CallOnMainThreadQueue.Dequeue().Invoke(); }
 
-				double val1 = Math.Min(DispatchUpdateFrame(), DispatchRenderFrame());
-				if (val1 > 0) { Thread.Sleep((int)Math.Floor(val1 * 1000)); }
-			}
+				double updatePeriod = UpdateFrequency == 0 ? 0 : 1 / UpdateFrequency;
+				double elapsed = WatchUpdate.Elapsed.TotalSeconds;
 
-			Unload?.Invoke();
-		}
+				if (elapsed > updatePeriod) {
+					WatchUpdate.Restart();
 
-		private double DispatchUpdateFrame() {
-			int num1 = 4;
-			double totalSeconds = WatchUpdate.Elapsed.TotalSeconds, num2;
+					NewInputFrame();
+					ProcessWindowEvents(IsEventDriven);
 
-			for (num2 = UpdateFrequency == 0 ? 0 : 1 / UpdateFrequency; totalSeconds > 0 && totalSeconds + updateEpsilon >= num2; totalSeconds = WatchUpdate.Elapsed.TotalSeconds) {
-				ProcessInputEvents();
-				ProcessWindowEvents(IsEventDriven);
-				WatchUpdate.Restart();
-				OnUpdateFrame(totalSeconds);
-				updateEpsilon += totalSeconds - num2;
+					UpdateTime = elapsed;
+					OnUpdateFrame(new(elapsed));
+					OnRenderFrame(new(elapsed));
 
-				if (UpdateFrequency > double.Epsilon) {
-					IsRunningSlowly = updateEpsilon >= num2;
+					const int MaxSlowUpdates = 80;
+					const int SlowUpdatesThreshold = 45;
 
-					if (IsRunningSlowly && --num1 == 0) {
-						updateEpsilon = 0;
-						break;
+					if (updatePeriod < WatchUpdate.Elapsed.TotalSeconds) {
+						slowUpdates++;
+						if (slowUpdates > MaxSlowUpdates) { slowUpdates = MaxSlowUpdates; }
+					} else {
+						slowUpdates--;
+						if (slowUpdates < 0) { slowUpdates = 0; }
 					}
-				} else { break; }
+
+					IsRunningSlowly = slowUpdates > SlowUpdatesThreshold;
+					if (API != ContextAPI.NoAPI && VSync == VSyncMode.Adaptive) { GLFW.SwapInterval(IsRunningSlowly ? 0 : 1); }
+				}
+
+				double timeToNextUpdate = updatePeriod - WatchUpdate.Elapsed.TotalSeconds;
+				if (timeToNextUpdate > 0) { OpenTK.Core.Utils.AccurateSleep(timeToNextUpdate, ExpectedSchedulerPeriod); }
 			}
 
-			return UpdateFrequency != 0 ? num2 - totalSeconds : 0;
-		}
+			client.InvokeOnUnloadEvent();
 
-		private double DispatchRenderFrame() {
-			double totalSeconds = WatchRender.Elapsed.TotalSeconds, num = RenderFrequency == 0 ? 0 : 1 / RenderFrequency;
-
-			if (totalSeconds > 0 && totalSeconds >= num) {
-				WatchRender.Restart();
-				OnRenderFrame(totalSeconds);
-				if (VSync == VSyncMode.Adaptive) { GLFW.SwapInterval(IsRunningSlowly ? 0 : 1); }
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+#pragma warning disable CA1806
+				timeEndPeriod(TimePeriod);
+#pragma warning restore CA1806
 			}
-
-			return RenderFrequency != 0 ? num - totalSeconds : 0;
 		}
 
-		protected void SwapBuffers() {
+		public virtual void SwapBuffers() {
 			if (Context == null) { throw new InvalidOperationException("Cannot use SwapBuffers when running with ContextAPI.NoAPI."); }
 			Context.SwapBuffers();
 		}
 
-		protected abstract void OnUpdateFrame(double time);
-		protected abstract void OnRenderFrame(double time);
+		protected virtual void OnUpdateFrame(FrameEventArgs args) { }
+		protected virtual void OnRenderFrame(FrameEventArgs args) { }
+
+		public void ResetTimeSinceLastUpdate() => WatchUpdate.Restart();
+		public double TimeSinceLastUpdate() => (float)WatchUpdate.Elapsed.TotalSeconds;
+
+#pragma warning disable SYSLIB1054
+		[DllImport("kernel32", SetLastError = true)]
+		private static extern IntPtr SetThreadAffinityMask(IntPtr hThread, IntPtr dwThreadAffinityMask);
+
+		[DllImport("kernel32")] private static extern IntPtr GetCurrentThread();
+		[DllImport("winmm")] private static extern uint timeBeginPeriod(uint uPeriod);
+		[DllImport("winmm")] private static extern uint timeEndPeriod(uint uPeriod);
+#pragma warning restore SYSLIB1054
 	}
 }

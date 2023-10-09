@@ -25,7 +25,7 @@ namespace USharpLibs.Engine.Client.GL.Models {
 			return this;
 		}
 
-		protected override void ISetupGL() {
+		public override void SetupGL() {
 			if (WasSetup) {
 				Logger.Warn("This model was already setup!");
 				return;

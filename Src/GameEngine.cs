@@ -15,8 +15,7 @@ namespace USharpLibs.Engine {
 	/// <summary> The main engine class. To use:<br/>
 	/// Have a class extend this and call <see cref="Start"/> and supply your instance. This will store your instance in memory for later use. See <see cref="Instance{T}"/>.<br/>
 	/// Use <see cref="Tick"/> for code that needs to run periodically.<br/>
-	/// Use <see cref="AddRenderers"/> to add renderers that you wish to use.<br/>
-	/// Use <see cref="Init"/> to run initialization code.<br/>
+	/// Use <see cref="OnSetupEvent"/> to run initialization code.<br/>
 	/// Read the source code for more methods/variables you should use.
 	/// </summary>
 	[PublicAPI]
@@ -33,8 +32,29 @@ namespace USharpLibs.Engine {
 		/// <summary> A <see cref="Lazy{T}"/> access to USharpEngine's assembly. </summary>
 		public static Lazy<Assembly> USharpEngineAssembly { get; } = new(() => Assembly.GetAssembly(typeof(GameEngine)) ?? throw new Exception("Assembly cannot be found."));
 
-		/// <summary> Called after fullscreen mode has been toggled. </summary>
-		protected event Action<WindowState>? FullscreenToggleEvent;
+		/// <summary> Called before <see cref="OnInitEvent"/>. </summary>
+		protected event Action? OnPreInitEvent;
+		/// <summary> Called before <see cref="OnSetupGLEvent"/> and after <see cref="OnPreInitEvent"/> </summary>
+		protected event Action? OnInitEvent;
+		/// <summary> Called before <see cref="OnSetupGLObjectsEvent"/> and after <see cref="OnInitEvent"/> </summary>
+		protected event Action? OnSetupGLEvent;
+		/// <summary> Called before <see cref="OnSetupEngineEvent"/> and after <see cref="OnSetupGLEvent"/> </summary>
+		private event Action? OnSetupGLObjectsEvent;
+		/// <summary> Called before <see cref="OnSetupLoadingScreenEvent"/> and after <see cref="OnSetupGLObjectsEvent"/> </summary>
+		private event Action? OnSetupEngineEvent;
+		/// <summary> Called before <see cref="OnSetupEvent"/> and after <see cref="OnSetupEngineEvent"/> </summary>
+		protected event Action? OnSetupLoadingScreenEvent;
+		/// <summary> Called before <see cref="OnPostInitEvent"/> and after <see cref="OnSetupLoadingScreenEvent"/> </summary>
+		protected event Action? OnSetupEvent;
+		/// <summary> Called before <see cref="OnSetupFinishedEvent"/> and after <see cref="OnSetupEvent"/> </summary>
+		protected event Action? OnPostInitEvent;
+		/// <summary> Called after <see cref="OnPostInitEvent"/> </summary>
+		protected event Action? OnSetupFinishedEvent;
+		/// <summary> Called when a close is requested. Return true if you want to cancel the request. This is called before <see cref="OnUnloadEvent"/> </summary>
+		protected event Func<bool>? OnClosingEvent;
+		/// <summary> Called before the system exists. <see cref="OnClosingEvent"/> is called before this </summary>
+		protected event Action? OnUnloadEvent;
+
 		/// <summary> Called when the program is ready for shader creation. The return value is all of your program's shaders. </summary>
 		protected event Func<HashSet<IUnboundShader>>? ShaderCreationEvent;
 		/// <summary> Called when the program is ready for font creation. The return value is all of your program's fonts. </summary>
@@ -43,25 +63,24 @@ namespace USharpLibs.Engine {
 		protected event Func<HashSet<Texture>>? TextureCreationEvent;
 		/// <summary> Called when the program is ready for screen creation. The return value is all of your program's screens. </summary>
 		protected event Func<HashSet<Screen>>? ScreenCreationEvent;
+		/// <summary> Called when the program is ready for renderer creation. The return value is all of your program's renderers. </summary>
+		protected event Func<HashSet<IRenderer>>? RendererCreationEvent;
 
-		/// <summary> Called after the OpenGL window has been created. </summary>
-		protected event Action<EngineWindow>? WindowCreationEvent;
-		/// <summary> Called before <see cref="SetupGL"/> but after OpenGL has been initialized. </summary>
-		protected event Action? OnSetupLoadingScreenEvent;
-		/// <summary> Called before the program is closed by the user. </summary>
-		protected event Action? OnClosingEvent;
+		/// <summary> Called after shaders have finished being setup. </summary>
+		protected event Action? OnShadersFinishedEvent;
 		/// <summary> Called after fonts have finished being setup. </summary>
 		protected event Action? OnFontsFinishedEvent;
 		/// <summary> Called after textures have finished being setup. </summary>
 		protected event Action? OnTexturesFinishedEvent;
-		/// <summary> Called after shaders have finished being setup. </summary>
-		protected event Action? OnShadersFinishedEvent;
 		/// <summary> Called after screens have finished being setup. </summary>
 		protected event Action? OnScreensFinishedEvent;
 		/// <summary> Called after renderers have finished being setup. </summary>
 		protected event Action? OnRenderersFinishedEvent;
-		/// <summary> Called after all setup has finished and the program is ready. </summary>
-		protected event Action? OnSetupFinishedEvent;
+
+		/// <summary> Called after fullscreen mode has been toggled. </summary>
+		protected event Action<WindowState>? FullscreenToggleEvent;
+		/// <summary> Called when the window is resized. </summary>
+		protected event Action<ResizeEventArgs>? OnWindowResizeEvent;
 
 		/// <summary> Called when a key has been pressed. </summary>
 		protected internal event Action<KeyboardKeyEventArgs>? OnKeyPressEvent;
@@ -77,19 +96,25 @@ namespace USharpLibs.Engine {
 		protected internal event Action<MouseWheelEventArgs>? OnMouseScrollEvent;
 		/// <summary> Called when text input has been received. </summary>
 		protected internal event Action<TextInputEventArgs>? OnTextInputEvent;
-		/// <summary> Called when the window is resized. </summary>
-		protected internal event Action<ResizeEventArgs>? OnWindowResizeEvent;
 
 		private static GameWindow Window { get; set; } = default!;
 		/// <summary> The current load state of the program. <seealso cref="LoadState"/> </summary>
 		public static LoadState CurrentLoadState { get; internal set; } = LoadState.NotStarted;
 		/// <summary> Whether or not the program is in Debug mode. </summary>
 		public static bool IsDebug { get; protected set; }
+		public static bool OpenGLInitialized { get; protected set; }
 		/// <summary> Whether or not a close has been requested. </summary>
 		public static bool CloseRequested { get; internal set; } // I don't like this but GameWindow#IsExiting doesn't seem to work sometimes
 		/// <summary> The current Screen <seealso cref="Screen"/> </summary>
-		public static Screen? CurrentScreen { get; set; }
+		public static Screen? CurrentScreen {
+			get => currentScreen;
+			set {
+				currentScreen = value;
+				currentScreen?.OnEnable();
+			}
+		}
 
+		private static Screen? currentScreen;
 		internal static uint RawFPS, RawTPS;
 		internal static double RawFrameFrequency, RawTickFrequency;
 
@@ -102,8 +127,8 @@ namespace USharpLibs.Engine {
 		/// <summary> The amount of time since the last tick in milliseconds. </summary>
 		public static double TickFrequency => RawTickFrequency;
 
-		private List<IRenderer> Renderers { get; } = new();
 		private HashSet<Screen> Screens { get; } = new();
+		private HashSet<IRenderer> Renderers { get; } = new();
 
 		/// <summary> The original title given in the constructor. <seealso cref="GameEngine(string, ushort, ushort, ushort, ushort, LogLevel, bool)"/> </summary>
 		public string OriginalTitle { get; }
@@ -113,9 +138,9 @@ namespace USharpLibs.Engine {
 		protected ushort MaxAmountOfLogs { private get; set; } = 5;
 
 		/// <summary> The mouse's current X coordinate. </summary>
-		public static ushort MouseX { get; set; }
+		public static ushort MouseX { get; private set; }
 		/// <summary> The mouse's current Y coordinate. </summary>
-		public static ushort MouseY { get; set; }
+		public static ushort MouseY { get; private set; }
 
 		private string title;
 		private ushort minWidth;
@@ -182,6 +207,8 @@ namespace USharpLibs.Engine {
 			this.maxHeight = maxHeight;
 			IsDebug = isDebug;
 
+			Logger.Info($"GLFW Version: {GLFW.GetVersionString()}");
+
 			Thread.CurrentThread.Name = "Main";
 			Logger.LogLevel = logLevel;
 			Logger.SetupDefaultLogFolder(5, $"Starting Client! Today is: {DateTime.Now:d/M/yyyy HH:mm:ss}");
@@ -193,6 +220,10 @@ namespace USharpLibs.Engine {
 				MouseY = (ushort)MathH.Floor(e.Y);
 				CurrentScreen?.CheckForHover(MouseX, MouseY);
 			};
+
+			OnSetupGLEvent += OnSetupGL;
+			OnSetupGLObjectsEvent += OnSetupGLObjects;
+			OnSetupEngineEvent += OnSetupEngine;
 		}
 
 		protected GameEngine(string title, ushort minWidth, ushort minHeight, LogLevel logLevel = LogLevel.More, bool isDebug = false) : this(title, minWidth, minHeight, 0, 0, logLevel, isDebug) { }
@@ -203,25 +234,31 @@ namespace USharpLibs.Engine {
 		/// <example> <code> private static void Main() => Start(new Program()); </code> </example>
 		/// <param name="instance"> The instance of your program. This will be stored for your later use automatically. See <see cref="Instance{T}()"/> </param>
 		public static void Start(GameEngine instance) {
+			GameEngine.instance = instance;
+
 			CurrentLoadState = LoadState.PreInit;
-			using (Window = (GameEngine.instance = instance).ProvideWindow()) {
+			instance.OnPreInitEvent?.Invoke();
+
+			using (Window = instance.ProvideWindow()) {
 				CurrentLoadState = LoadState.Init;
-
-				if (instance.ScreenCreationEvent != null) {
-					foreach (Delegate d in instance.ScreenCreationEvent.GetInvocationList()) { instance.Screens.UnionWith((HashSet<Screen>)(d.DynamicInvoke() ?? new HashSet<Screen>())); }
-				}
-
-				Logger.Debug($"Running Init took {TimeH.Time(instance.Init).Milliseconds}ms");
-				Window.Run();
+				Logger.Debug($"Running Init took {TimeH.Time(() => instance.OnInitEvent?.Invoke()).Milliseconds}ms");
+				Window.Run(instance);
 			}
 
 			Logger.Info("Goodbye!");
 		}
 
-		internal void InvokeWindowCreationEvent(EngineWindow window) => WindowCreationEvent?.Invoke(window);
+		internal void InvokeOnSetupGLEvent() => OnSetupGLEvent?.Invoke();
+		internal void InvokeOnSetupGLObjectsEvent() => OnSetupGLObjectsEvent?.Invoke();
 		internal void InvokeOnSetupLoadingScreenEvent() => OnSetupLoadingScreenEvent?.Invoke();
-		internal void InvokeOnSetupFinishEvent() => OnSetupFinishedEvent?.Invoke();
-		internal void InvokeOnClosingEvent() => OnClosingEvent?.Invoke();
+		internal void InvokeOnSetupEngineEvent() => OnSetupEngineEvent?.Invoke();
+		internal void InvokeOnSetupEvent() => OnSetupEvent?.Invoke();
+		internal void InvokeOnPostInitEvent() => OnPostInitEvent?.Invoke();
+		internal void InvokeOnSetupFinishedEvent() => OnSetupFinishedEvent?.Invoke();
+		internal void InvokeOnUnloadEvent() => OnUnloadEvent?.Invoke();
+
+		internal void InvokeOnWindowResizeEvent(ResizeEventArgs e) => OnWindowResizeEvent?.Invoke(e);
+		internal bool InvokeOnClosingEvent() => OnClosingEvent?.Invoke() ?? false;
 
 		internal void InvokeOnKeyPressEvent(KeyboardKeyEventArgs e) => OnKeyPressEvent?.Invoke(e);
 		internal void InvokeOnKeyReleaseEvent(KeyboardKeyEventArgs e) => OnKeyReleaseEvent?.Invoke(e);
@@ -230,21 +267,22 @@ namespace USharpLibs.Engine {
 		internal void InvokeOnMouseReleaseEvent(MouseButtonEventArgs e) => OnMouseReleaseEvent?.Invoke(e);
 		internal void InvokeOnMouseScrollEvent(MouseWheelEventArgs e) => OnMouseScrollEvent?.Invoke(e);
 		internal void InvokeOnTextInputEvent(TextInputEventArgs e) => OnTextInputEvent?.Invoke(e);
-		internal void InvokeOnWindowResizeEvent(ResizeEventArgs e) => OnWindowResizeEvent?.Invoke(e);
 
-		/// <summary> Called before OpenGL has been initialized but after the constructor. </summary>
-		protected virtual void Init() { }
+		private static void OnSetupGL() {
+			Logger.Info("Setting up OpenGL!");
+			Logger.Info($"- OpenGL version: {OpenGL4.GetString(StringName.Version)}");
+			Logger.Info($"- GLFW Version: {GLFW.GetVersionString()}");
 
-		internal static void CreateGL() {
-			Logger.Info($"Setting up OpenGL! Running OpenGL version: {OpenGL4.GetString(StringName.Version)}");
 			OpenGL4.ClearColor(0.1f, 0.1f, 0.1f, 1f);
 			OpenGL4.Enable(EnableCap.Blend);
 			OpenGL4.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 			GLH.EnableDepthTest();
 			GLH.EnableCulling();
+
+			OpenGLInitialized = true;
 		}
 
-		internal void SetupGL() {
+		private void OnSetupGLObjects() {
 			HashSet<IUnboundShader> shaders = new();
 			HashSet<Font> fonts = new();
 			HashSet<Texture> textures = new();
@@ -262,23 +300,31 @@ namespace USharpLibs.Engine {
 				foreach (Delegate d in TextureCreationEvent.GetInvocationList()) { textures.UnionWith((HashSet<Texture>)(d.DynamicInvoke() ?? new HashSet<Texture>())); }
 			}
 
-			void Fonts() =>
-					fonts.ForEach(f => {
-						if (f.Setup() is { } texture) { fontTextures.Add(texture); }
-					});
-
-			void Shaders() =>
+			// Shaders
+			if (shaders.Count != 0) {
+				Logger.Debug($"Setting up {shaders.Count} shaders took {TimeH.Time(() => {
 					shaders.ForEach(s => {
 						s.SetupGL();
 						Window.Resize += s.OnResize;
 					});
+				}).Milliseconds}ms");
+			}
 
-			if (fonts.Count != 0) { Logger.Debug($"Setting up {fonts.Count} fonts took {TimeH.Time(Fonts).Milliseconds}ms"); }
+			OnShadersFinishedEvent?.Invoke();
+
+			// Fonts
+			if (fonts.Count != 0) {
+				Logger.Debug($"Setting up {fonts.Count} fonts took {TimeH.Time(() => {
+					fonts.ForEach(f => {
+						if (f.Setup() is { } texture) { fontTextures.Add(texture); }
+					});
+				}).Milliseconds}ms");
+			}
+
 			OnFontsFinishedEvent?.Invoke();
 
-			// Java lets me do this nicer ): `Class::Method`
+			// Textures
 			if (textures.Count != 0) { Logger.Debug($"Setting up {textures.Count} textures took {TimeH.Time(() => textures.ForEach(t => t.SetupGL())).Milliseconds}ms"); }
-
 			if (fontTextures.Count != 0) {
 				GL.PixelStore(PixelStoreParameter.UnpackAlignment, 1);
 				Logger.Debug($"Setting up {fontTextures.Count} font textures took {TimeH.Time(() => fontTextures.ForEach(t => t.SetupGL())).Milliseconds}ms");
@@ -286,25 +332,39 @@ namespace USharpLibs.Engine {
 			}
 
 			OnTexturesFinishedEvent?.Invoke();
+		}
 
-			if (shaders.Count != 0) { Logger.Debug($"Setting up {shaders.Count} shaders took {TimeH.Time(Shaders).Milliseconds}ms"); }
-			OnShadersFinishedEvent?.Invoke();
+		private void OnSetupEngine() {
+			//Screens
+			if (ScreenCreationEvent != null) {
+				foreach (Delegate d in ScreenCreationEvent.GetInvocationList()) { Screens.UnionWith((HashSet<Screen>)(d.DynamicInvoke() ?? new HashSet<Screen>())); }
+			}
 
-			if (Screens.Count != 0) { Logger.Debug($"Setting up {Screens.Count} screens took {TimeH.Time(() => Screens.ForEach(r => r.SetupGL())).Milliseconds}ms"); }
+			if (Screens.Count != 0) { Logger.Debug($"Setting up {Screens.Count} screens took {TimeH.Time(() => Screens.ForEach(s => s.SetupGL())).Milliseconds}ms"); }
 			OnScreensFinishedEvent?.Invoke();
 
-			AddRenderers(Renderers);
-			if (Renderers.Count != 0) { Logger.Debug($"Setting up {Renderers.Count} renderers took {TimeH.Time(() => Renderers.ForEach(r => r.SetupGL())).Milliseconds}ms"); }
+			//Renderers
+			if (RendererCreationEvent != null) {
+				foreach (Delegate d in RendererCreationEvent.GetInvocationList()) { Renderers.UnionWith((HashSet<IRenderer>)(d.DynamicInvoke() ?? new HashSet<IRenderer>())); }
+			}
+
+			if (Renderers.Count != 0) { Logger.Debug($"Setting up {Renderers.Count} renderers took {TimeH.Time(() => Renderers.ForEach(s => s.SetupGL())).Milliseconds}ms"); }
 			OnRenderersFinishedEvent?.Invoke();
 		}
 
 		/// <summary> Called 60 times a second. </summary>
 		/// <param name="time"> The time since the last tick. </param>
-		public virtual void Tick(double time) => CurrentScreen?.Tick(time);
+		public virtual void Tick(double time) {
+			Renderers.ForEach(r => r.Tick(time));
+			CurrentScreen?.Tick(time);
+		}
 
 		/// <summary> Called every time a frame is requested. </summary>
 		/// <param name="time"> The time since the last frame was drawn. </param>
-		public virtual void Render(double time) => Renderers.ForEach(r => r.Render(time));
+		public virtual void Render(double time) {
+			Renderers.ForEach(r => r.Render(time));
+			CurrentScreen?.Render(time);
+		}
 
 		/// <returns> <c>true</c> if mouse event should be canceled. Otherwise <c>false</c>. </returns>
 		protected internal virtual bool CheckScreenMouseRelease(MouseButtonEventArgs e) =>
@@ -320,14 +380,13 @@ namespace USharpLibs.Engine {
 			return false;
 		}
 
-		/// <param name="renderers"> The list to append renderers too. </param>
-		protected abstract void AddRenderers(List<IRenderer> renderers);
-
 		/// <summary> Toggles fullscreen. </summary>
 		public void ToggleFullscreen() {
 			Window.WindowState = Window.WindowState == WindowState.Normal ? WindowState.Fullscreen : WindowState.Normal;
 			FullscreenToggleEvent?.Invoke(Window.WindowState);
 		}
+
+		public static void SwapBuffers() => Window.SwapBuffers();
 
 		/// <inheritdoc cref="OpenTK.Windowing.Desktop.NativeWindow.IsKeyDown"/>
 		public static bool IsKeyDown(Keys key) => Window.IsKeyDown(key);
@@ -356,6 +415,9 @@ namespace USharpLibs.Engine {
 			Init,
 			CreateGL,
 			SetupGL,
+			SetupEngine,
+			Setup,
+			PostInit,
 			Done,
 		}
 	}

@@ -22,7 +22,7 @@ namespace USharpLibs.Engine.Client.GL.Models {
 			return this;
 		}
 
-		protected override void ISetupGL() {
+		public override void SetupGL() {
 			if (Meshes.Count == 0) {
 				Logger.Warn("Tried to setup an empty model!");
 				return;

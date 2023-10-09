@@ -1,6 +1,6 @@
 #version 330
 
-layout (location = 0) out vec4 Color;
+layout (location = 0) out vec4 OutColor;
 
 uniform sampler2D Tex0;
 uniform vec4 OutlineColor = vec4(0, 0, 0, 1);
@@ -35,7 +35,7 @@ float gaussianBlur() {
 void main() {
 	float value = (256 - clamp(OutlineSize, 0, 256)) / 256.0;
 
-	Color = vec4(0);
-	if (DrawOutline) { Color += mix(mix(vec4(0), OutlineColor, smoothstep(0, value * 2, gaussianBlur())), OutlineColor, texture(Tex0, F_Tex).r); }
-	if (DrawFont) { Color += mix(Color, DrawOutline ? FontColor - OutlineColor : FontColor, texture(Tex0, F_Tex).r); }
+	OutColor = vec4(0);
+	if (DrawOutline) { OutColor += mix(mix(vec4(0), OutlineColor, smoothstep(0, value * 2, gaussianBlur())), OutlineColor, texture(Tex0, F_Tex).r); }
+	if (DrawFont) { OutColor += mix(OutColor, DrawOutline ? FontColor - OutlineColor : FontColor, texture(Tex0, F_Tex).r); }
 }

@@ -2,6 +2,7 @@ using JetBrains.Annotations;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using USharpLibs.Common.Utils;
+using USharpLibs.Engine.Client.Fonts;
 using USharpLibs.Engine.Client.GL;
 using USharpLibs.Engine.Client.UI.Elements;
 using USharpLibs.Engine.Init;
@@ -17,7 +18,7 @@ namespace USharpLibs.Engine.Client.UI {
 		protected ClickableUiElement? CurrentlyPressed { get; private set; }
 
 		protected Screen() {
-			if (GameEngine.CurrentLoadState != GameEngine.LoadState.Init) { Logger.Warn($"Cannot create new Screen during {GameEngine.CurrentLoadState}. Use GameEngine#ScreenCreationEvent"); }
+			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupEngine) { Logger.Warn($"Cannot create new Screen during {GameEngine.CurrentLoadState}. Use GameEngine#ScreenCreationEvent"); }
 		}
 
 		/// <summary> Adds a <see cref="UiElement"/> to the list of elements. </summary>
@@ -25,11 +26,6 @@ namespace USharpLibs.Engine.Client.UI {
 		/// <param name="e"> The element to add. </param>
 		/// <param name="replace"> Whether or not to replace an element if the given key is already present. </param>
 		protected void AddElement(string key, UiElement e, bool replace = false) {
-			if (GameEngine.CurrentLoadState != GameEngine.LoadState.Init) {
-				Logger.Warn($"Cannot add UiElement during {GameEngine.CurrentLoadState}");
-				return;
-			}
-
 			if (AllUiKeys().Contains(key)) {
 				if (!replace) {
 					Logger.Warn($"Duplicate key '{key}' found. If this was intentional set 'replace' to true");
@@ -41,7 +37,7 @@ namespace USharpLibs.Engine.Client.UI {
 		}
 
 		internal void SetupGL() {
-			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupGL) { throw new Exception($"Cannot setup Screen OpenGL during {GameEngine.CurrentLoadState}"); }
+			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupEngine) { throw new Exception($"Cannot setup Screen OpenGL during {GameEngine.CurrentLoadState}"); }
 			ISetupGL();
 		}
 
@@ -86,6 +82,13 @@ namespace USharpLibs.Engine.Client.UI {
 				s.SetInt("OutlineSize", DefaultShaders.DefaultOutlineSize);
 			});
 		}
+
+		public virtual void InitFont(Font font) {
+			foreach (TextElement element in AllUiElements().OfType<TextElement>()) { element.Font = font; }
+		}
+
+		public virtual void OnEnable() { }
+		public virtual void OnResize() { }
 
 		internal bool CheckForPress(MouseButton button, ushort mouseX, ushort mouseY) {
 			foreach (UiElement element in AllUiElements()) {

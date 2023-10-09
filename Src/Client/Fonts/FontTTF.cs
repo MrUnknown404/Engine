@@ -30,7 +30,7 @@ namespace USharpLibs.Engine.Client.Fonts {
 			string streamName = $"{assembly.GetName().Name}.Assets.Fonts.{Name}.ttf";
 
 			// Load font and FreeType
-			if (assembly.GetManifestResourceStream(streamName) is Stream stream) {
+			if (assembly.GetManifestResourceStream(streamName) is { } stream) {
 				using (stream) {
 					int fontStreamLength = (int)stream.Length;
 					byte[] fontData = new byte[fontStreamLength];
