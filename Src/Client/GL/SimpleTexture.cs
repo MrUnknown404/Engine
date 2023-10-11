@@ -39,10 +39,7 @@ namespace USharpLibs.Engine.Client.GL {
 						OpenGL4.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat, image.Width, image.Height, 0, PixelFormat, PixelType.UnsignedByte, image.Data);
 					}
 				} else { throw new Exception($"Could not find file '{Name}' at '{streamName}'"); }
-			} else if (Data != null) {
-
-				OpenGL4.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat, Width, Height, 0, PixelFormat, PixelType.UnsignedByte, Data);
-			} else {
+			} else if (Data != null) { OpenGL4.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat, Width, Height, 0, PixelFormat, PixelType.UnsignedByte, Data); } else {
 				throw new Exception("Cannot load texture because no data was given! how'd you do that?");
 			}
 

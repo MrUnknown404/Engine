@@ -12,7 +12,8 @@ namespace USharpLibs.Engine.Init {
 		public static Color4 DefaultOutlineColor => Color4.Black;
 
 		public static UnboundShader<DefaultHudShader> DefaultHud { get; } = Add(new DefaultHudShader("DefaultHud") { AssemblyOverride = GameEngine.USharpEngineAssembly.Value, });
-		public static UnboundShader<DefaultHudShader> DefaultFont { get; } = Add(new DefaultHudShader("DefaultFont") { AssemblyOverride = GameEngine.USharpEngineAssembly.Value, });
+		public static UnboundShader<DefaultHudShader> DefaultFont { get; } = Add(new DefaultHudShader("DefaultHud", "DefaultFont") { AssemblyOverride = GameEngine.USharpEngineAssembly.Value, });
+		public static UnboundShader<DefaultHudShader> NineSlice { get; } = Add(new DefaultHudShader("DefaultHud", "NineSlice") { AssemblyOverride = GameEngine.USharpEngineAssembly.Value, });
 
 		private static UnboundShader<T> Add<T>(T shader) where T : Shader {
 			UnboundShader<T> s = new(shader);

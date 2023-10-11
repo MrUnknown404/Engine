@@ -258,7 +258,7 @@ namespace USharpLibs.Engine {
 		internal void InvokeOnUnloadEvent() => OnUnloadEvent?.Invoke();
 
 		internal void InvokeOnWindowResizeEvent(ResizeEventArgs e) => OnWindowResizeEvent?.Invoke(e);
-		internal bool InvokeOnClosingEvent() => OnClosingEvent?.Invoke() ?? false;
+		internal bool InvokeOnClosingEvent() => OnClosingEvent != null && OnClosingEvent.GetInvocationList().Aggregate(false, (current, d) => current | (bool)(d.DynamicInvoke() ?? false));
 
 		internal void InvokeOnKeyPressEvent(KeyboardKeyEventArgs e) => OnKeyPressEvent?.Invoke(e);
 		internal void InvokeOnKeyReleaseEvent(KeyboardKeyEventArgs e) => OnKeyReleaseEvent?.Invoke(e);
