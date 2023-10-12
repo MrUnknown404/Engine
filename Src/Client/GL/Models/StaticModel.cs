@@ -1,6 +1,6 @@
 using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
-using USharpLibs.Common.Utils;
+using USharpLibs.Common.IO;
 using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
 namespace USharpLibs.Engine.Client.GL.Models {

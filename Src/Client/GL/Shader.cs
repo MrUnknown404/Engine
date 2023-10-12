@@ -3,7 +3,7 @@ using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
-using USharpLibs.Common.Utils;
+using USharpLibs.Common.IO;
 using USharpLibs.Engine.Utils;
 using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 

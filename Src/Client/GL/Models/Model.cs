@@ -1,6 +1,6 @@
 using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
-using USharpLibs.Common.Utils;
+using USharpLibs.Common.IO;
 
 namespace USharpLibs.Engine.Client.GL.Models {
 	[PublicAPI]

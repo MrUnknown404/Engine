@@ -1,7 +1,7 @@
 using JetBrains.Annotations;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using USharpLibs.Common.Utils;
+using USharpLibs.Common.IO;
 using USharpLibs.Engine.Client.Fonts;
 using USharpLibs.Engine.Client.GL;
 using USharpLibs.Engine.Client.UI.Elements;

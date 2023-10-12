@@ -1,5 +1,5 @@
 using JetBrains.Annotations;
-using USharpLibs.Common.Utils;
+using USharpLibs.Common.Math;
 using USharpLibs.Engine.Client.GL.Models;
 using USharpLibs.Engine.Utils;
 

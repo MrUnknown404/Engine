@@ -1,5 +1,5 @@
 using JetBrains.Annotations;
-using USharpLibs.Common.Utils;
+using USharpLibs.Common.IO;
 
 namespace USharpLibs.Engine.Utils {
 	[PublicAPI]
