@@ -196,9 +196,9 @@ namespace USharpLibs.Engine {
 		}
 
 		/// <summary> The program's current window width </summary>
-		public static ushort Width => (ushort)Window.Size.X;
+		public static ushort Width => (ushort)Window.ClientSize.X;
 		/// <summary> The program's current window height </summary>
-		public static ushort Height => (ushort)Window.Size.Y;
+		public static ushort Height => (ushort)Window.ClientSize.Y;
 
 		protected GameEngine(string title, ushort minWidth, ushort minHeight, ushort maxWidth, ushort maxHeight, LogLevel logLevel = LogLevel.More, bool isDebug = false) {
 			OriginalTitle = title;

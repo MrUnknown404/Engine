@@ -10,8 +10,8 @@ using USharpLibs.Engine.Init;
 namespace USharpLibs.Engine.Client.UI {
 	[PublicAPI]
 	public abstract class Screen {
-		protected Dictionary<string, UiElement> Elements { get; } = new();
-		protected Dictionary<string, TextElement> TextElements { get; } = new();
+		private Dictionary<string, UiElement> Elements { get; } = new();
+		private Dictionary<string, TextElement> TextElements { get; } = new();
 
 		protected HoverableUiElement? CurrentlyHovered { get; private set; }
 		protected FocusableUiElement? CurrentlyFocused { get; private set; }
@@ -34,6 +34,14 @@ namespace USharpLibs.Engine.Client.UI {
 			}
 
 			if (e is TextElement te) { TextElements.Add(key, te); } else { Elements.Add(key, e); }
+		}
+
+		public UiElement? GetElement(string key) {
+			if (Elements.TryGetValue(key, out UiElement? e0)) { return e0; }
+			if (TextElements.TryGetValue(key, out TextElement? e1)) { return e1; }
+
+			Logger.Warn($"Could not find element with key '{key}'");
+			return null;
 		}
 
 		internal void SetupGL() {
