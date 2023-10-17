@@ -100,13 +100,17 @@ namespace USharpLibs.Engine {
 		protected internal event Action<TextInputEventArgs>? OnTextInputEvent;
 
 		private static GameWindow Window { get; set; } = default!;
+
 		/// <summary> The current load state of the program. <seealso cref="LoadState"/> </summary>
 		public static LoadState CurrentLoadState { get; internal set; } = LoadState.NotStarted;
 		/// <summary> Whether or not the program is in Debug mode. </summary>
 		public static bool IsDebug { get; protected set; }
+		/// <summary> Whether or not OpenGL has been initialized </summary>
 		public static bool OpenGLInitialized { get; protected set; }
 		/// <summary> Whether or not a close has been requested. </summary>
 		public static bool CloseRequested { get; internal set; } // I don't like this but GameWindow#IsExiting doesn't seem to work sometimes
+		public static bool IsRunningSlowly => Window.IsRunningSlowly;
+
 		/// <summary> The current Screen <seealso cref="Screen"/> </summary>
 		public static Screen? CurrentScreen {
 			get => currentScreen;
@@ -387,6 +391,8 @@ namespace USharpLibs.Engine {
 			Window.WindowState = Window.WindowState == WindowState.Normal ? WindowState.Fullscreen : WindowState.Normal;
 			FullscreenToggleEvent?.Invoke(Window.WindowState);
 		}
+
+		public static void SetVSync(VSyncMode vsync) => Window.VSync = vsync;
 
 		public static void SwapBuffers() => Window.SwapBuffers();
 

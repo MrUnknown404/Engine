@@ -14,7 +14,7 @@ namespace USharpLibs.Engine.Client {
 
 		private Stopwatch WatchUpdate { get; } = new();
 
-		protected bool IsRunningSlowly { get; private set; }
+		public bool IsRunningSlowly { get; private set; }
 		public double UpdateTime { get; protected set; }
 		public double UpdateFrequency { get; }
 		public int ExpectedSchedulerPeriod { get; set; } = 16;
