@@ -66,7 +66,7 @@ namespace USharpLibs.Engine {
 		/// <summary> Called when the program is ready for screen creation. The return value is all of your program's screens. </summary>
 		protected event Func<HashSet<Screen>>? ScreenCreationEvent;
 		/// <summary> Called when the program is ready for renderer creation. The return value is all of your program's renderers. </summary>
-		protected event Func<HashSet<IRenderer>>? RendererCreationEvent;
+		protected event Func<List<IRenderer>>? RendererCreationEvent;
 
 		/// <summary> Called after shaders have finished being setup. </summary>
 		protected event Action? OnShadersFinishedEvent;
@@ -351,7 +351,7 @@ namespace USharpLibs.Engine {
 
 			//Renderers
 			if (RendererCreationEvent != null) {
-				foreach (Delegate d in RendererCreationEvent.GetInvocationList()) { Renderers.UnionWith((HashSet<IRenderer>)(d.DynamicInvoke() ?? new HashSet<IRenderer>())); }
+				foreach (Delegate d in RendererCreationEvent.GetInvocationList()) { Renderers.UnionWith((List<IRenderer>)(d.DynamicInvoke() ?? new List<IRenderer>())); }
 			}
 
 			if (Renderers.Count != 0) { Logger.Debug($"Setting up {Renderers.Count} renderers took {TimeH.Time(() => Renderers.ForEach(s => s.SetupGL())).Milliseconds}ms"); }
