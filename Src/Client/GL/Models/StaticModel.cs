@@ -72,6 +72,9 @@ namespace USharpLibs.Engine.Client.GL.Models {
 			GLH.UnbindVAO();
 		}
 
-		protected override void IDraw() => OpenGL4.DrawElements(PrimitiveType.Triangles, IndicesLength, DrawElementsType.UnsignedInt, 0);
+		protected override void IDraw() {
+			if (IndicesLength == 0) { return; }
+			OpenGL4.DrawElements(PrimitiveType.Triangles, IndicesLength, DrawElementsType.UnsignedInt, 0);
+		}
 	}
 }

@@ -31,6 +31,8 @@ namespace USharpLibs.Engine.Client.UI.Elements {
 		protected internal abstract bool OnRelease(MouseButton button);
 
 		/// <summary> Called if this element was the last clicked element and the next click did not click this. </summary>
-		protected internal abstract void OnReleaseFailed(MouseButton button);
+		protected internal virtual void OnReleaseFailed(MouseButton button) {
+			if (IsHeldDown) { IsHeldDown = false; }
+		}
 	}
 }

@@ -17,8 +17,6 @@
 		<PackageReference Include="FreeTypeSharp" Version="2.0.0.12-ci" />
 		<ProjectReference Include="..\USharpLibs-Common\USharpLibs-Common.csproj" />
 
-		<EmbeddedResource Include="Assets\**">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</EmbeddedResource>
+		<EmbeddedResource Include="Assets\**"/>
 	</ItemGroup>
 </Project>

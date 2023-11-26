@@ -101,7 +101,7 @@ namespace USharpLibs.Engine.Client.Fonts {
 			return FontTexture = new SimpleTexture(finalImage, imageSize, imageSize, TextureMinFilter.Linear, TextureMagFilter.Linear) { PixelFormat = PixelFormat.Red, PixelInternalFormat = PixelInternalFormat.R8, };
 		}
 
-		public override List<Mesh> GetMesh(string text, float sizeOffset, float z = 0) {
+		public override List<Mesh> GetMesh(string text, float sizeOffset, float wordWrap = 0, float z = 0) {
 			if (sizeOffset > Padding) {
 				Logger.Warn($"SizeOffset cannot be above Padding ({Padding}). Was {sizeOffset}. Clamping to Padding...");
 				sizeOffset = Padding;
@@ -115,15 +115,10 @@ namespace USharpLibs.Engine.Client.Fonts {
 			float offset = sizeOffset / 2f;
 			float uvoffset = offset / ((SimpleTexture)FontTexture).Width; // Only works because AtlasGridSize is hardcoded to be square
 
-			foreach (char c in text) {
-				if (c == ' ') {
-					x += spaceSize;
-					continue;
-				}
-
+			void SetupGlyph(char c) {
 				if (!GlyphMap.ContainsKey(c)) {
 					Logger.Warn($"Tried to load unknown character. Id: {(ushort)c}");
-					continue;
+					return;
 				}
 
 				Glyph glyph = GlyphMap[c];
@@ -131,6 +126,29 @@ namespace USharpLibs.Engine.Client.Fonts {
 						glyph.U1 + uvoffset, glyph.V1 - uvoffset));
 
 				x += glyph.Advance;
+			}
+
+			if (wordWrap == 0) {
+				foreach (char c in text) {
+					if (c == ' ') {
+						x += spaceSize;
+						continue;
+					}
+
+					SetupGlyph(c);
+				}
+
+				return meshes;
+			}
+
+			foreach (string str in text.Split(' ')) {
+				if (x + GetWidth(str) > wordWrap) {
+					x = 0;
+					y += FontSize * 1.5f;
+				}
+
+				foreach (char c in str) { SetupGlyph(c); }
+				x += spaceSize;
 			}
 
 			return meshes;

@@ -10,8 +10,8 @@ using USharpLibs.Engine.Init;
 namespace USharpLibs.Engine.Client.UI {
 	[PublicAPI]
 	public abstract class Screen {
-		private Dictionary<string, UiElement> Elements { get; } = new();
-		private Dictionary<string, TextElement> TextElements { get; } = new();
+		protected Dictionary<string, UiElement> Elements { get; } = new();
+		protected Dictionary<string, TextElement> TextElements { get; } = new();
 
 		protected HoverableUiElement? CurrentlyHovered { get; private set; }
 		protected FocusableUiElement? CurrentlyFocused { get; private set; }

@@ -159,7 +159,7 @@ namespace USharpLibs.Engine {
 			get => title;
 			protected set {
 				title = value;
-				Window.Title = title;
+				Window.Title = Title;
 			}
 		}
 
@@ -168,7 +168,7 @@ namespace USharpLibs.Engine {
 			get => minWidth;
 			protected set {
 				minWidth = value;
-				Window.MinimumSize = new(minWidth, MinHeight);
+				Window.MinimumSize = new(MinWidth, MinHeight);
 			}
 		}
 
@@ -177,7 +177,7 @@ namespace USharpLibs.Engine {
 			get => minHeight;
 			protected set {
 				minHeight = value;
-				Window.MinimumSize = new(MinWidth, minHeight);
+				Window.MinimumSize = new(MinWidth, MinHeight);
 			}
 		}
 
@@ -186,7 +186,7 @@ namespace USharpLibs.Engine {
 			get => maxWidth;
 			protected set {
 				maxWidth = value;
-				Window.MaximumSize = new(maxWidth, MaxHeight);
+				Window.MaximumSize = new(MaxWidth, MaxHeight);
 			}
 		}
 
@@ -195,7 +195,7 @@ namespace USharpLibs.Engine {
 			get => maxHeight;
 			protected set {
 				maxHeight = value;
-				Window.MaximumSize = new(MaxWidth, maxHeight);
+				Window.MaximumSize = new(MaxWidth, MaxHeight);
 			}
 		}
 
@@ -212,8 +212,6 @@ namespace USharpLibs.Engine {
 			this.maxWidth = maxWidth;
 			this.maxHeight = maxHeight;
 			IsDebug = isDebug;
-
-			Logger.Info($"GLFW Version: {GLFW.GetVersionString()}");
 
 			Thread.CurrentThread.Name = "Main";
 			Logger.LogLevel = logLevel;
@@ -393,8 +391,8 @@ namespace USharpLibs.Engine {
 		}
 
 		public static void SetVSync(VSyncMode vsync) => Window.VSync = vsync;
-
 		public static void SwapBuffers() => Window.SwapBuffers();
+		public static void RequestClose() => Window.Close();
 
 		/// <inheritdoc cref="OpenTK.Windowing.Desktop.NativeWindow.IsKeyDown"/>
 		public static bool IsKeyDown(Keys key) => Window.IsKeyDown(key);
@@ -428,5 +426,7 @@ namespace USharpLibs.Engine {
 			PostInit,
 			Done,
 		}
+
+		protected internal virtual void SetupViewport(ResizeEventArgs e) => OpenGL4.Viewport(0, 0, e.Width, e.Height);
 	}
 }

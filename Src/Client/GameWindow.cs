@@ -27,13 +27,15 @@ namespace USharpLibs.Engine.Client {
 			const int TimePeriod = 8;
 
 			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
-				SetThreadAffinityMask(GetCurrentThread(), new IntPtr(1));
+				SetThreadAffinityMask(GetCurrentThread(), 1);
 
 #pragma warning disable CA1806
 				timeBeginPeriod(TimePeriod);
 #pragma warning restore CA1806
 				ExpectedSchedulerPeriod = TimePeriod;
-			} else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) || RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD)) { ExpectedSchedulerPeriod = 1; } else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
+			} else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) || RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD)) {
+				ExpectedSchedulerPeriod = 1;
+			} else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
 				ExpectedSchedulerPeriod = 1;
 			}
 
@@ -82,8 +84,8 @@ namespace USharpLibs.Engine.Client {
 					ProcessWindowEvents(IsEventDriven);
 
 					UpdateTime = elapsed;
-					OnUpdateFrame(new(elapsed));
-					OnRenderFrame(new(elapsed));
+					OnUpdateFrame(elapsed);
+					OnRenderFrame(elapsed);
 
 					const int MaxSlowUpdates = 80;
 					const int SlowUpdatesThreshold = 45;
@@ -118,11 +120,8 @@ namespace USharpLibs.Engine.Client {
 			Context.SwapBuffers();
 		}
 
-		protected virtual void OnUpdateFrame(FrameEventArgs args) { }
-		protected virtual void OnRenderFrame(FrameEventArgs args) { }
-
-		public void ResetTimeSinceLastUpdate() => WatchUpdate.Restart();
-		public double TimeSinceLastUpdate() => (float)WatchUpdate.Elapsed.TotalSeconds;
+		protected virtual void OnUpdateFrame(double time) { }
+		protected virtual void OnRenderFrame(double time) { }
 
 #pragma warning disable SYSLIB1054
 		[DllImport("kernel32", SetLastError = true)]

@@ -1,7 +1,9 @@
+using JetBrains.Annotations;
 using OpenTK.Mathematics;
 using USharpLibs.Engine.Client.GL;
 
 namespace USharpLibs.Engine.Init {
+	[PublicAPI]
 	public static class DefaultShaders {
 		internal static HashSet<IUnboundShader> AllShaders { get; } = new();
 

@@ -1,7 +1,5 @@
 using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Windowing.Common;
-using OpenTK.Windowing.Desktop;
 using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
 namespace USharpLibs.Engine.Client {
@@ -13,7 +11,7 @@ namespace USharpLibs.Engine.Client {
 		private double frameTimeCounter, tickTimeCounter;
 
 		internal EngineWindow(GameEngine client) : base(60,
-				new NativeWindowSettings {
+				new() {
 						MinimumSize = new(client.MinWidth, client.MinHeight),
 						MaximumSize = client.MaxWidth == 0 || client.MaxHeight == 0 ? null : new(client.MaxWidth, client.MaxHeight),
 						Size = new(client.MinWidth, client.MinHeight),
@@ -21,7 +19,7 @@ namespace USharpLibs.Engine.Client {
 				}) {
 			Client = client;
 
-			Resize += e => OpenGL4.Viewport(0, 0, e.Width, e.Height);
+			Resize += client.SetupViewport;
 			Resize += _ => GameEngine.CurrentScreen?.OnResize();
 			Resize += client.InvokeOnWindowResizeEvent;
 
@@ -46,20 +44,20 @@ namespace USharpLibs.Engine.Client {
 			TextInput += client.InvokeOnTextInputEvent;
 		}
 
-		protected override void OnRenderFrame(FrameEventArgs args) {
-			base.OnRenderFrame(args);
-			Calc(args.Time, ref frameCounter, ref frameTimeCounter, out GameEngine.RawFrameFrequency, ref GameEngine.RawFPS);
+		protected override void OnRenderFrame(double time) {
+			base.OnRenderFrame(time);
+			Calc(time, ref frameCounter, ref frameTimeCounter, out GameEngine.RawFrameFrequency, ref GameEngine.RawFPS);
 
 			OpenGL4.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-			Client.Render(args.Time);
+			Client.Render(time);
 			SwapBuffers();
 		}
 
-		protected override void OnUpdateFrame(FrameEventArgs args) {
-			base.OnUpdateFrame(args);
-			Calc(args.Time, ref tickCounter, ref tickTimeCounter, out GameEngine.RawTickFrequency, ref GameEngine.RawTPS);
+		protected override void OnUpdateFrame(double time) {
+			base.OnUpdateFrame(time);
+			Calc(time, ref tickCounter, ref tickTimeCounter, out GameEngine.RawTickFrequency, ref GameEngine.RawTPS);
 
-			Client.Tick(args.Time);
+			Client.Tick(time);
 		}
 
 		private static void Calc(double time, ref uint counter, ref double timeCounter, out double frequency, ref uint result) {

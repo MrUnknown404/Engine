@@ -23,8 +23,9 @@ namespace USharpLibs.Engine.Client.Fonts {
 
 		/// <param name="text"> The text that should be used for mesh calculations. </param>
 		/// <param name="sizeOffset"> The amount of extra space to add to the mesh to account for overdraw.  </param>
+		/// <param name="wordWrap"> At what pixel to word wrap. Set to 0 to disable. </param>
 		/// <param name="z"> The depth of the meshes. </param>
-		public abstract List<Mesh> GetMesh(string text, float sizeOffset, float z = 0);
+		public abstract List<Mesh> GetMesh(string text, float sizeOffset, float wordWrap = 0, float z = 0);
 
 		/// <param name="text"> The text to calculate from. </param>
 		/// <returns> The width of the given text in pixels </returns>
