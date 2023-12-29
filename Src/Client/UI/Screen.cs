@@ -83,11 +83,11 @@ namespace USharpLibs.Engine.Client.UI {
 				}
 
 				s.SetVector3("Position", Vector3.Zero);
-				s.SetBool("DrawFont", DefaultShaders.DefaultDrawFont);
-				s.SetBool("DrawOutline", DefaultShaders.DefaultDrawOutline);
-				s.SetColor("FontColor", DefaultShaders.DefaultFontColor);
-				s.SetColor("OutlineColor", DefaultShaders.DefaultOutlineColor);
-				s.SetInt("OutlineSize", DefaultShaders.DefaultOutlineSize);
+				s.SetDrawFont();
+				s.SetDrawOutline();
+				s.SetFontColor();
+				s.SetOutlineColor();
+				s.SetOutlineSize();
 			});
 		}
 
