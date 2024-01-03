@@ -30,9 +30,9 @@ namespace USharpLibs.Engine {
 
 		private static Lazy<Type> InstanceType { get; } = new(() => instance.GetType());
 		/// <summary> A <see cref="Lazy{T}"/> access to the instance's assembly. </summary>
-		public static Lazy<Assembly> InstanceAssembly { get; } = new(() => Assembly.GetAssembly(InstanceType.Value) ?? throw new Exception("Assembly cannot be found."));
+		public static Lazy<Assembly> InstanceAssembly { get; } = new(() => Assembly.GetAssembly(InstanceType.Value) ?? throw new("Assembly cannot be found."));
 		/// <summary> A <see cref="Lazy{T}"/> access to USharpEngine's assembly. </summary>
-		public static Lazy<Assembly> USharpEngineAssembly { get; } = new(() => Assembly.GetAssembly(typeof(GameEngine)) ?? throw new Exception("Assembly cannot be found."));
+		public static Lazy<Assembly> USharpEngineAssembly { get; } = new(() => Assembly.GetAssembly(typeof(GameEngine)) ?? throw new("Assembly cannot be found."));
 
 		/// <summary> Called before <see cref="OnInitEvent"/>. </summary>
 		protected event Action? OnPreInitEvent;

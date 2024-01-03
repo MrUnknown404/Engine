@@ -45,7 +45,7 @@ namespace USharpLibs.Engine.Client.UI {
 		}
 
 		internal void SetupGL() {
-			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupEngine) { throw new Exception($"Cannot setup Screen OpenGL during {GameEngine.CurrentLoadState}"); }
+			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupEngine) { throw new($"Cannot setup Screen OpenGL during {GameEngine.CurrentLoadState}"); }
 			ISetupGL();
 		}
 

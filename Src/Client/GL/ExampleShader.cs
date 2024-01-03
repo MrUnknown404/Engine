@@ -22,7 +22,7 @@ namespace USharpLibs.Engine.Client.GL {
 
 			OpenGL4.LinkProgram(Handle);
 			OpenGL4.GetProgram(Handle, GetProgramParameterName.LinkStatus, out int code);
-			if (code != (int)All.True) { throw new Exception($"Error occurred whilst linking Shader({Handle})"); }
+			if (code != (int)All.True) { throw new($"Error occurred whilst linking Shader({Handle})"); }
 
 			OpenGL4.DetachShader(Handle, vertexShader);
 			OpenGL4.DetachShader(Handle, fragmentShader);

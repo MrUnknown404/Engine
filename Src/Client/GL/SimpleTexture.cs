@@ -32,15 +32,15 @@ namespace USharpLibs.Engine.Client.GL {
 
 			if (Name != null) {
 				string streamName = $"{GameEngine.InstanceAssembly.Value.GetName().Name}.Assets.Textures.{Name}.png";
-				if (GameEngine.InstanceAssembly.Value.GetManifestResourceStream(streamName) is Stream stream) {
+				if (GameEngine.InstanceAssembly.Value.GetManifestResourceStream(streamName) is { } stream) {
 					using (stream) {
 						StbImage.stbi_set_flip_vertically_on_load(1);
 						ImageResult image = ImageResult.FromStream(stream, ColorComponent);
 						OpenGL4.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat, image.Width, image.Height, 0, PixelFormat, PixelType.UnsignedByte, image.Data);
 					}
-				} else { throw new Exception($"Could not find file '{Name}' at '{streamName}'"); }
+				} else { throw new($"Could not find file '{Name}' at '{streamName}'"); }
 			} else if (Data != null) { OpenGL4.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat, Width, Height, 0, PixelFormat, PixelType.UnsignedByte, Data); } else {
-				throw new Exception("Cannot load texture because no data was given! how'd you do that?");
+				throw new("Cannot load texture because no data was given! how'd you do that?");
 			}
 
 			OpenGL4.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)MinFilter);

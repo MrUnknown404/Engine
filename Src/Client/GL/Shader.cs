@@ -27,7 +27,7 @@ namespace USharpLibs.Engine.Client.GL {
 		}
 
 		internal void SetupGL() {
-			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupGL) { throw new Exception($"Cannot setup shader during {GameEngine.CurrentLoadState}"); }
+			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupGL) { throw new($"Cannot setup shader during {GameEngine.CurrentLoadState}"); }
 			ISetupGL();
 			WasSetup = true;
 		}
@@ -39,15 +39,15 @@ namespace USharpLibs.Engine.Client.GL {
 			Assembly assembly = AssemblyOverride ?? GameEngine.InstanceAssembly.Value;
 			string streamName = $"{assembly.GetName().Name}.Assets.Shaders.{name}.{type.ToFileFormat()}", result;
 
-			if (assembly.GetManifestResourceStream(streamName) is Stream stream) {
+			if (assembly.GetManifestResourceStream(streamName) is { } stream) {
 				using (stream)
 				using (StreamReader reader = new(stream)) { result = reader.ReadToEnd(); }
-			} else { throw new Exception($"Could not find file '{name}' at '{streamName}'"); }
+			} else { throw new($"Could not find file '{name}' at '{streamName}'"); }
 
 			OpenGL4.ShaderSource(shader = OpenGL4.CreateShader(type), result);
 			OpenGL4.CompileShader(shader);
 			OpenGL4.GetShader(shader, ShaderParameter.CompileStatus, out int code);
-			if (code != (int)All.True) { throw new Exception($"Error occurred whilst compiling Shader({shader}).\n\n{OpenGL4.GetShaderInfoLog(shader)}"); }
+			if (code != (int)All.True) { throw new($"Error occurred whilst compiling Shader({shader}).\n\n{OpenGL4.GetShaderInfoLog(shader)}"); }
 		}
 
 		protected void SetData<V>(string name, V data, Action<int, V> apply) {

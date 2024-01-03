@@ -25,7 +25,7 @@ namespace USharpLibs.Engine.Client.Fonts {
 		public FontTTF(string name, byte fontSize, byte padding) : base(name, fontSize, padding) { }
 
 		protected internal override Texture Setup() {
-			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupGL) { throw new Exception($"Cannot setup fonts during {GameEngine.CurrentLoadState}"); }
+			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupGL) { throw new($"Cannot setup fonts during {GameEngine.CurrentLoadState}"); }
 
 			Assembly assembly = AssemblyOverride ?? GameEngine.InstanceAssembly.Value;
 			string streamName = $"{assembly.GetName().Name}.Assets.Fonts.{Name}.ttf";
@@ -43,7 +43,7 @@ namespace USharpLibs.Engine.Client.Fonts {
 
 					(fontFacade = new(new(), data, fontStreamLength)).SelectCharSize(FontSize, 96, 96);
 				}
-			} else { throw new Exception($"Could not find file '{Name}' at '{streamName}'"); }
+			} else { throw new($"Could not find file '{Name}' at '{streamName}'"); }
 
 			FT_Error error;
 
@@ -52,7 +52,7 @@ namespace USharpLibs.Engine.Client.Fonts {
 				char c = (char)i;
 
 				error = FT.FT_Load_Char(fontFacade.Face, c, FT.FT_LOAD_DEFAULT);
-				if (error != FT_Error.FT_Err_Ok) { throw new Exception($"Error loading font. Error code: {error}"); }
+				if (error != FT_Error.FT_Err_Ok) { throw new($"Error loading font. Error code: {error}"); }
 
 				ushort big = (ushort)Math.Max(fontFacade.GlyphMetricWidth, fontFacade.GlyphMetricHeight);
 				if (big > biggestGlyph) { biggestGlyph = big; }
@@ -68,7 +68,7 @@ namespace USharpLibs.Engine.Client.Fonts {
 				char c = (char)i;
 
 				error = FT.FT_Load_Char(fontFacade.Face, c, FT.FT_LOAD_RENDER);
-				if (error != FT_Error.FT_Err_Ok) { throw new Exception($"Error loading font. Error code: {error}"); }
+				if (error != FT_Error.FT_Err_Ok) { throw new($"Error loading font. Error code: {error}"); }
 
 				ushort width = (ushort)fontFacade.GlyphMetricWidth;
 				ushort height = (ushort)fontFacade.GlyphMetricHeight;
@@ -95,7 +95,7 @@ namespace USharpLibs.Engine.Client.Fonts {
 
 			// Calculate space size
 			error = FT.FT_Load_Char(fontFacade.Face, ' ', FT.FT_LOAD_DEFAULT);
-			if (error != FT_Error.FT_Err_Ok) { throw new Exception($"Error loading font. Error code: {error}"); }
+			if (error != FT_Error.FT_Err_Ok) { throw new($"Error loading font. Error code: {error}"); }
 			spaceSize = (ushort)fontFacade.GlyphMetricHorizontalAdvance;
 
 			return FontTexture = new SimpleTexture(finalImage, imageSize, imageSize, TextureMinFilter.Linear, TextureMagFilter.Linear) { PixelFormat = PixelFormat.Red, PixelInternalFormat = PixelInternalFormat.R8, };
@@ -116,12 +116,11 @@ namespace USharpLibs.Engine.Client.Fonts {
 			float uvoffset = offset / ((SimpleTexture)FontTexture).Width; // Only works because AtlasGridSize is hardcoded to be square
 
 			void SetupGlyph(char c) {
-				if (!GlyphMap.ContainsKey(c)) {
+				if (!GlyphMap.TryGetValue(c, out Glyph? glyph)) {
 					Logger.Warn($"Tried to load unknown character. Id: {(ushort)c}");
 					return;
 				}
 
-				Glyph glyph = GlyphMap[c];
 				meshes.Add(Quads.WH(x - offset + glyph.BearingX, y + glyph.BearingY + (biggestGlyph - glyph.Height) - offset, glyph.Width + offset * 2f, glyph.Height + offset * 2f, z, glyph.U0 - uvoffset, glyph.V0 + uvoffset,
 						glyph.U1 + uvoffset, glyph.V1 - uvoffset));
 

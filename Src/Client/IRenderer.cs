@@ -4,7 +4,7 @@ namespace USharpLibs.Engine.Client {
 	[PublicAPI]
 	public interface IRenderer {
 		internal void SetupGL() {
-			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupEngine) { throw new Exception($"Cannot setup IRenderer OpenGL during {GameEngine.CurrentLoadState}"); }
+			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupEngine) { throw new($"Cannot setup IRenderer OpenGL during {GameEngine.CurrentLoadState}"); }
 			ISetupGL();
 		}
 
