@@ -12,13 +12,11 @@ namespace USharpLibs.Engine.Client.GL {
 
 		protected string? Name { get; }
 		protected byte[]? Data { get; }
-		public int Width { get; }
-		public int Height { get; }
 
 		public SimpleTexture(string name, TextureMinFilter minFilter, TextureMagFilter magFilter, TextureWrapMode wrapMode = TextureWrapMode.Repeat, bool genMipMap = true) : base(minFilter, magFilter, wrapMode, genMipMap) =>
 				Name = name;
 
-		public SimpleTexture(byte[] data, int width, int height, TextureMinFilter minFilter, TextureMagFilter magFilter, TextureWrapMode wrapMode = TextureWrapMode.Repeat, bool genMipMap = true) : base(minFilter, magFilter,
+		public SimpleTexture(byte[] data, ushort width, ushort height, TextureMinFilter minFilter, TextureMagFilter magFilter, TextureWrapMode wrapMode = TextureWrapMode.Repeat, bool genMipMap = true) : base(minFilter, magFilter,
 				wrapMode, genMipMap) {
 			Data = data;
 			Width = width;
@@ -37,6 +35,9 @@ namespace USharpLibs.Engine.Client.GL {
 						StbImage.stbi_set_flip_vertically_on_load(1);
 						ImageResult image = ImageResult.FromStream(stream, ColorComponent);
 						OpenGL4.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat, image.Width, image.Height, 0, PixelFormat, PixelType.UnsignedByte, image.Data);
+
+						Width = (ushort)image.Width;
+						Height = (ushort)image.Height;
 					}
 				} else { throw new($"Could not find file '{Name}' at '{streamName}'"); }
 			} else if (Data != null) { OpenGL4.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat, Width, Height, 0, PixelFormat, PixelType.UnsignedByte, Data); } else {

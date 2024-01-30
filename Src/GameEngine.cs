@@ -103,8 +103,6 @@ namespace USharpLibs.Engine {
 
 		/// <summary> The current load state of the program. <seealso cref="LoadState"/> </summary>
 		public static LoadState CurrentLoadState { get; internal set; } = LoadState.NotStarted;
-		/// <summary> Whether or not the program is in Debug mode. </summary>
-		public static bool IsDebug { get; protected set; }
 		/// <summary> Whether or not OpenGL has been initialized </summary>
 		public static bool OpenGLInitialized { get; protected set; }
 		/// <summary> Whether or not a close has been requested. </summary>
@@ -136,7 +134,7 @@ namespace USharpLibs.Engine {
 		private HashSet<Screen> Screens { get; } = new();
 		private HashSet<IRenderer> Renderers { get; } = new();
 
-		/// <summary> The original title given in the constructor. <seealso cref="GameEngine(string, ushort, ushort, ushort, ushort, LogLevel, bool)"/> </summary>
+		/// <summary> The original title given in the constructor. <seealso cref="GameEngine(string, ushort, ushort, ushort, ushort, LogLevel)"/> </summary>
 		public string OriginalTitle { get; }
 		/// <summary> Whether or not when the screen checks UI collision, if the mouse click should be canceled if UI is hit. Default behavior is to cancel </summary>
 		protected internal bool ShouldScreenCheckCancelMouseEvent { get; set; } = true;
@@ -204,14 +202,13 @@ namespace USharpLibs.Engine {
 		/// <summary> The program's current window height </summary>
 		public static ushort Height => (ushort)Window.ClientSize.Y;
 
-		protected GameEngine(string title, ushort minWidth, ushort minHeight, ushort maxWidth, ushort maxHeight, LogLevel logLevel = LogLevel.More, bool isDebug = false) {
+		protected GameEngine(string title, ushort minWidth, ushort minHeight, ushort maxWidth, ushort maxHeight, LogLevel logLevel = LogLevel.More) {
 			OriginalTitle = title;
 			this.title = title;
 			this.minWidth = minWidth;
 			this.minHeight = minHeight;
 			this.maxWidth = maxWidth;
 			this.maxHeight = maxHeight;
-			IsDebug = isDebug;
 
 			Thread.CurrentThread.Name = "Main";
 			Logger.LogLevel = logLevel;
@@ -230,8 +227,8 @@ namespace USharpLibs.Engine {
 			OnSetupEngineEvent += OnSetupEngine;
 		}
 
-		protected GameEngine(string title, ushort minWidth, ushort minHeight, LogLevel logLevel = LogLevel.More, bool isDebug = false) : this(title, minWidth, minHeight, 0, 0, logLevel, isDebug) { }
-		protected GameEngine(string title, LogLevel logLevel = LogLevel.More, bool isDebug = false) : this(title, 856, 482, 0, 0, logLevel, isDebug) { }
+		protected GameEngine(string title, ushort minWidth, ushort minHeight, LogLevel logLevel = LogLevel.More) : this(title, minWidth, minHeight, 0, 0, logLevel) { }
+		protected GameEngine(string title, LogLevel logLevel = LogLevel.More) : this(title, 856, 482, 0, 0, logLevel) { }
 
 		/// <summary> This method will start all the behind the scenes logic. </summary>
 		/// <remarks> This should be called only once at the start of your main method. Example below. </remarks>
@@ -330,9 +327,9 @@ namespace USharpLibs.Engine {
 			// Textures
 			if (textures.Count != 0) { Logger.Debug($"Setting up {textures.Count} textures took {TimeH.Time(() => textures.ForEach(t => t.SetupGL())).Milliseconds}ms"); }
 			if (fontTextures.Count != 0) {
-				GL.PixelStore(PixelStoreParameter.UnpackAlignment, 1);
+				OpenGL4.PixelStore(PixelStoreParameter.UnpackAlignment, 1);
 				Logger.Debug($"Setting up {fontTextures.Count} font textures took {TimeH.Time(() => fontTextures.ForEach(t => t.SetupGL())).Milliseconds}ms");
-				GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
+				OpenGL4.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
 			}
 
 			OnTexturesFinishedEvent?.Invoke();
@@ -415,6 +412,8 @@ namespace USharpLibs.Engine {
 		/// <returns> A new instance of a <see cref="GameWindow"/> class for use. </returns>
 		protected virtual GameWindow ProvideWindow() => new EngineWindow(this);
 
+		protected internal virtual void SetupViewport(ResizeEventArgs e) => OpenGL4.Viewport(0, 0, e.Width, e.Height);
+
 		public enum LoadState : byte {
 			NotStarted = 0,
 			PreInit,
@@ -426,7 +425,5 @@ namespace USharpLibs.Engine {
 			PostInit,
 			Done,
 		}
-
-		protected internal virtual void SetupViewport(ResizeEventArgs e) => OpenGL4.Viewport(0, 0, e.Width, e.Height);
 	}
 }
