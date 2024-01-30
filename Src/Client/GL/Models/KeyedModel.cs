@@ -8,13 +8,22 @@ namespace USharpLibs.Engine.Client.GL.Models {
 	public class KeyedModel<K> : Model where K : notnull {
 		protected bool IsDirty;
 
-		protected Dictionary<K, Mesh> Meshes { get; } = new();
+		protected Dictionary<K, List<Mesh>> Meshes { get; } = new();
 		protected int IndicesLength;
 
 		public KeyedModel(BufferUsageHint bufferHint) : base(bufferHint) { }
 
-		public KeyedModel<K> AddMesh(in K key, Mesh mesh) {
-			Meshes[key] = mesh;
+		public KeyedModel<K> AddMesh(in K key, List<Mesh> meshes) {
+			Meshes[key] = meshes;
+			IsDirty = true;
+			return this;
+		}
+
+		public KeyedModel<K> AddMesh(in K key, Mesh mesh, params Mesh[] meshes) {
+			List<Mesh> list = new() { mesh, };
+			list.AddRange(meshes);
+
+			Meshes[key] = list;
 			IsDirty = true;
 			return this;
 		}
@@ -51,7 +60,7 @@ namespace USharpLibs.Engine.Client.GL.Models {
 				List<uint> indices = new();
 				uint indexOffset = 0;
 
-				foreach (Mesh part in Meshes.Values) {
+				foreach (Mesh part in Meshes.Values.SelectMany(meshes => meshes)) {
 					vertices.AddRange(part.Vertices);
 
 					uint highestIndex = 0;
@@ -86,5 +95,8 @@ namespace USharpLibs.Engine.Client.GL.Models {
 		}
 
 		protected override void IDraw() => OpenGL4.DrawElements(PrimitiveType.Triangles, IndicesLength, DrawElementsType.UnsignedInt, 0);
+
+		public bool IsMeshEmpty() => Meshes.Count == 0;
+		public bool IsIndicesEmpty() => IndicesLength == 0;
 	}
 }

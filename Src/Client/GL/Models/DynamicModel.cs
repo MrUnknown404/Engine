@@ -48,7 +48,7 @@ namespace USharpLibs.Engine.Client.GL.Models {
 			VBO = OpenGL4.GenBuffer();
 			EBO = OpenGL4.GenBuffer();
 
-			if (Meshes.Count != 0) { RefreshModelData(); }
+			if (!IsMeshEmpty()) { RefreshModelData(); }
 		}
 
 		public void ClearModelData() {
@@ -97,8 +97,11 @@ namespace USharpLibs.Engine.Client.GL.Models {
 		}
 
 		protected override void IDraw() {
-			if (IndicesLength == 0) { return; }
+			if (IsIndicesEmpty()) { return; }
 			OpenGL4.DrawElements(PrimitiveType.Triangles, IndicesLength, DrawElementsType.UnsignedInt, 0);
 		}
+
+		public bool IsMeshEmpty() => Meshes.Count == 0;
+		public bool IsIndicesEmpty() => IndicesLength == 0;
 	}
 }

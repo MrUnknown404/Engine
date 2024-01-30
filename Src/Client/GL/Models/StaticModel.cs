@@ -23,7 +23,7 @@ namespace USharpLibs.Engine.Client.GL.Models {
 		}
 
 		public override void SetupGL() {
-			if (Meshes.Count == 0) {
+			if (IsMeshEmpty()) {
 				Logger.Warn("Tried to setup an empty model!");
 				return;
 			} else if (WasSetup) {
@@ -73,8 +73,11 @@ namespace USharpLibs.Engine.Client.GL.Models {
 		}
 
 		protected override void IDraw() {
-			if (IndicesLength == 0) { return; }
+			if (IsIndicesEmpty()) { return; }
 			OpenGL4.DrawElements(PrimitiveType.Triangles, IndicesLength, DrawElementsType.UnsignedInt, 0);
 		}
+
+		public bool IsMeshEmpty() => Meshes.Count == 0;
+		public bool IsIndicesEmpty() => IndicesLength == 0;
 	}
 }
