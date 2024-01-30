@@ -1,6 +1,7 @@
 using System.Numerics;
 using JetBrains.Annotations;
 using USharpLibs.Common.Math;
+using USharpLibs.Engine.Math;
 
 namespace USharpLibs.Engine.Utils {
 	[PublicAPI]

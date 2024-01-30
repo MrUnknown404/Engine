@@ -1,7 +1,7 @@
 using JetBrains.Annotations;
 using USharpLibs.Common.IO;
 
-namespace USharpLibs.Engine.Utils {
+namespace USharpLibs.Engine.Math {
 	[PublicAPI]
 	public readonly struct HexPos : IEquatable<HexPos> {
 		public static HexPos Identity { get; } = new();
@@ -40,8 +40,8 @@ namespace USharpLibs.Engine.Utils {
 
 		public HexPos() { }
 
-		public static int Distance(in HexPos start, in HexPos end) => (Math.Abs(start.Q - end.Q) + Math.Abs(start.R - end.R) + Math.Abs(start.S - end.S)) / 2;
-		public int Distance(in HexPos pos) => (Math.Abs(Q - pos.Q) + Math.Abs(R - pos.R) + Math.Abs(S - pos.S)) / 2;
+		public static int Distance(in HexPos start, in HexPos end) => (System.Math.Abs(start.Q - end.Q) + System.Math.Abs(start.R - end.R) + System.Math.Abs(start.S - end.S)) / 2;
+		public int Distance(in HexPos pos) => (System.Math.Abs(Q - pos.Q) + System.Math.Abs(R - pos.R) + System.Math.Abs(S - pos.S)) / 2;
 
 		public bool Equals(HexPos other) => Q == other.Q && R == other.R && S == other.S;
 

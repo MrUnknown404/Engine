@@ -1,3 +1,5 @@
+using USharpLibs.Engine.Math;
+
 namespace USharpLibs.Engine.Utils {
 	public enum FlatHexagonDirection : byte {
 		North,

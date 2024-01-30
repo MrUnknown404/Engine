@@ -54,7 +54,7 @@ namespace USharpLibs.Engine.Client.Fonts {
 				error = FT.FT_Load_Char(fontFacade.Face, c, FT.FT_LOAD_DEFAULT);
 				if (error != FT_Error.FT_Err_Ok) { throw new($"Error loading font. Error code: {error}"); }
 
-				ushort big = (ushort)Math.Max(fontFacade.GlyphMetricWidth, fontFacade.GlyphMetricHeight);
+				ushort big = (ushort)System.Math.Max(fontFacade.GlyphMetricWidth, fontFacade.GlyphMetricHeight);
 				if (big > biggestGlyph) { biggestGlyph = big; }
 			}
 

@@ -21,7 +21,7 @@ namespace USharpLibs.Engine.Client {
 
 		private int slowUpdates;
 
-		public GameWindow(ushort updateFrequency, NativeWindowSettings nativeWindowSettings) : base(nativeWindowSettings) => UpdateFrequency = Math.Clamp(updateFrequency, 0d, 60d);
+		public GameWindow(ushort updateFrequency, NativeWindowSettings nativeWindowSettings) : base(nativeWindowSettings) => UpdateFrequency = System.Math.Clamp(updateFrequency, 0d, 60d);
 
 		public virtual unsafe void Run(GameEngine client) {
 			const int TimePeriod = 8;
@@ -34,14 +34,14 @@ namespace USharpLibs.Engine.Client {
 #pragma warning restore CA1806
 				ExpectedSchedulerPeriod = TimePeriod;
 			} else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) || RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD)) {
-				ExpectedSchedulerPeriod = 1;
+				ExpectedSchedulerPeriod = 1; //
 			} else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
-				ExpectedSchedulerPeriod = 1;
+				ExpectedSchedulerPeriod = 1; //
 			}
 
 			Context?.MakeCurrent();
 
-			Logger.Info("Running SetupGL");
+			Logger.Info("Running SetupGL...");
 			Logger.Debug($"Running SetupGL took {TimeH.Time(() => {
 				GameEngine.CurrentLoadState = GameEngine.LoadState.CreateGL;
 				client.InvokeOnSetupGLEvent();
@@ -51,22 +51,26 @@ namespace USharpLibs.Engine.Client {
 
 			OnResize(new(ClientSize));
 
-			Logger.Info("Running Setup");
+			Logger.Info("Running SetupEngine...");
 			Logger.Debug($"Running SetupEngine took {TimeH.Time(() => {
 				GameEngine.CurrentLoadState = GameEngine.LoadState.SetupEngine;
 				client.InvokeOnSetupEngineEvent();
 				client.InvokeOnSetupLoadingScreenEvent();
+			}).Milliseconds}ms");
+
+			Logger.Info("Running Setup...");
+			Logger.Debug($"Running Setup took {TimeH.Time(() => {
 				GameEngine.CurrentLoadState = GameEngine.LoadState.Setup;
 				client.InvokeOnSetupEvent();
 			}).Milliseconds}ms");
 
-			Logger.Info("Running PostInit");
+			Logger.Info("Running PostInit...");
 			Logger.Debug($"Running PostInit took {TimeH.Time(() => {
 				GameEngine.CurrentLoadState = GameEngine.LoadState.PostInit;
 				client.InvokeOnPostInitEvent();
 			}).Milliseconds}ms");
 
-			Logger.Info("Running SetupFinished");
+			Logger.Info("Running SetupFinished...");
 			GameEngine.CurrentLoadState = GameEngine.LoadState.Done;
 			client.InvokeOnSetupFinishedEvent();
 
