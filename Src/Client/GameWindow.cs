@@ -47,7 +47,7 @@ namespace USharpLibs.Engine.Client {
 				client.InvokeOnSetupGLEvent();
 				GameEngine.CurrentLoadState = GameEngine.LoadState.SetupGL;
 				client.InvokeOnSetupGLObjectsEvent();
-			}).Milliseconds}ms");
+			}).TotalMilliseconds:F1}ms");
 
 			OnResize(new(ClientSize));
 
@@ -56,19 +56,19 @@ namespace USharpLibs.Engine.Client {
 				GameEngine.CurrentLoadState = GameEngine.LoadState.SetupEngine;
 				client.InvokeOnSetupEngineEvent();
 				client.InvokeOnSetupLoadingScreenEvent();
-			}).Milliseconds}ms");
+			}).TotalMilliseconds:F1}ms");
 
 			Logger.Info("Running Setup...");
 			Logger.Debug($"Running Setup took {TimeH.Time(() => {
 				GameEngine.CurrentLoadState = GameEngine.LoadState.Setup;
 				client.InvokeOnSetupEvent();
-			}).Milliseconds}ms");
+			}).TotalMilliseconds:F1}ms");
 
 			Logger.Info("Running PostInit...");
 			Logger.Debug($"Running PostInit took {TimeH.Time(() => {
 				GameEngine.CurrentLoadState = GameEngine.LoadState.PostInit;
 				client.InvokeOnPostInitEvent();
-			}).Milliseconds}ms");
+			}).TotalMilliseconds:F1}ms");
 
 			Logger.Info("Running SetupFinished...");
 			GameEngine.CurrentLoadState = GameEngine.LoadState.Done;

@@ -8,7 +8,9 @@ using USharpLibs.Common.IO;
 using USharpLibs.Common.Math;
 using USharpLibs.Engine.Client.GL;
 using USharpLibs.Engine.Client.GL.Models;
+using USharpLibs.Engine.Client.GL.Models.Vertex;
 using USharpLibs.Engine.Client.GL.Shapes2D;
+using USharpLibs.Engine.Utils;
 
 namespace USharpLibs.Engine.Client.Fonts {
 	[PublicAPI]
@@ -28,22 +30,19 @@ namespace USharpLibs.Engine.Client.Fonts {
 			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupGL) { throw new($"Cannot setup fonts during {GameEngine.CurrentLoadState}"); }
 
 			Assembly assembly = AssemblyOverride ?? GameEngine.InstanceAssembly.Value;
-			string streamName = $"{assembly.GetName().Name}.Assets.Fonts.{Name}.ttf";
 
 			// Load font and FreeType
-			if (assembly.GetManifestResourceStream(streamName) is { } stream) {
-				using (stream) {
-					int fontStreamLength = (int)stream.Length;
-					byte[] fontData = new byte[fontStreamLength];
+			using (Stream stream = AssetH.GetAssetStream($"Fonts.{Name}.ttf", assembly)) {
+				int fontStreamLength = (int)stream.Length;
+				byte[] fontData = new byte[fontStreamLength];
 
-					// ReSharper disable once MustUseReturnValue
-					stream.Read(fontData, 0, fontStreamLength);
-					nint data = Marshal.AllocCoTaskMem(fontStreamLength);
-					Marshal.Copy(fontData, 0, data, fontStreamLength);
+				// ReSharper disable once MustUseReturnValue
+				stream.Read(fontData, 0, fontStreamLength);
+				nint data = Marshal.AllocCoTaskMem(fontStreamLength);
+				Marshal.Copy(fontData, 0, data, fontStreamLength);
 
-					(fontFacade = new(new(), data, fontStreamLength)).SelectCharSize(FontSize, 96, 96);
-				}
-			} else { throw new($"Could not find file '{Name}' at '{streamName}'"); }
+				(fontFacade = new(new(), data, fontStreamLength)).SelectCharSize(FontSize, 96, 96);
+			}
 
 			FT_Error error;
 
@@ -101,13 +100,13 @@ namespace USharpLibs.Engine.Client.Fonts {
 			return FontTexture = new SimpleTexture(finalImage, imageSize, imageSize, TextureMinFilter.Linear, TextureMagFilter.Linear) { PixelFormat = PixelFormat.Red, PixelInternalFormat = PixelInternalFormat.R8, };
 		}
 
-		public override List<Mesh> GetMesh(string text, float sizeOffset, float wordWrap = 0, float z = 0) {
+		public override List<Mesh<Vertex5>> GetMesh(string text, float sizeOffset, float wordWrap = 0, float z = 0) {
 			if (sizeOffset > Padding) {
 				Logger.Warn($"SizeOffset cannot be above Padding ({Padding}). Was {sizeOffset}. Clamping to Padding...");
 				sizeOffset = Padding;
 			}
 
-			List<Mesh> meshes = new();
+			List<Mesh<Vertex5>> meshes = new();
 
 			float x = 0;
 			float y = 0; // TODO setup wordwrap
@@ -121,8 +120,18 @@ namespace USharpLibs.Engine.Client.Fonts {
 					return;
 				}
 
-				meshes.Add(Quads.WH(x - offset + glyph.BearingX, y + glyph.BearingY + (biggestGlyph - glyph.Height) - offset, glyph.Width + offset * 2f, glyph.Height + offset * 2f, z, glyph.U0 - uvoffset, glyph.V0 + uvoffset,
-						glyph.U1 + uvoffset, glyph.V1 - uvoffset));
+				//@formatter:off
+				meshes.Add(Quad5.XYZWH(
+						x - offset + glyph.BearingX,
+						y + glyph.BearingY + (biggestGlyph - glyph.Height) - offset,
+						z,
+						glyph.Width + offset * 2f,
+						glyph.Height + offset * 2f,
+						glyph.U0 - uvoffset,
+						glyph.V0 + uvoffset,
+						glyph.U1 + uvoffset,
+						glyph.V1 - uvoffset));
+				//@formatter:on
 
 				x += glyph.Advance;
 			}

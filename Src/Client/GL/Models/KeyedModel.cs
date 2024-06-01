@@ -1,102 +1,52 @@
 using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 using USharpLibs.Common.IO;
-using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
+using USharpLibs.Engine.Client.GL.Models.Vertex;
 
 namespace USharpLibs.Engine.Client.GL.Models {
 	[PublicAPI]
-	public class KeyedModel<K> : Model where K : notnull {
-		protected bool IsDirty;
-
-		protected Dictionary<K, List<Mesh>> Meshes { get; } = new();
-		protected int IndicesLength;
+	public class KeyedModel<TKey, TVertex> : Model<TVertex, ICollection<Mesh<TVertex>>> where TVertex : IVertex where TKey : notnull {
+		protected Dictionary<TKey, List<Mesh<TVertex>>> MeshesDict { get; } = new();
+		protected override ICollection<Mesh<TVertex>> Meshes => MeshesDict.Values.SelectMany(ml => ml).ToList();
+		protected bool IsDirty { get; set; }
 
 		public KeyedModel(BufferUsageHint bufferHint) : base(bufferHint) { }
 
-		public KeyedModel<K> AddMesh(in K key, List<Mesh> meshes) {
-			Meshes[key] = meshes;
+		public void AddMesh(TKey key, Mesh<TVertex> mesh) {
+			if (!MeshesDict.TryGetValue(key, out List<Mesh<TVertex>>? meshList)) { MeshesDict[key] = meshList = new(); }
+			meshList.Add(mesh);
 			IsDirty = true;
-			return this;
 		}
 
-		public KeyedModel<K> AddMesh(in K key, Mesh mesh, params Mesh[] meshes) {
-			List<Mesh> list = new() { mesh, };
-			list.AddRange(meshes);
-
-			Meshes[key] = list;
+		public void AddMesh(TKey key, List<Mesh<TVertex>> mesh) {
+			if (!MeshesDict.TryGetValue(key, out List<Mesh<TVertex>>? meshList)) { MeshesDict[key] = meshList = new(); }
+			meshList.AddRange(mesh);
 			IsDirty = true;
-			return this;
 		}
 
-		public KeyedModel<K> RemoveMesh(in K key) {
-			Meshes.Remove(key);
-			IsDirty = true;
-			return this;
-		}
-
-		public override void SetupGL() {
-			if (WasSetup) {
-				Logger.Warn("This model was already setup!");
+		public void RemoveMesh(TKey key) {
+			if (!MeshesDict.Remove(key)) {
+				Logger.Warn("Attempted to remove an unknown key from KeyModel.");
 				return;
 			}
 
-			WasSetup = true;
-
-			VAO = OpenGL4.GenVertexArray();
-			VBO = OpenGL4.GenBuffer();
-			EBO = OpenGL4.GenBuffer();
-
-			if (Meshes.Count != 0) { RefreshModelData(); }
-		}
-
-		public void ClearModelData() {
-			Meshes.Clear();
 			IsDirty = true;
 		}
 
-		public void RefreshModelData() {
-			if (IsDirty) {
-				List<float> vertices = new();
-				List<uint> indices = new();
-				uint indexOffset = 0;
-
-				foreach (Mesh part in Meshes.Values.SelectMany(meshes => meshes)) {
-					vertices.AddRange(part.Vertices);
-
-					uint highestIndex = 0;
-					foreach (uint i in part.Indices) {
-						if (i > highestIndex) { highestIndex = i; }
-						indices.Add(i + indexOffset);
-					}
-
-					indexOffset += highestIndex + 1;
-				}
-
-				IndicesLength = indices.Count;
-
-				OpenGL4.BindVertexArray(VAO);
-
-				OpenGL4.BindBuffer(BufferTarget.ArrayBuffer, VBO);
-				OpenGL4.BufferData(BufferTarget.ArrayBuffer, vertices.Count * sizeof(float), vertices.ToArray(), BufferHint);
-
-				OpenGL4.EnableVertexAttribArray(Shader.PositionLocation);
-				OpenGL4.EnableVertexAttribArray(Shader.TextureLocation);
-				OpenGL4.VertexAttribPointer(Shader.PositionLocation, 3, VertexAttribPointerType.Float, false, sizeof(float) * 5, 0);
-				OpenGL4.VertexAttribPointer(Shader.TextureLocation, 2, VertexAttribPointerType.Float, false, sizeof(float) * 5, sizeof(float) * 3);
-
-				OpenGL4.BindBuffer(BufferTarget.ElementArrayBuffer, EBO);
-				OpenGL4.BufferData(BufferTarget.ElementArrayBuffer, indices.Count * sizeof(uint), indices.ToArray(), BufferHint);
-
-				OpenGL4.BindVertexArray(0);
-				GLH.UnbindVAO();
-
-				IsDirty = false;
-			}
+		public void ClearMesh() {
+			MeshesDict.Clear();
+			IsDirty = true;
 		}
 
-		protected override void IDraw() => OpenGL4.DrawElements(PrimitiveType.Triangles, IndicesLength, DrawElementsType.UnsignedInt, 0);
+		public bool ContainsKey(TKey key) => MeshesDict.ContainsKey(key);
 
-		public bool IsMeshEmpty() => Meshes.Count == 0;
-		public bool IsIndicesEmpty() => IndicesLength == 0;
+		protected override void IDraw() {
+			if (IsDirty) {
+				BindModelData();
+				IsDirty = false;
+			}
+
+			base.IDraw();
+		}
 	}
 }

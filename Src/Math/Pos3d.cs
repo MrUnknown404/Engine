@@ -1,13 +1,19 @@
+using System.Numerics;
 using JetBrains.Annotations;
 
 namespace USharpLibs.Engine.Math {
 	[PublicAPI]
-	public readonly struct Pos3d : IEquatable<Pos3d> {
-		public int X { get; } = 0;
-		public int Y { get; } = 0;
-		public int Z { get; } = 0;
+	public interface IPos3d<out TType, TSelf> : IPos2d<TType, TSelf> where TType : INumberBase<TType> where TSelf : struct, IPos3d<TType, TSelf> {
+		public TType Z { get; }
+	}
 
-		public Pos3d(int x, int y, int z) {
+	[PublicAPI]
+	public readonly record struct Pos3d<TType> : IPos3d<TType, Pos3d<TType>> where TType : INumberBase<TType> {
+		public TType X { get; } = default!;
+		public TType Y { get; } = default!;
+		public TType Z { get; } = default!;
+
+		public Pos3d(TType x, TType y, TType z) {
 			X = x;
 			Y = y;
 			Z = z;
@@ -15,26 +21,19 @@ namespace USharpLibs.Engine.Math {
 
 		public Pos3d() { }
 
-		public bool Equals(Pos3d other) => X == other.X && Y == other.Y && Z == other.Z;
+		public static Pos3d<TType> operator +(Pos3d<TType> pos, Pos3d<TType> value) => new(pos.X + value.X, pos.Y + value.Y, pos.Z + value.Z);
+		public static Pos3d<TType> operator +(Pos3d<TType> pos, TType value) => new(pos.X + value, pos.Y + value, pos.Z + value);
 
-		public static bool operator ==(Pos3d cube, Pos3d other) => cube.Equals(other);
-		public static bool operator !=(Pos3d cube, Pos3d other) => !cube.Equals(other);
+		public static Pos3d<TType> operator -(Pos3d<TType> pos, Pos3d<TType> value) => new(pos.X - value.X, pos.Y - value.Y, pos.Z - value.Z);
+		public static Pos3d<TType> operator -(Pos3d<TType> pos, TType value) => new(pos.X - value, pos.Y - value, pos.Z - value);
 
-		public static Pos3d operator +(Pos3d cube, Pos3d value) => new(cube.X + value.X, cube.Y + value.Y, cube.Z + value.Z);
-		public static Pos3d operator +(Pos3d cube, int value) => new(cube.X + value, cube.Y + value, cube.Z + value);
+		public static Pos3d<TType> operator *(Pos3d<TType> pos, Pos3d<TType> value) => new(pos.X * value.X, pos.Y * value.Y, pos.Z * value.Z);
+		public static Pos3d<TType> operator *(Pos3d<TType> pos, TType value) => new(pos.X * value, pos.Y * value, pos.Z * value);
 
-		public static Pos3d operator -(Pos3d cube, Pos3d value) => new(cube.X - value.X, cube.Y - value.Y, cube.Z - value.Z);
-		public static Pos3d operator -(Pos3d cube, int value) => new(cube.X - value, cube.Y - value, cube.Z - value);
+		public static Pos3d<TType> operator /(Pos3d<TType> pos, Pos3d<TType> value) => new(pos.X / value.X, pos.Y / value.Y, pos.Z / value.Z);
+		public static Pos3d<TType> operator /(Pos3d<TType> pos, TType value) => new(pos.X / value, pos.Y / value, pos.Z / value);
 
-		public static Pos3d operator *(Pos3d cube, Pos3d value) => new(cube.X * value.X, cube.Y * value.Y, cube.Z * value.Z);
-		public static Pos3d operator *(Pos3d cube, int value) => new(cube.X * value, cube.Y * value, cube.Z * value);
-
-		public static Pos3d operator /(Pos3d cube, Pos3d value) => new(cube.X / value.X, cube.Y / value.Y, cube.Z / value.Z);
-		public static Pos3d operator /(Pos3d cube, int value) => new(cube.X / value, cube.Y / value, cube.Z / value);
-
-		public override bool Equals(object? obj) => obj is Pos3d other && Equals(other);
 		public override int GetHashCode() => (X, Y, Z).GetHashCode();
-
 		public override string ToString() => $"({X}, {Y}, {Z})";
 	}
 }

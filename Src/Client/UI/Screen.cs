@@ -4,6 +4,7 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 using USharpLibs.Common.IO;
 using USharpLibs.Engine.Client.Fonts;
 using USharpLibs.Engine.Client.GL;
+using USharpLibs.Engine.Client.GL.Shaders;
 using USharpLibs.Engine.Client.UI.Elements;
 using USharpLibs.Engine.Init;
 
@@ -61,16 +62,16 @@ namespace USharpLibs.Engine.Client.UI {
 		/// <summary> Called every time a frame is requested. </summary>
 		/// <param name="time"> The time since the last frame was drawn. </param>
 		public virtual void Render(double time) {
-			GLH.Bind(DefaultShaders.DefaultHud, s => {
+			using (ShaderWriter s = GLH.Bind(DefaultShaders.DefaultHud)) {
 				foreach (UiElement e in Elements.Values.Where(e => e.IsEnabled)) {
 					s.SetVector3("Position", new(e.X, e.Y, e.Z));
 					e.Render(s, time);
 				}
 
 				s.SetVector3("Position", Vector3.Zero);
-			});
+			}
 
-			GLH.Bind(DefaultShaders.DefaultFont, s => {
+			using (FontShaderWriter s = GLH.Bind(DefaultShaders.DefaultFont)) {
 				foreach (TextElement e in TextElements.Values.Where(e => e.IsEnabled && (e.DrawFont || e.DrawOutline))) {
 					s.SetVector3("Position", new(e.X, e.Y, e.Z));
 					s.SetBool("DrawFont", e.DrawFont);
@@ -88,7 +89,36 @@ namespace USharpLibs.Engine.Client.UI {
 				s.SetFontColor();
 				s.SetOutlineColor();
 				s.SetOutlineSize();
-			});
+			}
+
+			// GLH.Bind(DefaultShaders.DefaultHud, s => {
+			// 	foreach (UiElement e in Elements.Values.Where(e => e.IsEnabled)) {
+			// 		s.SetVector3("Position", new(e.X, e.Y, e.Z));
+			// 		e.Render(s, time);
+			// 	}
+			//
+			// 	s.SetVector3("Position", Vector3.Zero);
+			// });
+			//
+			// GLH.Bind(DefaultShaders.DefaultFont, s => {
+			// 	foreach (TextElement e in TextElements.Values.Where(e => e.IsEnabled && (e.DrawFont || e.DrawOutline))) {
+			// 		s.SetVector3("Position", new(e.X, e.Y, e.Z));
+			// 		s.SetBool("DrawFont", e.DrawFont);
+			// 		s.SetBool("DrawFont", e.DrawOutline);
+			// 		s.SetColor("FontColor", e.FontColor);
+			// 		s.SetColor("OutlineColor", e.OutlineColor);
+			// 		s.SetInt("OutlineSize", e.OutlineSize);
+			//
+			// 		e.Render(s, time);
+			// 	}
+			//
+			// 	s.SetVector3("Position", Vector3.Zero);
+			// 	s.SetDrawFont();
+			// 	s.SetDrawOutline();
+			// 	s.SetFontColor();
+			// 	s.SetOutlineColor();
+			// 	s.SetOutlineSize();
+			// });
 		}
 
 		public virtual void InitFont(Font font) {

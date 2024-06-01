@@ -4,6 +4,8 @@ using OpenTK.Mathematics;
 using USharpLibs.Engine.Client.Fonts;
 using USharpLibs.Engine.Client.GL;
 using USharpLibs.Engine.Client.GL.Models;
+using USharpLibs.Engine.Client.GL.Models.Vertex;
+using USharpLibs.Engine.Client.GL.Shaders;
 
 namespace USharpLibs.Engine.Client.UI.Elements {
 	[PublicAPI]
@@ -12,7 +14,7 @@ namespace USharpLibs.Engine.Client.UI.Elements {
 		private Font? font;
 		private bool isDirty = true;
 
-		protected UnboundModel<DynamicModel> TextModel { get; } = new(new(BufferUsageHint.DynamicDraw));
+		protected MutableModel<Vertex5> TextModel { get; } = new(BufferUsageHint.DynamicDraw);
 
 		public bool DrawOutline { get; set; } = true;
 		public bool DrawFont { get; set; } = true;
@@ -44,16 +46,17 @@ namespace USharpLibs.Engine.Client.UI.Elements {
 
 		public override void SetupGL() => TextModel.SetupGL();
 
-		public override void Render(Shader shader, double time) {
+		public override void Render(ShaderWriter shader, double time) {
 			if (Font == null) { return; }
 			if (isDirty) {
-				TextModel.Model.SetMesh(Font.GetMesh(Text, Font.Padding)).RefreshModelData();
+				TextModel.SetMesh(Font.GetMesh(Text, Font.Padding));
 				isDirty = false;
 			}
 
 			if (Text.Length != 0 && (DrawOutline || DrawFont)) {
 				GLH.Bind(Font.FontTexture);
-				GLH.Bind(TextModel)?.Draw();
+				GLH.Bind(TextModel);
+				GLH.DrawModel();
 			}
 		}
 

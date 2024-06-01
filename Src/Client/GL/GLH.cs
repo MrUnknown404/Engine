@@ -2,98 +2,78 @@ using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 using USharpLibs.Common.IO;
 using USharpLibs.Engine.Client.GL.Models;
+using USharpLibs.Engine.Client.GL.Shaders;
 using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
 namespace USharpLibs.Engine.Client.GL {
 	[PublicAPI]
-	public static class GLH {
-		public static int CurrentShader { get; private set; }
-		public static int CurrentVAO { get; private set; }
+	public static class GLH { // TODO docs
+		public static int CurrentShaderHandle { get; private set; }
+		public static int CurrentModelVAO { get; private set; }
 		public static int CurrentTexture { get; private set; }
 
 		public static bool IsWireframe { get; private set; }
 		public static bool IsDepthTesting { get; private set; }
 		public static bool IsCulling { get; private set; }
 
-		/// <summary> Binds the provided shader for use. </summary>
-		/// <typeparam name="T"> The type of shader that is in use. </typeparam>
-		/// <param name="shader"> An unbound shader to bind and use. </param>
-		public static void Rebind<T>(UnboundShader<T> shader) where T : Shader {
-			T s = shader.Shader;
-			if (!s.WasSetup) {
-				Logger.Warn("Shader was not setup!");
-				return;
-			} else if (CurrentShader == s.Handle) { return; }
+		private static Action? modelDraw;
+		private static ShaderWriter? shaderAccess;
+		internal static Dictionary<string, int>? CurrentShaderUniformLocations { get; private set; }
+		internal static string? CurrentShaderName { get; private set; }
 
-			CurrentShader = s.Handle;
-			OpenGL4.UseProgram(s.Handle);
+		[MustUseReturnValue]
+		public static T Bind<T>(Shader<T> shader) where T : ShaderWriter, new() {
+			if (CurrentShaderHandle == shader.Handle) { return (T?)shaderAccess ?? throw new NullReferenceException("Somehow shader is both bound and unbound."); }
+			if (!shader.WasSetup) { throw new("Shader cannot be bound because it was never setup."); }
+
+			CurrentShaderUniformLocations = shader.UniformLocations;
+			CurrentShaderName = shader.ShaderName;
+
+			T access = new() { OriginalShaderHandle = CurrentShaderHandle = shader.Handle, };
+			shaderAccess = access;
+
+			OpenGL4.UseProgram(CurrentShaderHandle);
+			return access;
 		}
 
-		/// <summary> Binds the provided shader for use. </summary>
-		/// <typeparam name="T"> The type of shader that is in use. </typeparam>
-		/// <param name="shader"> An unbound shader to bind and use. </param>
-		/// <param name="use"> An Action to run using the bound shader. </param>
-		public static void Bind<T>(UnboundShader<T> shader, Action<T> use) where T : Shader {
-			T s = shader.Shader;
-			if (!s.WasSetup) {
-				Logger.Warn("Shader was not setup!");
-				return;
-			} else if (CurrentShader == s.Handle) {
-				use(s);
+		public static void Bind(Model model) {
+			if (CurrentModelVAO == model.VAO) { return; }
+			if (!model.WasSetup) {
+				Logger.Warn("Attempted to bind model that was not setup!");
 				return;
 			}
 
-			CurrentShader = s.Handle;
-			OpenGL4.UseProgram(s.Handle);
-			use(s);
-		}
-
-		/// <summary> Binds the provided model for use. </summary>
-		/// <typeparam name="T"> The type of model that will be returned. </typeparam>
-		/// <param name="model"> An unbound model to bind and use. </param>
-		/// <returns> A bound model object if everything was successful. If an error occurred null will be returned. </returns>
-		[MustUseReturnValue]
-		public static T? Bind<T>(UnboundModel<T> model) where T : Model {
-			T imodel = model.Model;
-			if (!imodel.WasSetup) {
-				Logger.Warn("Model was not setup!");
-				return default;
-			} else if (CurrentVAO == imodel.VAO) { return imodel; }
-
-			CurrentVAO = imodel.VAO;
-			OpenGL4.BindVertexArray(imodel.VAO);
-			return imodel;
+			OpenGL4.BindVertexArray(CurrentModelVAO = model.VAO);
+			modelDraw = model.Draw;
 		}
 
 		/// <summary> Binds the provided texture for use. </summary>
 		/// <param name="texture"> The texture to bind and use. </param>
 		/// <param name="unit"> Which <see cref="TextureUnit"/> to use. Default is <see cref="TextureUnit.Texture0"/>. </param>
 		public static void Bind(Texture texture, TextureUnit unit = TextureUnit.Texture0) {
+			if (CurrentTexture == texture.Handle) { return; }
 			if (!texture.WasSetup) {
 				Logger.Warn("Texture was not setup!");
 				return;
-			} else if (CurrentTexture == texture.Handle) { return; }
+			}
 
 			CurrentTexture = texture.Handle;
 			OpenGL4.ActiveTexture(unit);
 			OpenGL4.BindTexture(TextureTarget.Texture2D, texture.Handle);
 		}
 
-		/// <summary> Unbinds the current shader. </summary>
-		/// <param name="force"> Whether or not to ignore any checks and force a shader unbind. </param>
-		public static void UnbindShader(bool force = false) {
-			if (CurrentShader == 0 && !force) { return; }
-
-			CurrentShader = 0;
+		public static void UnbindShader() {
+			if (CurrentShaderHandle == 0) { return; }
+			CurrentShaderHandle = 0;
+			CurrentShaderUniformLocations = null;
+			CurrentShaderName = null;
 			OpenGL4.UseProgram(0);
 		}
 
-		/// <summary> Unbinds the current VAO. </summary>
-		/// <param name="force"> Whether or not to ignore any checks and force a VAO unbind. </param>
-		public static void UnbindVAO(bool force = false) {
-			if (CurrentVAO == 0 && !force) { return; }
-
-			CurrentVAO = 0;
+		public static void UnbindModel() {
+			if (CurrentModelVAO == 0) { return; }
+			CurrentModelVAO = 0;
+			modelDraw = null;
 			OpenGL4.BindVertexArray(0);
 		}
 
@@ -104,6 +84,18 @@ namespace USharpLibs.Engine.Client.GL {
 
 			CurrentTexture = 0;
 			OpenGL4.BindTexture(TextureTarget.Texture2D, 0);
+		}
+
+		public static void DrawModel() {
+			if (CurrentShaderHandle == 0) {
+				Logger.Warn("Attempted to draw model with no shader bound!");
+				return;
+			} else if (CurrentModelVAO == 0) {
+				Logger.Warn("Attempted to draw model with no model bound!");
+				return;
+			}
+
+			if (modelDraw != null) { modelDraw.Invoke(); } else { throw new NullReferenceException("Somehow you tried to draw a model that is both bound and unbound."); }
 		}
 
 		/// <summary> Enables Wireframe mode. </summary>

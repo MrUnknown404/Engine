@@ -1,5 +1,5 @@
 using JetBrains.Annotations;
-using USharpLibs.Engine.Client.GL;
+using USharpLibs.Engine.Client.GL.Shaders;
 
 namespace USharpLibs.Engine.Client.UI.Elements {
 	[PublicAPI]
@@ -22,6 +22,6 @@ namespace USharpLibs.Engine.Client.UI.Elements {
 		/// <summary> By default, <see cref="Screen"/> calls this every frame. You can re-implement this if you wish. </summary>
 		/// <param name="shader"> The shader the screen is using to render this. </param>
 		/// <param name="time"> The time since the last frame was drawn. </param>
-		public virtual void Render(Shader shader, double time) { }
+		public virtual void Render(ShaderWriter shader, double time) { }
 	}
 }

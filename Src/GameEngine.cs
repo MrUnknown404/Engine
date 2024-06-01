@@ -9,8 +9,10 @@ using USharpLibs.Common.Utils;
 using USharpLibs.Engine.Client;
 using USharpLibs.Engine.Client.Fonts;
 using USharpLibs.Engine.Client.GL;
+using USharpLibs.Engine.Client.GL.Shaders;
 using USharpLibs.Engine.Client.UI;
 using USharpLibs.Engine.Init;
+using USharpLibs.Engine.Registry;
 using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
 namespace USharpLibs.Engine {
@@ -36,14 +38,16 @@ namespace USharpLibs.Engine {
 
 		/// <summary> Called before <see cref="OnInitEvent"/>. </summary>
 		protected event Action? OnPreInitEvent;
-		/// <summary> Called before <see cref="OnSetupGLEvent"/> and after <see cref="OnPreInitEvent"/> </summary>
+		/// <summary> Called before <see cref="OnSetupRegistries"/> and after <see cref="OnPreInitEvent"/> </summary>
 		protected event Action? OnInitEvent;
-		/// <summary> Called before <see cref="OnSetupGLObjectsEvent"/> and after <see cref="OnInitEvent"/> </summary>
+		/// <summary> Called before <see cref="OnSetupGLEvent"/> and after <see cref="OnInitEvent"/> </summary>
+		protected event Action? OnSetupRegistries;
+		/// <summary> Called before <see cref="OnSetupGLObjectsEvent"/> and after <see cref="OnSetupRegistries"/> </summary>
 		protected event Action? OnSetupGLEvent;
 		/// <summary> Called before <see cref="OnSetupEngineEvent"/> and after <see cref="OnSetupGLEvent"/> </summary>
-		private event Action? OnSetupGLObjectsEvent;
+		protected event Action? OnSetupGLObjectsEvent;
 		/// <summary> Called before <see cref="OnSetupLoadingScreenEvent"/> and after <see cref="OnSetupGLObjectsEvent"/> </summary>
-		private event Action? OnSetupEngineEvent;
+		protected event Action? OnSetupEngineEvent;
 		/// <summary> Called before <see cref="OnSetupEvent"/> and after <see cref="OnSetupEngineEvent"/> </summary>
 		protected event Action? OnSetupLoadingScreenEvent;
 		/// <summary> Called before <see cref="OnPostInitEvent"/> and after <see cref="OnSetupLoadingScreenEvent"/> </summary>
@@ -58,7 +62,7 @@ namespace USharpLibs.Engine {
 		protected event Action? OnUnloadEvent;
 
 		/// <summary> Called when the program is ready for shader creation. The return value is all of your program's shaders. </summary>
-		protected event Func<HashSet<IUnboundShader>>? ShaderCreationEvent;
+		protected event Func<HashSet<Shader>>? ShaderCreationEvent;
 		/// <summary> Called when the program is ready for font creation. The return value is all of your program's fonts. </summary>
 		protected event Func<HashSet<Font>>? FontCreationEvent;
 		/// <summary> Called when the program is ready for texture creation. The return value is all of your program's textures. </summary>
@@ -134,7 +138,7 @@ namespace USharpLibs.Engine {
 		private HashSet<Screen> Screens { get; } = new();
 		private HashSet<IRenderer> Renderers { get; } = new();
 
-		/// <summary> The original title given in the constructor. <seealso cref="GameEngine(string, ushort, ushort, ushort, ushort, LogLevel)"/> </summary>
+		/// <summary> The original title given in the constructor. <seealso cref="GameEngine(string, ushort, ushort, ushort, ushort)"/> </summary>
 		public string OriginalTitle { get; }
 		/// <summary> Whether or not when the screen checks UI collision, if the mouse click should be canceled if UI is hit. Default behavior is to cancel </summary>
 		protected internal bool ShouldScreenCheckCancelMouseEvent { get; set; } = true;
@@ -202,7 +206,7 @@ namespace USharpLibs.Engine {
 		/// <summary> The program's current window height </summary>
 		public static ushort Height => (ushort)Window.ClientSize.Y;
 
-		protected GameEngine(string title, ushort minWidth, ushort minHeight, ushort maxWidth, ushort maxHeight, LogLevel logLevel = LogLevel.More) {
+		protected GameEngine(string title, ushort minWidth, ushort minHeight, ushort maxWidth, ushort maxHeight) {
 			OriginalTitle = title;
 			this.title = title;
 			this.minWidth = minWidth;
@@ -211,8 +215,8 @@ namespace USharpLibs.Engine {
 			this.maxHeight = maxHeight;
 
 			Thread.CurrentThread.Name = "Main";
-			Logger.LogLevel = logLevel;
-			Logger.SetupDefaultLogFolder(5, $"Starting Client! Today is: {DateTime.Now:d/M/yyyy HH:mm:ss}");
+			Logger.Init($"Starting Client! Today is: {DateTime.Now:d/M/yyyy HH:mm:ss}");
+			Logger.Debug($"Logs -> {Logger.LogDirectory}");
 
 			ShaderCreationEvent += () => DefaultShaders.AllShaders;
 
@@ -227,8 +231,11 @@ namespace USharpLibs.Engine {
 			OnSetupEngineEvent += OnSetupEngine;
 		}
 
-		protected GameEngine(string title, ushort minWidth, ushort minHeight, LogLevel logLevel = LogLevel.More) : this(title, minWidth, minHeight, 0, 0, logLevel) { }
-		protected GameEngine(string title, LogLevel logLevel = LogLevel.More) : this(title, 856, 482, 0, 0, logLevel) { }
+		// ReSharper disable once IntroduceOptionalParameters.Global
+		protected GameEngine(string title, ushort minWidth, ushort minHeight) : this(title, minWidth, minHeight, 0, 0) { }
+
+		// ReSharper disable once IntroduceOptionalParameters.Global
+		protected GameEngine(string title) : this(title, 856, 482, 0, 0) { }
 
 		/// <summary> This method will start all the behind the scenes logic. </summary>
 		/// <remarks> This should be called only once at the start of your main method. Example below. </remarks>
@@ -242,7 +249,12 @@ namespace USharpLibs.Engine {
 
 			using (Window = instance.ProvideWindow()) {
 				CurrentLoadState = LoadState.Init;
-				Logger.Debug($"Running Init took {TimeH.Time(() => instance.OnInitEvent?.Invoke()).Milliseconds}ms");
+				Logger.Debug($"Running Init took {(ulong)TimeH.Time(() => instance.OnInitEvent?.Invoke()).TotalMilliseconds}ms");
+
+				CurrentLoadState = LoadState.SetupRegistries; // TODO time & count this
+				instance.OnSetupRegistries?.Invoke();
+				RegistryH.RegisterEverything();
+
 				Window.Run(instance);
 			}
 
@@ -284,13 +296,13 @@ namespace USharpLibs.Engine {
 		}
 
 		private void OnSetupGLObjects() {
-			HashSet<IUnboundShader> shaders = new();
+			HashSet<Shader> shaders = new();
 			HashSet<Font> fonts = new();
 			HashSet<Texture> textures = new();
 			HashSet<Texture> fontTextures = new();
 
 			if (ShaderCreationEvent != null) {
-				foreach (Delegate d in ShaderCreationEvent.GetInvocationList()) { shaders.UnionWith((HashSet<IUnboundShader>)(d.DynamicInvoke() ?? new HashSet<IUnboundShader>())); }
+				foreach (Delegate d in ShaderCreationEvent.GetInvocationList()) { shaders.UnionWith((HashSet<Shader>)(d.DynamicInvoke() ?? new HashSet<Shader>())); }
 			}
 
 			if (FontCreationEvent != null) {
@@ -306,9 +318,9 @@ namespace USharpLibs.Engine {
 				Logger.Debug($"Setting up {shaders.Count} shaders took {TimeH.Time(() => {
 					shaders.ForEach(s => {
 						s.SetupGL();
-						Window.Resize += s.OnResize;
+						Window.Resize += s.InvokeOnResize;
 					});
-				}).Milliseconds}ms");
+				}).TotalMilliseconds:F1}ms");
 			}
 
 			OnShadersFinishedEvent?.Invoke();
@@ -319,16 +331,16 @@ namespace USharpLibs.Engine {
 					fonts.ForEach(f => {
 						if (f.Setup() is { } texture) { fontTextures.Add(texture); }
 					});
-				}).Milliseconds}ms");
+				}).TotalMilliseconds:F1}ms");
 			}
 
 			OnFontsFinishedEvent?.Invoke();
 
 			// Textures
-			if (textures.Count != 0) { Logger.Debug($"Setting up {textures.Count} textures took {TimeH.Time(() => textures.ForEach(t => t.SetupGL())).Milliseconds}ms"); }
+			if (textures.Count != 0) { Logger.Debug($"Setting up {textures.Count} textures took {TimeH.Time(() => textures.ForEach(t => t.SetupGL())).TotalMilliseconds:F1}ms"); }
 			if (fontTextures.Count != 0) {
 				OpenGL4.PixelStore(PixelStoreParameter.UnpackAlignment, 1);
-				Logger.Debug($"Setting up {fontTextures.Count} font textures took {TimeH.Time(() => fontTextures.ForEach(t => t.SetupGL())).Milliseconds}ms");
+				Logger.Debug($"Setting up {fontTextures.Count} font textures took {TimeH.Time(() => fontTextures.ForEach(t => t.SetupGL())).TotalMilliseconds:F1}ms");
 				OpenGL4.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
 			}
 
@@ -341,7 +353,7 @@ namespace USharpLibs.Engine {
 				foreach (Delegate d in ScreenCreationEvent.GetInvocationList()) { Screens.UnionWith((HashSet<Screen>)(d.DynamicInvoke() ?? new HashSet<Screen>())); }
 			}
 
-			if (Screens.Count != 0) { Logger.Debug($"Setting up {Screens.Count} screens took {TimeH.Time(() => Screens.ForEach(s => s.SetupGL())).Milliseconds}ms"); }
+			if (Screens.Count != 0) { Logger.Debug($"Setting up {Screens.Count} screens took {TimeH.Time(() => Screens.ForEach(s => s.SetupGL())).TotalMilliseconds:F1}ms"); }
 			OnScreensFinishedEvent?.Invoke();
 
 			//Renderers
@@ -349,7 +361,7 @@ namespace USharpLibs.Engine {
 				foreach (Delegate d in RendererCreationEvent.GetInvocationList()) { Renderers.UnionWith((List<IRenderer>)(d.DynamicInvoke() ?? new List<IRenderer>())); }
 			}
 
-			if (Renderers.Count != 0) { Logger.Debug($"Setting up {Renderers.Count} renderers took {TimeH.Time(() => Renderers.ForEach(s => s.SetupGL())).Milliseconds}ms"); }
+			if (Renderers.Count != 0) { Logger.Debug($"Setting up {Renderers.Count} renderers took {TimeH.Time(() => Renderers.ForEach(s => s.SetupGL())).TotalMilliseconds:F1}ms"); }
 			OnRenderersFinishedEvent?.Invoke();
 		}
 
@@ -395,7 +407,7 @@ namespace USharpLibs.Engine {
 		public static bool IsKeyDown(Keys key) => Window.IsKeyDown(key);
 
 		/// <summary> Call some code while in a specific load state. <br/> You should probably avoid calling this method since it can be dangerous. <br/> You have been warned. <seealso cref="LoadState"/> </summary>
-		public static void CallWhileInLoadState(LoadState loadState, Action todo) {
+		public static void ForceInLoadState(LoadState loadState, Action todo) {
 			LoadState old = CurrentLoadState;
 			CurrentLoadState = loadState;
 			todo();
@@ -414,10 +426,13 @@ namespace USharpLibs.Engine {
 
 		protected internal virtual void SetupViewport(ResizeEventArgs e) => OpenGL4.Viewport(0, 0, e.Width, e.Height);
 
+		protected static void RegisterRegistry<T>(string source, Registry<T> registry) where T : RegistryObject => RegistryH.RegisterRegistry(source, InstanceAssembly.Value, registry);
+
 		public enum LoadState : byte {
 			NotStarted = 0,
 			PreInit,
 			Init,
+			SetupRegistries,
 			CreateGL,
 			SetupGL,
 			SetupEngine,

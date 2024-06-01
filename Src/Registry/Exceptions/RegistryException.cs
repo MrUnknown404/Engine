@@ -5,7 +5,7 @@ namespace USharpLibs.Engine.Registry.Exceptions {
 		private static string GenerateMessage(Registry registry, Reason reason) =>
 				reason switch {
 						Reason.InvalidSource => $"Source '{registry.Source}' does not follow the allowed Regex: {AssetIdentifier.Regex}",
-						Reason.DuplicateSource => $"Cannot add registry of source '{registry.Source}' because it already exists!",
+						Reason.DuplicateSource => $"Cannot add registry of type '{registry.RegistryType}' source '{registry.Source}' because it already exists!",
 						_ => throw new ArgumentOutOfRangeException(nameof(reason), reason, null),
 				};
 

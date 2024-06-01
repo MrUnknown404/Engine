@@ -1,6 +1,7 @@
 using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 using StbImageSharp;
+using USharpLibs.Engine.Utils;
 using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
 namespace USharpLibs.Engine.Client.GL {
@@ -29,17 +30,14 @@ namespace USharpLibs.Engine.Client.GL {
 			OpenGL4.BindTexture(TextureTarget.Texture2D, Handle);
 
 			if (Name != null) {
-				string streamName = $"{GameEngine.InstanceAssembly.Value.GetName().Name}.Assets.Textures.{Name}.png";
-				if (GameEngine.InstanceAssembly.Value.GetManifestResourceStream(streamName) is { } stream) {
-					using (stream) {
-						StbImage.stbi_set_flip_vertically_on_load(1);
-						ImageResult image = ImageResult.FromStream(stream, ColorComponent);
-						OpenGL4.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat, image.Width, image.Height, 0, PixelFormat, PixelType.UnsignedByte, image.Data);
+				using (Stream stream = AssetH.GetAssetStream($"Textures.{Name}.png", GameEngine.InstanceAssembly.Value)) {
+					StbImage.stbi_set_flip_vertically_on_load(1);
+					ImageResult image = ImageResult.FromStream(stream, ColorComponent);
+					OpenGL4.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat, image.Width, image.Height, 0, PixelFormat, PixelType.UnsignedByte, image.Data);
 
-						Width = (ushort)image.Width;
-						Height = (ushort)image.Height;
-					}
-				} else { throw new($"Could not find file '{Name}' at '{streamName}'"); }
+					Width = (ushort)image.Width;
+					Height = (ushort)image.Height;
+				}
 			} else if (Data != null) { OpenGL4.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat, Width, Height, 0, PixelFormat, PixelType.UnsignedByte, Data); } else {
 				throw new("Cannot load texture because no data was given! how'd you do that?");
 			}

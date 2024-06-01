@@ -1,6 +1,8 @@
+using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 
 namespace USharpLibs.Engine.Client.GL {
+	[PublicAPI]
 	public abstract class Texture {
 		public int Handle { get; protected set; }
 		public bool WasSetup { get; private set; }
@@ -20,7 +22,8 @@ namespace USharpLibs.Engine.Client.GL {
 			WrapMode = wrapMode;
 		}
 
-		internal void SetupGL() {
+		// TODO internal this when TextureAtlas is merged
+		public void SetupGL() {
 			if (GameEngine.CurrentLoadState != GameEngine.LoadState.SetupGL) { throw new($"Cannot setup texture during {GameEngine.CurrentLoadState}"); }
 			ISetupGL();
 			WasSetup = true;

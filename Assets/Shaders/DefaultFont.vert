@@ -3,7 +3,7 @@
 layout (location = 0) in vec3 Pos;
 layout (location = 1) in vec2 Tex;
 
-uniform mat4 Projection = mat4(1);
+uniform mat4 Projection = mat4(1);;
 uniform vec3 Position = vec3(0);
 uniform vec3 Scale = vec3(1);
 

@@ -1,6 +1,7 @@
 using JetBrains.Annotations;
 using USharpLibs.Engine.Client.GL;
 using USharpLibs.Engine.Client.GL.Models;
+using USharpLibs.Engine.Client.GL.Models.Vertex;
 
 namespace USharpLibs.Engine.Client.Fonts {
 	[PublicAPI]
@@ -25,7 +26,7 @@ namespace USharpLibs.Engine.Client.Fonts {
 		/// <param name="sizeOffset"> The amount of extra space to add to the mesh to account for overdraw.  </param>
 		/// <param name="wordWrap"> At what pixel to word wrap. Set to 0 to disable. </param>
 		/// <param name="z"> The depth of the meshes. </param>
-		public abstract List<Mesh> GetMesh(string text, float sizeOffset, float wordWrap = 0, float z = 0);
+		public abstract List<Mesh<Vertex5>>GetMesh(string text, float sizeOffset, float wordWrap = 0, float z = 0);
 
 		/// <param name="text"> The text to calculate from. </param>
 		/// <returns> The width of the given text in pixels </returns>
