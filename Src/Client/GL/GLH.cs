@@ -21,7 +21,7 @@ namespace USharpLibs.Engine.Client.GL {
 		internal static Dictionary<string, int>? CurrentShaderUniformLocations { get; private set; }
 		internal static string? CurrentShaderName { get; private set; }
 
-		[MustUseReturnValue]
+		[MustDisposeResource]
 		public static T Bind<T>(Shader<T> shader) where T : ShaderWriter, new() {
 			if (CurrentShaderHandle == shader.Handle) { return (T?)shaderAccess ?? throw new NullReferenceException("Somehow shader is both bound and unbound."); }
 			if (!shader.WasSetup) { throw new("Shader cannot be bound because it was never setup."); }

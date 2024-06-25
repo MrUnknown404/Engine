@@ -3,13 +3,13 @@ using JetBrains.Annotations;
 
 namespace USharpLibs.Engine.Math {
 	[PublicAPI]
-	public interface IPos2d<out TType, TSelf> where TType : INumberBase<TType> where TSelf : struct, IPos2d<TType, TSelf> {
+	public interface IPos2d<out TType, TSelf> where TType : INumber<TType> where TSelf : struct, IPos2d<TType, TSelf> {
 		public TType X { get; }
 		public TType Y { get; }
 	}
 
 	[PublicAPI]
-	public readonly record struct Pos2d<TType> : IPos2d<TType, Pos2d<TType>> where TType : INumberBase<TType> {
+	public readonly record struct Pos2d<TType> : IPos2d<TType, Pos2d<TType>> where TType : INumber<TType> {
 		public TType X { get; } = default!;
 		public TType Y { get; } = default!;
 
