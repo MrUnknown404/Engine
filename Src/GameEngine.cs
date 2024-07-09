@@ -282,9 +282,9 @@ namespace USharpLibs.Engine {
 		internal void InvokeOnTextInputEvent(TextInputEventArgs e) => OnTextInputEvent?.Invoke(e);
 
 		private static void OnSetupGL() {
-			Logger.Info("Setting up OpenGL!");
-			Logger.Info($"- OpenGL version: {OpenGL4.GetString(StringName.Version)}");
-			Logger.Info($"- GLFW Version: {GLFW.GetVersionString()}");
+			Logger.Debug("Setting up OpenGL!");
+			Logger.Debug($"- OpenGL version: {OpenGL4.GetString(StringName.Version)}");
+			Logger.Debug($"- GLFW Version: {GLFW.GetVersionString()}");
 
 			OpenGL4.ClearColor(0.1f, 0.1f, 0.1f, 1f);
 			OpenGL4.Enable(EnableCap.Blend);
