@@ -1,8 +1,6 @@
-using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
-using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
-namespace USharpLibs.Engine2.Client.GL.Models {
+namespace USharpLibs.Engine2.Client.Models {
 	[PublicAPI]
 	public abstract class Model {
 		public BufferUsageHint BufferHint { protected get; init; } = BufferUsageHint.StaticDraw;
@@ -26,14 +24,14 @@ namespace USharpLibs.Engine2.Client.GL.Models {
 			if (WasFreed) { throw new ModelException(ModelException.Reason.WasFreed); }
 			if (VAO != 0) { throw new ModelException(ModelException.Reason.VAOIsFinal); }
 
-			VAO = (uint)OpenGL4.GenVertexArray();
+			VAO = (uint)GL.GenVertexArray();
 		}
 
 		public virtual void Free() {
 			if (WasFreed) { throw new ModelException(ModelException.Reason.ModelAlreadyFreed); }
 
 			WasFreed = true;
-			OpenGL4.DeleteVertexArray(VAO);
+			GL.DeleteVertexArray(VAO);
 			VAO = 0;
 		}
 

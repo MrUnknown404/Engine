@@ -1,7 +1,6 @@
-using JetBrains.Annotations;
 using USharpLibs.Common.IO;
 
-namespace USharpLibs.Engine2.Client.GL.Models {
+namespace USharpLibs.Engine2.Client.Models {
 	[PublicAPI]
 	public sealed class ModelAccess {
 		internal Model? Model { get; set; }

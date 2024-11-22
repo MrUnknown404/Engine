@@ -1,9 +1,8 @@
-using JetBrains.Annotations;
+using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using USharpLibs.Common.IO;
-using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
-namespace USharpLibs.Engine2.Client.GL.Shaders {
+namespace USharpLibs.Engine2.Client.Shaders {
 	[PublicAPI]
 	public class ShaderAccess {
 		internal Shader Shader { private get; init; } = null!; // Set in Shader<T>
@@ -32,7 +31,7 @@ namespace USharpLibs.Engine2.Client.GL.Shaders {
 				return;
 			}
 
-			OpenGL4.UniformMatrix4(value, flag, ref data);
+			GL.UniformMatrix4(value, flag, ref data);
 		}
 
 		protected void SetMatrix4Array(string name, bool flag, Matrix4[] data) {
@@ -43,19 +42,19 @@ namespace USharpLibs.Engine2.Client.GL.Shaders {
 				return;
 			}
 
-			OpenGL4.UniformMatrix4(value, data.Length, flag, ref data[0].Row0.X);
+			GL.UniformMatrix4(value, data.Length, flag, ref data[0].Row0.X);
 		}
 
 		public void SetProjection(in Matrix4 data) => SetMatrix4("Projection", data);
 
-		public void SetBool(string name, bool data) => SetData(name, data ? 1 : 0, OpenGL4.Uniform1);
-		public void SetInt(string name, int data) => SetData(name, data, OpenGL4.Uniform1);
-		public void SetFloat(string name, float data) => SetData(name, data, OpenGL4.Uniform1);
-		public void SetVector2(string name, Vector2 data) => SetData(name, data, OpenGL4.Uniform2);
-		public void SetVector3(string name, Vector3 data) => SetData(name, data, OpenGL4.Uniform3);
-		public void SetVector4(string name, Vector4 data) => SetData(name, data, OpenGL4.Uniform4);
+		public void SetBool(string name, bool data) => SetData(name, data ? 1 : 0, GL.Uniform1);
+		public void SetInt(string name, int data) => SetData(name, data, GL.Uniform1);
+		public void SetFloat(string name, float data) => SetData(name, data, GL.Uniform1);
+		public void SetVector2(string name, Vector2 data) => SetData(name, data, GL.Uniform2);
+		public void SetVector3(string name, Vector3 data) => SetData(name, data, GL.Uniform3);
+		public void SetVector4(string name, Vector4 data) => SetData(name, data, GL.Uniform4);
 		public void SetMatrix4(string name, in Matrix4 data) => SetMatrix(name, true, data);
 		public void SetMatrix4Array(string name, in Matrix4[] data) => SetMatrix4Array(name, true, data);
-		public void SetColor(string name, Color4 data) => SetData(name, data, OpenGL4.Uniform4);
+		public void SetColor(string name, Color4 data) => SetData(name, data, GL.Uniform4);
 	}
 }

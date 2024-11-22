@@ -1,6 +1,4 @@
-using JetBrains.Annotations;
-
-namespace USharpLibs.Engine2.Client.GL.Shaders {
+namespace USharpLibs.Engine2.Client.Shaders {
 	[PublicAPI]
 	public class ShaderAccessException : Exception {
 		public Reason ReasonValue { get; }

@@ -1,9 +1,8 @@
-using JetBrains.Annotations;
+using OpenTK.Graphics.OpenGL4;
 using USharpLibs.Common.IO;
-using USharpLibs.Engine2.Client.GL.Models.Vertex;
-using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
+using USharpLibs.Engine2.Client.Models.Vertex;
 
-namespace USharpLibs.Engine2.Client.GL.Models {
+namespace USharpLibs.Engine2.Client.Models {
 	[PublicAPI]
 	public class MutableModel<TVertex> : ModelImpl<TVertex> where TVertex : IVertex {
 		protected override List<Mesh<TVertex>> BuildMesh { get; } = new();
@@ -35,15 +34,15 @@ namespace USharpLibs.Engine2.Client.GL.Models {
 			isDirty = false;
 
 			foreach (BufferData data in BuiltMesh) { // Reuse buffers instead
-				OpenGL4.DeleteBuffer(data.VBO);
-				OpenGL4.DeleteBuffer(data.EBO);
+				GL.DeleteBuffer(data.VBO);
+				GL.DeleteBuffer(data.EBO);
 			}
 
 			BuiltMesh.Clear();
 
 			foreach (Mesh<TVertex> mesh in BuildMesh) {
-				uint vbo = (uint)OpenGL4.GenBuffer();
-				uint ebo = (uint)OpenGL4.GenBuffer();
+				uint vbo = (uint)GL.GenBuffer();
+				uint ebo = (uint)GL.GenBuffer();
 
 				BuiltMesh.Add(new() { VBO = vbo, EBO = ebo, Count = mesh.Indices.Length, });
 				BindToBuffer(vbo, ebo, mesh.CollectVertices(), mesh.Indices);

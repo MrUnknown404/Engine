@@ -1,5 +1,4 @@
-using JetBrains.Annotations;
-using USharpLibs.Engine2.Client.GL.Shaders;
+using USharpLibs.Engine2.Client.Shaders;
 
 namespace USharpLibs.Engine2.Init {
 	[PublicAPI]

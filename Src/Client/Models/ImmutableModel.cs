@@ -1,8 +1,7 @@
-using JetBrains.Annotations;
-using USharpLibs.Engine2.Client.GL.Models.Vertex;
-using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
+using OpenTK.Graphics.OpenGL4;
+using USharpLibs.Engine2.Client.Models.Vertex;
 
-namespace USharpLibs.Engine2.Client.GL.Models {
+namespace USharpLibs.Engine2.Client.Models {
 	[PublicAPI]
 	public class ImmutableModel<TVertex> : ModelImpl<TVertex> where TVertex : IVertex {
 		protected override Mesh<TVertex>[] BuildMesh { get; }
@@ -23,8 +22,8 @@ namespace USharpLibs.Engine2.Client.GL.Models {
 
 			for (int i = 0; i < BuildMesh.Length; i++) {
 				Mesh<TVertex> mesh = BuildMesh[i];
-				uint vbo = (uint)OpenGL4.GenBuffer();
-				uint ebo = (uint)OpenGL4.GenBuffer();
+				uint vbo = (uint)GL.GenBuffer();
+				uint ebo = (uint)GL.GenBuffer();
 
 				BuiltMesh[i] = new() { VBO = vbo, EBO = ebo, Count = mesh.Indices.Length, };
 				BindToBuffer(vbo, ebo, mesh.CollectVertices(), mesh.Indices);

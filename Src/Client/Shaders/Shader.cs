@@ -1,11 +1,9 @@
 using System.Reflection;
-using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 using USharpLibs.Engine2.Utils;
-using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 using ShaderTypeTuple = (string name, OpenTK.Graphics.OpenGL4.ShaderType type);
 
-namespace USharpLibs.Engine2.Client.GL.Shaders {
+namespace USharpLibs.Engine2.Client.Shaders {
 	[PublicAPI]
 	public abstract class Shader {
 		private const byte ShaderTypeCount = 5;
@@ -33,30 +31,30 @@ namespace USharpLibs.Engine2.Client.GL.Shaders {
 		}
 
 		internal void SetupGL() {
-			Handle = (uint)OpenGL4.CreateProgram();
+			Handle = (uint)GL.CreateProgram();
 			int[] shaders = new int[ShaderTypeCount];
 
 			for (int i = 0; i < ShaderTypeCount; i++) {
 				string? name = FileNames[i];
 				if (!string.IsNullOrEmpty(name)) {
 					shaders[i] = CompileShader(name, ((ShaderTypes)(1 << i)).ToOpenTKShader()); // ew. im tired
-					OpenGL4.AttachShader((int)Handle, shaders[i]);
+					GL.AttachShader((int)Handle, shaders[i]);
 				}
 			}
 
-			OpenGL4.LinkProgram(Handle);
-			OpenGL4.GetProgram(Handle, GetProgramParameterName.LinkStatus, out int code);
+			GL.LinkProgram(Handle);
+			GL.GetProgram(Handle, GetProgramParameterName.LinkStatus, out int code);
 			if (code != (int)All.True) { throw new($"Error occurred whilst linking Shader '{DebugName}' Id:{Handle}"); }
 
 			foreach (int shader in shaders) {
-				OpenGL4.DetachShader((int)Handle, shader);
-				OpenGL4.DeleteShader(shader);
+				GL.DetachShader((int)Handle, shader);
+				GL.DeleteShader(shader);
 			}
 
-			OpenGL4.GetProgram(Handle, GetProgramParameterName.ActiveUniforms, out int numberOfUniforms);
+			GL.GetProgram(Handle, GetProgramParameterName.ActiveUniforms, out int numberOfUniforms);
 			for (int i = 0; i < numberOfUniforms; i++) {
-				string key = OpenGL4.GetActiveUniform((int)Handle, i, out _, out _);
-				UniformLocations.Add(key, OpenGL4.GetUniformLocation(Handle, key));
+				string key = GL.GetActiveUniform((int)Handle, i, out _, out _);
+				UniformLocations.Add(key, GL.GetUniformLocation(Handle, key));
 			}
 		}
 
@@ -66,11 +64,11 @@ namespace USharpLibs.Engine2.Client.GL.Shaders {
 				using (StreamReader reader = new(stream)) { result = reader.ReadToEnd(); }
 			}
 
-			int shader = OpenGL4.CreateShader(type);
-			OpenGL4.ShaderSource(shader, result);
-			OpenGL4.CompileShader(shader);
-			OpenGL4.GetShader(shader, ShaderParameter.CompileStatus, out int code);
-			if (code != (int)All.True) { throw new($"Error occurred whilst compiling '{shaderName}' Id:{shader}.\n\n{OpenGL4.GetShaderInfoLog(shader)}"); }
+			int shader = GL.CreateShader(type);
+			GL.ShaderSource(shader, result);
+			GL.CompileShader(shader);
+			GL.GetShader(shader, ShaderParameter.CompileStatus, out int code);
+			if (code != (int)All.True) { throw new($"Error occurred whilst compiling '{shaderName}' Id:{shader}.\n\n{GL.GetShaderInfoLog(shader)}"); }
 			return shader;
 		}
 	}

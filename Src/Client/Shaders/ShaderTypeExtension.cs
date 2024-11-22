@@ -1,8 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
-using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 
-namespace USharpLibs.Engine2.Client.GL.Shaders {
+namespace USharpLibs.Engine2.Client.Shaders {
 	[Flags]
 	public enum ShaderTypes : byte {
 		Vertex = 1 << 0,

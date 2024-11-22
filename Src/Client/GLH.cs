@@ -1,11 +1,9 @@
-using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 using USharpLibs.Common.IO;
-using USharpLibs.Engine2.Client.GL.Models;
-using USharpLibs.Engine2.Client.GL.Shaders;
-using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
+using USharpLibs.Engine2.Client.Models;
+using USharpLibs.Engine2.Client.Shaders;
 
-namespace USharpLibs.Engine2.Client.GL {
+namespace USharpLibs.Engine2.Client {
 	[PublicAPI]
 	public static class GLH {
 		public static bool IsWireframe { get; private set; }
@@ -24,7 +22,7 @@ namespace USharpLibs.Engine2.Client.GL {
 
 			if (CurrentShaderHandle != shader.Handle) {
 				CurrentShaderHandle = shader.Handle;
-				OpenGL4.UseProgram(CurrentShaderHandle);
+				GL.UseProgram(CurrentShaderHandle);
 			}
 
 			return shader.Access;
@@ -37,7 +35,7 @@ namespace USharpLibs.Engine2.Client.GL {
 
 			if (ModelAccess.Model == null || ModelAccess.Model.VAO != model.VAO) {
 				ModelAccess.Model = model;
-				OpenGL4.BindVertexArray(model.VAO);
+				GL.BindVertexArray(model.VAO);
 			}
 
 			return ModelAccess;
@@ -46,19 +44,19 @@ namespace USharpLibs.Engine2.Client.GL {
 		public static void UnbindShader() {
 			if (CurrentShaderHandle == 0) { return; }
 			CurrentShaderHandle = 0;
-			OpenGL4.UseProgram(0);
+			GL.UseProgram(0);
 		}
 
 		public static void UnbindModel() {
 			if (ModelAccess.Model == null) { return; }
 			ModelAccess.Model = null;
-			OpenGL4.BindVertexArray(0);
+			GL.BindVertexArray(0);
 		}
 
 		/// <summary> Enables Wireframe mode. </summary>
 		public static void EnableWireframe() {
 			if (!IsWireframe) {
-				OpenGL4.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
+				GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
 				IsWireframe = true;
 			}
 		}
@@ -66,7 +64,7 @@ namespace USharpLibs.Engine2.Client.GL {
 		/// <summary> Disables Wireframe mode. </summary>
 		public static void DisableWireframe() {
 			if (IsWireframe) {
-				OpenGL4.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
+				GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
 				IsWireframe = false;
 			}
 		}
@@ -74,7 +72,7 @@ namespace USharpLibs.Engine2.Client.GL {
 		/// <summary> Enables Depth Testing. </summary>
 		public static void EnableDepthTest() {
 			if (!IsDepthTesting) {
-				OpenGL4.Enable(EnableCap.DepthTest);
+				GL.Enable(EnableCap.DepthTest);
 				IsDepthTesting = true;
 			}
 		}
@@ -82,7 +80,7 @@ namespace USharpLibs.Engine2.Client.GL {
 		/// <summary> Disables Depth Testing. </summary>
 		public static void DisableDepthTest() {
 			if (IsDepthTesting) {
-				OpenGL4.Disable(EnableCap.DepthTest);
+				GL.Disable(EnableCap.DepthTest);
 				IsDepthTesting = false;
 			}
 		}
@@ -90,7 +88,7 @@ namespace USharpLibs.Engine2.Client.GL {
 		/// <summary> Enables Culling. </summary>
 		public static void EnableCulling() {
 			if (!IsCulling) {
-				OpenGL4.Enable(EnableCap.CullFace);
+				GL.Enable(EnableCap.CullFace);
 				IsCulling = true;
 			}
 		}
@@ -98,7 +96,7 @@ namespace USharpLibs.Engine2.Client.GL {
 		/// <summary> Disables Culling. </summary>
 		public static void DisableCulling() {
 			if (IsCulling) {
-				OpenGL4.Disable(EnableCap.CullFace);
+				GL.Disable(EnableCap.CullFace);
 				IsCulling = false;
 			}
 		}

@@ -1,12 +1,10 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using USharpLibs.Engine2.Engine;
-using OpenGL4 = OpenTK.Graphics.OpenGL4.GL;
 
 namespace USharpLibs.Engine2.Client {
 	[PublicAPI]
@@ -186,7 +184,7 @@ namespace USharpLibs.Engine2.Client {
 					openGLWindow.NewInputFrame();
 					NativeWindow.ProcessWindowEvents(openGLWindow.IsEventDriven);
 
-					OpenGL4.Clear(ClearBufferMask);
+					GL.Clear(ClearBufferMask);
 
 					GameEngine.EngineInstance.OnUpdate(elapsed);
 					GameEngine.EngineInstance.OnRender(elapsed);

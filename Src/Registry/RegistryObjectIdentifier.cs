@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using JetBrains.Annotations;
 using USharpLibs.Engine2.Modding;
 
 namespace USharpLibs.Engine2.Registry {

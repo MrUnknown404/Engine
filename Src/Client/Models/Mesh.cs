@@ -1,7 +1,6 @@
-using JetBrains.Annotations;
-using USharpLibs.Engine2.Client.GL.Models.Vertex;
+using USharpLibs.Engine2.Client.Models.Vertex;
 
-namespace USharpLibs.Engine2.Client.GL.Models {
+namespace USharpLibs.Engine2.Client.Models {
 	[PublicAPI]
 	public sealed class Mesh<TVertex> where TVertex : IVertex {
 		public TVertex[] Vertices { get; }

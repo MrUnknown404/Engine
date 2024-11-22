@@ -1,7 +1,6 @@
 using System.Text;
-using JetBrains.Annotations;
 
-namespace USharpLibs.Engine2.Client.GL.Models.Vertex {
+namespace USharpLibs.Engine2.Client.Models.Vertex {
 	/// <summary> TODO write this </summary>
 	/// <example> <see cref="Vertex3"/> or <see cref="Vertex5"/> </example>
 	[PublicAPI]

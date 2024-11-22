@@ -1,6 +1,4 @@
-using JetBrains.Annotations;
-
-namespace USharpLibs.Engine2.Client.GL.Models {
+namespace USharpLibs.Engine2.Client.Models {
 	[PublicAPI]
 	public class ModelException : Exception {
 		public Reason ReasonValue { get; }

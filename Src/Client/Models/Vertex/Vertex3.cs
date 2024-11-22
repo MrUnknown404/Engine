@@ -1,7 +1,6 @@
 using System.Runtime.InteropServices;
-using JetBrains.Annotations;
 
-namespace USharpLibs.Engine2.Client.GL.Models.Vertex {
+namespace USharpLibs.Engine2.Client.Models.Vertex {
 	[PublicAPI]
 	[StructLayout(LayoutKind.Sequential, Pack = 0)]
 	public readonly record struct Vertex3 : IVertex {

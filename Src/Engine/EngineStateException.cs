@@ -1,5 +1,3 @@
-using JetBrains.Annotations;
-
 namespace USharpLibs.Engine2.Engine {
 	[PublicAPI]
 	public class EngineStateException : Exception {
