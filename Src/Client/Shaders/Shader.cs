@@ -5,7 +5,7 @@ using ShaderTypeTuple = (string name, OpenTK.Graphics.OpenGL4.ShaderType type);
 
 namespace USharpLibs.Engine2.Client.Shaders {
 	[PublicAPI]
-	public abstract class Shader {
+	public abstract class Shader { // TODO make this class throw exceptions
 		private const byte ShaderTypeCount = 5;
 
 		public string DebugName { get; }

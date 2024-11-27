@@ -19,7 +19,7 @@ namespace USharpLibs.Engine2.Registry {
 
 		[GeneratedRegex(Regex)] public static partial Regex NameRegex();
 
-		public bool Equals(RegistryObjectIdentifier? other) => other != null && Source==other.Source && Key == other.Key;
+		public bool Equals(RegistryObjectIdentifier? other) => other != null && Source == other.Source && Key == other.Key;
 		public override bool Equals(object? obj) => obj is RegistryObjectIdentifier other && Equals(other);
 
 		public override int GetHashCode() => HashCode.Combine(Source, Key);

@@ -1,4 +1,6 @@
-namespace USharpLibs.Engine2.Client.Models {
+using USharpLibs.Engine2.Client.Models;
+
+namespace USharpLibs.Engine2.Exceptions {
 	[PublicAPI]
 	public class ModelAccessException : Exception {
 		public Reason ReasonValue { get; }

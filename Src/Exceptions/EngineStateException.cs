@@ -1,4 +1,4 @@
-namespace USharpLibs.Engine2.Engine {
+namespace USharpLibs.Engine2.Exceptions {
 	[PublicAPI]
 	public class EngineStateException : Exception {
 		public Reason ExceptionReason { get; }

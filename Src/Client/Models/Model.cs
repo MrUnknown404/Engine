@@ -1,4 +1,5 @@
 using OpenTK.Graphics.OpenGL4;
+using USharpLibs.Engine2.Exceptions;
 
 namespace USharpLibs.Engine2.Client.Models {
 	[PublicAPI]

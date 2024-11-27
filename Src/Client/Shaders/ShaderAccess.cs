@@ -1,6 +1,7 @@
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using USharpLibs.Common.IO;
+using USharpLibs.Engine2.Exceptions;
 
 namespace USharpLibs.Engine2.Client.Shaders {
 	[PublicAPI]

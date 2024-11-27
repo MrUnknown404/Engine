@@ -1,4 +1,5 @@
 using USharpLibs.Common.IO;
+using USharpLibs.Engine2.Exceptions;
 
 namespace USharpLibs.Engine2.Client.Models {
 	[PublicAPI]

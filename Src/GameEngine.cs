@@ -6,7 +6,7 @@ using USharpLibs.Common.IO;
 using USharpLibs.Common.Utils;
 using USharpLibs.Engine2.Client;
 using USharpLibs.Engine2.Client.Shaders;
-using USharpLibs.Engine2.Engine;
+using USharpLibs.Engine2.Exceptions;
 using USharpLibs.Engine2.Init;
 using USharpLibs.Engine2.Modding;
 using USharpLibs.Engine2.Utils;

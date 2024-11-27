@@ -1,4 +1,6 @@
-namespace USharpLibs.Engine2.Client.Shaders {
+using USharpLibs.Engine2.Client.Shaders;
+
+namespace USharpLibs.Engine2.Exceptions {
 	[PublicAPI]
 	public class ShaderAccessException : Exception {
 		public Reason ReasonValue { get; }

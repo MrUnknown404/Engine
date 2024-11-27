@@ -4,7 +4,7 @@ using OpenTK.Graphics.OpenGL4;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using USharpLibs.Engine2.Engine;
+using USharpLibs.Engine2.Exceptions;
 
 namespace USharpLibs.Engine2.Client {
 	[PublicAPI]
