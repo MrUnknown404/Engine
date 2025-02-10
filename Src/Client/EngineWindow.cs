@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
@@ -103,7 +105,6 @@ namespace USharpLibs.Engine2.Client {
 		} = WindowState.Normal;
 
 		public ClearBufferMask ClearBufferMask { get; set; } = ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit;
-
 		public bool CenterOnCreate { private get; set; }
 
 		internal unsafe Window* WindowPtr {
@@ -151,7 +152,7 @@ namespace USharpLibs.Engine2.Client {
 
 			//@formatter:off
 			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
-				SetThreadAffinityMask(GetCurrentThread(), new IntPtr(1));
+				SetThreadAffinityMask(GetCurrentThread(), 1);
 				timeBeginPeriod(TimePeriod);
 				expectedSchedulerPeriod = TimePeriod;
 			} else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) || RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD)) {
@@ -186,8 +187,8 @@ namespace USharpLibs.Engine2.Client {
 
 					GL.Clear(ClearBufferMask);
 
-					GameEngine.EngineInstance.OnUpdate(elapsed);
-					GameEngine.EngineInstance.OnRender(elapsed);
+					GameEngine.Instance.OnUpdate(elapsed);
+					GameEngine.Instance.OnRender(elapsed);
 
 					openGLWindow.Context?.SwapBuffers();
 
@@ -202,12 +203,19 @@ namespace USharpLibs.Engine2.Client {
 			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) { timeEndPeriod(TimePeriod); }
 		}
 
-		[LibraryImport("kernel32", SetLastError = true)]
+		[LibraryImport("Kernel32", SetLastError = true)]
 		private static partial void SetThreadAffinityMask(IntPtr hThread, IntPtr dwThreadAffinityMask);
 
-		[LibraryImport("kernel32")] private static partial IntPtr GetCurrentThread();
-		[LibraryImport("winmm")] private static partial void timeBeginPeriod(uint uPeriod);
-		[LibraryImport("winmm")] private static partial void timeEndPeriod(uint uPeriod);
+		[LibraryImport("Kernel32", SetLastError = true)]
+		private static partial IntPtr GetCurrentThread();
+
+		[LibraryImport("Winmm", SetLastError = true)]
+		[SuppressMessage("ReSharper", "InconsistentNaming")] // windows func
+		private static partial void timeBeginPeriod(uint uPeriod);
+
+		[LibraryImport("Winmm", SetLastError = true)]
+		[SuppressMessage("ReSharper", "InconsistentNaming")] // windows func
+		private static partial void timeEndPeriod(uint uPeriod);
 
 		// [DllImport("kernel32", SetLastError = true)]
 		// private static extern IntPtr SetThreadAffinityMask(IntPtr hThread, IntPtr dwThreadAffinityMask);

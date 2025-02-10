@@ -14,16 +14,11 @@
 	<!-- Includes -->
 	<ItemGroup>
 		<PackageReference Include="OpenTK" Version="4.8.2"/>
-		<PackageReference Include="StbImageSharp" Version="2.27.11" />
-		<PackageReference Include="FreeTypeSharp" Version="3.0.0" />
+		<PackageReference Include="StbImageSharp" Version="2.27.11"/>
+		<PackageReference Include="FreeTypeSharp" Version="3.0.0"/>
 
-		<ProjectReference Include="..\USharpLibs-Common\USharpLibs-Common.csproj" />
+		<ProjectReference Include="..\USharpLibs-Common\USharpLibs-Common.csproj"/>
 
 		<EmbeddedResource Include="Assets\**"/>
-	</ItemGroup>
-
-	<!-- Usings -->
-	<ItemGroup>
-		<Using Include="JetBrains.Annotations"/>
 	</ItemGroup>
 </Project>

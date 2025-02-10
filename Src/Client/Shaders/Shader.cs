@@ -1,11 +1,14 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
+using USharpLibs.Common.IO;
+using USharpLibs.Engine2.Debug;
 using USharpLibs.Engine2.Utils;
 using ShaderTypeTuple = (string name, OpenTK.Graphics.OpenGL4.ShaderType type);
 
 namespace USharpLibs.Engine2.Client.Shaders {
-	[PublicAPI]
-	public abstract class Shader { // TODO make this class throw exceptions
+	public abstract class Shader {
 		private const byte ShaderTypeCount = 5;
 
 		public string DebugName { get; }
@@ -17,17 +20,17 @@ namespace USharpLibs.Engine2.Client.Shaders {
 
 		private Shader(string debugName, Assembly? assembly = null) {
 			DebugName = debugName;
-			Assembly = assembly ?? GameEngine.InstanceSource.Assembly;
+			Assembly = assembly ?? GameEngine.InstanceSource.Assembly; // TODO load assembly later so we can call this earlier
 		}
 
 		internal Shader(string debugName, string fileName, ShaderTypes shaderTypes, Assembly? assembly = null) : this(debugName, assembly) {
-			if (shaderTypes == 0) { throw new ArgumentException("ShaderTypes cannot be 0."); }
+			if (shaderTypes == 0) { throw ShaderErrorHandler.CreateException(new(this, ShaderErrorHandler.Reason.EmptyShaderTypes)); }
 			for (int i = 0; i < ShaderTypeCount; i++) { FileNames[i] = ((byte)shaderTypes & (1 << i)) != 0 ? fileName : null; }
 		}
 
 		internal Shader(string debugName, Assembly? assembly = null, params ShaderTypeTuple[] shaderTypes) : this(debugName, assembly) {
-			if (shaderTypes.Length == 0) { throw new ArgumentException("ShaderTypes cannot be empty."); }
-			foreach (ShaderTypeTuple shaderType in shaderTypes) { FileNames[shaderType.type.ToIndex()] = shaderType.name; }
+			if (shaderTypes.Length == 0) { throw ShaderErrorHandler.CreateException(new(this, ShaderErrorHandler.Reason.EmptyShaderTypes)); }
+			foreach (ShaderTypeTuple shaderType in shaderTypes) { FileNames[ToIndex(shaderType.type)] = shaderType.name; }
 		}
 
 		internal void SetupGL() {
@@ -37,16 +40,17 @@ namespace USharpLibs.Engine2.Client.Shaders {
 			for (int i = 0; i < ShaderTypeCount; i++) {
 				string? name = FileNames[i];
 				if (!string.IsNullOrEmpty(name)) {
-					shaders[i] = CompileShader(name, ((ShaderTypes)(1 << i)).ToOpenTKShader()); // ew. im tired
+					shaders[i] = CompileShader(name, ToOpenTKShader((ShaderTypes)(1 << i))); // ew. im tired
 					GL.AttachShader((int)Handle, shaders[i]);
 				}
 			}
 
 			GL.LinkProgram(Handle);
 			GL.GetProgram(Handle, GetProgramParameterName.LinkStatus, out int code);
-			if (code != (int)All.True) { throw new($"Error occurred whilst linking Shader '{DebugName}' Id:{Handle}"); }
+			if (code != (int)All.True) { throw ShaderErrorHandler.CreateException(new(this, ShaderErrorHandler.Reason.LinkError)); }
 
 			foreach (int shader in shaders) {
+				if (shader == 0) { continue; } // oops. forgot this
 				GL.DetachShader((int)Handle, shader);
 				GL.DeleteShader(shader);
 			}
@@ -60,7 +64,7 @@ namespace USharpLibs.Engine2.Client.Shaders {
 
 		private int CompileShader(string shaderName, ShaderType type) {
 			string result;
-			using (Stream stream = AssetH.GetAssetStream($"Shaders.{shaderName}.{type.ToFileFormat()}", Assembly)) {
+			using (Stream stream = AssetH.GetAssetStream($"Shaders.{shaderName}.{ToFileFormat(type)}", Assembly)) {
 				using (StreamReader reader = new(stream)) { result = reader.ReadToEnd(); }
 			}
 
@@ -68,9 +72,45 @@ namespace USharpLibs.Engine2.Client.Shaders {
 			GL.ShaderSource(shader, result);
 			GL.CompileShader(shader);
 			GL.GetShader(shader, ShaderParameter.CompileStatus, out int code);
-			if (code != (int)All.True) { throw new($"Error occurred whilst compiling '{shaderName}' Id:{shader}.\n\n{GL.GetShaderInfoLog(shader)}"); }
+			if (code != (int)All.True) {
+				Logger.Error($"Error occurred whilst compiling Shader: {shaderName}.\n\n{GL.GetShaderInfoLog(shader)}");
+				throw ShaderErrorHandler.CreateException(new(this, ShaderErrorHandler.Reason.CompileError));
+			}
+
 			return shader;
 		}
+
+		[SuppressMessage("ReSharper", "PatternIsRedundant")]
+		private static string ToFileFormat(ShaderType self) =>
+				self switch {
+						ShaderType.VertexShader => "vert",
+						ShaderType.TessControlShader => "tesc",
+						ShaderType.TessEvaluationShader => "tese",
+						ShaderType.GeometryShader => "geom",
+						ShaderType.FragmentShader => "frag",
+						ShaderType.ComputeShader or _ => throw new NotImplementedException(),
+				};
+
+		private static ShaderType ToOpenTKShader(ShaderTypes self) =>
+				self switch {
+						ShaderTypes.Vertex => ShaderType.VertexShader,
+						ShaderTypes.TesselationControl => ShaderType.TessControlShader,
+						ShaderTypes.TesselationEvaluation => ShaderType.TessEvaluationShader,
+						ShaderTypes.Geometry => ShaderType.GeometryShader,
+						ShaderTypes.Fragment => ShaderType.FragmentShader,
+						_ => throw new NotImplementedException(),
+				};
+
+		[SuppressMessage("ReSharper", "PatternIsRedundant")]
+		private static byte ToIndex(ShaderType self) =>
+				self switch {
+						ShaderType.VertexShader => 0,
+						ShaderType.TessControlShader => 1,
+						ShaderType.TessEvaluationShader => 2,
+						ShaderType.GeometryShader => 3,
+						ShaderType.FragmentShader => 4,
+						ShaderType.ComputeShader or _ => throw new NotImplementedException(),
+				};
 	}
 
 	[PublicAPI]

@@ -1,4 +1,6 @@
+using JetBrains.Annotations;
 using USharpLibs.Common.IO;
+using USharpLibs.Engine2.Debug;
 using USharpLibs.Engine2.Exceptions;
 
 namespace USharpLibs.Engine2.Client.Models {
@@ -9,9 +11,8 @@ namespace USharpLibs.Engine2.Client.Models {
 		internal ModelAccess() { }
 
 		public void Build() {
-			if (Model == null) { throw new ModelAccessException(ModelAccessException.Reason.NothingBound); }
-			if (Model.WasFreed) { throw new ModelAccessException(ModelAccessException.Reason.WasFreed); }
-			if (Model.VAO == 0) { throw new ModelAccessException(ModelAccessException.Reason.NoVAO); }
+			if (ModelAccessErrorHandler.Assert(Model == null, static () => new(ModelAccessErrorHandler.Reason.NothingBound))) { return; }
+			if (ModelErrorHandler.Assert(Model.WasFreed, static () => new(ModelErrorHandler.Reason.WasFreed))) { return; }
 
 			if (Model.IsBuildMeshEmpty) {
 				switch (Model.IfBuildEmpty) {
@@ -19,7 +20,7 @@ namespace USharpLibs.Engine2.Client.Models {
 					case Model.OnEmpty.Scream:
 						Logger.Warn("Attempted to build empty model.");
 						return;
-					case Model.OnEmpty.Throw: throw new ModelAccessException(ModelAccessException.Reason.NothingToBuild);
+					case Model.OnEmpty.Throw: throw new ModelAccessException(ModelAccessErrorHandler.CreateMessage(new(ModelAccessErrorHandler.Reason.NothingToBuild)));
 					default: throw new ArgumentOutOfRangeException();
 				}
 			}
@@ -28,9 +29,8 @@ namespace USharpLibs.Engine2.Client.Models {
 		}
 
 		public void Draw() {
-			if (Model == null) { throw new ModelAccessException(ModelAccessException.Reason.NothingBound); }
-			if (Model.WasFreed) { throw new ModelAccessException(ModelAccessException.Reason.WasFreed); }
-			if (Model.VAO == 0) { throw new ModelAccessException(ModelAccessException.Reason.NoVAO); }
+			if (ModelAccessErrorHandler.Assert(Model == null, static () => new(ModelAccessErrorHandler.Reason.NothingBound))) { return; }
+			if (ModelErrorHandler.Assert(Model.WasFreed, static () => new(ModelErrorHandler.Reason.WasFreed))) { return; }
 
 			if (Model.IsDrawDataEmpty) {
 				switch (Model.IfDrawEmpty) {
@@ -38,7 +38,7 @@ namespace USharpLibs.Engine2.Client.Models {
 					case Model.OnEmpty.Scream:
 						Logger.Warn("Attempted to draw empty model.");
 						return;
-					case Model.OnEmpty.Throw: throw new ModelAccessException(ModelAccessException.Reason.NothingToDraw);
+					case Model.OnEmpty.Throw: throw new ModelAccessException(ModelAccessErrorHandler.CreateMessage(new(ModelAccessErrorHandler.Reason.NothingToDraw)));
 					default: throw new ArgumentOutOfRangeException();
 				}
 			}

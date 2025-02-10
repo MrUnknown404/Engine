@@ -1,10 +1,11 @@
+using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
-using USharpLibs.Engine2.Exceptions;
+using USharpLibs.Engine2.Debug;
 
 namespace USharpLibs.Engine2.Client.Models {
 	[PublicAPI]
 	public abstract class Model {
-		public BufferUsageHint BufferHint { protected get; init; } = BufferUsageHint.StaticDraw;
+		public required BufferUsageHint BufferHint { protected get; init; }
 		public OnEmpty IfBuildEmpty { internal get; init; } = OnEmpty.Scream;
 		public OnEmpty IfDrawEmpty { internal get; init; } = OnEmpty.Scream;
 
@@ -22,17 +23,17 @@ namespace USharpLibs.Engine2.Client.Models {
 		protected internal abstract bool CanBuild();
 
 		public void GenerateVAO() {
-			if (WasFreed) { throw new ModelException(ModelException.Reason.WasFreed); }
-			if (VAO != 0) { throw new ModelException(ModelException.Reason.VAOIsFinal); }
+			if (ModelErrorHandler.Assert(WasFreed, static () => new(ModelErrorHandler.Reason.WasFreed))) { return; }
+			if (ModelErrorHandler.Assert(VAO != 0, static () => new(ModelErrorHandler.Reason.VAOIsFinal))) { return; }
 
 			VAO = (uint)GL.GenVertexArray();
 		}
 
-		public virtual void Free() {
-			if (WasFreed) { throw new ModelException(ModelException.Reason.ModelAlreadyFreed); }
+		public void Free() {
+			if (ModelErrorHandler.Assert(WasFreed, static () => new(ModelErrorHandler.Reason.WasFreed))) { return; }
 
 			WasFreed = true;
-			GL.DeleteVertexArray(VAO);
+			GL.DeleteVertexArray(VAO); // this should eventually lead to the vbo/ebo's being unbound. to my understanding
 			VAO = 0;
 		}
 
