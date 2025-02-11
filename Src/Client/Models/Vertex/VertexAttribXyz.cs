@@ -1,15 +1,11 @@
 using System.Runtime.InteropServices;
-using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 
-namespace USharpLibs.Engine2.Client.Models.Interleaved {
-	[PublicAPI]
+namespace USharpLibs.Engine2.Client.Models.Vertex {
 	[StructLayout(LayoutKind.Explicit)]
-	public readonly record struct VertexXyz : IInterleavedVertex {
-		private const byte SizeInBytesConst = 3 * sizeof(float);
-
-		public static VertexLayout[] VertexLayout { get; } = { new(VertexAttribPointerType.Float, 3), };
-		public static byte SizeInBytes => SizeInBytesConst;
+	public readonly record struct VertexAttribXyz : IVertexAttribute {
+		public static VertexLayout VertexLayout { get; } = new(VertexAttribPointerType.Float, 3);
+		public static byte SizeInBytes => 12;
 
 		[FieldOffset(0)] internal readonly byte Byte0;
 		[FieldOffset(1)] internal readonly byte Byte1;
@@ -28,7 +24,7 @@ namespace USharpLibs.Engine2.Client.Models.Interleaved {
 		[field: FieldOffset(4)] public float Y { get; }
 		[field: FieldOffset(8)] public float Z { get; }
 
-		public VertexXyz(float x, float y, float z) {
+		public VertexAttribXyz(float x, float y, float z) {
 			X = x;
 			Y = y;
 			Z = z;

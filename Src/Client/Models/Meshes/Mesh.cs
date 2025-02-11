@@ -1,20 +1,12 @@
-using System.Diagnostics.CodeAnalysis;
 using OpenTK.Graphics.OpenGL4;
-using USharpLibs.Engine2.Debug;
+using USharpLibs.Engine2.Client.Models.Vertex;
 
-namespace USharpLibs.Engine2.Client.Models {
-	public abstract class BaseMesh<TIndex> : IMesh where TIndex : IList<uint> {
-		public TIndex Indices { get; }
-		public int IndexCount => Indices.Count;
+namespace USharpLibs.Engine2.Client.Models.Meshes {
+	public abstract class Mesh {
+		protected internal abstract int IndexCount { get; }
 
-		internal BaseMesh(TIndex indices, [SuppressMessage("ReSharper", "ParameterOnlyUsedForPreconditionCheck.Local")] bool allowEmptyData) { // atm i don't have a better way of doing this
-			_ = MeshErrorHandler.Assert(!allowEmptyData && indices.Count == 0, static () => new(MeshErrorHandler.Reason.EmptyIndexArray));
-			_ = MeshErrorHandler.Assert(indices.Count % 3 != 0, static () => new(MeshErrorHandler.Reason.IncorrectlySizedIndexArray));
-
-			Indices = indices;
-		}
-
-		public abstract void BindToBuffer(uint vbo, uint ebo, BufferUsageHint bufferHint);
+		protected internal abstract void BindToBuffer(uint vbo, uint ebo, BufferUsageHint bufferHint);
+		protected abstract void BindIndices(uint ebo, BufferUsageHint bufferHint);
 
 		protected static byte[] CollectVertexData<TVertex>(IList<TVertex> data) where TVertex : struct, IVertex {
 			byte[] vertices = new byte[data.Count * TVertex.SizeInBytes];
@@ -41,9 +33,11 @@ namespace USharpLibs.Engine2.Client.Models {
 			GL.BufferData(BufferTarget.ArrayBuffer, size, IntPtr.Zero, bufferHint);
 		}
 
-		protected void BindIndices(uint ebo, BufferUsageHint bufferHint) {
-			GL.BindBuffer(BufferTarget.ElementArrayBuffer, ebo);
-			GL.BufferData(BufferTarget.ElementArrayBuffer, Indices.Count * sizeof(uint), Indices as uint[] ?? Indices.ToArray(), bufferHint);
+		protected static void BindSubBuffer<T>(IList<T> data, byte attribIndex, ref int bufferOffset, ref byte attribOffset) where T : struct, IVertexAttribute {
+			int size = data.Count * T.SizeInBytes;
+			GL.BufferSubData(BufferTarget.ArrayBuffer, bufferOffset, size, CollectVertexData(data));
+			BindVertexAttrib(attribIndex, T.VertexLayout, T.SizeInBytes, ref attribOffset);
+			bufferOffset += size;
 		}
 	}
 }

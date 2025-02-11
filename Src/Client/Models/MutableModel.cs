@@ -1,35 +1,24 @@
 using System.Diagnostics.CodeAnalysis;
-using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
-using USharpLibs.Common.IO;
+using USharpLibs.Engine2.Client.Models.Meshes;
 
-namespace USharpLibs.Engine2.Client.Models.Interleaved {
-	[PublicAPI]
-	public class MutInterleavedModel<TMesh> : ModelBase<List<MeshBufferData>, List<TMesh>, TMesh> where TMesh : IInterleavedMesh, IMesh {
+namespace USharpLibs.Engine2.Client.Models {
+	public sealed class MutableModel<TMesh> : Model where TMesh : Mesh {
+		private List<MeshBufferData> MeshBufferData { get; } = new();
+		private List<TMesh> Meshes { get; } = new();
+
 		protected internal override bool IsBuildMeshEmpty => Meshes.Count == 0;
 		protected internal override bool IsDrawDataEmpty => MeshBufferData.Count == 0;
 
 		private bool isDirty;
 
-		[SetsRequiredMembers]
-		public MutInterleavedModel() : base(new(), new()) {
-			IfBuildEmpty = OnEmpty.SilentlyFail;
-			BufferHint = BufferUsageHint.DynamicDraw;
-		}
+		[SetsRequiredMembers] public MutableModel(BufferUsageHint bufferHint = BufferUsageHint.DynamicDraw) => BufferHint = bufferHint;
 
-		public void AddMesh(TMesh mesh) {
-			if (Meshes.Count >= byte.MaxValue) {
-				Logger.Error($"Cannot add mesh because we are at mesh limit of {byte.MaxValue}. If you're seeing this then you should probably split up your models.");
-				return;
+		protected internal override void Draw() {
+			foreach (MeshBufferData data in MeshBufferData) {
+				GL.BindBuffer(BufferTarget.ElementArrayBuffer, data.EBO);
+				GL.DrawElements(PrimitiveType.Triangles, data.Count, DrawElementsType.UnsignedInt, 0);
 			}
-
-			Meshes.Add(mesh);
-			isDirty = true;
-		}
-
-		public void Clear() {
-			Meshes.Clear();
-			isDirty = true;
 		}
 
 		protected internal override void Build() {
@@ -53,6 +42,6 @@ namespace USharpLibs.Engine2.Client.Models.Interleaved {
 
 		protected internal override bool CanBuild() => isDirty;
 
-		// TODO mutable methods
+		// TODO mutation methods
 	}
 }

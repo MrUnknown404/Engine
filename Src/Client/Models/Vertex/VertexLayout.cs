@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using OpenTK.Graphics.OpenGL4;
 
-namespace USharpLibs.Engine2.Client.Models {
+namespace USharpLibs.Engine2.Client.Models.Vertex {
 	[StructLayout(LayoutKind.Sequential)]
 	public readonly record struct VertexLayout {
 		public VertexAttribPointerType VertexAttribType { get; }

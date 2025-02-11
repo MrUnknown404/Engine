@@ -1,4 +1,4 @@
-namespace USharpLibs.Engine2.Client.Models.Separated {
+namespace USharpLibs.Engine2.Client.Models.Vertex {
 	public interface IVertexAttribute : IVertex {
 		public static abstract VertexLayout VertexLayout { get; }
 	}

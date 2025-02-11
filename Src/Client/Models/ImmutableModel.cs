@@ -1,23 +1,37 @@
 using System.Diagnostics.CodeAnalysis;
-using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
+using USharpLibs.Engine2.Client.Models.Meshes;
 using USharpLibs.Engine2.Debug;
 
-namespace USharpLibs.Engine2.Client.Models.Interleaved {
-	[PublicAPI]
-	public class ImmInterleavedModel<TVertex> : ModelBase<MeshBufferData[], ImmInterleavedMesh<TVertex>[], ImmInterleavedMesh<TVertex>> where TVertex : struct, IInterleavedVertex {
+namespace USharpLibs.Engine2.Client.Models {
+	public sealed class ImmutableModel<TMesh> : Model where TMesh : ImmutableMesh {
+		private MeshBufferData[] MeshBufferData { get; }
+		private TMesh[] Meshes { get; }
+
 		protected internal override bool IsBuildMeshEmpty => Meshes.Length == 0;
 		protected internal override bool IsDrawDataEmpty => !wasBuilt;
 
 		private bool wasBuilt;
 
-		[SetsRequiredMembers] public ImmInterleavedModel(ImmInterleavedMesh<TVertex>[] meshes) : base(new MeshBufferData[meshes.Length], meshes) => BufferHint = BufferUsageHint.StaticDraw;
+		[SetsRequiredMembers]
+		public ImmutableModel(TMesh[] meshes) {
+			MeshBufferData = new MeshBufferData[meshes.Length];
+			Meshes = meshes;
+			BufferHint = BufferUsageHint.StaticDraw;
+		}
+
+		protected internal override void Draw() {
+			foreach (MeshBufferData data in MeshBufferData) {
+				GL.BindBuffer(BufferTarget.ElementArrayBuffer, data.EBO);
+				GL.DrawElements(PrimitiveType.Triangles, data.Count, DrawElementsType.UnsignedInt, 0);
+			}
+		}
 
 		protected internal override void Build() {
 			wasBuilt = true;
 
 			for (int i = 0; i < Meshes.Length; i++) {
-				ImmInterleavedMesh<TVertex> mesh = Meshes[i];
+				TMesh mesh = Meshes[i];
 				uint vbo = (uint)GL.GenBuffer();
 				uint ebo = (uint)GL.GenBuffer();
 
