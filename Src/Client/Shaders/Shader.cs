@@ -15,20 +15,20 @@ namespace USharpLibs.Engine2.Client.Shaders {
 
 		internal Dictionary<string, int> UniformLocations { get; } = new();
 		internal uint Handle { get; private set; }
-		private Assembly Assembly { get; }
+		private Lazy<Assembly> Assembly { get; }
 		private string?[] FileNames { get; } = new string?[ShaderTypeCount];
 
-		private Shader(string debugName, Assembly? assembly = null) {
+		private Shader(string debugName, Lazy<Assembly>? assembly = null) {
 			DebugName = debugName;
-			Assembly = assembly ?? GameEngine.InstanceSource.Assembly; // TODO load assembly later so we can call this earlier
+			Assembly = assembly ?? new(static () => GameEngine.InstanceSource.Assembly);
 		}
 
-		internal Shader(string debugName, string fileName, ShaderTypes shaderTypes, Assembly? assembly = null) : this(debugName, assembly) {
+		internal Shader(string debugName, string fileName, ShaderTypes shaderTypes, Lazy<Assembly>? assembly = null) : this(debugName, assembly) {
 			if (shaderTypes == 0) { throw ShaderErrorHandler.CreateException(new(this, ShaderErrorHandler.Reason.EmptyShaderTypes)); }
 			for (int i = 0; i < ShaderTypeCount; i++) { FileNames[i] = ((byte)shaderTypes & (1 << i)) != 0 ? fileName : null; }
 		}
 
-		internal Shader(string debugName, Assembly? assembly = null, params ShaderTypeTuple[] shaderTypes) : this(debugName, assembly) {
+		internal Shader(string debugName, Lazy<Assembly>? assembly = null, params ShaderTypeTuple[] shaderTypes) : this(debugName, assembly) {
 			if (shaderTypes.Length == 0) { throw ShaderErrorHandler.CreateException(new(this, ShaderErrorHandler.Reason.EmptyShaderTypes)); }
 			foreach (ShaderTypeTuple shaderType in shaderTypes) { FileNames[ToIndex(shaderType.type)] = shaderType.name; }
 		}
@@ -64,7 +64,7 @@ namespace USharpLibs.Engine2.Client.Shaders {
 
 		private int CompileShader(string shaderName, ShaderType type) {
 			string result;
-			using (Stream stream = AssetH.GetAssetStream($"Shaders.{shaderName}.{ToFileFormat(type)}", Assembly)) {
+			using (Stream stream = AssetH.GetAssetStream($"Shaders.{shaderName}.{ToFileFormat(type)}", Assembly.Value)) {
 				using (StreamReader reader = new(stream)) { result = reader.ReadToEnd(); }
 			}
 
@@ -117,7 +117,7 @@ namespace USharpLibs.Engine2.Client.Shaders {
 	public sealed class Shader<T> : Shader where T : ShaderAccess, new() {
 		internal T Access { get; }
 
-		public Shader(string debugName, string fileName, ShaderTypes shaderTypes, Assembly? assembly = null) : base(debugName, fileName, shaderTypes, assembly) => Access = new() { Shader = this, };
-		public Shader(string debugName, Assembly? assembly = null, params ShaderTypeTuple[] shaderTypes) : base(debugName, assembly, shaderTypes) => Access = new() { Shader = this, };
+		public Shader(string debugName, string fileName, ShaderTypes shaderTypes, Lazy<Assembly>? assembly = null) : base(debugName, fileName, shaderTypes, assembly) => Access = new() { Shader = this, };
+		public Shader(string debugName, Lazy<Assembly>? assembly = null, params ShaderTypeTuple[] shaderTypes) : base(debugName, assembly, shaderTypes) => Access = new() { Shader = this, };
 	}
 }

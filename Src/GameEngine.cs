@@ -99,14 +99,14 @@ namespace USharpLibs.Engine2 {
 	public abstract class GameEngine<TSelf> : GameEngine where TSelf : GameEngine<TSelf>, new() {
 		public new static TSelf Instance => (TSelf)GameEngine.Instance;
 
-		protected static event EventResultDelegate? OnWindowCreation;
+		protected static event EventResultDelegate? OnWindowReady;
 		protected static event EventResultDelegate? OnOpenGLReady;
 		protected static event EventResultDelegate? OnShadersReady;
 		protected static event EventResultDelegate? OnSetupFinished;
 
-		protected static void Start(StartInfo info) {
+		protected static void Start(StartupInfo info) {
 			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
-				IntPtr handle = GetStdHandle(unchecked((uint)-11));
+				IntPtr handle = GetStdHandle(unchecked((uint)-11)); // i have no idea where this magic number comes from
 				GetConsoleMode(handle, out uint mode);
 				SetConsoleMode(handle, mode | 0x0004);
 			}
@@ -115,19 +115,24 @@ namespace USharpLibs.Engine2 {
 			Logger.Init($"Starting Client! Today is: {DateTime.Now:d/M/yyyy HH:mm:ss}");
 			Logger.Debug($"Logs -> {Logger.LogDirectory}");
 
-			Logger.Debug("Creating source and instance...");
+			Logger.Debug($"Engine is running version: {EngineVersion}");
+			Logger.Debug($"Instance is running version: {info.Version}");
+
+			Logger.Debug("Creating sources...");
 			EngineSource = new(Assembly.GetAssembly(typeof(GameEngine)) ?? throw new NullReferenceException("Unable to get assembly for engine."), EngineVersion);
 			InstanceSource = new(Assembly.GetAssembly(typeof(TSelf)) ?? throw new NullReferenceException("Unable to get assembly for instance."), info.Version);
+
+			Logger.Debug("Creating self instance...");
 			GameEngine.Instance = new TSelf();
 
 			Logger.Debug("Creating window instance...");
 			WindowInstance = new();
-			InvokeEvent(OnWindowCreation);
+			InvokeEvent(OnWindowReady);
 
 			Logger.Debug("Creating OpenGL window...");
 			WindowInstance.CreateOpenGLWindow();
 			Logger.Debug("Making sure OpenGL context is current...");
-			WindowInstance.MakeContextCurrent();
+			WindowInstance.MakeContextCurrent(); // don't know if this is necessary
 
 			Logger.Debug("OpenGL is now ready. Invoking events...");
 			OpenGLReady();
@@ -158,7 +163,7 @@ namespace USharpLibs.Engine2 {
 			GLH.EnableCulling();
 		}
 
-		private static void InitOpenGLObjects(StartInfo info) {
+		private static void InitOpenGLObjects(StartupInfo info) {
 			// TODO setup loading screen
 			// TODO setup fonts
 			// TODO setup renderers
@@ -173,7 +178,7 @@ namespace USharpLibs.Engine2 {
 			// TODO init
 		}
 
-		private static void SetupObject(StartInfo info, string name, SetupObjectsDelegate toRun) {
+		private static void SetupObject(StartupInfo info, string name, SetupObjectsDelegate toRun) {
 			Logger.Debug($"Setting up {name}...");
 
 			Stopwatch w = new();
@@ -184,8 +189,8 @@ namespace USharpLibs.Engine2 {
 			Logger.Debug($"Setting up {count} {name} took {(uint)w.ElapsedMilliseconds}ms");
 		}
 
-		private static uint SetupShaders(StartInfo info) {
-			HashSet<Shader> shaders = info.Shaders?.Invoke() ?? new();
+		private static uint SetupShaders(StartupInfo info) {
+			HashSet<Shader> shaders = info.Shaders ?? new();
 
 			AllShaders.UnionWith(DefaultShaders.AllShaders);
 			AllShaders.UnionWith(shaders);
@@ -194,11 +199,11 @@ namespace USharpLibs.Engine2 {
 			return (uint)AllShaders.Count;
 		}
 
-		private delegate uint SetupObjectsDelegate(StartInfo info);
+		private delegate uint SetupObjectsDelegate(StartupInfo info);
 
-		public sealed class StartInfo {
+		public sealed class StartupInfo {
 			public required ModVersion Version { get; init; }
-			public Func<HashSet<Shader>>? Shaders { get; init; } // TODO i don't like this
+			public HashSet<Shader>? Shaders { get; init; }
 		}
 	}
 }
