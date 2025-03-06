@@ -4,7 +4,7 @@ using OpenTK.Graphics.OpenGL4;
 namespace USharpLibs.Engine2.Client.Models.Vertex {
 	[StructLayout(LayoutKind.Explicit)]
 	public readonly record struct VertexAttribXyz : IVertexAttribute {
-		public static VertexLayout VertexLayout { get; } = new(VertexAttribPointerType.Float, 3);
+		public static VertexAttribLayout VertexLayout { get; } = new(VertexAttribPointerType.Float, 3);
 		public static byte SizeInBytes => 12;
 
 		[FieldOffset(0)] internal readonly byte Byte0;

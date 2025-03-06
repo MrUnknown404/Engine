@@ -2,11 +2,15 @@ using OpenTK.Graphics.OpenGL4;
 using USharpLibs.Engine2.Client.Models.Vertex;
 using USharpLibs.Engine2.Debug;
 
-namespace USharpLibs.Engine2.Client.Models.Meshes {
-	public class ImmutableInterleavedMesh<TVertex> : ImmutableMesh where TVertex : struct, IInterleavedVertex {
+namespace USharpLibs.Engine2.Client.Models {
+	public abstract class InterleavedMesh : Mesh<uint[]> {
+		protected InterleavedMesh(uint[] indices) : base(indices) { }
+	}
+
+	public class InterleavedMesh<TVertex> : InterleavedMesh where TVertex : struct, IVertexLayout {
 		private TVertex[] Vertices { get; }
 
-		public ImmutableInterleavedMesh(uint[] indices, TVertex[] vertices) : base(indices) {
+		public InterleavedMesh(uint[] indices, TVertex[] vertices) : base(indices) {
 			_ = MeshErrorHandler.Assert(vertices.Length == 0, static () => new(MeshErrorHandler.Reason.EmptyVertexArray));
 
 			Vertices = vertices;
@@ -23,7 +27,7 @@ namespace USharpLibs.Engine2.Client.Models.Meshes {
 		private static void BindVertexAttribs() {
 			byte offset = 0;
 			for (uint attribIndex = 0; attribIndex < TVertex.VertexLayout.Length; attribIndex++) {
-				VertexLayout layout = TVertex.VertexLayout[attribIndex];
+				VertexAttribLayout layout = TVertex.VertexLayout[attribIndex];
 				BindVertexAttrib(attribIndex, layout, TVertex.SizeInBytes, ref offset);
 			}
 		}

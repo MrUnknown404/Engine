@@ -3,7 +3,7 @@ using OpenTK.Graphics.OpenGL4;
 
 namespace USharpLibs.Engine2.Client.Models.Vertex {
 	[StructLayout(LayoutKind.Sequential)]
-	public readonly record struct VertexLayout {
+	public readonly record struct VertexAttribLayout { // TODO this class needs a better name
 		public VertexAttribPointerType VertexAttribType { get; }
 		public byte ElementCount { get; }
 
@@ -18,7 +18,7 @@ namespace USharpLibs.Engine2.Client.Models.Vertex {
 						_ => throw new ArgumentOutOfRangeException(),
 				};
 
-		public VertexLayout(VertexAttribPointerType vertexAttribType, byte elementCount) {
+		public VertexAttribLayout(VertexAttribPointerType vertexAttribType, byte elementCount) {
 			if (elementCount > 4) { throw new ArgumentOutOfRangeException($"ElementCount must be [1..4]. Was {elementCount}"); }
 
 			VertexAttribType = vertexAttribType;

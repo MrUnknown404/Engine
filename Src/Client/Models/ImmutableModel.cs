@@ -1,10 +1,9 @@
 using System.Diagnostics.CodeAnalysis;
 using OpenTK.Graphics.OpenGL4;
-using USharpLibs.Engine2.Client.Models.Meshes;
 using USharpLibs.Engine2.Debug;
 
 namespace USharpLibs.Engine2.Client.Models {
-	public sealed class ImmutableModel<TMesh> : Model where TMesh : ImmutableMesh {
+	public sealed class ImmutableModel<TMesh> : Model where TMesh : InterleavedMesh {
 		private MeshBufferData[] MeshBufferData { get; }
 		private TMesh[] Meshes { get; }
 

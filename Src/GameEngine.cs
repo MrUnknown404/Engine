@@ -14,6 +14,11 @@ using USharpLibs.Engine2.Init;
 using USharpLibs.Engine2.Modding;
 
 namespace USharpLibs.Engine2 {
+	// TODO completely redo this
+	// FPS, Min. Max, Avg
+	// TPS, Min. Max, Avg
+	// also draw/tick times
+
 	public abstract partial class GameEngine {
 		internal static ModVersion EngineVersion { get; } = new() { Release = 0, Major = 0, Minor = 0, };
 		internal static HashSet<Shader> AllShaders { get; } = new();
@@ -170,7 +175,7 @@ namespace USharpLibs.Engine2 {
 
 			// TODO time and trace
 
-			SetupObject(info, "shaders", SetupShaders);
+			SetupShaders(info);
 			InvokeEvent(OnShadersReady);
 		}
 
@@ -178,32 +183,27 @@ namespace USharpLibs.Engine2 {
 			// TODO init
 		}
 
-		private static void SetupObject(StartupInfo info, string name, SetupObjectsDelegate toRun) {
-			Logger.Debug($"Setting up {name}...");
-
+		private static void SetupShaders(StartupInfo info) {
+			Logger.Debug("Setting up shaders...");
 			Stopwatch w = new();
 			w.Start();
-			uint count = toRun(info);
-			w.Stop();
 
-			Logger.Debug($"Setting up {count} {name} took {(uint)w.ElapsedMilliseconds}ms");
-		}
-
-		private static uint SetupShaders(StartupInfo info) {
-			HashSet<Shader> shaders = info.Shaders ?? new();
+			HashSet<Shader> shaders = info.ShadersToRegister ?? new();
 
 			AllShaders.UnionWith(DefaultShaders.AllShaders);
 			AllShaders.UnionWith(shaders);
 
 			foreach (Shader shader in AllShaders) { shader.SetupGL(); }
-			return (uint)AllShaders.Count;
+
+			w.Stop();
+			Logger.Debug($"Setting up {AllShaders.Count} shaders took {(uint)w.ElapsedMilliseconds}ms");
 		}
 
 		private delegate uint SetupObjectsDelegate(StartupInfo info);
 
 		public sealed class StartupInfo {
 			public required ModVersion Version { get; init; }
-			public HashSet<Shader>? Shaders { get; init; }
+			public HashSet<Shader>? ShadersToRegister { get; init; }
 		}
 	}
 }

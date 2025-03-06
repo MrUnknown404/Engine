@@ -1,9 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using OpenTK.Graphics.OpenGL4;
-using USharpLibs.Engine2.Client.Models.Meshes;
 
 namespace USharpLibs.Engine2.Client.Models {
-	public sealed class MutableModel<TMesh> : Model where TMesh : Mesh {
+	public sealed class MutableModel<TMesh> : Model where TMesh : Mesh<List<uint>> {
 		private List<MeshBufferData> MeshBufferData { get; } = new();
 		private List<TMesh> Meshes { get; } = new();
 

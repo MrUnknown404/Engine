@@ -5,8 +5,8 @@ using OpenTK.Graphics.OpenGL4;
 namespace USharpLibs.Engine2.Client.Models.Vertex {
 	[PublicAPI]
 	[StructLayout(LayoutKind.Explicit)]
-	public readonly record struct VertexXyzUvI : IInterleavedVertex {
-		public static VertexLayout[] VertexLayout { get; } = { new(VertexAttribPointerType.Float, 3), new(VertexAttribPointerType.Float, 2), new(VertexAttribPointerType.UnsignedInt, 1) };
+	public readonly record struct VertexXyzUvI : IVertexLayout {
+		public static VertexAttribLayout[] VertexLayout { get; } = { new(VertexAttribPointerType.Float, 3), new(VertexAttribPointerType.Float, 2), new(VertexAttribPointerType.UnsignedInt, 1) };
 		public static byte SizeInBytes => 24;
 
 		[FieldOffset(0)] internal readonly byte Byte0;
