@@ -125,7 +125,7 @@ namespace USharpLibs.Engine2.Client {
 			openGLWindow.Context?.MakeCurrent();
 		}
 
-		internal void CreateOpenGLWindow() {
+		internal void CreateOpenGLWindow(GameEngine.StartupInfo info) {
 			openGLWindow = new(new() {
 					Title = Title,
 					Location = new(X, Y),
@@ -135,6 +135,7 @@ namespace USharpLibs.Engine2.Client {
 					Vsync = VSync,
 					WindowState = WindowState,
 					StartVisible = false,
+					Flags = info.AddOpenGLCallbacks ? ContextFlags.Debug : ContextFlags.Default,
 			});
 
 			if (CenterOnCreate) { openGLWindow.CenterWindow(); }

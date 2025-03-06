@@ -99,6 +99,12 @@ namespace USharpLibs.Engine2 {
 
 		[LibraryImport("Kernel32.dll", SetLastError = true)]
 		internal static partial IntPtr GetStdHandle(uint nStdHandle);
+
+		public sealed class StartupInfo {
+			public required ModVersion Version { get; init; }
+			public HashSet<Shader>? ShadersToRegister { get; init; }
+			public bool AddOpenGLCallbacks { get; init; }
+		}
 	}
 
 	public abstract class GameEngine<TSelf> : GameEngine where TSelf : GameEngine<TSelf>, new() {
@@ -135,12 +141,12 @@ namespace USharpLibs.Engine2 {
 			InvokeEvent(OnWindowReady);
 
 			Logger.Debug("Creating OpenGL window...");
-			WindowInstance.CreateOpenGLWindow();
+			WindowInstance.CreateOpenGLWindow(info);
 			Logger.Debug("Making sure OpenGL context is current...");
 			WindowInstance.MakeContextCurrent(); // don't know if this is necessary
 
 			Logger.Debug("OpenGL is now ready. Invoking events...");
-			OpenGLReady();
+			OpenGLReady(info);
 			InvokeEvent(OnOpenGLReady);
 
 			// TODO trace & time
@@ -156,14 +162,49 @@ namespace USharpLibs.Engine2 {
 			Logger.Info("Goodbye!");
 		}
 
-		private static void OpenGLReady() {
+		private static void OpenGLReady(StartupInfo info) {
 			Logger.Info("Setting up OpenGL!");
 			Logger.Debug($"- OpenGL version: {GL.GetString(StringName.Version)}");
 			Logger.Debug($"- GLFW Version: {GLFW.GetVersionString()}");
 
+			if (info.AddOpenGLCallbacks) {
+				Logger.Debug("- OpenGL Debug Flag is Enabled!");
+
+				GL.Enable(EnableCap.DebugOutput);
+				GL.Enable(EnableCap.DebugOutputSynchronous);
+
+				uint[] ids = [
+						131185, // Nvidia static buffer notification
+				];
+
+				GL.DebugMessageControl(DebugSourceControl.DebugSourceApi, DebugTypeControl.DebugTypeOther, DebugSeverityControl.DontCare, ids.Length, ids, false);
+
+				GL.DebugMessageCallback(static (source, type, id, severity, length, message, _) => {
+					switch (severity) {
+						case DebugSeverity.DontCare: return;
+						case DebugSeverity.DebugSeverityNotification:
+							Logger.Debug($"OpenGL Notification: {id}. Source: {source.ToString()[11..]}, Type: {type.ToString()[9..]}");
+							Logger.Debug($"- {Marshal.PtrToStringAnsi(message, length)}");
+							break;
+						case DebugSeverity.DebugSeverityHigh:
+							Logger.Fatal($"OpenGL Fatal Error: {id}. Source: {source.ToString()[11..]}, Type: {type.ToString()[9..]}");
+							Logger.Fatal($"- {Marshal.PtrToStringAnsi(message, length)}");
+							break;
+						case DebugSeverity.DebugSeverityMedium:
+							Logger.Error($"OpenGL Error: {id}. Source: {source.ToString()[11..]}, Type: {type.ToString()[9..]}");
+							Logger.Error($"- {Marshal.PtrToStringAnsi(message, length)}");
+							break;
+						case DebugSeverity.DebugSeverityLow:
+							Logger.Warn($"OpenGL Warning: {id}. Source: {source.ToString()[11..]}, Type: {type.ToString()[9..]}");
+							Logger.Warn($"- {Marshal.PtrToStringAnsi(message, length)}");
+							break;
+						default: throw new ArgumentOutOfRangeException(nameof(severity), severity, null);
+					}
+				}, IntPtr.Zero);
+			}
+
 			GL.ClearColor(0.1f, 0.1f, 0.1f, 1f);
-			GL.Enable(EnableCap.Blend);
-			GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+			GLH.EnableBlend(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 			GLH.EnableDepthTest();
 			GLH.EnableCulling();
 		}
@@ -197,13 +238,6 @@ namespace USharpLibs.Engine2 {
 
 			w.Stop();
 			Logger.Debug($"Setting up {AllShaders.Count} shaders took {(uint)w.ElapsedMilliseconds}ms");
-		}
-
-		private delegate uint SetupObjectsDelegate(StartupInfo info);
-
-		public sealed class StartupInfo {
-			public required ModVersion Version { get; init; }
-			public HashSet<Shader>? ShadersToRegister { get; init; }
 		}
 	}
 }

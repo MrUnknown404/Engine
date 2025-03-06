@@ -18,6 +18,6 @@ namespace USharpLibs.Engine2.Modding {
 		}
 
 		public override int GetHashCode() => HashCode.Combine(Release, Major, Minor, Hotfix);
-		public override string ToString() => $"{Release}, {Major}, {Minor}{(Hotfix == 0 ? string.Empty : Hotfix)}";
+		public override string ToString() => $"{Release}.{Major}.{Minor}{(Hotfix == 0 ? string.Empty : Hotfix)}";
 	}
 }
