@@ -16,6 +16,8 @@ namespace USharpLibs.Engine2.Client {
 		public static BlendingFactor SFactor { get; private set; } = BlendingFactor.One;
 		public static BlendingFactor DFactor { get; private set; } = BlendingFactor.Zero;
 
+		public static ClearBufferMask ClearBufferMask { get; set; } = ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit;
+
 		public static uint CurrentShaderHandle { get; private set; }
 		private static ModelAccess ModelAccess { get; } = new();
 

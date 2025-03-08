@@ -4,6 +4,8 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
+using OpenTK.Windowing.Common;
+using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using USharpLibs.Common.IO;
 using USharpLibs.Engine2.Client;
@@ -11,28 +13,29 @@ using USharpLibs.Engine2.Client.Shaders;
 using USharpLibs.Engine2.Events;
 using USharpLibs.Engine2.Exceptions;
 using USharpLibs.Engine2.Init;
-using USharpLibs.Engine2.Modding;
+using USharpLibs.Engine2.Utils;
 
 namespace USharpLibs.Engine2 {
-	// TODO completely redo this
-	// FPS, Min. Max, Avg
-	// TPS, Min. Max, Avg
-	// also draw/tick times
+	[SuppressMessage("ReSharper", "EventNeverSubscribedTo.Global")]
+	[SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
+	[SuppressMessage("ReSharper", "MemberCanBeProtected.Global")]
+	public abstract partial class GameEngine { // TODO  remove static from this class
+		public static Version4 EngineVersion { get; } = new() { Release = 0, Major = 0, Minor = 0, };
+		private static HashSet<Shader> AllShaders { get; } = new();
 
-	public abstract partial class GameEngine {
-		internal static ModVersion EngineVersion { get; } = new() { Release = 0, Major = 0, Minor = 0, };
-		internal static HashSet<Shader> AllShaders { get; } = new();
+		/// <returns> Returns default before #Start is called. </returns>
+		public static Version4 InstanceVersion { get; internal set; }
 
 		[field: MaybeNull]
-		public static ModSource EngineSource {
+		public static Assembly EngineAssembly {
 			get => field ?? throw new EngineStateException(EngineStateException.Reason.EngineStartNotCalled);
-			internal set => field = field == null ? value : throw new EngineStateException(EngineStateException.Reason.EngineStartAlreadyCalled);
+			private set => field = field == null ? value : throw new EngineStateException(EngineStateException.Reason.EngineStartAlreadyCalled);
 		}
 
 		[field: MaybeNull]
-		public static ModSource InstanceSource {
+		public static Assembly InstanceAssembly {
 			get => field ?? throw new EngineStateException(EngineStateException.Reason.EngineStartNotCalled);
-			internal set => field = field == null ? value : throw new EngineStateException(EngineStateException.Reason.EngineStartAlreadyCalled);
+			private set => field = field == null ? value : throw new EngineStateException(EngineStateException.Reason.EngineStartAlreadyCalled);
 		}
 
 		[field: MaybeNull]
@@ -44,11 +47,16 @@ namespace USharpLibs.Engine2 {
 		[field: MaybeNull]
 		public static EngineWindow WindowInstance {
 			get => field == null ? throw new EngineStateException(EngineStateException.Reason.EngineStartNotCalled) : field;
-			internal set => field = field == null ? value : throw new EngineStateException(EngineStateException.Reason.EngineStartAlreadyCalled);
+			private set => field = field == null ? value : throw new EngineStateException(EngineStateException.Reason.EngineStartAlreadyCalled);
 		}
 
-		public static uint FPS => WindowInstance.FPS;
-		public static double FrameFrequency => WindowInstance.FrameFrequency;
+		// FPS, Min. Max, Avg
+		// TPS, Min. Max, Avg
+		// also draw/tick times
+
+		private static Stopwatch WatchUpdate { get; } = new();
+		public static uint FPS { get; private set; } // TODO greatly expand upon this
+		public static double FrameFrequency { get; private set; }
 
 		public static bool IsCloseRequested {
 			get {
@@ -57,65 +65,17 @@ namespace USharpLibs.Engine2 {
 			private set;
 		}
 
-		protected static event EventResultDelegate<OnRequestCloseEvent>? OnRequestClose;
-
-		internal GameEngine() { }
-
-		protected internal virtual void OnUpdate(double time) { }
-		protected internal virtual void OnRender(double time) { }
-
-		public static void RequestClose(bool force = false) {
-			if (force) {
-				IsCloseRequested = true;
-				Logger.Debug("Close requested forced.");
-				return;
-			}
-
-			OnRequestCloseEvent result = InvokeEvent(OnRequestClose);
-			Logger.Debug($"Close requested. ShouldClose: {result}");
-			IsCloseRequested = result.ShouldClose;
-		}
-
-		internal static void InvokeEvent(EventResultDelegate? e) => e?.Invoke();
-
-		[MustUseReturnValue]
-		internal static T InvokeEvent<T>(EventResultDelegate<T>? e) where T : IEventResult, new() {
-			if (e == null) { return (T)T.Empty; }
-
-			T result = new();
-			e.Invoke(result);
-			return result;
-		}
-
-		public delegate void EventResultDelegate();
-		public delegate void EventResultDelegate<in T>(T r) where T : IEventResult, new();
-
-		[LibraryImport("Kernel32.dll", SetLastError = true)]
-		internal static partial void SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
-
-		[LibraryImport("Kernel32.dll", SetLastError = true)]
-		[return: MarshalAs(UnmanagedType.Bool)]
-		internal static partial bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
-
-		[LibraryImport("Kernel32.dll", SetLastError = true)]
-		internal static partial IntPtr GetStdHandle(uint nStdHandle);
-
-		public sealed class StartupInfo {
-			public required ModVersion Version { get; init; }
-			public HashSet<Shader>? ShadersToRegister { get; init; }
-			public bool AddOpenGLCallbacks { get; init; }
-		}
-	}
-
-	public abstract class GameEngine<TSelf> : GameEngine where TSelf : GameEngine<TSelf>, new() {
-		public new static TSelf Instance => (TSelf)GameEngine.Instance;
-
 		protected static event EventResultDelegate? OnWindowReady;
 		protected static event EventResultDelegate? OnOpenGLReady;
 		protected static event EventResultDelegate? OnShadersReady;
 		protected static event EventResultDelegate? OnSetupFinished;
 
-		protected static void Start(StartupInfo info) {
+		protected static event EventResultDelegate<OnRequestCloseEvent>? OnRequestClose;
+
+		protected abstract void OnUpdate(double time);
+		protected abstract void OnRender(double time);
+
+		protected static void Start<TSelf>(StartupInfo info) where TSelf : GameEngine, new() {
 			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
 				IntPtr handle = GetStdHandle(unchecked((uint)-11)); // i have no idea where this magic number comes from
 				GetConsoleMode(handle, out uint mode);
@@ -130,11 +90,11 @@ namespace USharpLibs.Engine2 {
 			Logger.Debug($"Instance is running version: {info.Version}");
 
 			Logger.Debug("Creating sources...");
-			EngineSource = new(Assembly.GetAssembly(typeof(GameEngine)) ?? throw new NullReferenceException("Unable to get assembly for engine."), EngineVersion);
-			InstanceSource = new(Assembly.GetAssembly(typeof(TSelf)) ?? throw new NullReferenceException("Unable to get assembly for instance."), info.Version);
+			EngineAssembly = Assembly.GetAssembly(typeof(GameEngine)) ?? throw new NullReferenceException("Unable to get assembly for engine.");
+			InstanceAssembly = Assembly.GetAssembly(typeof(TSelf)) ?? throw new NullReferenceException("Unable to get assembly for instance.");
 
 			Logger.Debug("Creating self instance...");
-			GameEngine.Instance = new TSelf();
+			Instance = new TSelf();
 
 			Logger.Debug("Creating window instance...");
 			WindowInstance = new();
@@ -158,7 +118,7 @@ namespace USharpLibs.Engine2 {
 			Logger.Info("Engine initialization finished!");
 
 			Logger.Debug("Starting game-loop...");
-			WindowInstance.Run();
+			EnterGameLoop();
 			Logger.Info("Goodbye!");
 		}
 
@@ -238,6 +198,124 @@ namespace USharpLibs.Engine2 {
 
 			w.Stop();
 			Logger.Debug($"Setting up {AllShaders.Count} shaders took {(uint)w.ElapsedMilliseconds}ms");
+		}
+
+		private static void EnterGameLoop() {
+			const int TimePeriod = 8, MaxSlowUpdates = 80, SlowUpdatesThreshold = 45;
+			const double UpdatePeriod = 1 / 60d;
+
+			int expectedSchedulerPeriod = 16;
+
+			//@formatter:off
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+				SetThreadAffinityMask(GetCurrentThread(), 1);
+				timeBeginPeriod(TimePeriod);
+				expectedSchedulerPeriod = TimePeriod;
+			} else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) || RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD)) {
+				expectedSchedulerPeriod = 1;
+			} else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
+				expectedSchedulerPeriod = 1;
+			}
+			//@formatter:on
+
+			int slowUpdates = 0;
+			uint frameCounter = 0;
+			double frameTimeCounter = 0;
+
+			WatchUpdate.Start();
+			while (!IsCloseRequested) {
+				double elapsed = WatchUpdate.Elapsed.TotalSeconds;
+				if (elapsed > UpdatePeriod) {
+					// this is close enough
+					FrameFrequency = WatchUpdate.Elapsed.TotalMilliseconds;
+					frameCounter++;
+
+					if ((frameTimeCounter += elapsed) >= 1) {
+						FPS = frameCounter;
+						frameCounter = 0;
+						frameTimeCounter -= 1;
+					}
+
+					WatchUpdate.Restart();
+
+					WindowInstance.NewInputFrame();
+					NativeWindow.ProcessWindowEvents(WindowInstance.IsEventDriven);
+
+					GL.Clear(GLH.ClearBufferMask);
+
+					Instance.OnUpdate(elapsed);
+					Instance.OnRender(elapsed);
+
+					WindowInstance.SwapBuffers();
+
+					if (UpdatePeriod < WatchUpdate.Elapsed.TotalSeconds && slowUpdates <= MaxSlowUpdates) { slowUpdates++; } else if (slowUpdates > 0) { slowUpdates--; }
+					if (WindowInstance.Api != ContextAPI.NoAPI && WindowInstance.VSync == VSyncMode.Adaptive) { GLFW.SwapInterval(slowUpdates > SlowUpdatesThreshold ? 0 : 1); }
+				}
+
+				double timeToNextUpdate = UpdatePeriod - WatchUpdate.Elapsed.TotalSeconds;
+				if (timeToNextUpdate > 0) { OpenTK.Core.Utils.AccurateSleep(timeToNextUpdate, expectedSchedulerPeriod); }
+			}
+
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) { timeEndPeriod(TimePeriod); }
+		}
+
+		public static void RequestClose(bool force = false) {
+			if (force) {
+				IsCloseRequested = true;
+				Logger.Debug("Close requested forced.");
+				return;
+			}
+
+			OnRequestCloseEvent result = InvokeEvent(OnRequestClose);
+			Logger.Debug($"Close requested. ShouldClose: {result}");
+			IsCloseRequested = result.ShouldClose;
+		}
+
+		private static void InvokeEvent(EventResultDelegate? e) => e?.Invoke();
+
+		[MustUseReturnValue]
+		private static T InvokeEvent<T>(EventResultDelegate<T>? e) where T : IEventResult, new() {
+			if (e == null) { return (T)T.Empty; }
+
+			T result = new();
+			e.Invoke(result);
+			return result;
+		}
+
+		protected delegate void EventResultDelegate();
+		protected delegate void EventResultDelegate<in T>(T r) where T : IEventResult, new();
+
+		[LibraryImport("Kernel32.dll", SetLastError = true)]
+		private static partial void SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
+
+		[SuppressMessage("ReSharper", "UnusedMethodReturnValue.Local")]
+		[LibraryImport("Kernel32.dll", SetLastError = true)]
+		[return: MarshalAs(UnmanagedType.Bool)]
+		private static partial bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
+
+		[LibraryImport("Kernel32.dll", SetLastError = true)]
+		private static partial IntPtr GetStdHandle(uint nStdHandle);
+
+		[LibraryImport("Kernel32", SetLastError = true)]
+		private static partial void SetThreadAffinityMask(IntPtr hThread, IntPtr dwThreadAffinityMask);
+
+		[LibraryImport("Kernel32", SetLastError = true)]
+		private static partial IntPtr GetCurrentThread();
+
+		[LibraryImport("Winmm", SetLastError = true)]
+		[SuppressMessage("ReSharper", "InconsistentNaming")] // windows func
+		private static partial void timeBeginPeriod(uint uPeriod);
+
+		[LibraryImport("Winmm", SetLastError = true)]
+		[SuppressMessage("ReSharper", "InconsistentNaming")] // windows func
+		private static partial void timeEndPeriod(uint uPeriod);
+
+		public sealed class StartupInfo {
+			public required Version4 Version { get; init; }
+			public HashSet<Shader>? ShadersToRegister { get; init; }
+			public EngineWindow.StartLocation StartLocation { get; init; } = EngineWindow.StartLocation.Default;
+			public bool AddOpenGLCallbacks { get; init; }
+			// TODO bool for adding default shaders
 		}
 	}
 }

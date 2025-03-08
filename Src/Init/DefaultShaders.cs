@@ -6,7 +6,7 @@ namespace USharpLibs.Engine2.Init {
 	public static class DefaultShaders {
 		internal static HashSet<Shader> AllShaders { get; } = new();
 
-		public static Shader<ShaderAccess> DefaultHud { get; } = RegisterShader<ShaderAccess>(new("DefaultHud", "DefaultHud", ShaderTypes.Vertex | ShaderTypes.Fragment, new(GameEngine.EngineSource.Assembly)));
+		public static Shader<ShaderAccess> DefaultHud { get; } = RegisterShader<ShaderAccess>(new("DefaultHud", "DefaultHud", ShaderTypes.Vertex | ShaderTypes.Fragment, new(GameEngine.EngineAssembly)));
 
 		private static Shader<T> RegisterShader<T>(Shader<T> shader) where T : ShaderAccess, new() {
 			AllShaders.Add(shader);

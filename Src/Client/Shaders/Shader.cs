@@ -20,7 +20,7 @@ namespace USharpLibs.Engine2.Client.Shaders {
 
 		private Shader(string debugName, Lazy<Assembly>? assembly = null) {
 			DebugName = debugName;
-			Assembly = assembly ?? new(static () => GameEngine.InstanceSource.Assembly);
+			Assembly = assembly ?? new(static () => GameEngine.InstanceAssembly);
 		}
 
 		internal Shader(string debugName, string fileName, ShaderTypes shaderTypes, Lazy<Assembly>? assembly = null) : this(debugName, assembly) {
