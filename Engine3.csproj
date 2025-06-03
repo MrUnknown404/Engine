@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>Library</OutputType>
+		<TargetFramework>net9.0</TargetFramework>
+		<LangVersion>preview</LangVersion>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<RootNamespace>Engine3</RootNamespace>
+		<AssemblyName>Engine3</AssemblyName>
+		<DebugType>embedded</DebugType>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="NLog" Version="5.5.0" />
+		<PackageReference Include="OpenTK" Version="4.9.4"/>
+		<PackageReference Include="StbImageSharp" Version="2.27.11"/>
+		<PackageReference Include="FreeTypeSharp" Version="3.0.0"/>
+
+		<ProjectReference Include="..\USharpLibs-Common\USharpLibs-Common.csproj" />
+
+		<EmbeddedResource Include="Assets\**"/>
+	</ItemGroup>
+</Project>
