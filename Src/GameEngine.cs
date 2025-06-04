@@ -7,10 +7,11 @@ using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using GameWindow = Engine3.Client.GameWindow;
 
+// TODO learn multi-threading. how do locks work?
+
 namespace Engine3 {
 	public static class GameEngine {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-		private static readonly Lock IsCloseRequestedLock = new();
 
 		public static Version4 EngineVersion { get; } = new(0, 0, 0);
 
@@ -53,12 +54,7 @@ namespace Engine3 {
 			}
 		}
 
-		public static bool IsCloseRequested {
-			get => Window.ShouldClose() || field;
-			set {
-				lock (IsCloseRequestedLock) { field = value; }
-			}
-		}
+		public static bool IsCloseRequested { get => field || Window.ShouldClose(); set; }
 
 		public static void Start<T>() where T : GameClient, new() {
 			MainThread = Thread.CurrentThread;
@@ -77,43 +73,19 @@ namespace Engine3 {
 
 			// TODO setup
 
-			Logger.Debug("Main thread setup done!");
-			Logger.Debug("Starting render thread!");
+			Logger.Debug("Starting render thread");
 			RenderThread.Start();
 
+			Logger.Debug("Main thread setup done. Waiting for window...");
+			while (!Window.IsVisible) { Thread.Sleep(10); }
+
+			Logger.Debug("Window found. Entering loop");
 			while (!IsCloseRequested) {
-				// loop
+				Instance.Update();
 				Thread.Sleep(100);
 			}
 
 			OnExit(0);
-		}
-
-		private static void OnExit(int errorCode) {
-			while (RenderThread!.IsAlive) { Thread.Sleep(100); } // wait for renderer. this is dumb. i should probably redo this
-
-			Logger.Info(Instance?.ExitMessage);
-			LogManager.Shutdown();
-			Environment.Exit(errorCode);
-		}
-
-		private static void RenderLoop() {
-			if (Instance == null) { throw new Exception("How did we get here?"); }
-
-			while (!IsCloseRequested) {
-				Window.NewInputFrame();
-				NativeWindow.ProcessWindowEvents(Window.IsEventDriven);
-
-				GL.Clear(GLH.ClearBufferMask);
-
-				// Instance.OnUpdate(elapsed);
-				Instance.OnRender(0);
-
-				Window.SwapBuffers();
-
-				// loop
-				Thread.Sleep(100);
-			}
 		}
 
 		private static void SetupOpenGL() {
@@ -122,17 +94,17 @@ namespace Engine3 {
 			Logger.Debug("Creating OpenGL Context");
 			Window.MakeContextCurrent();
 
-			Logger.Info("Setting up OpenGL!");
+			Logger.Info("Setting up OpenGL");
 			Logger.Debug($"- OpenGL version: {GL.GetString(StringName.Version)}");
 			Logger.Debug($"- GLFW Version: {GLFW.GetVersionString()}");
 
 			if (AddOpenGLCallbacks) {
-				Logger.Debug("- OpenGL Callbacks are enabled!");
+				Logger.Debug("- OpenGL Callbacks are enabled");
 
 				GL.Enable(EnableCap.DebugOutput);
 				GL.Enable(EnableCap.DebugOutputSynchronous);
 
-				uint[] defaultIds = [
+				uint[] defaultIds = [ // TODO store this and setup automatic system for this
 						131185, // Nvidia static buffer notification
 				];
 
@@ -167,13 +139,35 @@ namespace Engine3 {
 			GLH.EnableDepthTest();
 			GLH.EnableCulling();
 
+			Logger.Debug("OpenGL is now ready. Invoking events...");
+			Instance!.InvokeOnSetupOpenGL();
+
+			Logger.Debug("Enabling window...");
 			Window.IsVisible = true;
 
-			Logger.Debug("OpenGL is now ready. Invoking events...");
-			// TODO invoke events
-
-			Logger.Debug("Render thread setup done! Entering loop!");
+			Logger.Debug("Render thread setup done. Entering loop");
 			RenderLoop();
+		}
+
+		private static void RenderLoop() {
+			while (!IsCloseRequested) {
+				Window.NewInputFrame();
+
+				GL.Clear(GLH.ClearBufferMask);
+				Instance!.Render(0);
+				Window.SwapBuffers();
+
+				// loop
+				Thread.Sleep(100);
+			}
+		}
+
+		private static void OnExit(int errorCode) {
+			while (RenderThread!.IsAlive) { Thread.Sleep(10); } // wait for renderer. this is dumb. i should probably redo this
+
+			Logger.Info(Instance?.ExitMessage);
+			LogManager.Shutdown();
+			Environment.Exit(errorCode);
 		}
 	}
 }

@@ -1,14 +1,10 @@
-using JetBrains.Annotations;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace Engine3.Client {
-	[PublicAPI]
 	public sealed class GameWindow {
 		public const ushort DefaultWidth = 854, DefaultHeight = 480;
-
-		private static readonly Lock IsCloseRequestedLock = new();
 
 		private NativeWindow? openGLWindow;
 
@@ -110,14 +106,17 @@ namespace Engine3.Client {
 			}
 		}
 
-		internal ContextAPI Api => (openGLWindow ?? throw new Exception()).API; // TODO exception
-		internal bool IsEventDriven => (openGLWindow ?? throw new Exception()).IsEventDriven; // TODO exception
 		private unsafe Window* WindowPtr => (openGLWindow ?? throw new Exception()).WindowPtr; // TODO exception
 
 		internal GameWindow() { }
 
 		internal void MakeContextCurrent() => openGLWindow!.Context.MakeCurrent();
-		internal void NewInputFrame() => openGLWindow!.NewInputFrame();
+
+		internal void NewInputFrame() {
+			openGLWindow!.NewInputFrame();
+			NativeWindow.ProcessWindowEvents(openGLWindow.IsEventDriven);
+		}
+
 		internal void SwapBuffers() => openGLWindow!.Context.SwapBuffers();
 
 		internal void CreateOpenGLWindow(StartLocation startLocation = StartLocation.Default, bool addOpenGLCallbacks = false) {
@@ -142,8 +141,10 @@ namespace Engine3.Client {
 		}
 
 		internal bool ShouldClose() {
-			unsafe { return openGLWindow != null && GLFW.WindowShouldClose(WindowPtr); }
+			unsafe { return DoesWindowExist() && GLFW.WindowShouldClose(WindowPtr); }
 		}
+
+		public bool DoesWindowExist() => openGLWindow != null;
 
 		public enum StartLocation : byte {
 			Default = 0,
