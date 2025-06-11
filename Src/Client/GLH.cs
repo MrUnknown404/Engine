@@ -15,7 +15,7 @@ namespace Engine3.Client {
 
 		public static ClearBufferMask ClearBufferMask { get; set; } = ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit;
 
-		public static uint CurrentShaderHandle { get; private set; }
+		// public static uint CurrentShaderHandle { get; private set; }
 		// private static ModelAccess ModelAccess { get; } = new();
 
 		// [MustUseReturnValue]
@@ -43,11 +43,11 @@ namespace Engine3.Client {
 		// 	return ModelAccess;
 		// }
 
-		public static void UnbindShader() {
-			if (CurrentShaderHandle == 0) { return; }
-			CurrentShaderHandle = 0;
-			GL.UseProgram(0);
-		}
+		// public static void UnbindShader() {
+		// 	if (CurrentShaderHandle == 0) { return; }
+		// 	CurrentShaderHandle = 0;
+		// 	GL.UseProgram(0);
+		// }
 
 		// public static void UnbindModel() {
 		// 	if (ModelAccess.Model == null) { return; }

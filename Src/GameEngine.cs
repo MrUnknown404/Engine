@@ -71,7 +71,12 @@ namespace Engine3 {
 
 			GLFWProvider.CheckForMainThread = false;
 
-			// TODO setup
+			if (Instance.EnableDebugOutputs) {
+				DebugOutputH.Setup();
+				Instance.AddDebugOutputs();
+			}
+
+			// TODO setup stuff
 
 			Logger.Debug("Starting render thread");
 			RenderThread.Start();
@@ -104,7 +109,7 @@ namespace Engine3 {
 				GL.Enable(EnableCap.DebugOutput);
 				GL.Enable(EnableCap.DebugOutputSynchronous);
 
-				uint[] defaultIds = [ // TODO store this and setup automatic system for this
+				uint[] defaultIds = [
 						131185, // Nvidia static buffer notification
 				];
 
