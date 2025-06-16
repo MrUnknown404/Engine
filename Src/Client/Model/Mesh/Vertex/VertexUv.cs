@@ -1,8 +1,8 @@
 using System.Runtime.InteropServices;
 
-namespace Engine3.Client.Vertex {
+namespace Engine3.Client.Model.Mesh.Vertex {
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
-	public readonly record struct VertexUv : IVertex {
+	public readonly record struct VertexUv : IVertexAttribute {
 		public float U { get; init; }
 		public float V { get; init; }
 

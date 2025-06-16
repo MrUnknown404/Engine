@@ -6,6 +6,8 @@ namespace Engine3.Client {
 		public string StartupMessage { get; protected init; } = "Hello world";
 		public string ExitMessage { get; protected init; } = "Goodbye world";
 
+		public abstract Lazy<HashSet<Shader>> ShadersToRegister { get; }
+
 		protected GameClient(Version4 version) => Version = version;
 
 		protected internal abstract void Update();
