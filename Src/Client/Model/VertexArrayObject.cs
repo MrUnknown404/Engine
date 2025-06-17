@@ -1,50 +1,78 @@
+using Engine3.Client.Model.Mesh.Vertex;
 using OpenTK.Graphics.OpenGL4;
 
 namespace Engine3.Client.Model {
-	public class VertexArrayObject : IDisposable {
-		public uint Vao { get; private set; }
-		public uint Vbo { get; private set; }
-		public uint Ebo { get; private set; }
+	public class VertexArrayObject {
+		private uint vao;
 
+		public uint[] Buffers { get; }
+
+		public uint Vao { get => vao; private set => vao = value; }
+		public int IndexCount { get; private set; }
 		public bool WasFreed { get; private set; }
-		public bool WereAttributesBound { get; internal set; }
-		public bool WasVaoSet => Vao != 0;
-		public bool WasVboSet => Vbo != 0;
-		public bool WasEboSet => Ebo != 0;
+		public bool WereAttributesBound { get; private set; }
+
+		public bool WereBuffersCreated { get; private set; }
+
+		public VertexArrayObject(byte bufferCount) => Buffers = new uint[bufferCount];
 
 		public void GenBuffers() {
 			if (WasFreed) { throw new Exception(); } // TODO handle/exception
-			if (WasVaoSet) { throw new Exception(); } // TODO handle/exception
+			if (WereBuffersCreated) { throw new Exception(); } // TODO handle/exception
 
-			Vao = (uint)GL.GenVertexArray();
-			Vbo = (uint)GL.GenBuffer();
-			Ebo = (uint)GL.GenBuffer();
+			GL.CreateVertexArrays(1, out vao);
+			GL.CreateBuffers(Buffers.Length, Buffers);
+
+			WereBuffersCreated = true;
 		}
 
-		private void Dispose(bool disposing) {
-			if (WasFreed) { return; }
-			if (!disposing) { return; }
+		public void BindVertexBuffer(uint buffer, byte[] data, BufferUsageHint hint, byte vertexSize) {
+			if (WasFreed) { throw new Exception(); } // TODO handle/exception
+			if (!WereBuffersCreated) { throw new Exception(); } // TODO handle/exception
 
-			// ReSharper disable once ConvertIfStatementToSwitchStatement
-			if (WasVboSet && WasEboSet) {
-				GL.DeleteBuffers(2, [ Vbo, Ebo, ]); // tbh i don't think this is necessary. i bet my checks are slower than just running glDeleteBuffer twice. why am i like this
-			} else if (WasVboSet) {
-				GL.DeleteBuffer(Vbo); //
-			} else if (WasEboSet) {
-				GL.DeleteBuffer(Ebo); //
+			GL.VertexArrayVertexBuffer(Vao, 0, buffer, 0, vertexSize);
+			GL.NamedBufferData(buffer, data.Length, data, hint); // TODO support NamedBufferStorage
+		}
+
+		public void BindIndexBuffer(uint buffer, uint[] data, BufferUsageHint hint) {
+			if (WasFreed) { throw new Exception(); } // TODO handle/exception
+			if (!WereBuffersCreated) { throw new Exception(); } // TODO handle/exception
+
+			GL.VertexArrayElementBuffer(Vao, buffer);
+			GL.NamedBufferData(buffer, data.Length * sizeof(uint), data, hint); // TODO support NamedBufferStorage
+			IndexCount = data.Length;
+		}
+
+		public void BindVertexAttributes(VertexLayout vertexLayout) {
+			if (WasFreed) { throw new Exception(); } // TODO handle/exception
+			if (!WereBuffersCreated) { throw new Exception(); } // TODO handle/exception
+
+			VertexAttribute[] layout = vertexLayout.Layout;
+			uint offset = 0;
+
+			for (uint i = 0; i < layout.Length; i++) {
+				VertexAttribute attribute = layout[i];
+				GL.EnableVertexArrayAttrib(Vao, i);
+				GL.VertexArrayAttribFormat(vao, i, attribute.ElementCount, attribute.VertexAttribType, false, offset);
+				GL.VertexArrayAttribBinding(Vao, i, 0);
+				offset += vertexLayout.Size;
 			}
 
-			if (WasVaoSet) { GL.DeleteVertexArray(Vao); }
-
-			Vao = 0;
-			Vbo = 0;
-			Ebo = 0;
-			WasFreed = true;
+			WereAttributesBound = true;
 		}
 
-		public void Dispose() {
-			Dispose(true);
-			GC.SuppressFinalize(this);
+		public void Free() {
+			if (WasFreed) { return; }
+
+			if (WereBuffersCreated) {
+				GL.DeleteBuffers(Buffers.Length, Buffers);
+				for (int i = 0; i < Buffers.Length; i++) { Buffers[i] = 0; }
+
+				GL.DeleteVertexArray(Vao);
+				Vao = 0;
+			}
+
+			WasFreed = true;
 		}
 	}
 }
