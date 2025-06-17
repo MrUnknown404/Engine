@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using Engine3.Client.Model;
+using Engine3.Client.Model.Mesh.Vertex;
 using Engine3.Utils;
 using NLog;
 using OpenTK.Graphics.OpenGL4;

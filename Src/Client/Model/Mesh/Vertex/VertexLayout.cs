@@ -1,7 +1,5 @@
-using Engine3.Client.Model.Mesh.Vertex;
-
-namespace Engine3.Client.Model {
-	public sealed class VertexLayout {
+namespace Engine3.Client.Model.Mesh.Vertex {
+	public readonly record struct VertexLayout {
 		public VertexAttribute[] Layout { get; }
 		public byte Size { get; }
 
