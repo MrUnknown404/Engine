@@ -44,6 +44,7 @@ namespace Engine3.Utils {
 		}
 
 		private static void AddDefaults() {
+			AddStruct<Version4>();
 			AddStruct<VertexXyz>();
 			AddStruct<VertexUv>();
 			AddStruct<VertexXyzUv>();

@@ -1,9 +1,13 @@
 using Engine3.Client.Model;
 using JetBrains.Annotations;
+using NLog;
 using OpenTK.Graphics.OpenGL4;
 
 namespace Engine3.Client {
+	[PublicAPI]
 	public static class GLH {
+		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
 		public static bool IsWireframe { get; private set; }
 		public static bool IsDepthTesting { get; private set; }
 		public static bool IsCulling { get; private set; }
@@ -19,7 +23,7 @@ namespace Engine3.Client {
 
 		[MustUseReturnValue]
 		public static T Bind<T>(Shader<T> shader) where T : ShaderContext, new() {
-			if (shader.Handle == 0) { throw new Exception(); } // TODO exception
+			if (shader.Handle == 0) { throw new ShaderException(ShaderException.Reason.NoHandle); }
 
 			if (GLH.shader != shader.Handle) {
 				GLH.shader = shader.Handle;
@@ -30,8 +34,8 @@ namespace Engine3.Client {
 		}
 
 		public static void Bind(VertexArrayObject vao) {
-			if (!vao.WereBuffersCreated) { throw new Exception(); } // TODO exception
-			if (vao.WasFreed) { throw new Exception(); } // TODO exception
+			if (!vao.HasHandle) { throw new VaoException(VaoException.Reason.NoHandle); }
+			if (vao.WasFreed) { throw new VaoException(VaoException.Reason.WasFreed); }
 
 			if (vao.Vao != GLH.vao) {
 				GLH.vao = vao.Vao;
@@ -53,11 +57,17 @@ namespace Engine3.Client {
 		}
 
 		public static void Draw() {
-			if (shader == 0) { throw new Exception(); } // TODO exception
-			if (vao == 0) { throw new Exception(); } // TODO exception
+			if (shader == 0) { throw new ShaderException(ShaderException.Reason.NoHandle); }
+			if (vao == 0) { throw new VaoException(VaoException.Reason.NoHandle); }
+			if (vaoDrawSize == 0) {
+				Logger.Warn("Attempted to draw an empty Vao");
+				return;
+			}
 
 			GL.DrawElements(PrimitiveType.Triangles, vaoDrawSize, DrawElementsType.UnsignedInt, 0);
 		}
+
+		public static bool IsShaderBound(Shader s) => s.Handle == shader;
 
 		/// <summary> Enables Wireframe mode. </summary>
 		public static void EnableWireframe() {

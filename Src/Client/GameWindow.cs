@@ -1,12 +1,13 @@
+using Engine3.Utils;
+using JetBrains.Annotations;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace Engine3.Client {
+	[PublicAPI]
 	public sealed class GameWindow {
 		public const ushort DefaultWidth = 854, DefaultHeight = 480;
-
-		private NativeWindow? openGLWindow;
 
 		public string Title {
 			get;
@@ -106,18 +107,21 @@ namespace Engine3.Client {
 			}
 		}
 
-		private unsafe Window* WindowPtr => (openGLWindow ?? throw new Exception()).WindowPtr; // TODO exception
+		private NativeWindow? openGLWindow;
+		private unsafe Window* WindowPtr => (openGLWindow ?? throw new EngineStateException(EngineStateException.Reason.StartNotCalled)).WindowPtr;
 
 		internal GameWindow() { }
 
-		internal void MakeContextCurrent() => openGLWindow!.Context.MakeCurrent();
+		internal void MakeContextCurrent() => (openGLWindow ?? throw new EngineStateException(EngineStateException.Reason.StartNotCalled)).Context.MakeCurrent();
 
 		internal void NewInputFrame() {
-			openGLWindow!.NewInputFrame();
+			if (openGLWindow == null) { throw new EngineStateException(EngineStateException.Reason.StartNotCalled); }
+
+			openGLWindow.NewInputFrame();
 			NativeWindow.ProcessWindowEvents(openGLWindow.IsEventDriven);
 		}
 
-		internal void SwapBuffers() => openGLWindow!.Context.SwapBuffers();
+		internal void SwapBuffers() => (openGLWindow ?? throw new EngineStateException(EngineStateException.Reason.StartNotCalled)).Context.SwapBuffers();
 
 		internal void CreateOpenGLWindow(StartLocation startLocation = StartLocation.Default, bool addOpenGLCallbacks = false) {
 			openGLWindow = new(new() {
@@ -130,6 +134,7 @@ namespace Engine3.Client {
 					WindowState = WindowState,
 					StartVisible = false,
 					Flags = addOpenGLCallbacks ? ContextFlags.Debug : ContextFlags.Default,
+					APIVersion = new(4, 6),
 			});
 
 			if (startLocation == StartLocation.Center) {
