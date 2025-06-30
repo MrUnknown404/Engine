@@ -1,3 +1,3 @@
-namespace Engine3.Client.Model.Mesh.Vertex {
+namespace Engine3.Graphics.Vertex {
 	public interface IVertexAttribute : IVertex;
 }

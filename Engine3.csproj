@@ -11,14 +11,13 @@
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
+	<!-- Includes -->
 	<ItemGroup>
-		<PackageReference Include="NLog" Version="5.5.0" />
-		<PackageReference Include="ObjectLayoutInspector" Version="0.1.4" />
-		<PackageReference Include="OpenTK" Version="4.9.4"/>
-		<PackageReference Include="StbImageSharp" Version="2.27.11"/>
-		<PackageReference Include="FreeTypeSharp" Version="3.0.0"/>
+		<PackageReference Include="NLog" Version="5.5.0"/>
+		<PackageReference Include="ObjectLayoutInspector" Version="0.1.4"/>
+		<PackageReference Include="OpenTK" Version="5.0.0-pre.13" />
 
-		<ProjectReference Include="..\USharpLibs-Common\USharpLibs-Common.csproj" />
+		<ProjectReference Include="..\USharpLibs-Common\USharpLibs-Common.csproj"/>
 
 		<EmbeddedResource Include="Assets\**"/>
 	</ItemGroup>

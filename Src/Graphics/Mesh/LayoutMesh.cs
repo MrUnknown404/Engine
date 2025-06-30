@@ -1,8 +1,8 @@
 using System.Runtime.InteropServices;
-using Engine3.Client.Model.Mesh.Vertex;
+using Engine3.Graphics.Vertex;
 using JetBrains.Annotations;
 
-namespace Engine3.Client.Model.Mesh {
+namespace Engine3.Graphics.Mesh {
 	[PublicAPI]
 	public class LayoutMesh<T> where T : unmanaged, IVertex {
 		public T[] Vertices { get; }

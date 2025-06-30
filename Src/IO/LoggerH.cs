@@ -1,7 +1,9 @@
+using JetBrains.Annotations;
 using NLog;
 using NLog.Time;
 
-namespace Engine3.Utils {
+namespace Engine3.IO {
+	[PublicAPI]
 	public static class LoggerH {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
@@ -58,7 +60,7 @@ namespace Engine3.Utils {
 
 		internal static void Setup() {
 			if (wasSetup) {
-				Logger.Warn("Setup was already run");
+				Logger.Warn($"Running {nameof(LoggerH)}#{nameof(Setup)} twice is not supported");
 				return;
 			}
 
@@ -75,7 +77,6 @@ namespace Engine3.Utils {
 			AppDomain.CurrentDomain.UnhandledException += static (_, args) => Logger.Error((Exception)args.ExceptionObject, "Uncaught Exception: ");
 
 			wasSetup = true;
-			Logger.Debug("Finished setting up NLog");
 		}
 	}
 }

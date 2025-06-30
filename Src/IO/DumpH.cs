@@ -1,18 +1,17 @@
-using Engine3.Client;
-using Engine3.Client.Model.Mesh.Vertex;
+using Engine3.Utils;
+using JetBrains.Annotations;
 using NLog;
 using ObjectLayoutInspector;
 
-namespace Engine3.Utils {
-	public static class DebugOutputH {
+namespace Engine3.IO {
+	[PublicAPI]
+	public static class DumpH {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-
-		private static Dictionary<string, string> ToWrite { get; } = new();
 
 		public static string OutputFolder {
 			get;
 			set {
-				if (wasSetup) { Logger.Warn($"{nameof(OutputFolder)} must be set before #{nameof(Setup)} is called"); }
+				if (wasSetup) { Logger.Warn($"{nameof(OutputFolder)} must be set before #{nameof(WriteDumpsToOutput)} is called"); }
 				field = value;
 			}
 		} = "Output";
@@ -20,14 +19,17 @@ namespace Engine3.Utils {
 		public static string OutputFileType {
 			get;
 			set {
-				if (wasSetup) { Logger.Warn($"{nameof(OutputFileType)} must be set before #{nameof(Setup)} is called"); }
+				if (wasSetup) { Logger.Warn($"{nameof(OutputFileType)} must be set before #{nameof(WriteDumpsToOutput)} is called"); }
 				field = value;
 			}
 		} = "txt";
 
+		private static Dictionary<string, string> ToWrite { get; } = new();
 		private static bool wasSetup;
 
-		internal static void Setup<T>(T gameInstance) where T : GameClient {
+		public static event Action? AddDumps;
+
+		internal static void WriteDumpsToOutput() {
 			if (wasSetup) {
 				Logger.Warn("Setup was already run");
 				return;
@@ -35,22 +37,9 @@ namespace Engine3.Utils {
 
 			Directory.CreateDirectory(OutputFolder);
 
-			AddDefaults();
-			gameInstance.AddDebugOutputs();
+			AddDefaultDumps();
+			AddDumps?.Invoke();
 
-			WriteAllToFile();
-			ToWrite.Clear();
-			wasSetup = true;
-		}
-
-		private static void AddDefaults() {
-			AddStruct<Version4>();
-			AddStruct<VertexXyz>();
-			AddStruct<VertexUv>();
-			AddStruct<VertexXyzUv>();
-		}
-
-		private static void WriteAllToFile() {
 			foreach ((string fileName, string content) in ToWrite) {
 				using (FileStream f = File.Create($"{OutputFolder}\\{fileName}.{OutputFileType}")) {
 					using (StreamWriter w = new(f)) { w.Write(content); }
@@ -58,6 +47,16 @@ namespace Engine3.Utils {
 
 				Logger.Debug($"- Wrote debug output file for {fileName}");
 			}
+
+			ToWrite.Clear();
+			wasSetup = true;
+		}
+
+		private static void AddDefaultDumps() {
+			AddStruct<Version4>();
+			// AddStruct<VertexXyz>();
+			// AddStruct<VertexUv>();
+			// AddStruct<VertexXyzUv>();
 		}
 
 		public static void AddStruct<T>() where T : struct => TryAdd(typeof(T).Name, $"{TypeLayout.GetLayout<T>()}");
