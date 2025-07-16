@@ -1,8 +1,8 @@
 using System.Reflection;
+using Engine3.Api;
+using Engine3.Api.Graphics;
 using Engine3.Exceptions;
 using Engine3.Graphics;
-using Engine3.Graphics.OpenGL;
-using Engine3.Graphics.Vulkan;
 using Engine3.IO;
 using Engine3.Utils;
 using JetBrains.Annotations;
@@ -20,7 +20,7 @@ namespace Engine3 {
 		public static Assembly? InstanceAssembly { get; private set; }
 		public static IGameClient? GameInstance { get; private set; }
 		public static WindowHandle? WindowHandle { get; private set; }
-		public static RenderSystem? RenderSystem { get; private set; }
+		public static IRenderContext? RenderContext { get; private set; }
 		public static GraphicsApiHints? GraphicsApiHints { get; private set; }
 
 		public static string MainThreadName {
@@ -68,10 +68,11 @@ namespace Engine3 {
 		public static event Action? OnSetupFinishedEvent;
 		public static event Action? OnExitEvent;
 
+		public static event Action? ConsoleSetupEvent;
 		public static event Action? OnOpenGLSetupEvent;
 		public static event Action? OnVulkanSetupEvent;
 
-		public static void Start<T>(EngineStartupSettings engineSettings) where T : IGameClient, new() {
+		public static void Start<T>(IEngineStartupSettings engineSettings) where T : IGameClient, new() {
 			mainThread = Thread.CurrentThread;
 			mainThread.Name = MainThreadName;
 
@@ -79,18 +80,34 @@ namespace Engine3 {
 			LoggerH.Setup();
 			Logger.Debug("Finished setting up NLog");
 
-			RenderSystem = engineSettings.RenderSystem;
+			RenderContext = engineSettings.RenderContext;
 			GraphicsApiHints = engineSettings.GraphicsApiHints;
+
+			if (RenderContext.RenderSystem is RenderSystem.OpenGL or RenderSystem.Vulkan) {
+				if (engineSettings.ToolkitOptions == null ^ GraphicsApiHints == null) { throw new EngineStateException("ToolkitOptions or GraphicApiHints were null. Both must be set"); }
+			}
+
+			switch (RenderContext.RenderSystem) {
+				case RenderSystem.Console: break;
+				case RenderSystem.OpenGL:
+					if (GraphicsApiHints is not OpenGLGraphicsApiHints openglGraphics) { throw new EngineStateException("RenderSystem was set to OpenGL but the provided GraphicsApiHints was not of type OpenGLGraphicsApiHints"); }
+					if (openglGraphics is not { Version: { Major: 4, Minor: 6, }, Profile: OpenGLProfile.Core, }) { throw new EngineStateException("Engine only supports OpenGL version 4.6 Core"); }
+					break;
+				case RenderSystem.Vulkan:
+					if (GraphicsApiHints is not VulkanGraphicsApiHints) { throw new EngineStateException("RenderSystem was set to OpenGL but the provided GraphicsApiHints was not of type OpenGLGraphicsApiHints"); }
+					break;
+				default: throw new ArgumentOutOfRangeException();
+			}
 
 			CurrentLoadState = EngineLoadState.Assemblies;
 			Logger.Debug("Grabbing assemblies...");
-			EngineAssembly = Assembly.GetAssembly(typeof(GameEngine)) ?? throw new NullReferenceException("Unable to get assembly for engine.");
-			InstanceAssembly = Assembly.GetAssembly(typeof(T)) ?? throw new NullReferenceException("Unable to get assembly for instance.");
+			EngineAssembly = Assembly.GetAssembly(typeof(GameEngine)) ?? throw new NullReferenceException("Unable to get assembly for engine");
+			InstanceAssembly = Assembly.GetAssembly(typeof(T)) ?? throw new NullReferenceException("Unable to get assembly for instance");
 
 			CurrentLoadState = EngineLoadState.Engine;
 			Logger.Info("Setting up engine...");
 			Logger.Debug($"- Engine is running version: {EngineVersion}");
-			Logger.Debug($"- Engine is using RenderSystem: {RenderSystem}");
+			Logger.Debug($"- Engine is using RenderSystem: {RenderContext.RenderSystem}");
 
 			SetupEngine();
 			OnEngineSetupEvent?.Invoke();
@@ -108,35 +125,51 @@ namespace Engine3 {
 #endif
 
 			CurrentLoadState = EngineLoadState.Graphics;
-			switch (RenderSystem) {
-				case Graphics.RenderSystem.None: break;
-				case Graphics.RenderSystem.ConsoleFixed: throw new NotImplementedException(); // TODO impl custom console? fully or just use existing?
-				case Graphics.RenderSystem.OpenGL or Graphics.RenderSystem.Vulkan:
-					if (GraphicsApiHints == null) { throw new EngineStateException(EngineStateException.Reason.NoGraphicsApi); }
+			if (GraphicsApiHints == null) { throw new NotImplementedException(); } // TODO impl custom console? fully or just use existing?
 
-					Logger.Info("Setting up toolkit...");
-					SetupToolkit(engineSettings.ToolkitOptions);
+			if (engineSettings.ToolkitOptions != null) {
+				Logger.Info("Setting up toolkit...");
+				engineSettings.ToolkitOptions.Logger = null;
 
-					Logger.Info("Creating window...");
-					WindowHandle = Toolkit.Window.Create(GraphicsApiHints);
-					Toolkit.Window.SetSize(WindowHandle, new(854, 480));
-					OnWindowSetupEvent?.Invoke();
+				EventQueue.EventRaised += OnEventRaised;
+				Toolkit.Init(engineSettings.ToolkitOptions);
 
-					Logger.Info($"Setting up graphics... ({RenderSystem})");
-					SetupGraphics(WindowHandle);
-					OnGraphicsSetupEvent?.Invoke();
+				const ushort DefaultWidth = 854, DefaultHeight = 480;
 
-					Logger.Debug("Showing window...");
-					Toolkit.Window.SetMode(WindowHandle, WindowMode.Normal);
+				Logger.Info("Creating window...");
+				WindowHandle = Toolkit.Window.Create(GraphicsApiHints);
+				Toolkit.Window.SetTitle(WindowHandle, engineSettings.WindowTitle);
+				Toolkit.Window.SetSize(WindowHandle, new(DefaultWidth, DefaultHeight));
 
-					break;
-				default: throw new ArgumentOutOfRangeException();
+				if (engineSettings.CenterWindow) {
+					DisplayHandle handle = Toolkit.Display.OpenPrimary(); // TODO figure out if this is what i am supposed to do
+					Toolkit.Display.GetResolution(handle, out int width, out int height);
+					Toolkit.Window.SetPosition(WindowHandle, new(width / 2 - DefaultWidth / 2, height / 2 - DefaultHeight / 2));
+				}
+
+				OnWindowSetupEvent?.Invoke();
+
+				Logger.Info($"Setting up graphics... ({RenderContext.RenderSystem})");
+				RenderContext.Setup(WindowHandle);
+
+				Logger.Debug($"{RenderContext.RenderSystem} is now ready. Invoking events...");
+				switch (RenderContext.RenderSystem) {
+					case RenderSystem.Console: ConsoleSetupEvent?.Invoke(); break;
+					case RenderSystem.OpenGL: OnOpenGLSetupEvent?.Invoke(); break;
+					case RenderSystem.Vulkan: OnVulkanSetupEvent?.Invoke(); break;
+					default: throw new ArgumentOutOfRangeException();
+				}
+
+				OnGraphicsSetupEvent?.Invoke();
+
+				Logger.Debug("Showing window...");
+				Toolkit.Window.SetMode(WindowHandle, WindowMode.Normal);
+
+				CurrentLoadState = EngineLoadState.EnginePostGraphics;
+				Logger.Info("Setting up engine post graphics...");
+				SetupEnginePostGraphics();
+				OnEnginePostGraphicsSetupEvent?.Invoke();
 			}
-
-			CurrentLoadState = EngineLoadState.EnginePostGraphics;
-			Logger.Info("Setting up engine post graphics...");
-			SetupEnginePostGraphics();
-			OnEnginePostGraphicsSetupEvent?.Invoke();
 
 			CurrentLoadState = EngineLoadState.Done;
 			Logger.Debug("Setup finished. Invoking events then entering loop");
@@ -147,18 +180,20 @@ namespace Engine3 {
 		}
 
 		private static void GameLoop() {
+			if (RenderContext == null) { throw new Exception(); } // TODO exception
+			if (GameInstance == null) { throw new Exception(); } // TODO exception
+
 			while (!IsCloseRequested) {
 				Toolkit.Window.ProcessEvents(false);
 				if (IsCloseRequested) { break; } // Early exit
 
-				switch (RenderSystem) {
-					case Graphics.RenderSystem.None:
-					case Graphics.RenderSystem.ConsoleFixed: break;
-					case Graphics.RenderSystem.OpenGL: GLH.Render(); break;
-					case Graphics.RenderSystem.Vulkan: VKH.Render(); break;
-					case null: break;
-					default: throw new ArgumentOutOfRangeException();
-				}
+				float delta = 0;
+
+				// TODO imgui goes in here somewhere
+				RenderContext.PrepareFrame();
+				Render(delta);
+				GameInstance.Render(delta);
+				RenderContext.SwapBuffers();
 
 				Thread.Sleep(1); // TODO impl
 			}
@@ -166,38 +201,9 @@ namespace Engine3 {
 
 		private static void Update() { }
 
-		internal static void Render() { }
+		private static void Render(float delta) { }
 
 		private static void SetupEngine() { }
-
-		private static void SetupToolkit(ToolkitOptions toolkitOptions) {
-			toolkitOptions.Logger = null;
-
-			EventQueue.EventRaised += OnEventRaised;
-			Toolkit.Init(toolkitOptions);
-		}
-
-		private static void SetupGraphics(WindowHandle handle) {
-			switch (RenderSystem) {
-				case Graphics.RenderSystem.OpenGL:
-					Logger.Debug("Setting up OpenGL...");
-					GLH.Setup(handle);
-
-					Logger.Debug("OpenGL is now ready. Invoking events...");
-					OnOpenGLSetupEvent?.Invoke();
-					break;
-				case Graphics.RenderSystem.Vulkan:
-					Logger.Debug("Setting up Vulkan...");
-					VKH.Setup();
-
-					Logger.Debug("Vulkan is now ready. Invoking events...");
-					OnVulkanSetupEvent?.Invoke();
-					break;
-				case Graphics.RenderSystem.None:
-				case Graphics.RenderSystem.ConsoleFixed:
-				default: throw new IllegalStateException("How did we get here?");
-			}
-		}
 
 		private static void SetupEnginePostGraphics() { }
 
