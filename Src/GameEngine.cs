@@ -3,7 +3,11 @@ using Engine3.Client;
 using Engine3.Utils;
 using NLog;
 using OpenTK.Graphics.OpenGL4;
+using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using GameWindow = Engine3.Client.GameWindow;
+
+// TODO learn multi-threading. how do locks work?
 
 namespace Engine3 {
 	public static class GameEngine {
@@ -12,8 +16,9 @@ namespace Engine3 {
 		public static Version4 EngineVersion { get; } = new(0, 0, 0);
 
 		private static Thread? MainThread { get; set => field = field == null ? value : throw new Exception(); } // TODO exception
+		private static Thread? RenderThread { get; set => field = field == null ? value : throw new Exception(); } // TODO exception
 
-		public static GameClient? GameInstance { get; private set => field = field == null ? value : throw new Exception(); } // TODO exception, clear?
+		public static GameClient? Instance { get; private set => field = field == null ? value : throw new Exception(); } // TODO exception, clear?
 		public static GameWindow Window { get; } = new(); // TODO exception
 
 		public static string MainThreadName {
@@ -27,86 +32,74 @@ namespace Engine3 {
 			}
 		} = "Main";
 
+		public static string RenderThreadName {
+			get;
+			set {
+				if (value != field) {
+					field = value;
+					if (RenderThread != null) { RenderThread.Name = field; }
+				}
+			}
+		} = "Render";
+
 		public static bool AddOpenGLCallbacks {
 			get;
 			set {
-				if (GameInstance != null) { Logger.Warn($"Attempted to enable OpenGL Callbacks too late. This must be set before calling {nameof(GameEngine)}#{nameof(Start)}"); }
+				if (Instance != null) {
+					Logger.Warn($"Attempted to enable OpenGL Callbacks too late. This must be set before {nameof(GameEngine)}#{nameof(Start)}");
+					return;
+				}
+
 				field = value;
 			}
 		}
 
-		public static bool EnableDebugOutputs {
-			get;
-			set {
-				if (GameInstance != null) { Logger.Warn($"Attempted to enable debug outputs too late. This must be set before calling {nameof(GameEngine)}#{nameof(Start)}"); }
-				field = value;
-			}
-		}
-
-		public static bool IsCloseRequested {
-			get => (field || Window.ShouldClose()) && (GameInstance?.IsCloseAllowed() ?? false);
-			set {
-				if (value) { Logger.Debug("Close requested"); }
-				field = value;
-			}
-		}
+		public static bool IsCloseRequested { get => field || Window.ShouldClose(); set; }
 
 		public static void Start<T>() where T : GameClient, new() {
 			MainThread = Thread.CurrentThread;
 			MainThread.Name = MainThreadName;
+			RenderThread = new(SetupOpenGL) { Name = RenderThreadName, };
 			LoggerH.Setup();
 
-			Logger.Info("Setting up engine...");
-			Logger.Debug($"- Engine is running version: {EngineVersion}");
-			SetupEngine();
+			Logger.Debug($"Engine is running version: {EngineVersion}");
+			Logger.Debug("Creating instance...");
+			Instance = new T();
 
-			Logger.Debug("Creating game instance...");
-			GameInstance = new T();
+			Logger.Info(Instance.StartupMessage);
+			Logger.Info($"Running version: {Instance.Version}");
 
-			Logger.Debug($"- Game is running version: {GameInstance.Version}");
-			Logger.Info(GameInstance.StartupMessage);
+			GLFWProvider.CheckForMainThread = false;
 
-			if (EnableDebugOutputs) {
-				Logger.Debug("Setting up debug outputs...");
-				DebugOutputH.Setup(GameInstance);
+			if (Instance.EnableDebugOutputs) {
+				DebugOutputH.Setup();
+				Instance.AddDebugOutputs();
 			}
 
-			Logger.Info("Setting up OpenGL...");
-			SetupOpenGL();
-			SetupEnginePostOpenGL();
+			// TODO setup stuff
 
-			Logger.Info("Setup finished. Entering loop");
-			GameLoop();
+			Logger.Debug("Starting render thread");
+			RenderThread.Start();
+
+			Logger.Debug("Main thread setup done. Waiting for window...");
+			while (!Window.IsVisible) { Thread.Sleep(10); }
+
+			Logger.Debug("Window found. Entering loop");
+			while (!IsCloseRequested) {
+				Instance.Update();
+				Thread.Sleep(100);
+			}
+
 			OnExit(0);
 		}
 
-		private static void GameLoop() {
-			if (GameInstance == null) { throw new NullReferenceException("how did we get here?"); }
-
-			while (!IsCloseRequested) {
-				Window.NewInputFrame();
-
-				GL.Clear(GLH.ClearBufferMask);
-
-				GameInstance.Update();
-				GameInstance.Render(0);
-
-				Window.SwapBuffers();
-
-				Thread.Sleep(100); // TODO loop properly
-			}
-		}
-
-		private static void SetupEngine() {
-			// TODO impl
-		}
-
 		private static void SetupOpenGL() {
-			Logger.Debug("Creating OpenGL context and window...");
+			Logger.Debug("Creating OpenGL Window");
 			Window.CreateOpenGLWindow();
+			Logger.Debug("Creating OpenGL Context");
 			Window.MakeContextCurrent();
 
-			Logger.Info("OpenGL context created");
+			Logger.Info("Setting up OpenGL");
 			Logger.Debug($"- OpenGL version: {GL.GetString(StringName.Version)}");
 			Logger.Debug($"- GLFW Version: {GLFW.GetVersionString()}");
 
@@ -152,22 +145,32 @@ namespace Engine3 {
 			GLH.EnableCulling();
 
 			Logger.Debug("OpenGL is now ready. Invoking events...");
-			GameInstance!.InvokeOnSetupOpenGL();
+			Instance!.InvokeOnSetupOpenGL();
 
 			Logger.Debug("Enabling window...");
 			Window.IsVisible = true;
+
+			Logger.Debug("Render thread setup done. Entering loop");
+			RenderLoop();
 		}
 
-		private static void SetupEnginePostOpenGL() {
-			// TODO impl
+		private static void RenderLoop() {
+			while (!IsCloseRequested) {
+				Window.NewInputFrame();
+
+				GL.Clear(GLH.ClearBufferMask);
+				Instance!.Render(0);
+				Window.SwapBuffers();
+
+				// loop
+				Thread.Sleep(100);
+			}
 		}
 
 		private static void OnExit(int errorCode) {
-			Logger.Info($"{nameof(OnExit)} called. Shutting down...");
-			Logger.Info(GameInstance?.ExitMessage);
+			while (RenderThread!.IsAlive) { Thread.Sleep(10); } // wait for renderer. this is dumb. i should probably redo this
 
-			// TODO cleanup
-
+			Logger.Info(Instance?.ExitMessage);
 			LogManager.Shutdown();
 			Environment.Exit(errorCode);
 		}

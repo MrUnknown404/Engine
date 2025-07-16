@@ -1,4 +1,3 @@
-using Engine3.Client;
 using Engine3.Client.Vertex;
 using NLog;
 using ObjectLayoutInspector;
@@ -6,8 +5,6 @@ using ObjectLayoutInspector;
 namespace Engine3.Utils {
 	public static class DebugOutputH {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-
-		private static Dictionary<string, string> ToWrite { get; } = new();
 
 		public static string OutputFolder {
 			get;
@@ -27,7 +24,7 @@ namespace Engine3.Utils {
 
 		private static bool wasSetup;
 
-		internal static void Setup<T>(T gameInstance) where T : GameClient {
+		internal static void Setup() {
 			if (wasSetup) {
 				Logger.Warn("Setup was already run");
 				return;
@@ -35,39 +32,19 @@ namespace Engine3.Utils {
 
 			Directory.CreateDirectory(OutputFolder);
 
-			AddDefaults();
-			gameInstance.AddDebugOutputs();
-
-			WriteAllToFile();
-			ToWrite.Clear();
-			wasSetup = true;
-		}
-
-		private static void AddDefaults() {
 			AddStruct<VertexXyz>();
 			AddStruct<VertexUv>();
 			AddStruct<VertexXyzUv>();
+
+			wasSetup = true;
 		}
 
-		private static void WriteAllToFile() {
-			foreach ((string fileName, string content) in ToWrite) {
-				using (FileStream f = File.Create($"{OutputFolder}\\{fileName}.{OutputFileType}")) {
-					using (StreamWriter w = new(f)) { w.Write(content); }
-				}
-
-				Logger.Debug($"- Wrote debug output file for {fileName}");
-			}
+		private static void WriteToFile<T>(string fileName, ReadOnlySpan<char> content) {
+			FileStream f = File.Create($"{OutputFolder}\\{fileName}.{OutputFileType}");
+			using (StreamWriter w = new(f)) { w.Write(content); }
+			Logger.Debug($"Wrote debug output file for {typeof(T).Name}");
 		}
 
-		public static void AddStruct<T>() where T : struct => TryAdd(typeof(T).Name, $"{TypeLayout.GetLayout<T>()}");
-
-		private static void TryAdd(string fileName, string content) {
-			if (wasSetup) {
-				Logger.Warn($"Attempted to add a debug output file to write too late. This must be set before calling {nameof(GameEngine)}#{nameof(GameEngine.Start)}");
-				return;
-			}
-
-			if (!ToWrite.TryAdd(fileName, content)) { Logger.Warn($"Attempted to add a duplicate file: {fileName}"); }
-		}
+		public static void AddStruct<T>() where T : struct => WriteToFile<T>(typeof(T).Name, $"{TypeLayout.GetLayout<T>()}");
 	}
 }
