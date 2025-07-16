@@ -12,7 +12,7 @@ namespace Engine3.Client {
 			get;
 			set {
 				field = value;
-				openGLWindow?.Title = Title;
+				if (openGLWindow != null) { openGLWindow.Title = Title; }
 			}
 		} = "Title";
 
@@ -21,7 +21,7 @@ namespace Engine3.Client {
 			get => x;
 			set {
 				x = value;
-				openGLWindow?.Location = new(X, Y);
+				if (openGLWindow != null) { openGLWindow.Location = new(X, Y); }
 			}
 		}
 
@@ -30,7 +30,7 @@ namespace Engine3.Client {
 			get => y;
 			set {
 				y = value;
-				openGLWindow?.Location = new(X, Y);
+				if (openGLWindow != null) { openGLWindow.Location = new(X, Y); }
 			}
 		}
 
@@ -38,7 +38,7 @@ namespace Engine3.Client {
 			get;
 			set {
 				field = value;
-				openGLWindow?.ClientSize = new(Width, Height);
+				if (openGLWindow != null) { openGLWindow.ClientSize = new(Width, Height); }
 			}
 		} = DefaultWidth;
 
@@ -46,7 +46,7 @@ namespace Engine3.Client {
 			get;
 			set {
 				field = value;
-				openGLWindow?.ClientSize = new(Width, Height);
+				if (openGLWindow != null) { openGLWindow.ClientSize = new(Width, Height); }
 			}
 		} = DefaultHeight;
 
@@ -54,7 +54,7 @@ namespace Engine3.Client {
 			get;
 			set {
 				field = value;
-				openGLWindow?.MinimumSize = new(MinWidth, MinHeight);
+				if (openGLWindow != null) { openGLWindow.MinimumSize = new(MinWidth, MinHeight); }
 			}
 		} = DefaultWidth;
 
@@ -62,7 +62,7 @@ namespace Engine3.Client {
 			get;
 			set {
 				field = value;
-				openGLWindow?.MinimumSize = new(MinWidth, MinHeight);
+				if (openGLWindow != null) { openGLWindow.MinimumSize = new(MinWidth, MinHeight); }
 			}
 		} = DefaultHeight;
 
@@ -70,7 +70,7 @@ namespace Engine3.Client {
 			get;
 			set {
 				field = value;
-				openGLWindow?.MaximumSize = new(MaxWidth, MaxHeight);
+				if (openGLWindow != null) { openGLWindow.MaximumSize = new(MaxWidth, MaxHeight); }
 			}
 		} = ushort.MaxValue;
 
@@ -78,7 +78,7 @@ namespace Engine3.Client {
 			get;
 			set {
 				field = value;
-				openGLWindow?.MaximumSize = new(MaxWidth, MaxHeight);
+				if (openGLWindow != null) { openGLWindow.MaximumSize = new(MaxWidth, MaxHeight); }
 			}
 		} = ushort.MaxValue;
 
@@ -86,7 +86,7 @@ namespace Engine3.Client {
 			get;
 			set {
 				field = value;
-				openGLWindow?.VSync = VSync;
+				if (openGLWindow != null) { openGLWindow.VSync = VSync; }
 			}
 		} = VSyncMode.Off;
 
@@ -94,7 +94,7 @@ namespace Engine3.Client {
 			get;
 			set {
 				field = value;
-				openGLWindow?.WindowState = WindowState;
+				if (openGLWindow != null) { openGLWindow.WindowState = WindowState; }
 			}
 		} = WindowState.Normal;
 
@@ -102,7 +102,7 @@ namespace Engine3.Client {
 			get;
 			set {
 				field = value;
-				openGLWindow?.IsVisible = IsVisible;
+				if (openGLWindow != null) { openGLWindow.IsVisible = IsVisible; }
 			}
 		}
 

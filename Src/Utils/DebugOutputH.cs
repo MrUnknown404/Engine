@@ -1,5 +1,5 @@
 using Engine3.Client;
-using Engine3.Client.Model.Mesh.Vertex;
+using Engine3.Client.Vertex;
 using NLog;
 using ObjectLayoutInspector;
 

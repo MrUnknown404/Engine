@@ -1,5 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using Engine3.Client;
 using Engine3.Utils;
@@ -14,9 +12,8 @@ namespace Engine3 {
 		public static Version4 EngineVersion { get; } = new(0, 0, 0);
 
 		private static Thread? MainThread { get; set => field = field == null ? value : throw new Exception(); } // TODO exception
-		[field: MaybeNull] public static Assembly EngineAssembly { get => field ?? throw new Exception(); private set => field = field == null ? value : throw new Exception(); } // TODO exception
-		[field: MaybeNull] public static Assembly InstanceAssembly { get => field ?? throw new Exception(); private set => field = field == null ? value : throw new Exception(); } // TODO exception
-		public static GameClient? GameInstance { get => field ?? throw new Exception(); private set => field = field == null ? value : throw new Exception(); } // TODO exception
+
+		public static GameClient? GameInstance { get; private set => field = field == null ? value : throw new Exception(); } // TODO exception
 		public static GameWindow Window { get; } = new();
 
 		public static string MainThreadName {
@@ -24,7 +21,8 @@ namespace Engine3 {
 			set {
 				if (value != field) {
 					field = value;
-					MainThread?.Name = field;
+					//MainThread?.Name = field; // TODO when rider updates
+					if (MainThread != null) { MainThread.Name = field; }
 				}
 			}
 		} = "Main";
@@ -32,7 +30,7 @@ namespace Engine3 {
 		public static bool AddOpenGLCallbacks {
 			get;
 			set {
-				if (WasOpenGLSetupRun) { Logger.Warn($"Attempted to enable OpenGL Callbacks too late. This must be set before calling {nameof(GameEngine)}#{nameof(Start)}"); }
+				if (GameInstance != null) { Logger.Warn($"Attempted to enable OpenGL Callbacks too late. This must be set before calling {nameof(GameEngine)}#{nameof(Start)}"); }
 				field = value;
 			}
 		}
@@ -40,7 +38,7 @@ namespace Engine3 {
 		public static bool EnableDebugOutputs {
 			get;
 			set {
-				if (WasOpenGLSetupRun) { Logger.Warn($"Attempted to enable debug outputs too late. This must be set before calling {nameof(GameEngine)}#{nameof(Start)}"); }
+				if (GameInstance != null) { Logger.Warn($"Attempted to enable debug outputs too late. This must be set before calling {nameof(GameEngine)}#{nameof(Start)}"); }
 				field = value;
 			}
 		}
@@ -53,12 +51,7 @@ namespace Engine3 {
 			}
 		}
 
-		public static bool WasEngineSetupRun { get; private set; }
-		public static bool WasOpenGLSetupRun { get; private set; }
-		public static bool WasEnginePostOpenGLSetup { get; private set; }
-
 		public static ulong Tick { get; private set; }
-		public static ulong Frame { get; private set; }
 		public static uint Fps { get; private set; }
 		public static uint Ups { get; private set; }
 		public static double DrawTime { get; private set; }
@@ -67,7 +60,6 @@ namespace Engine3 {
 
 		public static event Action? OnOpenGLSetupEvent;
 		public static event Action? OnSetupFinishedEvent;
-		public static event Action? OnExitEvent;
 
 		public static void Start<T>() where T : GameClient, new() {
 			MainThread = Thread.CurrentThread;
@@ -75,15 +67,8 @@ namespace Engine3 {
 
 			LoggerH.Setup();
 
-			Logger.Debug("Grabbing assemblies...");
-			EngineAssembly = Assembly.GetAssembly(typeof(GameEngine)) ?? throw new NullReferenceException("Unable to get assembly for engine.");
-			InstanceAssembly = Assembly.GetAssembly(typeof(T)) ?? throw new NullReferenceException("Unable to get assembly for instance.");
-
 			Logger.Info("Setting up engine...");
 			Logger.Debug($"- Engine is running version: {EngineVersion}");
-			SetupEngine();
-			WasEngineSetupRun = true;
-
 			Logger.Debug("Creating game instance...");
 			GameInstance = new T();
 
@@ -98,11 +83,7 @@ namespace Engine3 {
 			Logger.Info("Setting up OpenGL...");
 			SetupOpenGL();
 			OnOpenGLSetupEvent?.Invoke();
-			WasOpenGLSetupRun = true;
-
-			Logger.Info("Setting up engine post OpenGL...");
-			EnginePostOpenGLSetup();
-			WasEnginePostOpenGLSetup = true;
+			SetupEnginePostOpenGL();
 
 			Logger.Debug("Setup finished. Invoking events then entering loop");
 			OnSetupFinishedEvent?.Invoke();
@@ -156,7 +137,6 @@ namespace Engine3 {
 				TotalFrameTime = GetTime() - startTime;
 				frameTimer += TotalFrameTime;
 				fpsCounter++;
-				Frame++;
 
 				if (frameTimer >= 1000) {
 					Fps = fpsCounter;
@@ -235,20 +215,14 @@ namespace Engine3 {
 			Window.IsVisible = true;
 		}
 
-		private static void EnginePostOpenGLSetup() {
-			if (GameInstance == null) { throw new NullReferenceException("how did we get here?"); }
-
-			Logger.Debug("Registering shaders...");
-			HashSet<Shader> set = GameInstance.ShadersToRegister.Value;
-			foreach (Shader shader in set) { shader.SetupGL(); }
-			Logger.Debug($"Finished registering {set.Count} shaders");
+		private static void SetupEnginePostOpenGL() {
+			// TODO impl
 		}
 
 		private static void OnExit(int errorCode) {
 			Logger.Info($"{nameof(OnExit)} called. Shutting down...");
 			Logger.Info(GameInstance?.ExitMessage);
 
-			OnExitEvent?.Invoke();
 			// TODO cleanup
 
 			LogManager.Shutdown();

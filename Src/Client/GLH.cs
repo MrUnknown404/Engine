@@ -1,5 +1,3 @@
-using System.Numerics;
-using Engine3.Client.Model;
 using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 
@@ -17,43 +15,45 @@ namespace Engine3.Client {
 
 		public static ClearBufferMask ClearBufferMask { get; set; } = ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit;
 
-		internal static uint CurrentShaderHandle { get; private set; }
-		internal static SingleBufferVaoContext VaoContext { get; } = new();
+		// public static uint CurrentShaderHandle { get; private set; }
 		// private static ModelAccess ModelAccess { get; } = new();
 
-		[MustUseReturnValue]
-		public static T Bind<T>(Shader<T> shader) where T : ShaderContext, new() {
-			if (shader.Handle == 0) { throw new Exception(); } // TODO exception
+		// [MustUseReturnValue]
+		// public static T Bind<T>(Shader<T> shader) where T : ShaderAccess, new() {
+		// 	if (ShaderErrorHandler.Assert(shader.Handle == 0, () => new(shader, ShaderErrorHandler.Reason.NoHandle))) { return shader.Access; }
+		//
+		// 	if (CurrentShaderHandle != shader.Handle) {
+		// 		CurrentShaderHandle = shader.Handle;
+		// 		GL.UseProgram(CurrentShaderHandle);
+		// 	}
+		//
+		// 	return shader.Access;
+		// }
 
-			if (CurrentShaderHandle != shader.Handle) {
-				CurrentShaderHandle = shader.Handle;
-				GL.UseProgram(CurrentShaderHandle);
-			}
+		// [MustUseReturnValue]
+		// public static ModelAccess Bind(Model model) {
+		// 	if (ModelErrorHandler.Assert(model.VAO == 0, static () => new(ModelErrorHandler.Reason.NoVAO))) { return ModelAccess; }
+		// 	if (ModelErrorHandler.Assert(model.WasFreed, static () => new(ModelErrorHandler.Reason.WasFreed))) { return ModelAccess; }
+		//
+		// 	if (ModelAccess.Model == null || ModelAccess.Model.VAO != model.VAO) {
+		// 		ModelAccess.Model = model;
+		// 		GL.BindVertexArray(model.VAO);
+		// 	}
+		//
+		// 	return ModelAccess;
+		// }
 
-			return shader.Context;
-		}
+		// public static void UnbindShader() {
+		// 	if (CurrentShaderHandle == 0) { return; }
+		// 	CurrentShaderHandle = 0;
+		// 	GL.UseProgram(0);
+		// }
 
-		[MustUseReturnValue]
-		public static SingleBufferVaoContext Bind(VertexArrayObject vao) {
-			if (VaoContext.Vao == null || VaoContext.Vao.Vao != vao.Vao) {
-				VaoContext.Vao = vao;
-				GL.BindVertexArray(vao.Vao);
-			}
-
-			return VaoContext;
-		}
-
-		public static void UnbindShader() {
-			if (CurrentShaderHandle == 0) { return; }
-			CurrentShaderHandle = 0;
-			GL.UseProgram(0);
-		}
-
-		public static void UnbindVao() {
-			if (VaoContext.Vao == null) { return; }
-			VaoContext.Vao = null;
-			GL.BindVertexArray(0);
-		}
+		// public static void UnbindModel() {
+		// 	if (ModelAccess.Model == null) { return; }
+		// 	ModelAccess.Model = null;
+		// 	GL.BindVertexArray(0);
+		// }
 
 		/// <summary> Enables Wireframe mode. </summary>
 		public static void EnableWireframe() {
@@ -131,16 +131,6 @@ namespace Engine3.Client {
 				SFactor = sFactor;
 				DFactor = dFactor;
 			}
-		}
-
-		public static unsafe void SetBuffer<T>(uint buffer, T[] data, BufferTarget target, BufferUsageHint hint) where T : unmanaged, INumber<T> {
-			GL.BindBuffer(target, buffer);
-			GL.BufferData(target, data.Length * sizeof(T), data, hint);
-		}
-
-		public static void SetEmptyBuffer<T>(uint buffer, int size, BufferTarget target, BufferUsageHint hint) where T : unmanaged, INumber<T> {
-			GL.BindBuffer(target, buffer);
-			GL.BufferData(target, size, IntPtr.Zero, hint);
 		}
 	}
 }
