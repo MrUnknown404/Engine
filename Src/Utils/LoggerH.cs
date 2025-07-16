@@ -1,5 +1,4 @@
 using NLog;
-using NLog.Time;
 
 namespace Engine3.Utils {
 	public static class LoggerH {
@@ -66,7 +65,6 @@ namespace Engine3.Utils {
 
 			Directory.CreateDirectory(LogFolder);
 
-			TimeSource.Current = new AccurateUtcTimeSource();
 			LogManager.Setup().LoadConfiguration(static b => {
 				b.ForLogger().FilterMinLevel(ConsoleLogLevel).WriteToColoredConsole(layout: LogLayout);
 				b.ForLogger().FilterMinLevel(FileLogLevel).WriteToFile(fileName: $"{LogFolder}\\{DateTime.Now.ToString(LogDateFormat)}.{LogFileType}", layout: LogLayout, maxArchiveFiles: MaxFiles - 1);

@@ -13,8 +13,8 @@ namespace Engine3 {
 
 		private static Thread? MainThread { get; set => field = field == null ? value : throw new Exception(); } // TODO exception
 
-		public static GameClient? GameInstance { get; private set => field = field == null ? value : throw new Exception(); } // TODO exception
-		public static GameWindow Window { get; } = new();
+		public static GameClient? GameInstance { get; private set => field = field == null ? value : throw new Exception(); } // TODO exception, clear?
+		public static GameWindow Window { get; } = new(); // TODO exception
 
 		public static string MainThreadName {
 			get;
@@ -51,24 +51,15 @@ namespace Engine3 {
 			}
 		}
 
-		public static ulong Tick { get; private set; }
-		public static uint Fps { get; private set; }
-		public static uint Ups { get; private set; }
-		public static double DrawTime { get; private set; }
-		public static double UpdateTime { get; private set; }
-		public static double TotalFrameTime { get; private set; }
-
-		public static event Action? OnOpenGLSetupEvent;
-		public static event Action? OnSetupFinishedEvent;
-
 		public static void Start<T>() where T : GameClient, new() {
 			MainThread = Thread.CurrentThread;
 			MainThread.Name = MainThreadName;
-
 			LoggerH.Setup();
 
 			Logger.Info("Setting up engine...");
 			Logger.Debug($"- Engine is running version: {EngineVersion}");
+			SetupEngine();
+
 			Logger.Debug("Creating game instance...");
 			GameInstance = new T();
 
@@ -82,74 +73,28 @@ namespace Engine3 {
 
 			Logger.Info("Setting up OpenGL...");
 			SetupOpenGL();
-			OnOpenGLSetupEvent?.Invoke();
 			SetupEnginePostOpenGL();
 
-			Logger.Debug("Setup finished. Invoking events then entering loop");
-			OnSetupFinishedEvent?.Invoke();
+			Logger.Info("Setup finished. Entering loop");
 			GameLoop();
-
 			OnExit(0);
 		}
 
 		private static void GameLoop() {
 			if (GameInstance == null) { throw new NullReferenceException("how did we get here?"); }
 
-			const byte FrameGoal = 60;
-			const double UpdatePeriodMs = 1000d / FrameGoal;
-			const int FrameSkip = 5;
-
-			double time = GetTime();
-			double frameTimer = 0;
-			uint fpsCounter = 0;
-			uint upsCounter = 0;
-
-			static double GetTime() => GLFW.GetTime() * 1000d;
-
 			while (!IsCloseRequested) {
-				double startTime = GetTime();
-
 				Window.NewInputFrame();
 
-				int loops = 0;
-				while (GetTime() > time && loops < FrameSkip) {
-					double updateTime = GetTime();
-
-					Update();
-					GameInstance.Update();
-
-					time += UpdatePeriodMs;
-					loops++;
-					upsCounter++;
-					Tick++;
-
-					UpdateTime = GetTime() - updateTime;
-				}
-
-				if (loops >= FrameSkip) { Logger.Warn("Too many frame skips detected? handle?"); }
-				double drawTime = GetTime();
-
 				GL.Clear(GLH.ClearBufferMask);
-				GameInstance.Render((float)((drawTime + UpdatePeriodMs - time) / UpdatePeriodMs));
+
+				GameInstance.Update();
+				GameInstance.Render(0);
+
 				Window.SwapBuffers();
 
-				DrawTime = GetTime() - drawTime;
-				TotalFrameTime = GetTime() - startTime;
-				frameTimer += TotalFrameTime;
-				fpsCounter++;
-
-				if (frameTimer >= 1000) {
-					Fps = fpsCounter;
-					Ups = upsCounter;
-					fpsCounter = 0;
-					upsCounter = 0;
-					frameTimer -= 1000;
-				}
+				Thread.Sleep(100); // TODO loop properly
 			}
-		}
-
-		private static void Update() {
-			// TODO impl
 		}
 
 		private static void SetupEngine() {
@@ -157,8 +102,6 @@ namespace Engine3 {
 		}
 
 		private static void SetupOpenGL() {
-			if (GameInstance == null) { throw new NullReferenceException("how did we get here?"); }
-
 			Logger.Debug("Creating OpenGL context and window...");
 			Window.CreateOpenGLWindow();
 			Window.MakeContextCurrent();
@@ -209,7 +152,7 @@ namespace Engine3 {
 			GLH.EnableCulling();
 
 			Logger.Debug("OpenGL is now ready. Invoking events...");
-			OnOpenGLSetupEvent?.Invoke();
+			GameInstance!.InvokeOnSetupOpenGL();
 
 			Logger.Debug("Enabling window...");
 			Window.IsVisible = true;
