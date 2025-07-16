@@ -9,15 +9,15 @@ namespace Engine3.Utils {
 		public required byte Minor { get; init; }
 		public char Hotfix {
 			get;
-			init => field = value is >= 'a' and <= 'z' ? value : throw new ArgumentOutOfRangeException(nameof(Hotfix), $"{nameof(Hotfix)} is limited to [a-z]. if you're at z, you should probably rethink things");
+			init => field = value is >= 'a' and <= 'z' ? value : throw new ArgumentOutOfRangeException(nameof(Hotfix), $"{nameof(Hotfix)} is limited to [a-z]. if you're at z, you should probably rethink things.");
 		}
 
 		[SetsRequiredMembers]
-		public Version4(byte release, byte major, byte minor, char hotfix = char.MinValue) {
+		public Version4(byte release, byte major, byte minor, char hotfix = default) {
 			Release = release;
 			Major = major;
 			Minor = minor;
-			if (hotfix != char.MinValue) { Hotfix = hotfix; }
+			if (hotfix != default) { Hotfix = hotfix; }
 		}
 
 		public override int GetHashCode() => HashCode.Combine(Release, Major, Minor, Hotfix);
