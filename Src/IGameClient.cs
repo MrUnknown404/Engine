@@ -1,7 +1,7 @@
 using Engine3.Utils;
 using JetBrains.Annotations;
 
-namespace Engine3.Api {
+namespace Engine3 {
 	[PublicAPI]
 	public interface IGameClient {
 		public Version4 Version { get; }

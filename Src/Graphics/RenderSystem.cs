@@ -1,6 +1,7 @@
 namespace Engine3.Graphics {
 	public enum RenderSystem : byte {
-		Console = 0,
+		None = 0,
+		ConsoleFixed,
 		OpenGL,
 		Vulkan,
 	}
