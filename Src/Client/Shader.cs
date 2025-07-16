@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using Engine3.Client.Model;
+using Engine3.Client.Model.Mesh.Vertex;
 using Engine3.Utils;
 using NLog;
 using OpenTK.Graphics.OpenGL4;
@@ -10,7 +10,6 @@ namespace Engine3.Client {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 		private Dictionary<string, int> UniformLocations { get; } = new();
 
-		public VertexLayout VertexLayout { get; }
 		public string DebugName { get; }
 		public bool CreateTessControl { private get; init; }
 		public bool CreateTessEval { private get; init; }
@@ -20,11 +19,12 @@ namespace Engine3.Client {
 		internal uint Handle { get; private set; }
 
 		private readonly string fileName;
+		public VertexLayout[] Layout { get; }
 
-		protected Shader(string debugName, string fileName, VertexLayout vertexLayout) {
+		protected Shader(string debugName, string fileName, VertexLayout[] layout) {
 			DebugName = debugName;
 			this.fileName = fileName;
-			VertexLayout = vertexLayout;
+			Layout = layout; // TODO check
 		}
 
 		internal void SetupGL() {
@@ -125,6 +125,6 @@ namespace Engine3.Client {
 	public sealed class Shader<T> : Shader where T : ShaderContext, new() {
 		internal T Context { get; }
 
-		public Shader(string debugName, string fileName, VertexLayout vertexLayout) : base(debugName, fileName, vertexLayout) => Context = new T { Shader = this, };
+		public Shader(string debugName, string fileName, VertexLayout[] layout) : base(debugName, fileName, layout) => Context = new T { Shader = this, };
 	}
 }

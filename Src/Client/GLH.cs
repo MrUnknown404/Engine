@@ -1,9 +1,13 @@
+using System.Numerics;
 using Engine3.Client.Model;
 using JetBrains.Annotations;
 using OpenTK.Graphics.OpenGL4;
 
 namespace Engine3.Client {
+	[PublicAPI]
 	public static class GLH {
+		// public static GLErrorHandlingTypes GLErrorHandlingTypes { get; set; } = GLErrorHandlingTypes.Throw; // TODO put into Debug class. also add more debug options
+
 		public static bool IsWireframe { get; private set; }
 		public static bool IsDepthTesting { get; private set; }
 		public static bool IsCulling { get; private set; }
@@ -13,50 +17,42 @@ namespace Engine3.Client {
 
 		public static ClearBufferMask ClearBufferMask { get; set; } = ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit;
 
-		private static uint shader;
-		private static uint vao;
-		private static int vaoDrawSize;
+		internal static uint CurrentShaderHandle { get; private set; }
+		internal static SingleBufferVaoContext VaoContext { get; } = new();
+		// private static ModelAccess ModelAccess { get; } = new();
 
 		[MustUseReturnValue]
 		public static T Bind<T>(Shader<T> shader) where T : ShaderContext, new() {
 			if (shader.Handle == 0) { throw new Exception(); } // TODO exception
 
-			if (GLH.shader != shader.Handle) {
-				GLH.shader = shader.Handle;
-				GL.UseProgram(GLH.shader);
+			if (CurrentShaderHandle != shader.Handle) {
+				CurrentShaderHandle = shader.Handle;
+				GL.UseProgram(CurrentShaderHandle);
 			}
 
 			return shader.Context;
 		}
 
-		public static void Bind(VertexArrayObject vao) {
-			if (!vao.WereBuffersCreated) { throw new Exception(); } // TODO exception
-			if (vao.WasFreed) { throw new Exception(); } // TODO exception
-
-			if (vao.Vao != GLH.vao) {
-				GLH.vao = vao.Vao;
-				vaoDrawSize = vao.IndexCount;
+		[MustUseReturnValue]
+		public static SingleBufferVaoContext Bind(VertexArrayObject vao) {
+			if (VaoContext.Vao == null || VaoContext.Vao.Vao != vao.Vao) {
+				VaoContext.Vao = vao;
 				GL.BindVertexArray(vao.Vao);
 			}
+
+			return VaoContext;
 		}
 
 		public static void UnbindShader() {
-			if (shader == 0) { return; }
-			shader = 0;
+			if (CurrentShaderHandle == 0) { return; }
+			CurrentShaderHandle = 0;
 			GL.UseProgram(0);
 		}
 
 		public static void UnbindVao() {
-			if (vao == 0) { return; }
-			vao = 0;
+			if (VaoContext.Vao == null) { return; }
+			VaoContext.Vao = null;
 			GL.BindVertexArray(0);
-		}
-
-		public static void Draw() {
-			if (shader == 0) { throw new Exception(); } // TODO exception
-			if (vao == 0) { throw new Exception(); } // TODO exception
-
-			GL.DrawElements(PrimitiveType.Triangles, vaoDrawSize, DrawElementsType.UnsignedInt, 0);
 		}
 
 		/// <summary> Enables Wireframe mode. </summary>
@@ -135,6 +131,16 @@ namespace Engine3.Client {
 				SFactor = sFactor;
 				DFactor = dFactor;
 			}
+		}
+
+		public static unsafe void SetBuffer<T>(uint buffer, T[] data, BufferTarget target, BufferUsageHint hint) where T : unmanaged, INumber<T> {
+			GL.BindBuffer(target, buffer);
+			GL.BufferData(target, data.Length * sizeof(T), data, hint);
+		}
+
+		public static void SetEmptyBuffer<T>(uint buffer, int size, BufferTarget target, BufferUsageHint hint) where T : unmanaged, INumber<T> {
+			GL.BindBuffer(target, buffer);
+			GL.BufferData(target, size, IntPtr.Zero, hint);
 		}
 	}
 }
