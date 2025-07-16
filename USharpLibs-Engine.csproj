@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>Library</OutputType>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<RootNamespace>USharpLibs.Engine</RootNamespace>
+		<AssemblyName>USharpLibs.Engine</AssemblyName>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<DebugType>embedded</DebugType>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="OpenTK" Version="4.8.1" />
+		<PackageReference Include="StbImageSharp" Version="2.27.11" />
+		<PackageReference Include="FreeTypeSharp" Version="2.0.0.12-ci" />
+
+		<ProjectReference Include="..\USharpLibs-Common\USharpLibs-Common.csproj" />
+
+		<EmbeddedResource Include="Assets\**"/>
+	</ItemGroup>
+</Project>
