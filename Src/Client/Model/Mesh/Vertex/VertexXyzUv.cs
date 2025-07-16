@@ -1,10 +1,8 @@
 using System.Runtime.InteropServices;
 
-namespace Engine3.Graphics.Vertex {
+namespace Engine3.Client.Model.Mesh.Vertex {
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
 	public readonly record struct VertexXyzUv : IVertexLayout {
-		public static VertexAttributeFormat[] VertexFormat { get; } = [ VertexXyz.VertexFormat[0], VertexUv.VertexFormat[0], ];
-
 		public VertexXyz Xyz { get; init; } = new();
 		public VertexUv Uv { get; init; } = new();
 

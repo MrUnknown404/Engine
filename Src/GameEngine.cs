@@ -1,55 +1,61 @@
 using System.Reflection;
-using Engine3.Exceptions;
-using Engine3.Graphics;
-using Engine3.Graphics.OpenGL;
-using Engine3.Graphics.Vulkan;
-using Engine3.IO;
+using System.Runtime.InteropServices;
+using Engine3.Client;
 using Engine3.Utils;
 using JetBrains.Annotations;
 using NLog;
-using OpenTK.Platform;
+using OpenTK.Graphics.OpenGL4;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace Engine3 {
 	[PublicAPI]
 	public static class GameEngine {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-		public static readonly Version4 EngineVersion = new(0, 0, 0);
+		private static Thread? MainThread { get; set => field = field == null ? value : throw new EngineStateException(EngineStateException.Reason.AlreadySetValue); }
 
-		public static Assembly? EngineAssembly { get; private set; }
-		public static Assembly? InstanceAssembly { get; private set; }
-		public static IGameClient? GameInstance { get; private set; }
-		public static WindowHandle? WindowHandle { get; private set; }
-		public static RenderSystem? RenderSystem { get; private set; }
-		public static GraphicsApiHints? GraphicsApiHints { get; private set; }
+		public static Version4 EngineVersion { get; } = new(0, 0, 0);
+		public static Assembly? EngineAssembly { get; private set => field = field == null ? value : throw new EngineStateException(EngineStateException.Reason.AlreadySetValue); }
+		public static Assembly? InstanceAssembly { get; private set => field = field == null ? value : throw new EngineStateException(EngineStateException.Reason.AlreadySetValue); }
+		public static GameClient? GameInstance { get; private set => field = field == null ? value : throw new EngineStateException(EngineStateException.Reason.AlreadySetValue); }
+
+		public static GameWindow Window { get; } = new();
 
 		public static string MainThreadName {
 			get;
 			set {
 				field = value;
-				mainThread?.Name = value;
+				MainThread?.Name = value;
 			}
 		} = "Main";
 
-		public static bool IsCloseRequested {
-			get => field || (WindowHandle != null && Toolkit.Window.IsWindowDestroyed(WindowHandle));
+		public static bool AddOpenGLCallbacks {
+			get;
 			set {
-				if (value) {
-					Logger.Debug("Close requested");
-
-					if (GameInstance?.IsCloseAllowed() ?? false) {
-						field = value;
-						if (WindowHandle != null) { Toolkit.Window.Destroy(WindowHandle); }
-					}
-
-					return;
-				}
-
+				if (WasOpenGLSetupRun) { Logger.Warn($"Attempted to enable OpenGL Callbacks too late. This must be set before calling {nameof(GameEngine)}#{nameof(Start)}"); }
 				field = value;
 			}
 		}
 
-		public static EngineLoadState CurrentLoadState { get; private set; } = EngineLoadState.None;
+		public static bool EnableDebugOutputs {
+			get;
+			set {
+				if (WasOpenGLSetupRun) { Logger.Warn($"Attempted to enable debug outputs too late. This must be set before calling {nameof(GameEngine)}#{nameof(Start)}"); }
+				field = value;
+			}
+		}
+
+		public static bool IsCloseRequested {
+			get => (field || Window.ShouldClose()) && (GameInstance?.IsCloseAllowed() ?? false);
+			set {
+				if (value) { Logger.Debug("Close requested"); }
+				field = value;
+			}
+		}
+
+		public static bool WasEngineSetupRun { get; private set; }
+		public static bool WasOpenGLSetupRun { get; private set; }
+		public static bool WasEnginePostOpenGLSetup { get; private set; }
 
 		public static ulong Tick { get; private set; }
 		public static ulong Frame { get; private set; }
@@ -59,147 +65,184 @@ namespace Engine3 {
 		public static double UpdateTime { get; private set; }
 		public static double TotalFrameTime { get; private set; }
 
-		private static Thread? mainThread;
-
-		public static event Action? OnEngineSetupEvent;
-		public static event Action? OnWindowSetupEvent;
-		public static event Action? OnGraphicsSetupEvent;
-		public static event Action? OnEnginePostGraphicsSetupEvent;
+		public static event Action? OnOpenGLSetupEvent;
 		public static event Action? OnSetupFinishedEvent;
 		public static event Action? OnExitEvent;
 
-		public static event Action? OnOpenGLSetupEvent;
-		public static event Action? OnVulkanSetupEvent;
+		public static void Start<T>() where T : GameClient, new() {
+			MainThread = Thread.CurrentThread;
+			MainThread.Name = MainThreadName;
 
-		public static void Start<T>(EngineStartupSettings engineSettings) where T : IGameClient, new() {
-			mainThread = Thread.CurrentThread;
-			mainThread.Name = MainThreadName;
-
-			CurrentLoadState = EngineLoadState.Logger;
 			LoggerH.Setup();
-			Logger.Debug("Finished setting up NLog");
 
-			RenderSystem = engineSettings.RenderSystem;
-			GraphicsApiHints = engineSettings.GraphicsApiHints;
-
-			CurrentLoadState = EngineLoadState.Assemblies;
 			Logger.Debug("Grabbing assemblies...");
 			EngineAssembly = Assembly.GetAssembly(typeof(GameEngine)) ?? throw new NullReferenceException("Unable to get assembly for engine.");
 			InstanceAssembly = Assembly.GetAssembly(typeof(T)) ?? throw new NullReferenceException("Unable to get assembly for instance.");
 
-			CurrentLoadState = EngineLoadState.Engine;
 			Logger.Info("Setting up engine...");
 			Logger.Debug($"- Engine is running version: {EngineVersion}");
-			Logger.Debug($"- Engine is using RenderSystem: {RenderSystem}");
-
 			SetupEngine();
-			OnEngineSetupEvent?.Invoke();
+			WasEngineSetupRun = true;
 
-			CurrentLoadState = EngineLoadState.Game;
 			Logger.Debug("Creating game instance...");
 			GameInstance = new T();
 
 			Logger.Debug($"- Game is running version: {GameInstance.Version}");
 			Logger.Info(GameInstance.StartupMessage);
 
-#if DEBUG
-			Logger.Debug("Writing dumps to files outputs...");
-			DumpH.WriteDumpsToOutput();
-#endif
-
-			CurrentLoadState = EngineLoadState.Graphics;
-			switch (RenderSystem) {
-				case Graphics.RenderSystem.None: break;
-				case Graphics.RenderSystem.ConsoleFixed: throw new NotImplementedException(); // TODO impl custom console? fully or just use existing?
-				case Graphics.RenderSystem.OpenGL or Graphics.RenderSystem.Vulkan:
-					if (GraphicsApiHints == null) { throw new EngineStateException(EngineStateException.Reason.NoGraphicsApi); }
-
-					Logger.Info("Setting up toolkit...");
-					SetupToolkit(engineSettings.ToolkitOptions);
-
-					Logger.Info("Creating window...");
-					WindowHandle = Toolkit.Window.Create(GraphicsApiHints);
-					Toolkit.Window.SetSize(WindowHandle, new(854, 480));
-					OnWindowSetupEvent?.Invoke();
-
-					Logger.Info($"Setting up graphics... ({RenderSystem})");
-					SetupGraphics(WindowHandle);
-					OnGraphicsSetupEvent?.Invoke();
-
-					Logger.Debug("Showing window...");
-					Toolkit.Window.SetMode(WindowHandle, WindowMode.Normal);
-
-					break;
-				default: throw new ArgumentOutOfRangeException();
+			if (EnableDebugOutputs) {
+				Logger.Debug("Setting up debug outputs...");
+				DebugOutputH.Setup(GameInstance);
 			}
 
-			CurrentLoadState = EngineLoadState.EnginePostGraphics;
-			Logger.Info("Setting up engine post graphics...");
-			SetupEnginePostGraphics();
-			OnEnginePostGraphicsSetupEvent?.Invoke();
+			Logger.Info("Setting up OpenGL...");
+			SetupOpenGL();
+			OnOpenGLSetupEvent?.Invoke();
+			WasOpenGLSetupRun = true;
 
-			CurrentLoadState = EngineLoadState.Done;
+			Logger.Info("Setting up engine post OpenGL...");
+			EnginePostOpenGLSetup();
+			WasEnginePostOpenGLSetup = true;
+
 			Logger.Debug("Setup finished. Invoking events then entering loop");
 			OnSetupFinishedEvent?.Invoke();
-
 			GameLoop();
+
 			OnExit(0);
 		}
 
 		private static void GameLoop() {
-			while (!IsCloseRequested) {
-				Toolkit.Window.ProcessEvents(false);
-				if (IsCloseRequested) { break; } // Early exit
+			if (GameInstance == null) { throw new NullReferenceException("how did we get here?"); }
 
-				switch (RenderSystem) {
-					case Graphics.RenderSystem.None:
-					case Graphics.RenderSystem.ConsoleFixed: break;
-					case Graphics.RenderSystem.OpenGL: GLH.Render(); break;
-					case Graphics.RenderSystem.Vulkan: VKH.Render(); break;
-					case null: break;
-					default: throw new ArgumentOutOfRangeException();
+			const byte FrameGoal = 60;
+			const double UpdatePeriodMs = 1000d / FrameGoal;
+			const int FrameSkip = 5;
+
+			double time = GetTime();
+			double frameTimer = 0;
+			uint fpsCounter = 0;
+			uint upsCounter = 0;
+
+			static double GetTime() => GLFW.GetTime() * 1000d;
+
+			while (!IsCloseRequested) {
+				double startTime = GetTime();
+
+				Window.NewInputFrame();
+
+				int loops = 0;
+				while (GetTime() > time && loops < FrameSkip) {
+					double updateTime = GetTime();
+
+					Update();
+					GameInstance.Update();
+
+					time += UpdatePeriodMs;
+					loops++;
+					upsCounter++;
+					Tick++;
+
+					UpdateTime = GetTime() - updateTime;
 				}
 
-				Thread.Sleep(1); // TODO impl
+				if (loops >= FrameSkip) { Logger.Warn("Too many frame skips detected? handle?"); } // TODO detect if this is because of a window resize. and if it is, don't yell
+				double drawTime = GetTime();
+
+				GL.Clear(GLH.ClearBufferMask);
+				GameInstance.Render((float)((drawTime + UpdatePeriodMs - time) / UpdatePeriodMs));
+				Window.SwapBuffers();
+
+				DrawTime = GetTime() - drawTime;
+				TotalFrameTime = GetTime() - startTime;
+				frameTimer += TotalFrameTime;
+				fpsCounter++;
+				Frame++;
+
+				if (frameTimer >= 1000) {
+					Fps = fpsCounter;
+					Ups = upsCounter;
+					fpsCounter = 0;
+					upsCounter = 0;
+					frameTimer -= 1000;
+				}
 			}
 		}
 
-		private static void Update() { }
-
-		internal static void Render() { }
-
-		private static void SetupEngine() { }
-
-		private static void SetupToolkit(ToolkitOptions toolkitOptions) {
-			toolkitOptions.Logger = null;
-
-			EventQueue.EventRaised += OnEventRaised;
-			Toolkit.Init(toolkitOptions);
+		private static void Update() {
+			// TODO impl
 		}
 
-		private static void SetupGraphics(WindowHandle handle) {
-			switch (RenderSystem) {
-				case Graphics.RenderSystem.OpenGL:
-					Logger.Debug("Setting up OpenGL...");
-					GLH.Setup(handle);
+		private static void SetupEngine() {
+			// TODO impl
+		}
 
-					Logger.Debug("OpenGL is now ready. Invoking events...");
-					OnOpenGLSetupEvent?.Invoke();
-					break;
-				case Graphics.RenderSystem.Vulkan:
-					Logger.Debug("Setting up Vulkan...");
-					VKH.Setup();
+		private static void SetupOpenGL() {
+			if (GameInstance == null) { throw new NullReferenceException("how did we get here?"); }
 
-					Logger.Debug("Vulkan is now ready. Invoking events...");
-					OnVulkanSetupEvent?.Invoke();
-					break;
-				case Graphics.RenderSystem.None:
-				case Graphics.RenderSystem.ConsoleFixed:
-				default: throw new IllegalStateException("How did we get here?");
+			Logger.Debug("Creating OpenGL context and window...");
+			Window.CreateOpenGLWindow();
+			Window.MakeContextCurrent();
+
+			Logger.Info("OpenGL context created");
+			Logger.Debug($"- OpenGL version: {GL.GetString(StringName.Version)}");
+			Logger.Debug($"- GLFW Version: {GLFW.GetVersionString()}");
+
+			if (AddOpenGLCallbacks) {
+				Logger.Debug("- OpenGL Callbacks are enabled");
+
+				GL.Enable(EnableCap.DebugOutput);
+				GL.Enable(EnableCap.DebugOutputSynchronous);
+
+				uint[] defaultIds = [
+						131185, // Nvidia static buffer notification
+				];
+
+				GL.DebugMessageControl(DebugSourceControl.DebugSourceApi, DebugTypeControl.DebugTypeOther, DebugSeverityControl.DontCare, defaultIds.Length, defaultIds, false);
+
+				GL.DebugMessageCallback(static (source, type, id, severity, length, message, _) => {
+					switch (severity) {
+						case DebugSeverity.DontCare: return;
+						case DebugSeverity.DebugSeverityNotification:
+							Logger.Debug($"OpenGL Notification: {id}. Source: {source.ToString()[11..]}, Type: {type.ToString()[9..]}");
+							Logger.Debug($"- {Marshal.PtrToStringAnsi(message, length)}");
+							break;
+						case DebugSeverity.DebugSeverityHigh:
+							Logger.Fatal($"OpenGL Fatal Error: {id}. Source: {source.ToString()[11..]}, Type: {type.ToString()[9..]}");
+							Logger.Fatal($"- {Marshal.PtrToStringAnsi(message, length)}");
+							break;
+						case DebugSeverity.DebugSeverityMedium:
+							Logger.Error($"OpenGL Error: {id}. Source: {source.ToString()[11..]}, Type: {type.ToString()[9..]}");
+							Logger.Error($"- {Marshal.PtrToStringAnsi(message, length)}");
+							break;
+						case DebugSeverity.DebugSeverityLow:
+							Logger.Warn($"OpenGL Warning: {id}. Source: {source.ToString()[11..]}, Type: {type.ToString()[9..]}");
+							Logger.Warn($"- {Marshal.PtrToStringAnsi(message, length)}");
+							break;
+						default: throw new ArgumentOutOfRangeException(nameof(severity), severity, null);
+					}
+				}, IntPtr.Zero);
 			}
+
+			GL.ClearColor(0.1f, 0.1f, 0.1f, 1f);
+			GLH.EnableBlend(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+			GLH.EnableDepthTest();
+			GLH.EnableCulling();
+
+			Logger.Debug("OpenGL is now ready. Invoking events...");
+			OnOpenGLSetupEvent?.Invoke();
+
+			Logger.Debug("Enabling window...");
+			Window.IsVisible = true;
 		}
 
-		private static void SetupEnginePostGraphics() { }
+		private static void EnginePostOpenGLSetup() {
+			if (GameInstance == null) { throw new NullReferenceException("how did we get here?"); }
+
+			Logger.Debug("Registering shaders...");
+			HashSet<Shader> set = GameInstance.ShadersToRegister.Value;
+			foreach (Shader shader in set) { shader.SetupGL(); }
+			Logger.Debug($"Finished registering {set.Count} shaders");
+		}
 
 		private static void OnExit(int errorCode) {
 			Logger.Info($"{nameof(OnExit)} called. Shutting down...");
@@ -210,17 +253,6 @@ namespace Engine3 {
 
 			LogManager.Shutdown();
 			Environment.Exit(errorCode);
-		}
-
-		private static void OnEventRaised(PalHandle? handle, PlatformEventType type, EventArgs args) {
-			if (args is CloseEventArgs closeArgs) {
-				if (closeArgs.Window == WindowHandle) {
-					IsCloseRequested = true;
-					return;
-				}
-
-				Logger.Fatal("Attempted to close an unknown window");
-			}
 		}
 	}
 }

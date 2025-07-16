@@ -1,8 +1,8 @@
 using System.Runtime.InteropServices;
-using Engine3.Graphics.Vertex;
+using Engine3.Client.Model.Mesh.Vertex;
 using JetBrains.Annotations;
 
-namespace Engine3.Graphics.Mesh {
+namespace Engine3.Client.Model.Mesh {
 	[PublicAPI]
 	public class AttributeMesh<T0> where T0 : unmanaged, IVertexAttribute {
 		public T0[] Vertices0 { get; }
