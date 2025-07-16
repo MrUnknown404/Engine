@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
 namespace Engine3.Utils {
-	[StructLayout(LayoutKind.Sequential, Pack = 1)]
+	[StructLayout(LayoutKind.Sequential, Pack = 0)]
 	public readonly record struct Version4 {
 		public required byte Release { get; init; }
 		public required byte Major { get; init; }

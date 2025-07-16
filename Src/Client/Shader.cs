@@ -2,12 +2,10 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Engine3.Client.Model.Mesh.Vertex;
 using Engine3.Utils;
-using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics.OpenGL4;
 
 namespace Engine3.Client {
-	[PublicAPI]
 	public abstract class Shader {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 		private Dictionary<string, int> UniformLocations { get; } = new();
@@ -17,11 +15,9 @@ namespace Engine3.Client {
 		public bool CreateTessControl { private get; init; }
 		public bool CreateTessEval { private get; init; }
 		public bool CreateGeometry { private get; init; }
-		public Lazy<Assembly> Assembly { private get; init; } = new(static () => GameEngine.InstanceAssembly ?? throw new EngineStateException(EngineStateException.Reason.StartNotCalled));
+		public Lazy<Assembly> Assembly { private get; init; } = new(static () => GameEngine.InstanceAssembly);
 
 		internal uint Handle { get; private set; }
-
-		public bool HasHandle => Handle != 0;
 
 		private readonly string fileName;
 
@@ -32,7 +28,7 @@ namespace Engine3.Client {
 		}
 
 		internal void SetupGL() {
-			if (HasHandle) { throw new ShaderException(ShaderException.Reason.HasHandle); }
+			if (Handle != 0) { throw new Exception(); } // TODO exception
 
 			Handle = (uint)GL.CreateProgram();
 
@@ -62,7 +58,7 @@ namespace Engine3.Client {
 
 			GL.LinkProgram(Handle);
 			GL.GetProgram(Handle, GetProgramParameterName.LinkStatus, out int code);
-			if (code != (int)All.True) { throw new ShaderException(ShaderException.Reason.FailedToLink); }
+			if (code != (int)All.True) { throw new Exception(); } // TODO exception
 
 			GL.DetachShader(Handle, vertexHandle);
 			GL.DeleteShader(vertexHandle);
@@ -113,7 +109,7 @@ namespace Engine3.Client {
 			GL.GetShader(shader, ShaderParameter.CompileStatus, out int code);
 			if (code != (int)All.True) {
 				Logger.Error($"Error occurred whilst compiling Shader: {shaderName}.\n\n{GL.GetShaderInfoLog(shader)}");
-				throw new ShaderException(ShaderException.Reason.FailedToCompile);
+				throw new Exception(); // TODO exception
 			}
 
 			return (uint)shader;
@@ -126,7 +122,6 @@ namespace Engine3.Client {
 		}
 	}
 
-	[PublicAPI]
 	public sealed class Shader<T> : Shader where T : ShaderContext, new() {
 		internal T Context { get; }
 

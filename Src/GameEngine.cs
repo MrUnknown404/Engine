@@ -1,31 +1,31 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Engine3.Client;
 using Engine3.Utils;
-using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace Engine3 {
-	[PublicAPI]
 	public static class GameEngine {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-		private static Thread? MainThread { get; set => field = field == null ? value : throw new EngineStateException(EngineStateException.Reason.AlreadySetValue); }
-
 		public static Version4 EngineVersion { get; } = new(0, 0, 0);
-		public static Assembly? EngineAssembly { get; private set => field = field == null ? value : throw new EngineStateException(EngineStateException.Reason.AlreadySetValue); }
-		public static Assembly? InstanceAssembly { get; private set => field = field == null ? value : throw new EngineStateException(EngineStateException.Reason.AlreadySetValue); }
-		public static GameClient? GameInstance { get; private set => field = field == null ? value : throw new EngineStateException(EngineStateException.Reason.AlreadySetValue); }
 
+		private static Thread? MainThread { get; set => field = field == null ? value : throw new Exception(); } // TODO exception
+		[field: MaybeNull] public static Assembly EngineAssembly { get => field ?? throw new Exception(); private set => field = field == null ? value : throw new Exception(); } // TODO exception
+		[field: MaybeNull] public static Assembly InstanceAssembly { get => field ?? throw new Exception(); private set => field = field == null ? value : throw new Exception(); } // TODO exception
+		public static GameClient? GameInstance { get => field ?? throw new Exception(); private set => field = field == null ? value : throw new Exception(); } // TODO exception
 		public static GameWindow Window { get; } = new();
 
 		public static string MainThreadName {
 			get;
 			set {
-				field = value;
-				MainThread?.Name = value;
+				if (value != field) {
+					field = value;
+					MainThread?.Name = field;
+				}
 			}
 		} = "Main";
 
@@ -145,7 +145,7 @@ namespace Engine3 {
 					UpdateTime = GetTime() - updateTime;
 				}
 
-				if (loops >= FrameSkip) { Logger.Warn("Too many frame skips detected? handle?"); } // TODO detect if this is because of a window resize. and if it is, don't yell
+				if (loops >= FrameSkip) { Logger.Warn("Too many frame skips detected? handle?"); }
 				double drawTime = GetTime();
 
 				GL.Clear(GLH.ClearBufferMask);
