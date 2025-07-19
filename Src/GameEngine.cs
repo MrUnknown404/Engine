@@ -36,16 +36,11 @@ namespace Engine3 {
 			set {
 				if (value) {
 					Logger.Debug("Close requested");
-
-					if (GameInstance?.IsCloseAllowed() ?? false) {
-						field = value;
-						if (WindowHandle != null) { Toolkit.Window.Destroy(WindowHandle); }
-					}
-
-					return;
+					if (!GameInstance?.IsCloseAllowed() ?? false) { return; }
 				}
 
 				field = value;
+				if (field && WindowHandle != null) { Toolkit.Window.Destroy(WindowHandle); }
 			}
 		}
 
@@ -83,8 +78,8 @@ namespace Engine3 {
 			RenderContext = engineSettings.RenderContext;
 			GraphicsApiHints = engineSettings.GraphicsApiHints;
 
-			if (RenderContext.RenderSystem is RenderSystem.OpenGL or RenderSystem.Vulkan) {
-				if (engineSettings.ToolkitOptions == null ^ GraphicsApiHints == null) { throw new EngineStateException("ToolkitOptions or GraphicApiHints were null. Both must be set"); }
+			if (RenderContext.RenderSystem is RenderSystem.OpenGL or RenderSystem.Vulkan && engineSettings.ToolkitOptions == null) {
+				throw new EngineStateException("ToolkitOptions was null when the provided RenderSystem requires it");
 			}
 
 			switch (RenderContext.RenderSystem) {
@@ -94,7 +89,7 @@ namespace Engine3 {
 					if (openglGraphics is not { Version: { Major: 4, Minor: 6, }, Profile: OpenGLProfile.Core, }) { throw new EngineStateException("Engine only supports OpenGL version 4.6 Core"); }
 					break;
 				case RenderSystem.Vulkan:
-					if (GraphicsApiHints is not VulkanGraphicsApiHints) { throw new EngineStateException("RenderSystem was set to OpenGL but the provided GraphicsApiHints was not of type OpenGLGraphicsApiHints"); }
+					if (GraphicsApiHints is not VulkanGraphicsApiHints) { throw new EngineStateException("RenderSystem was set to OpenGL but the provided GraphicsApiHints was not of type VulkanGraphicsApiHints"); }
 					break;
 				default: throw new ArgumentOutOfRangeException();
 			}
