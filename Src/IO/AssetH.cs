@@ -8,6 +8,6 @@ namespace Engine3.IO {
 
 		[MustDisposeResource]
 		public static Stream GetAssetStream(string path, Assembly assembly) =>
-				assembly.GetManifestResourceStream($"{assembly.GetName().Name}.Assets.{path}") ?? throw new NullReferenceException($"Failed to load asset '{path}' in assembly '{assembly.GetName().Name}'"); // TODO exception
+				assembly.GetManifestResourceStream($"{assembly.GetName().Name}.Assets.{path}") ?? throw new NullReferenceException($"Failed to load asset '{path}' in assembly '{assembly.GetName().Name}'");
 	}
 }

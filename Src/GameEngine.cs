@@ -175,8 +175,7 @@ namespace Engine3 {
 		}
 
 		private static void GameLoop() {
-			if (RenderContext == null) { throw new Exception(); } // TODO exception
-			if (GameInstance == null) { throw new Exception(); } // TODO exception
+			if (RenderContext == null || GameInstance == null) { throw new Exception("how did we get here?"); }
 
 			while (!IsCloseRequested) {
 				Toolkit.Window.ProcessEvents(false);
@@ -185,6 +184,7 @@ namespace Engine3 {
 				float delta = 0;
 
 				// TODO imgui goes in here somewhere
+
 				RenderContext.PrepareFrame();
 				Render(delta);
 				GameInstance.Render(delta);
@@ -220,7 +220,7 @@ namespace Engine3 {
 					return;
 				}
 
-				Logger.Fatal("Attempted to close an unknown window");
+				Logger.Error("Attempted to close an unknown window");
 			}
 		}
 	}
