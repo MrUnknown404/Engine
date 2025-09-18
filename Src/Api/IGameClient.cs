@@ -1,3 +1,4 @@
+using Engine3.Api.Graphics;
 using Engine3.Utils;
 using JetBrains.Annotations;
 
@@ -8,8 +9,11 @@ namespace Engine3.Api {
 		public string StartupMessage { get; }
 		public string ExitMessage { get; }
 
+		public List<RenderLayer> RenderLayers { get; }
+
 		public void Update();
-		public void Render(float delta);
+
+		public void AddRenderLayer(IProgramPipeline programPipeline, RenderLayer.RenderDelegate[] renderFuncs) => RenderLayers.Add(new(programPipeline, renderFuncs));
 
 		public bool IsCloseAllowed() => true;
 	}

@@ -10,6 +10,10 @@ using NLog;
 using OpenTK.Platform;
 
 namespace Engine3 {
+	// TODO setup fallback textures? (if you a texture fails to load, load a backup instead of using a broken/empty texture)
+	// TODO setup render pass system? each shader renders once?
+	// TODO setup https://ktstephano.github.io/rendering/opengl/mdi and always use it
+
 	[PublicAPI]
 	public static class GameEngine {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
@@ -23,13 +27,9 @@ namespace Engine3 {
 		public static IRenderContext? RenderContext { get; private set; }
 		public static GraphicsApiHints? GraphicsApiHints { get; private set; }
 
-		public static string MainThreadName {
-			get;
-			set {
-				field = value;
-				mainThread?.Name = value;
-			}
-		} = "Main";
+		private static readonly List<RenderLayer> RenderLayers = new();
+
+		public static string MainThreadName { get; set => mainThread?.Name = field = value; } = "Main";
 
 		public static bool IsCloseRequested {
 			get => field || (WindowHandle != null && Toolkit.Window.IsWindowDestroyed(WindowHandle));
@@ -186,8 +186,10 @@ namespace Engine3 {
 				// TODO imgui goes in here somewhere
 
 				RenderContext.PrepareFrame();
-				Render(delta);
-				GameInstance.Render(delta);
+
+				foreach (RenderLayer renderLayer in RenderLayers) { renderLayer.Render(delta); }
+				foreach (RenderLayer renderLayer in GameInstance.RenderLayers) { renderLayer.Render(delta); }
+
 				RenderContext.SwapBuffers();
 
 				Thread.Sleep(1); // TODO impl
@@ -196,11 +198,11 @@ namespace Engine3 {
 
 		private static void Update() { }
 
-		private static void Render(float delta) { }
-
 		private static void SetupEngine() { }
 
 		private static void SetupEnginePostGraphics() { }
+
+		internal static void AddRenderLayer(IProgramPipeline programPipeline, RenderLayer.RenderDelegate[] renderFuncs) => RenderLayers.Add(new(programPipeline, renderFuncs));
 
 		private static void OnExit(int errorCode) {
 			Logger.Info($"{nameof(OnExit)} called. Shutting down...");
