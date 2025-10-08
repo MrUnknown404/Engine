@@ -7,9 +7,11 @@ namespace Engine3.Utils {
 		public required byte Release { get; init; }
 		public required byte Major { get; init; }
 		public required byte Minor { get; init; }
+		private readonly byte hotfix; // this is a byte instead of a char to reduce the struct size to 4 bytes
+
 		public char Hotfix {
-			get;
-			init => field = value is >= 'a' and <= 'z' ? value : throw new ArgumentOutOfRangeException(nameof(Hotfix), $"{nameof(Hotfix)} is limited to [a-z]. if you're at z, you should probably rethink things");
+			get => (char)hotfix;
+			init => hotfix = value is >= 'a' and <= 'z' ? (byte)value : throw new ArgumentOutOfRangeException(nameof(Hotfix), $"{nameof(Hotfix)} is limited to [a-z]. if you're at z, you should probably rethink things");
 		}
 
 		[SetsRequiredMembers]

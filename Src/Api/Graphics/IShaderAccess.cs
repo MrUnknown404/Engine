@@ -1,5 +1,5 @@
+using System.Numerics;
 using OpenTK.Graphics;
-using OpenTK.Mathematics;
 
 namespace Engine3.Api.Graphics {
 	public interface IShaderAccess {
@@ -12,6 +12,6 @@ namespace Engine3.Api.Graphics {
 		public void SetUniform(string name, Vector2 value);
 		public void SetUniform(string name, Vector3 value);
 		public void SetUniform(string name, Vector4 value);
-		public void SetUniform(string name, Matrix4 value);
+		public void SetUniform(string name, Matrix4x4 value);
 	}
 }

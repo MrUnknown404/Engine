@@ -13,7 +13,7 @@ namespace Engine3.Api {
 
 		public void Update();
 
-		public void AddRenderLayer(IProgramPipeline programPipeline, RenderLayer.RenderDelegate[] renderFuncs) => RenderLayers.Add(new(programPipeline, renderFuncs));
+		public void AddRenderLayer(IProgramPipeline programPipeline, RenderLayer.RenderDelegate renderFunc) => RenderLayers.Add(new(programPipeline, renderFunc));
 
 		public bool IsCloseAllowed() => true;
 	}

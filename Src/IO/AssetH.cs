@@ -1,13 +1,19 @@
 using System.Reflection;
 using JetBrains.Annotations;
+using NLog;
 
 namespace Engine3.IO {
 	[PublicAPI]
 	public static class AssetH {
-		[MustDisposeResource] public static Stream GetAssetStream(Assembly assembly, string path) => GetAssetStream(path, assembly);
+		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		[MustDisposeResource]
-		public static Stream GetAssetStream(string path, Assembly assembly) =>
-				assembly.GetManifestResourceStream($"{assembly.GetName().Name}.Assets.{path}") ?? throw new NullReferenceException($"Failed to load asset '{path}' in assembly '{assembly.GetName().Name}'");
+		public static Stream? GetAssetStream(string path, Assembly assembly) {
+			try { return assembly.GetManifestResourceStream($"{assembly.GetName().Name}.Assets.{path}"); }
+			catch {
+				Logger.Error($"Failed to load asset '{path}' in assembly '{assembly.GetName().Name}'");
+				return null;
+			}
+		}
 	}
 }

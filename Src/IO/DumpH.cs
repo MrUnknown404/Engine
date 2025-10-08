@@ -41,7 +41,7 @@ namespace Engine3.IO {
 			AddDumps?.Invoke();
 
 			foreach ((string fileName, string content) in ToWrite) {
-				using (FileStream f = File.Create($"{OutputFolder}\\{fileName}.{OutputFileType}")) {
+				using (FileStream f = File.Create($"{OutputFolder}/{fileName}.{OutputFileType}")) {
 					using (StreamWriter w = new(f)) { w.Write(content); }
 				}
 
@@ -52,12 +52,7 @@ namespace Engine3.IO {
 			wasSetup = true;
 		}
 
-		private static void AddDefaultDumps() {
-			AddStruct<Version4>();
-			// AddStruct<VertexXyz>();
-			// AddStruct<VertexUv>();
-			// AddStruct<VertexXyzUv>();
-		}
+		private static void AddDefaultDumps() { AddStruct<Version4>(); }
 
 		public static void AddStruct<T>() where T : struct => TryAdd(typeof(T).Name, $"{TypeLayout.GetLayout<T>()}");
 

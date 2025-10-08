@@ -71,7 +71,7 @@ namespace Engine3.IO {
 			TimeSource.Current = new AccurateUtcTimeSource();
 			LogManager.Setup().LoadConfiguration(static b => {
 				b.ForLogger().FilterMinLevel(ConsoleLogLevel).WriteToColoredConsole(layout: LogLayout);
-				b.ForLogger().FilterMinLevel(FileLogLevel).WriteToFile(fileName: $"{LogFolder}\\{DateTime.Now.ToString(LogDateFormat)}.{LogFileType}", layout: LogLayout, maxArchiveFiles: MaxFiles - 1);
+				b.ForLogger().FilterMinLevel(FileLogLevel).WriteToFile(fileName: $"{LogFolder}/{DateTime.Now.ToString(LogDateFormat)}.{LogFileType}", layout: LogLayout, maxArchiveFiles: MaxFiles - 1);
 			});
 
 			AppDomain.CurrentDomain.UnhandledException += static (_, args) => Logger.Error((Exception)args.ExceptionObject, "Uncaught Exception: ");

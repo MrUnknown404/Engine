@@ -1,16 +1,16 @@
 namespace Engine3.Api.Graphics {
 	public class RenderLayer { // TODO this is probably going to need major reworking once vulkan is implemented
 		private readonly IProgramPipeline programPipeline;
-		private readonly RenderDelegate[] renderFuncs;
+		private readonly RenderDelegate renderFunc;
 
-		public RenderLayer(IProgramPipeline programPipeline, RenderDelegate[] renderFuncs) {
+		public RenderLayer(IProgramPipeline programPipeline, RenderDelegate renderFunc) {
 			this.programPipeline = programPipeline;
-			this.renderFuncs = renderFuncs;
+			this.renderFunc = renderFunc;
 		}
 
 		public void Render(float delta) {
 			programPipeline.Bind();
-			foreach (RenderDelegate render in renderFuncs) { render(programPipeline, delta); }
+			renderFunc(programPipeline, delta);
 		}
 
 		public delegate void RenderDelegate(IProgramPipeline programPipeline, float delta);

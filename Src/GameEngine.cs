@@ -11,7 +11,6 @@ using OpenTK.Platform;
 
 namespace Engine3 {
 	// TODO setup fallback textures? (if you a texture fails to load, load a backup instead of using a broken/empty texture)
-	// TODO setup render pass system? each shader renders once?
 	// TODO setup https://ktstephano.github.io/rendering/opengl/mdi and always use it
 
 	[PublicAPI]
@@ -56,7 +55,7 @@ namespace Engine3 {
 
 		private static Thread? mainThread;
 
-		public static event Action? OnEngineSetupEvent;
+		public static event Action? OnEngineSetupEvent; // TODO should these events go onto the IGameClient?
 		public static event Action? OnWindowSetupEvent;
 		public static event Action? OnGraphicsSetupEvent;
 		public static event Action? OnEnginePostGraphicsSetupEvent;
@@ -67,7 +66,7 @@ namespace Engine3 {
 		public static event Action? OnOpenGLSetupEvent;
 		public static event Action? OnVulkanSetupEvent;
 
-		public static void Start<T>(IEngineStartupSettings engineSettings) where T : IGameClient, new() {
+		public static void Start<T>(EngineStartupSettings engineSettings) where T : IGameClient, new() {
 			mainThread = Thread.CurrentThread;
 			mainThread.Name = MainThreadName;
 
@@ -115,7 +114,7 @@ namespace Engine3 {
 			Logger.Info(GameInstance.StartupMessage);
 
 #if DEBUG
-			Logger.Debug("Writing dumps to files outputs...");
+			Logger.Debug("Writing dumps to file outputs...");
 			DumpH.WriteDumpsToOutput();
 #endif
 
@@ -185,6 +184,9 @@ namespace Engine3 {
 
 				// TODO imgui goes in here somewhere
 
+				Update();
+				GameInstance.Update();
+
 				RenderContext.PrepareFrame();
 
 				foreach (RenderLayer renderLayer in RenderLayers) { renderLayer.Render(delta); }
@@ -202,7 +204,7 @@ namespace Engine3 {
 
 		private static void SetupEnginePostGraphics() { }
 
-		internal static void AddRenderLayer(IProgramPipeline programPipeline, RenderLayer.RenderDelegate[] renderFuncs) => RenderLayers.Add(new(programPipeline, renderFuncs));
+		internal static void AddRenderLayer(IProgramPipeline programPipeline, RenderLayer.RenderDelegate renderFunc) => RenderLayers.Add(new(programPipeline, renderFunc));
 
 		private static void OnExit(int errorCode) {
 			Logger.Info($"{nameof(OnExit)} called. Shutting down...");
