@@ -3,9 +3,9 @@ using JetBrains.Annotations;
 using NLog;
 using ObjectLayoutInspector;
 
-namespace Engine3.IO {
+namespace Engine3.Debug {
 	[PublicAPI]
-	public static class DumpH {
+	public static class StructLayoutDumper {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public static string OutputFolder {
@@ -41,9 +41,9 @@ namespace Engine3.IO {
 			AddDumps?.Invoke();
 
 			foreach ((string fileName, string content) in ToWrite) {
-				using (FileStream f = File.Create($"{OutputFolder}/{fileName}.{OutputFileType}")) {
-					using (StreamWriter w = new(f)) { w.Write(content); }
-				}
+				using FileStream stream = File.Create($"{OutputFolder}/{fileName}.{OutputFileType}");
+				using StreamWriter writer = new(stream);
+				writer.Write(content);
 
 				Logger.Debug($"- Wrote debug output file for {fileName}");
 			}
@@ -52,9 +52,14 @@ namespace Engine3.IO {
 			wasSetup = true;
 		}
 
-		private static void AddDefaultDumps() { AddStruct<Version4>(); }
+		private static void AddDefaultDumps() {
+			AddStruct<Version3>();
+			AddStruct<Version3<ushort>>();
+			AddStruct<Version4>();
+			AddStruct<Version4<ushort>>();
+		}
 
-		public static void AddStruct<T>() where T : struct => TryAdd(typeof(T).Name, $"{TypeLayout.GetLayout<T>()}");
+		public static void AddStruct<T>() where T : struct => TryAdd(typeof(T).ToReadableName(), $"{TypeLayout.GetLayout<T>()}");
 
 		private static void TryAdd(string fileName, string content) {
 			if (wasSetup) {

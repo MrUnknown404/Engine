@@ -13,13 +13,25 @@
 
 	<!-- Includes -->
 	<ItemGroup>
-		<PackageReference Include="JetBrains.Annotations" Version="2024.3.0"/>
-		<PackageReference Include="NLog" Version="5.5.0"/>
+		<PackageReference Include="ImGui.NET" Version="1.91.6.1"/>
+		<PackageReference Include="JetBrains.Annotations" Version="2025.2.4"/>
+		<PackageReference Include="NLog" Version="5.5.1"/>
 		<PackageReference Include="ObjectLayoutInspector" Version="0.1.4"/>
-		<PackageReference Include="OpenTK" Version="5.0.0-pre.13"/>
+		<PackageReference Include="OpenTK" Version="5.0.0-pre.15"/>
+		<PackageReference Include="ZLinq" Version="1.5.4"/>
+		<PackageReference Include="ZLinq.DropInGenerator" Version="1.5.4">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
 
 		<ProjectReference Include="..\USharpLibs-Common\USharpLibs-Common.csproj"/>
 
 		<EmbeddedResource Include="Assets\**"/>
+
+		<Compile Remove="Src/Debug/**/*.cs" Condition="'$(Configuration)' == 'Release'"/>
+	</ItemGroup>
+	<ItemGroup>
+		<Folder Include="Src\Engine\"/>
+		<Folder Include="Src\Math\"/>
 	</ItemGroup>
 </Project>

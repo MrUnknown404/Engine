@@ -1,11 +1,8 @@
 using System.Numerics;
-using OpenTK.Graphics;
 
 namespace Engine3.Api.Graphics {
+	[Obsolete]
 	public interface IShaderAccess {
-		public ShaderHandle Handle { get; }
-		public bool HasHandle { get; }
-
 		public void SetUniform(string name, bool value);
 		public void SetUniform(string name, int value);
 		public void SetUniform(string name, float value);

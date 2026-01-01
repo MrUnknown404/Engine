@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly name="OpenTK.Graphics">
+	<member name="M:OpenTK.Graphics.Vulkan.Vk.GetPhysicalDeviceProperties(OpenTK.Graphics.Vulkan.VkPhysicalDevice,OpenTK.Graphics.Vulkan.VkPhysicalDeviceProperties*)">
+		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
+			<argument>Use 'Vk.GetPhysicalDeviceProperties2()' for Vulkan 1.1+. See https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-gpdp2</argument>
+		</attribute>
+	</member>
+	<member name="M:OpenTK.Graphics.Vulkan.Vk.GetPhysicalDeviceFeatures(OpenTK.Graphics.Vulkan.VkPhysicalDevice,OpenTK.Graphics.Vulkan.VkPhysicalDeviceFeatures*)">
+		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
+			<argument>Use 'Vk.GetPhysicalDeviceFeatures2()' for Vulkan 1.1+. See https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-gpdp2</argument>
+		</attribute>
+	</member>
+</assembly>

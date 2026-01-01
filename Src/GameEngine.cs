@@ -1,18 +1,21 @@
+using System.Diagnostics;
 using System.Reflection;
 using Engine3.Api;
 using Engine3.Api.Graphics;
+using Engine3.Debug;
 using Engine3.Exceptions;
 using Engine3.Graphics;
-using Engine3.IO;
 using Engine3.Utils;
 using JetBrains.Annotations;
 using NLog;
 using OpenTK.Platform;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace Engine3 {
 	// TODO setup fallback textures? (if you a texture fails to load, load a backup instead of using a broken/empty texture)
 	// TODO setup https://ktstephano.github.io/rendering/opengl/mdi and always use it
 
+	[Obsolete]
 	[PublicAPI]
 	public static class GameEngine {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
@@ -25,8 +28,6 @@ namespace Engine3 {
 		public static WindowHandle? WindowHandle { get; private set; }
 		public static IRenderContext? RenderContext { get; private set; }
 		public static GraphicsApiHints? GraphicsApiHints { get; private set; }
-
-		private static readonly List<RenderLayer> RenderLayers = new();
 
 		public static string MainThreadName { get; set => mainThread?.Name = field = value; } = "Main";
 
@@ -100,8 +101,9 @@ namespace Engine3 {
 
 			CurrentLoadState = EngineLoadState.Engine;
 			Logger.Info("Setting up engine...");
-			Logger.Debug($"- Engine is running version: {EngineVersion}");
-			Logger.Debug($"- Engine is using RenderSystem: {RenderContext.RenderSystem}");
+			Logger.Debug($"- Version: {EngineVersion}");
+			Logger.Debug($"- Graphics: {RenderContext.RenderSystem}");
+			// TODO check imgui version and print
 
 			SetupEngine();
 			OnEngineSetupEvent?.Invoke();
@@ -115,7 +117,7 @@ namespace Engine3 {
 
 #if DEBUG
 			Logger.Debug("Writing dumps to file outputs...");
-			DumpH.WriteDumpsToOutput();
+			StructLayoutDumper.WriteDumpsToOutput();
 #endif
 
 			CurrentLoadState = EngineLoadState.Graphics;
@@ -123,10 +125,12 @@ namespace Engine3 {
 
 			if (engineSettings.ToolkitOptions != null) {
 				Logger.Info("Setting up toolkit...");
-				engineSettings.ToolkitOptions.Logger = null;
+				engineSettings.ToolkitOptions.Logger = null; // TODO look into this
 
 				EventQueue.EventRaised += OnEventRaised;
 				Toolkit.Init(engineSettings.ToolkitOptions);
+
+				Logger.Debug($"- GLFW Version: {GLFW.GetVersionString()}");
 
 				const ushort DefaultWidth = 854, DefaultHeight = 480;
 
@@ -174,25 +178,25 @@ namespace Engine3 {
 		}
 
 		private static void GameLoop() {
-			if (RenderContext == null || GameInstance == null) { throw new Exception("how did we get here?"); }
+			if (RenderContext == null || GameInstance == null) { throw new UnreachableException("how did we get here?"); }
 
 			while (!IsCloseRequested) {
 				Toolkit.Window.ProcessEvents(false);
 				if (IsCloseRequested) { break; } // Early exit
-
-				float delta = 0;
-
-				// TODO imgui goes in here somewhere
 
 				Update();
 				GameInstance.Update();
 
 				RenderContext.PrepareFrame();
 
-				foreach (RenderLayer renderLayer in RenderLayers) { renderLayer.Render(delta); }
-				foreach (RenderLayer renderLayer in GameInstance.RenderLayers) { renderLayer.Render(delta); }
+				float delta = 0;
+				Render(delta);
+				GameInstance.Render(delta);
 
+				RenderContext.FinalizeFrame();
 				RenderContext.SwapBuffers();
+
+				Frame++;
 
 				Thread.Sleep(1); // TODO impl
 			}
@@ -200,18 +204,18 @@ namespace Engine3 {
 
 		private static void Update() { }
 
+		private static void Render(float delta) { }
+
 		private static void SetupEngine() { }
 
 		private static void SetupEnginePostGraphics() { }
-
-		internal static void AddRenderLayer(IProgramPipeline programPipeline, RenderLayer.RenderDelegate renderFunc) => RenderLayers.Add(new(programPipeline, renderFunc));
 
 		private static void OnExit(int errorCode) {
 			Logger.Info($"{nameof(OnExit)} called. Shutting down...");
 			Logger.Info(GameInstance?.ExitMessage);
 
 			OnExitEvent?.Invoke();
-			// TODO cleanup
+			// TODO cleanup (also cleanup everything else. such as ImGui)
 
 			LogManager.Shutdown();
 			Environment.Exit(errorCode);
@@ -224,7 +228,7 @@ namespace Engine3 {
 					return;
 				}
 
-				Logger.Error("Attempted to close an unknown window");
+				Logger.Warn("Attempted to close an unknown window");
 			}
 		}
 	}

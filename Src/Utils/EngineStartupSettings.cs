@@ -2,8 +2,9 @@ using Engine3.Api.Graphics;
 using JetBrains.Annotations;
 using OpenTK.Platform;
 
-namespace Engine3.Api {
+namespace Engine3.Utils {
 	[PublicAPI]
+	[Obsolete]
 	public class EngineStartupSettings {
 		public IRenderContext RenderContext { get; }
 		public GraphicsApiHints? GraphicsApiHints { get; init; }

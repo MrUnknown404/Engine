@@ -1,4 +1,5 @@
 namespace Engine3.Utils {
+	[Obsolete]
 	public enum EngineLoadState : byte {
 		None = 0,
 		Logger,

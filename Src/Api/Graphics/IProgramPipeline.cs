@@ -1,4 +1,5 @@
 namespace Engine3.Api.Graphics {
+	[Obsolete]
 	public interface IProgramPipeline {
 		public IShaderAccess? VertexShader { get; }
 		public IShaderAccess? FragmentShader { get; }
