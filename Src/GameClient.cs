@@ -22,7 +22,7 @@ namespace Engine3 {
 
 		[MustUseReturnValue]
 		protected static EngineWindow CreateWindow(string title, int w, int h) {
-			if (Engine3.GraphicsApi == GraphicsApi.Console) { throw new IllegalStateException("Cannot create window with no graphics api"); }
+			if (Engine3.GraphicsApi == GraphicsApi.Console) { throw new Engine3Exception("Cannot create window with no graphics api"); }
 
 			WindowHandle windowHandle = Toolkit.Window.Create(Engine3.GraphicsApiHints ?? throw new UnreachableException());
 			Logger.Debug("Created new window");
