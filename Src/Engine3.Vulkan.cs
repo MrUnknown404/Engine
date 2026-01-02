@@ -12,15 +12,18 @@ using OpenTK.Platform;
 
 namespace Engine3 {
 	public static partial class Engine3 { // TODO all these preprocessor directives are getting annoying. i may want to refactor to take those in mind
-		public static bool WasVulkanSetup { get; set; }
+		public static bool WasVulkanSetup { get; private set; }
 
 		public static VkInstance? VkInstance { get; private set; }
+		public static VkPhysicalDevice? VkPhysicalDevice { get; private set; }
+		public static VkDevice? VkLogicalDevice { get; private set; }
+		public static VkQueue? VkGraphicsQueue { get; private set; }
 
 #if DEBUG
 		private static VkDebugUtilsMessengerEXT? debugMessenger;
 #endif
 
-		private static void SetupVulkan(string vulkanAppTitle, Version4 gameVersion, Version4 engineVersion, CheckIfDeviceContainsRequiredVulkanFeatures deviceFeatureCheck) {
+		private static unsafe void SetupVulkan(string vulkanAppTitle, Version4 gameVersion, Version4 engineVersion, CheckIfDeviceContainsRequiredVulkanFeatures deviceFeatureCheck) {
 #if DEBUG
 			if (!CheckSupportForRequiredVulkanValidationLayers()) { throw new VulkanException("Requested validation layers are not available"); }
 #endif
@@ -30,12 +33,22 @@ namespace Engine3 {
 
 			VkInstance = CreateVulkanInstance(vulkanAppTitle, gameVersion, engineVersion);
 			VKLoader.SetInstance(VkInstance.Value);
+			Logger.Info("Created Vulkan instance");
 
 #if DEBUG
 			CreateVulkanDebugMessenger();
+			Logger.Debug("Created Vulkan Debug Messenger");
 #endif
 
 			VulkanPickPhysicalDevice(deviceFeatureCheck);
+			Logger.Debug("Found physical device");
+			VulkanCreateLogicalDevice();
+			Logger.Debug("Created logical device");
+
+			VkDeviceQueueInfo2 deviceQueueInfo2 = new();
+			VkQueue vkGraphicsQueue;
+			Vk.GetDeviceQueue2(VkLogicalDevice!.Value, &deviceQueueInfo2, &vkGraphicsQueue); // VkLogicalDevice shouldn't be null here
+			VkGraphicsQueue = vkGraphicsQueue;
 
 			WasVulkanSetup = true;
 		}
@@ -75,7 +88,6 @@ namespace Engine3 {
 
 			VkInstance vkInstance;
 			if (Vk.CreateInstance(&vkCreateInfo, null, &vkInstance) != VkResult.Success) { throw new VulkanException("Failed to create Vulkan instance"); }
-			Logger.Info("Created Vulkan instance");
 
 			MarshalTk.FreeStringArrayCoTaskMem(requiredExtensionsPtr, requiredExtensions.Count);
 #if DEBUG
@@ -137,7 +149,7 @@ namespace Engine3 {
 		}
 
 		private static void VulkanPickPhysicalDevice(CheckIfDeviceContainsRequiredVulkanFeatures deviceFeatureCheck) {
-			ReadOnlySpan<VkPhysicalDevice> devices = VkH.EnumeratePhysicalDevices(VkInstance!.Value); // vkInstance shouldn't be null here
+			ReadOnlySpan<VkPhysicalDevice> devices = VkH.EnumeratePhysicalDevices(VkInstance!.Value); // VkInstance shouldn't be null here
 			if (devices.Length == 0) { throw new VulkanException("Could not find any GPUs"); }
 
 #if DEBUG
@@ -172,14 +184,18 @@ namespace Engine3 {
 
 			VkPhysicalDevice? vkPhysicalDevice = VulkanSelectBestDevice(capableDevices);
 			if (vkPhysicalDevice == null) { throw new VulkanException("Could not find any suitable GPUs"); }
+			VkPhysicalDevice = vkPhysicalDevice;
 		}
 
 		private static bool VulkanIsDeviceSuitable(VkPhysicalDevice device, CheckIfDeviceContainsRequiredVulkanFeatures deviceFeatureCheck) {
 			VkPhysicalDeviceProperties deviceProperties = VkH.GetPhysicalDeviceProperties(device).properties;
 			VkPhysicalDeviceFeatures deviceFeatures = VkH.GetPhysicalDeviceFeatures(device).features;
 
+			QueueFamilyIndices graphicsFamily = VulkanFindQueueFamilies(device);
+
 			return deviceProperties.deviceType is VkPhysicalDeviceType.PhysicalDeviceTypeIntegratedGpu or VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu or VkPhysicalDeviceType.PhysicalDeviceTypeVirtualGpu &&
-				   deviceFeatureCheck(deviceFeatures);
+				   deviceFeatureCheck(deviceFeatures) &&
+				   graphicsFamily != null;
 		}
 
 		private static VkPhysicalDevice? VulkanSelectBestDevice(IEnumerable<VkPhysicalDevice> capableDevices) {
@@ -208,20 +224,80 @@ namespace Engine3 {
 			return score;
 		}
 
-		internal static unsafe void CreateVulkanDebugMessenger() {
+		private static unsafe void CreateVulkanDebugMessenger() {
 			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = VkH.CreateVkDebugUtilsMessengerCreateInfoEXT();
 
 			VkDebugUtilsMessengerEXT debugMessenger;
-			if (Vk.CreateDebugUtilsMessengerEXT(VkInstance!.Value, &messengerCreateInfo, null, &debugMessenger) != VkResult.Success) { // vkInstance shouldn't be null here
+			if (Vk.CreateDebugUtilsMessengerEXT(VkInstance!.Value, &messengerCreateInfo, null, &debugMessenger) != VkResult.Success) { // VkInstance shouldn't be null here
 				throw new VulkanException("Failed to create Vulkan Debug Messenger");
 			}
 
 			Engine3.debugMessenger = debugMessenger;
-			Logger.Info("Created Vulkan Debug Messenger");
+		}
+
+		private static QueueFamilyIndices VulkanFindQueueFamilies(VkPhysicalDevice device) {
+			uint? graphicsFamily = null;
+
+			ReadOnlySpan<VkQueueFamilyProperties2> queueFamilies = VkH.GetPhysicalDeviceQueueFamilyProperties(device);
+			uint i = 0;
+			foreach (VkQueueFamilyProperties2 queueFamilyProperties2 in queueFamilies) {
+				VkQueueFamilyProperties queueFamilyProperties = queueFamilyProperties2.queueFamilyProperties;
+				if ((queueFamilyProperties.queueFlags & VkQueueFlagBits.QueueGraphicsBit) != 0) {
+					graphicsFamily = i;
+					break;
+				}
+
+				i++;
+			}
+
+			return new(graphicsFamily);
+		}
+
+		private static unsafe void VulkanCreateLogicalDevice() {
+			QueueFamilyIndices indices = VulkanFindQueueFamilies(VkPhysicalDevice!.Value); // VkPhysicalDevice shouldn't be null here
+
+			float queuePriority = 1f;
+
+			VkDeviceQueueCreateInfo deviceQueueCreateInfo = new() { queueFamilyIndex = indices.GraphicsFamily!.Value, queueCount = 1, pQueuePriorities = &queuePriority, }; // indices.GraphicsFamily shouldn't be null here
+			VkPhysicalDeviceFeatures deviceFeatures = new(); // ???
+
+// #if DEBUG
+// 			IntPtr requiredValidationLayersPtr = MarshalTk.StringArrayToCoTaskMemAnsi(CollectionsMarshal.AsSpan(VkH.RequiredValidationLayers));
+// #endif
+
+			VkDeviceCreateInfo deviceCreateInfo = new() {
+					pQueueCreateInfos = &deviceQueueCreateInfo, queueCreateInfoCount = 1, pEnabledFeatures = &deviceFeatures, enabledExtensionCount = 0,
+// #if DEBUG // TODO for some reason we're crashing with this enabled. no error message
+// 					/* from https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Logical_device_and_queues & https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-devicelayers
+// 					 * "Previous implementations of Vulkan made a distinction between instance and device specific validation layers, but this is no longer the case.
+// 					 * That means that the enabledLayerCount and ppEnabledLayerNames fields of VkDeviceCreateInfo are ignored by up-to-date implementations.
+// 					 * However, it is still a good idea to set them anyway to be compatible with older implementations."
+// 					 */
+// #pragma warning disable CS0618 // Type or member is obsolete
+// 					enabledLayerCount = (uint)VkH.RequiredValidationLayers.Count,
+// 					ppEnabledLayerNames = (byte**)requiredValidationLayersPtr,
+// #pragma warning restore CS0618 // Type or member is obsolete
+// #else
+// 					enabledLayerCount = 0,
+// #endif
+			};
+
+// #if DEBUG
+// 			MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, VkH.RequiredValidationLayers.Count);
+// #endif
+
+			VkDevice device;
+			if (Vk.CreateDevice(VkPhysicalDevice.Value, &deviceCreateInfo, null, &device) != VkResult.Success) { throw new VulkanException("Failed to create logical device"); }
+			VkLogicalDevice = device;
 		}
 
 		private static unsafe void CleanupVulkan() {
 			if (VkInstance == null) { return; }
+
+			if (VkLogicalDevice != null) {
+				Vk.DestroyDevice(VkLogicalDevice.Value, null);
+				VkLogicalDevice = null;
+			}
 
 #if DEBUG
 			if (debugMessenger != null) {
@@ -234,7 +310,16 @@ namespace Engine3 {
 			VkInstance = null;
 		}
 
-		public delegate bool CheckIfDeviceContainsRequiredVulkanFeatures(VkPhysicalDeviceFeatures deviceFeatures);
+		private readonly record struct QueueFamilyIndices { // TODO move?
+			public uint? GraphicsFamily { get; init; }
+
+			public QueueFamilyIndices() { }
+			public QueueFamilyIndices(uint? graphicsFamily) => GraphicsFamily = graphicsFamily;
+
+			public bool IsValid => GraphicsFamily != null;
+		}
+
+		public delegate bool CheckIfDeviceContainsRequiredVulkanFeatures(VkPhysicalDeviceFeatures deviceFeatures); // TODO move?
 
 		public class VulkanSettings {
 			public required CheckIfDeviceContainsRequiredVulkanFeatures DeviceVulkanFeatureCheck { get; init; }

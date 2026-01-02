@@ -1,6 +1,5 @@
 #if DEBUG
 
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using OpenTK.Graphics.Vulkan;
@@ -25,7 +24,6 @@ namespace Engine3.Graphics.Vulkan {
 			}
 		}
 
-		[SuppressMessage("ReSharper", "InconsistentNaming")]
 		public static VkDebugUtilsMessengerCreateInfoEXT CreateVkDebugUtilsMessengerCreateInfoEXT() =>
 				new() { messageSeverity = EnabledDebugMessageSeverities, messageType = EnabledDebugMessageTypes, pfnUserCallback = &VulkanDebugCallback, };
 

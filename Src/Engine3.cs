@@ -41,7 +41,7 @@ namespace Engine3 {
 		public static event Action? OnSetupToolkitEvent;
 		public static event Action? OnShutdownEvent;
 
-		public static unsafe void Start<T>(StartupSettings settings) where T : GameClient, new() {
+		public static void Start<T>(StartupSettings settings) where T : GameClient, new() {
 			if (GameInstance != null) {
 				Logger.Error("Attempted to call #Start twice");
 				return;

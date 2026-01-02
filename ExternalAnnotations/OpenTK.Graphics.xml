@@ -10,4 +10,24 @@
 			<argument>Use 'Vk.GetPhysicalDeviceFeatures2()' for Vulkan 1.1+. See https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-gpdp2</argument>
 		</attribute>
 	</member>
+	<member name="M:OpenTK.Graphics.Vulkan.Vk.GetPhysicalDeviceQueueFamilyProperties(OpenTK.Graphics.Vulkan.VkPhysicalDevice,System.UInt32*,OpenTK.Graphics.Vulkan.VkQueueFamilyProperties*)">
+		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
+			<argument>Use 'Vk.GetPhysicalDeviceQueueFamilyProperties2()' for Vulkan 1.1+. See https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-gpdp2</argument>
+		</attribute>
+	</member>
+	<member name="F:OpenTK.Graphics.Vulkan.VkDeviceCreateInfo.enabledLayerCount">
+		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
+			<argument>These are legacy and ignored in new versions of Vulkan. I don't know which version. See https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-devicelayers</argument>
+		</attribute>
+	</member>
+	<member name="F:OpenTK.Graphics.Vulkan.VkDeviceCreateInfo.ppEnabledLayerNames">
+		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
+			<argument>These are legacy and ignored in new versions of Vulkan. I don't know which version. See https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-devicelayers</argument>
+		</attribute>
+	</member>
+	<member name="M:OpenTK.Graphics.Vulkan.Vk.GetDeviceQueue(OpenTK.Graphics.Vulkan.VkDevice,System.UInt32,System.UInt32,OpenTK.Graphics.Vulkan.VkQueue*)">
+		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
+			<argument>Use 'Vk.GetDeviceQueue2()' for Vulkan 1.1+. See https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-devicelayers</argument>
+		</attribute>
+	</member>
 </assembly>

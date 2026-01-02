@@ -62,6 +62,21 @@ namespace Engine3.Graphics.Vulkan {
 			return deviceFeatures2;
 		}
 
+		public static ReadOnlySpan<VkQueueFamilyProperties2> GetPhysicalDeviceQueueFamilyProperties(VkPhysicalDevice device) {
+			uint queueFamilyPropertyCount = 0;
+			Vk.GetPhysicalDeviceQueueFamilyProperties2(device, &queueFamilyPropertyCount, null);
+
+			if (queueFamilyPropertyCount == 0) { return ReadOnlySpan<VkQueueFamilyProperties2>.Empty; }
+
+			VkQueueFamilyProperties2[] queueFamilyProperties = new VkQueueFamilyProperties2[queueFamilyPropertyCount];
+			for (int i = 0; i < queueFamilyPropertyCount; i++) { queueFamilyProperties[i] = new() { sType = VkStructureType.StructureTypeQueueFamilyProperties2, }; }
+
+			fixed (VkQueueFamilyProperties2* queueFamilyPropertiesPtr = queueFamilyProperties) {
+				Vk.GetPhysicalDeviceQueueFamilyProperties2(device, &queueFamilyPropertyCount, queueFamilyPropertiesPtr);
+				return queueFamilyProperties;
+			}
+		}
+
 		public static ReadOnlySpan<VkExtensionProperties> EnumerateInstanceExtensionProperties() {
 			uint extensionCount;
 			Vk.EnumerateInstanceExtensionProperties(null, &extensionCount, null);
