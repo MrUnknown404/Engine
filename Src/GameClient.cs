@@ -1,16 +1,10 @@
-using System.Diagnostics;
 using System.Reflection;
-using Engine3.Exceptions;
+using Engine3.Graphics.Vulkan;
 using Engine3.Utils;
-using JetBrains.Annotations;
-using NLog;
-using OpenTK.Platform;
-using GraphicsApi = Engine3.Graphics.GraphicsApi;
+using OpenTK.Graphics.Vulkan;
 
 namespace Engine3 {
 	public abstract class GameClient {
-		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-
 		public Assembly Assembly { get; internal init; } = null!; // Set in Engine3#Start
 
 		public abstract Version4 Version { get; }
@@ -20,19 +14,19 @@ namespace Engine3 {
 		protected internal abstract void Update();
 		protected internal abstract void Render(float delta);
 
-		[MustUseReturnValue]
-		protected static EngineWindow CreateWindow(string title, int w, int h) {
-			if (Engine3.GraphicsApi == GraphicsApi.Console) { throw new Engine3Exception("Cannot create window with no graphics api"); }
+		protected internal virtual bool VkIsPhysicalDeviceSuitable(VkPhysicalDevice device) {
+			VkPhysicalDeviceProperties deviceProperties = VkH.GetPhysicalDeviceProperties(device).properties;
+			return deviceProperties.deviceType is VkPhysicalDeviceType.PhysicalDeviceTypeIntegratedGpu or VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu or VkPhysicalDeviceType.PhysicalDeviceTypeVirtualGpu;
+		}
 
-			WindowHandle windowHandle = Toolkit.Window.Create(Engine3.GraphicsApiHints ?? throw new UnreachableException());
-			Logger.Debug("Created new window");
+		protected internal virtual int VkRateDeviceSuitability(VkPhysicalDevice device) {
+			VkPhysicalDeviceProperties deviceProperties = VkH.GetPhysicalDeviceProperties(device).properties;
+			int score = 0;
 
-			Toolkit.Window.SetTitle(windowHandle, title);
-			Toolkit.Window.SetSize(windowHandle, new(w, h));
+			if (deviceProperties.deviceType == VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu) { score += 1000; }
+			score += (int)deviceProperties.limits.maxImageDimension2D;
 
-			EngineWindow window = new(windowHandle);
-			Engine3.Windows.Add(window);
-			return window;
+			return score;
 		}
 	}
 }

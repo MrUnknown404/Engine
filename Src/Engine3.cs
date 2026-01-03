@@ -54,7 +54,8 @@ namespace Engine3 {
 
 			GraphicsApi = settings.GraphicsApi;
 			GraphicsApiHints = settings.GraphicsApiHints;
-			Logger.Debug($"Graphics Api is set to: {GraphicsApi}");
+
+			CheckValidStartupSettings(settings);
 
 			Logger.Info("Setting up engine...");
 			Logger.Debug($"- Engine Version: {EngineVersion}");
@@ -76,8 +77,6 @@ namespace Engine3 {
 			StructLayoutDumper.WriteDumpsToOutput();
 #endif
 
-			CheckValidStartupSettings(settings);
-
 			if (GraphicsApi != GraphicsApi.Console) {
 				Logger.Info("Setting up Toolkit...");
 				SetupToolkit(settings.ToolkitOptions!);
@@ -88,12 +87,10 @@ namespace Engine3 {
 				case GraphicsApi.OpenGL:
 					Logger.Info("Setting up OpenGL...");
 					SetupOpenGL();
-
 					break;
 				case GraphicsApi.Vulkan:
 					Logger.Info("Setting up Vulkan...");
-					SetupVulkan(settings.GameName, GameInstance.Version, EngineVersion, settings.VulkanSetting!.DeviceVulkanFeatureCheck); // checked above
-
+					SetupVulkan(settings.GameName, GameInstance.Version, EngineVersion);
 					break;
 				case GraphicsApi.Console:
 				default: break;
@@ -105,12 +102,12 @@ namespace Engine3 {
 			GameLoop();
 
 			Logger.Debug("GameLoop exited naturally");
-			OnShutdownEvent?.Invoke();
 			Shutdown(0);
 		}
 
 		public static void Shutdown(int errorCode) {
 			Logger.Debug("Shutdown called");
+			OnShutdownEvent?.Invoke();
 			shouldRunGameLoop = false;
 			Cleanup();
 			Environment.Exit(errorCode);
@@ -122,28 +119,20 @@ namespace Engine3 {
 			EventQueue.EventRaised += OnEventRaised;
 
 			Toolkit.Init(toolkitOptions);
-		}
 
-		// [MustUseReturnValue]
-		// private static WindowHandle SetupWindow(StartupSettings settings) {
-		// 	const ushort DefaultWidth = 854, DefaultHeight = 480;
-		//
-		// 	if (settings.GraphicsApiHints == null) { throw new UnreachableException("Checked above"); }
-		//
-		// 	WindowHandle windowHandle = Toolkit.Window.Create(settings.GraphicsApiHints);
-		// 	Toolkit.Window.SetTitle(windowHandle, settings.Title);
-		// 	Toolkit.Window.SetSize(windowHandle, new(DefaultWidth, DefaultHeight));
-		//
-		// 	if (settings.CenterWindow) {
-		// 		DisplayHandle handle = Toolkit.Display.OpenPrimary(); // TODO figure out if this is what i am supposed to do
-		// 		Toolkit.Display.GetResolution(handle, out int width, out int height);
-		// 		Toolkit.Window.SetPosition(windowHandle, new(width / 2 - DefaultWidth / 2, height / 2 - DefaultHeight / 2));
-		// 	}
-		//
-		// 	Windows.Add(new(windowHandle));
-		//
-		// 	return windowHandle;
-		// }
+			return;
+
+			static void OnEventRaised(PalHandle? handle, PlatformEventType type, EventArgs args) {
+				if (args is CloseEventArgs closeArgs) {
+					if (Windows.Find(w => w.WindowHandle == closeArgs.Window) is { } window) {
+						window.TryCloseWindow();
+						return;
+					}
+
+					Logger.Warn("Attempted to close an unknown window");
+				}
+			}
+		}
 
 		private static void GameLoop() {
 			while (shouldRunGameLoop) {
@@ -205,22 +194,13 @@ namespace Engine3 {
 		private static void Cleanup() {
 			LogManager.Shutdown();
 
+			foreach (EngineWindow window in Windows) { window.CloseWindow(false); }
+
 			switch (GraphicsApi) {
 				case GraphicsApi.Vulkan: CleanupVulkan(); break;
 				case GraphicsApi.OpenGL: CleanupOpenGL(); break;
 				case GraphicsApi.Console:
 				default: break;
-			}
-		}
-
-		private static void OnEventRaised(PalHandle? handle, PlatformEventType type, EventArgs args) {
-			if (args is CloseEventArgs closeArgs) {
-				if (Windows.Find(w => w.WindowHandle == closeArgs.Window) is { } window) {
-					window.TryCloseWindow();
-					return;
-				}
-
-				Logger.Warn("Attempted to close an unknown window");
 			}
 		}
 

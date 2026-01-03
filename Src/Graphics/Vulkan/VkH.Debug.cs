@@ -2,13 +2,15 @@
 
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Engine3.Exceptions;
+using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Graphics.Vulkan {
 	public static unsafe partial class VkH {
 		static VkH() {
 			RequiredValidationLayers.Add("VK_LAYER_KHRONOS_validation"); // if OpenTK defines this somewhere, i could not find it
-			RequiredExtensions.Add(Vk.ExtDebugUtilsExtensionName);
+			RequiredInstanceExtensions.Add(Vk.ExtDebugUtilsExtensionName);
 		}
 
 		public static ReadOnlySpan<VkLayerProperties> EnumerateInstanceLayerProperties() {
@@ -26,6 +28,17 @@ namespace Engine3.Graphics.Vulkan {
 
 		public static VkDebugUtilsMessengerCreateInfoEXT CreateVkDebugUtilsMessengerCreateInfoEXT() =>
 				new() { messageSeverity = EnabledDebugMessageSeverities, messageType = EnabledDebugMessageTypes, pfnUserCallback = &VulkanDebugCallback, };
+
+		[MustUseReturnValue]
+		public static VkDebugUtilsMessengerEXT CreateDebugMessenger(VkInstance vkInstance) {
+			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateVkDebugUtilsMessengerCreateInfoEXT();
+
+			VkDebugUtilsMessengerEXT debugMessenger;
+			return Vk.CreateDebugUtilsMessengerEXT(vkInstance, &messengerCreateInfo, null, &debugMessenger) != VkResult.Success ?
+					throw // VkInstance shouldn't be null here
+							new VulkanException("Failed to create Vulkan Debug Messenger") :
+					debugMessenger;
+		}
 
 		[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl), })]
 		private static int VulkanDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagBitsEXT messageType, VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {

@@ -1,12 +1,22 @@
+using System.Runtime.InteropServices;
+using System.Text;
+using Engine3.Exceptions;
+using JetBrains.Annotations;
 using NLog;
+using OpenTK.Core.Native;
 using OpenTK.Graphics.Vulkan;
+using OpenTK.Platform;
 
 namespace Engine3.Graphics.Vulkan {
 	public static unsafe partial class VkH {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
+		/// <summary> Note: This must be set before you set up Vulkan </summary>
 		public static readonly List<string> RequiredValidationLayers = new();
-		public static readonly List<string> RequiredExtensions = new();
+		/// <summary> Note: This must be set before you set up Vulkan </summary>
+		public static readonly List<string> RequiredInstanceExtensions = new();
+		/// <summary> Note: This must be set before you set up Vulkan </summary>
+		public static readonly List<string> RequiredDeviceExtensions = [ Vk.KhrSwapchainExtensionName, ];
 
 		public static VkDebugUtilsMessageSeverityFlagBitsEXT EnabledDebugMessageSeverities {
 			get;
@@ -37,7 +47,7 @@ namespace Engine3.Graphics.Vulkan {
 		/// The minor version number is packed into bits 21-12.<br/>
 		/// The patch version number is packed into bits 11-0.<br/>
 		/// </summary>
-		/// <param name="version">  </param>
+		/// <param name="version"> Packed integer containing the other 'out' parameters </param>
 		/// <param name="variant"> 3-bit integer </param>
 		/// <param name="major"> 7-bit integer </param>
 		/// <param name="minor"> 10-bit integer </param>
@@ -50,18 +60,21 @@ namespace Engine3.Graphics.Vulkan {
 			patch = (ushort)(version & 0xFFFU);
 		}
 
-		public static VkPhysicalDeviceProperties2 GetPhysicalDeviceProperties(VkPhysicalDevice device) {
+		[MustUseReturnValue]
+		public static VkPhysicalDeviceProperties2 GetPhysicalDeviceProperties(VkPhysicalDevice vkPhysicalDevice) {
 			VkPhysicalDeviceProperties2 deviceProperties2 = new();
-			Vk.GetPhysicalDeviceProperties2(device, &deviceProperties2);
+			Vk.GetPhysicalDeviceProperties2(vkPhysicalDevice, &deviceProperties2);
 			return deviceProperties2;
 		}
 
-		public static VkPhysicalDeviceFeatures2 GetPhysicalDeviceFeatures(VkPhysicalDevice device) {
+		[MustUseReturnValue]
+		public static VkPhysicalDeviceFeatures2 GetPhysicalDeviceFeatures(VkPhysicalDevice vkPhysicalDevice) {
 			VkPhysicalDeviceFeatures2 deviceFeatures2 = new();
-			Vk.GetPhysicalDeviceFeatures2(device, &deviceFeatures2);
+			Vk.GetPhysicalDeviceFeatures2(vkPhysicalDevice, &deviceFeatures2);
 			return deviceFeatures2;
 		}
 
+		[MustUseReturnValue]
 		public static ReadOnlySpan<VkQueueFamilyProperties2> GetPhysicalDeviceQueueFamilyProperties(VkPhysicalDevice device) {
 			uint queueFamilyPropertyCount = 0;
 			Vk.GetPhysicalDeviceQueueFamilyProperties2(device, &queueFamilyPropertyCount, null);
@@ -77,6 +90,7 @@ namespace Engine3.Graphics.Vulkan {
 			}
 		}
 
+		[MustUseReturnValue]
 		public static ReadOnlySpan<VkExtensionProperties> EnumerateInstanceExtensionProperties() {
 			uint extensionCount;
 			Vk.EnumerateInstanceExtensionProperties(null, &extensionCount, null);
@@ -90,6 +104,21 @@ namespace Engine3.Graphics.Vulkan {
 			}
 		}
 
+		[MustUseReturnValue]
+		public static ReadOnlySpan<VkExtensionProperties> EnumerateDeviceExtensionProperties(VkPhysicalDevice vkPhysicalDevice) {
+			uint extensionCount;
+			Vk.EnumerateDeviceExtensionProperties(vkPhysicalDevice, null, &extensionCount, null);
+
+			if (extensionCount == 0) { return ReadOnlySpan<VkExtensionProperties>.Empty; }
+
+			VkExtensionProperties[] extensionProperties = new VkExtensionProperties[extensionCount];
+			fixed (VkExtensionProperties* extensionPropertiesPtr = extensionProperties) {
+				Vk.EnumerateDeviceExtensionProperties(vkPhysicalDevice, null, &extensionCount, extensionPropertiesPtr);
+				return extensionProperties;
+			}
+		}
+
+		[MustUseReturnValue]
 		public static ReadOnlySpan<VkPhysicalDevice> EnumeratePhysicalDevices(VkInstance vkInstance) {
 			uint deviceCount;
 			Vk.EnumeratePhysicalDevices(vkInstance, &deviceCount, null);
@@ -102,5 +131,172 @@ namespace Engine3.Graphics.Vulkan {
 				return physicalDevices;
 			}
 		}
+
+		[MustUseReturnValue]
+		public static VkSurfaceKHR CreateSurface(VkInstance vkInstance, WindowHandle windowHandle) =>
+				Toolkit.Vulkan.CreateWindowSurface(vkInstance, windowHandle, null, out VkSurfaceKHR vkSurface) != VkResult.Success ? throw new Engine3Exception("Failed to create surface") : vkSurface;
+
+		[MustUseReturnValue]
+		public static VkPhysicalDevice PickBestPhysicalDevice(VkInstance vkInstance, VkSurfaceKHR vkSurface, IsPhysicalDeviceSuitable isPhysicalDeviceSuitable, RateDeviceSuitability rateDeviceSuitability) {
+			ReadOnlySpan<VkPhysicalDevice> devices = EnumeratePhysicalDevices(vkInstance);
+			if (devices.Length == 0) { throw new VulkanException("Could not find any GPUs"); }
+
+#if DEBUG
+			const string PhysicalDeviceTypeEnumName = "PhysicalDeviceType";
+			const string VendorIdEnumName = "VendorId";
+			int physicalDeviceTypeEnumNameLength = PhysicalDeviceTypeEnumName.Length;
+			int vendorIdEnumNameLength = VendorIdEnumName.Length;
+
+			Logger.Debug("The following GPUs are available:");
+			foreach (VkPhysicalDevice device in devices) {
+				VkPhysicalDeviceProperties deviceProperties = GetPhysicalDeviceProperties(device).properties;
+
+				GetApiVersion(deviceProperties.apiVersion, out _, out byte major, out ushort minor, out ushort patch);
+
+				string vendorName = deviceProperties.vendorID is >= (uint)VkVendorId.VendorIdKhronos and <= (uint)VkVendorId.VendorIdMobileye ?
+						((VkVendorId)deviceProperties.vendorID).ToString()[vendorIdEnumNameLength..] :
+						deviceProperties.vendorID.ToString();
+
+				//  TODO print better info
+				Logger.Debug($"- Device Info: {deviceProperties.deviceType.ToString()[physicalDeviceTypeEnumNameLength..]}, {deviceProperties.deviceID.ToString()}, {deviceProperties.apiVersion.ToString()} ({major}.{minor}.{patch
+				}), {vendorName}, {deviceProperties.driverVersion.ToString()}");
+			}
+#endif
+
+			HashSet<VkPhysicalDevice> capableDevices = new();
+			foreach (VkPhysicalDevice device in devices) {
+				if (isPhysicalDeviceSuitable(device)) {
+					QueueFamilyIndices queueFamilyIndices = FindQueueFamilies(device, vkSurface);
+
+					if (!queueFamilyIndices.IsValid) { continue; }
+					if (!CheckDeviceExtensionSupport(device)) { continue; }
+
+					capableDevices.Add(device);
+				}
+			}
+
+			VkPhysicalDevice? vkPhysicalDevice = VulkanSelectBestDevice(capableDevices, rateDeviceSuitability);
+			return vkPhysicalDevice ?? throw new VulkanException("Could not find any suitable GPUs");
+
+			static VkPhysicalDevice? VulkanSelectBestDevice(IEnumerable<VkPhysicalDevice> capableDevices, RateDeviceSuitability rateDeviceSuitability) {
+				VkPhysicalDevice? bestDevice = null;
+				int bestDeviceScore = 0;
+
+				foreach (VkPhysicalDevice device in capableDevices) {
+					int score = rateDeviceSuitability(device);
+					if (score > bestDeviceScore) {
+						bestDevice = device;
+						bestDeviceScore = score;
+					}
+				}
+
+				return bestDevice;
+			}
+
+			static bool CheckDeviceExtensionSupport(VkPhysicalDevice vkPhysicalDevice) {
+				ReadOnlySpan<VkExtensionProperties> availableExtensions = EnumerateDeviceExtensionProperties(vkPhysicalDevice);
+				if (availableExtensions.Length == 0) { throw new VulkanException("Could not find any device extension properties"); }
+
+				foreach (string wantedExtension in RequiredDeviceExtensions) {
+					bool layerFound = false;
+
+					foreach (VkExtensionProperties extensionProperties in availableExtensions) {
+						ReadOnlySpan<byte> extensionName = extensionProperties.extensionName;
+						if (Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)]) == wantedExtension) {
+							layerFound = true;
+							break;
+						}
+					}
+
+					if (!layerFound) { return false; }
+				}
+
+				return true;
+			}
+		}
+
+		[MustUseReturnValue]
+		public static QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice vkDevice, VkSurfaceKHR vkSurface) {
+			uint? graphicsFamily = null;
+			uint? presentFamily = null;
+
+			ReadOnlySpan<VkQueueFamilyProperties2> queueFamilies = GetPhysicalDeviceQueueFamilyProperties(vkDevice);
+			uint i = 0;
+			foreach (VkQueueFamilyProperties2 queueFamilyProperties2 in queueFamilies) {
+				VkQueueFamilyProperties queueFamilyProperties = queueFamilyProperties2.queueFamilyProperties;
+				if ((queueFamilyProperties.queueFlags & VkQueueFlagBits.QueueGraphicsBit) != 0) { graphicsFamily = i; }
+				if (GetPhysicalDeviceSurfaceSupportKHR(vkDevice, i, vkSurface)) { presentFamily = i; }
+
+				if (graphicsFamily != null && presentFamily != null) { break; } // basically QueueFamilyIndices#IsValid
+
+				i++;
+			}
+
+			return new(graphicsFamily, presentFamily);
+		}
+
+		public static void CreateLogicalDevice(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR vkSurface, out VkDevice vkLogicalDevice, out VkQueue vkPresentQueue) {
+			QueueFamilyIndices indices = FindQueueFamilies(vkPhysicalDevice, vkSurface);
+			if (indices.GraphicsFamily == null) { throw new Engine3Exception("Failed to find GraphicsFamily"); }
+			if (indices.PresentFamily == null) { throw new Engine3Exception("Failed to find PresentFamily"); }
+
+			HashSet<uint> uniqueQueueFamilies = [ indices.GraphicsFamily.Value, indices.PresentFamily.Value, ];
+			List<VkDeviceQueueCreateInfo> queueCreateInfos = new();
+
+			float queuePriority = 1f;
+
+			// ReSharper disable once ForeachCanBeConvertedToQueryUsingAnotherGetEnumerator // CS0212
+			foreach (uint queueFamily in uniqueQueueFamilies) { queueCreateInfos.Add(new() { queueFamilyIndex = queueFamily, queueCount = 1, pQueuePriorities = &queuePriority, }); }
+
+			VkPhysicalDeviceFeatures deviceFeatures = new(); // ???
+
+			IntPtr requiredDeviceExtensionsPtr = MarshalTk.StringArrayToCoTaskMemAnsi(CollectionsMarshal.AsSpan(RequiredDeviceExtensions));
+
+#if DEBUG
+			IntPtr requiredValidationLayersPtr = MarshalTk.StringArrayToCoTaskMemAnsi(CollectionsMarshal.AsSpan(RequiredValidationLayers));
+#endif
+
+			fixed (VkDeviceQueueCreateInfo* queueCreateInfosPtr = CollectionsMarshal.AsSpan(queueCreateInfos)) {
+				VkDeviceCreateInfo deviceCreateInfo = new() {
+						pQueueCreateInfos = queueCreateInfosPtr,
+						queueCreateInfoCount = (uint)queueCreateInfos.Count,
+						pEnabledFeatures = &deviceFeatures,
+						ppEnabledExtensionNames = (byte**)requiredDeviceExtensionsPtr,
+						enabledExtensionCount = (uint)RequiredDeviceExtensions.Count,
+#if DEBUG // https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-devicelayers
+#pragma warning disable CS0618 // Type or member is obsolete
+						enabledLayerCount = (uint)RequiredValidationLayers.Count,
+						ppEnabledLayerNames = (byte**)requiredValidationLayersPtr,
+#pragma warning restore CS0618 // Type or member is obsolete
+#endif
+				};
+
+				VkDevice logicalDevice;
+				if (Vk.CreateDevice(vkPhysicalDevice, &deviceCreateInfo, null, &logicalDevice) != VkResult.Success) { throw new VulkanException("Failed to create logical device"); }
+				vkLogicalDevice = logicalDevice;
+			}
+
+			MarshalTk.FreeStringArrayCoTaskMem(requiredDeviceExtensionsPtr, RequiredDeviceExtensions.Count);
+
+#if DEBUG
+			MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, RequiredValidationLayers.Count);
+#endif
+
+			VkDeviceQueueInfo2 deviceQueueInfo2 = new() { queueFamilyIndex = indices.PresentFamily.Value, };
+
+			VkQueue presentQueue;
+			Vk.GetDeviceQueue2(vkLogicalDevice, &deviceQueueInfo2, &presentQueue);
+			vkPresentQueue = presentQueue;
+		}
+
+		[MustUseReturnValue]
+		public static bool GetPhysicalDeviceSurfaceSupportKHR(VkPhysicalDevice vkPhysicalDevice, uint index, VkSurfaceKHR vkSurface) {
+			int presentSupport;
+			Vk.GetPhysicalDeviceSurfaceSupportKHR(vkPhysicalDevice, index, vkSurface, &presentSupport);
+			return presentSupport == 1;
+		}
+
+		public delegate bool IsPhysicalDeviceSuitable(VkPhysicalDevice physicalDevice);
+		public delegate int RateDeviceSuitability(VkPhysicalDevice physicalDevice);
 	}
 }
