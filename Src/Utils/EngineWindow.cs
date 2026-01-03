@@ -14,7 +14,8 @@ namespace Engine3.Utils {
 		public WindowHandle WindowHandle { get; }
 
 		public VkSurfaceKHR? VkSurface { get; private set; }
-		public VkPhysicalDevice? VkPhysicalDevice { get; private set; }
+		public Gpu[] Gpus { get; private set; } = Array.Empty<Gpu>(); // TODO i'd like to not store this here but VkH#CreateGpu needs a surface. figure out how to store this
+		public Gpu? BestGpu { get; private set; }
 		public VkDevice? VkLogicalDevice { get; private set; }
 		public VkQueue? VkGraphicsQueue { get; private set; }
 		public VkQueue? VkPresentQueue { get; private set; }
@@ -63,10 +64,17 @@ namespace Engine3.Utils {
 			VkSurface = VkH.CreateSurface(vkInstance, WindowHandle);
 			Logger.Debug("Created surface");
 
-			VkPhysicalDevice = VkH.PickBestPhysicalDevice(vkInstance, VkSurface.Value, gameInstance.VkIsPhysicalDeviceSuitable, gameInstance.VkRateDeviceSuitability);
-			Logger.Debug("Found physical device");
+			Gpus = VkH.CreateGpus(vkInstance, VkSurface.Value);
+			Logger.Debug("Created GPUs");
 
-			VkH.CreateLogicalDevice(VkPhysicalDevice.Value, VkSurface.Value, out VkDevice vkLogicalDevice, out VkQueue vkPresentQueue);
+#if DEBUG
+			VkH.PrintGpus(Gpus, true);
+#endif
+
+			BestGpu = VkH.PickBestGpu(Gpus, gameInstance.VkIsGpuSuitable, gameInstance.VkRateGpuSuitability);
+			Logger.Debug($"Selected GPU: {BestGpu.Name}");
+
+			VkH.CreateLogicalDevice(BestGpu, out VkDevice vkLogicalDevice, out VkQueue vkPresentQueue);
 			VkLogicalDevice = vkLogicalDevice;
 			VkPresentQueue = vkPresentQueue;
 			Logger.Debug("Created logical device & present queue");

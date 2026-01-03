@@ -32,12 +32,21 @@ namespace Engine3.Graphics.Vulkan {
 		[MustUseReturnValue]
 		public static VkDebugUtilsMessengerEXT CreateDebugMessenger(VkInstance vkInstance) {
 			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateVkDebugUtilsMessengerCreateInfoEXT();
-
 			VkDebugUtilsMessengerEXT debugMessenger;
-			return Vk.CreateDebugUtilsMessengerEXT(vkInstance, &messengerCreateInfo, null, &debugMessenger) != VkResult.Success ?
-					throw // VkInstance shouldn't be null here
-							new VulkanException("Failed to create Vulkan Debug Messenger") :
-					debugMessenger;
+			return Vk.CreateDebugUtilsMessengerEXT(vkInstance, &messengerCreateInfo, null, &debugMessenger) != VkResult.Success ? throw new VulkanException("Failed to create Vulkan Debug Messenger") : debugMessenger;
+		}
+
+		public static void PrintGpus(Gpu[] gpus, bool verbose) {
+			if (gpus.Length == 0) { throw new VulkanException("Could not find any GPUs"); }
+
+			Logger.Debug("The following GPUs are available:");
+			foreach (Gpu gpu in gpus) {
+				if (verbose) {
+					foreach (string str in gpu.GetVerboseDescription()) { Logger.Debug(str); }
+				} else {
+					Logger.Debug($"- {gpu.GetSimpleDescription()}"); //
+				}
+			}
 		}
 
 		[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl), })]
