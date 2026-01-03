@@ -14,6 +14,13 @@ namespace Engine3 {
 
 		public const string Name = "Engine3";
 
+		public const bool Debug =
+#if DEBUG
+				true;
+#else
+				false;
+#endif
+
 		// ReSharper disable once InconsistentNaming
 		private static readonly Lazy<Assembly> engineAssembly = new(static () => Assembly.GetAssembly(typeof(Engine3)) ?? throw new NullReferenceException("Failed to get Engine3 Assembly"));
 

@@ -185,10 +185,24 @@ namespace Engine3.Graphics.Vulkan {
 			vkPresentQueue = presentQueue;
 		}
 
+		[MustUseReturnValue] public static VkPhysicalDevice[] CreatePhysicalDevices(VkInstance vkInstance) => EnumeratePhysicalDevices(vkInstance).ToArray();
+
 		[MustUseReturnValue]
-		public static Gpu[] CreateGpus(VkInstance vkInstance, VkSurfaceKHR vkSurface) {
-			return EnumeratePhysicalDevices(vkInstance).Select(device =>
-					new Gpu(device, GetPhysicalDeviceProperties(device), GetPhysicalDeviceFeatures(device), EnumeratePhysicalDeviceExtensionProperties(device).ToArray(), FindQueueFamilies(device, vkSurface))).ToArray();
+		public static Gpu[] GetValidGpus(VkPhysicalDevice[] devices, VkSurfaceKHR vkSurface) =>
+				devices.Select(device => new Gpu(device, GetPhysicalDeviceProperties(device), GetPhysicalDeviceFeatures(device), EnumeratePhysicalDeviceExtensionProperties(device).ToArray(), FindQueueFamilies(device, vkSurface)))
+						.ToArray();
+
+		public static void PrintGpus(Gpu[] gpus, bool verbose) {
+			if (gpus.Length == 0) { throw new VulkanException("Could not find any GPUs"); }
+
+			Logger.Debug("The following GPUs are available:");
+			foreach (Gpu gpu in gpus) {
+				if (verbose) {
+					foreach (string str in gpu.GetVerboseDescription()) { Logger.Debug(str); }
+				} else {
+					Logger.Debug($"- {gpu.GetSimpleDescription()}"); //
+				}
+			}
 		}
 
 		[MustUseReturnValue]

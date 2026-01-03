@@ -15,6 +15,7 @@ namespace Engine3 {
 		public static bool WasVulkanSetup { get; private set; }
 
 		public static VkInstance? VkInstance { get; private set; }
+		public static VkPhysicalDevice[] VkPhysicalDevices { get; private set; } = Array.Empty<VkPhysicalDevice>();
 
 #if DEBUG
 		private static VkDebugUtilsMessengerEXT? vkDebugMessenger;
@@ -36,6 +37,9 @@ namespace Engine3 {
 			vkDebugMessenger = VkH.CreateDebugMessenger(VkInstance.Value);
 			Logger.Debug("Created Vulkan Debug Messenger");
 #endif
+
+			VkPhysicalDevices = VkH.CreatePhysicalDevices(VkInstance.Value);
+			Logger.Debug("Created Physical Devices");
 
 			WasVulkanSetup = true;
 		}

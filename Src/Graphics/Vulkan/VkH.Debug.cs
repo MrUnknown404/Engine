@@ -36,19 +36,6 @@ namespace Engine3.Graphics.Vulkan {
 			return Vk.CreateDebugUtilsMessengerEXT(vkInstance, &messengerCreateInfo, null, &debugMessenger) != VkResult.Success ? throw new VulkanException("Failed to create Vulkan Debug Messenger") : debugMessenger;
 		}
 
-		public static void PrintGpus(Gpu[] gpus, bool verbose) {
-			if (gpus.Length == 0) { throw new VulkanException("Could not find any GPUs"); }
-
-			Logger.Debug("The following GPUs are available:");
-			foreach (Gpu gpu in gpus) {
-				if (verbose) {
-					foreach (string str in gpu.GetVerboseDescription()) { Logger.Debug(str); }
-				} else {
-					Logger.Debug($"- {gpu.GetSimpleDescription()}"); //
-				}
-			}
-		}
-
 		[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl), })]
 		private static int VulkanDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagBitsEXT messageType, VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
 			string message = $"[Vulkan Callback] [{messageType switch {

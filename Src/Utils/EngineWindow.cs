@@ -14,7 +14,7 @@ namespace Engine3.Utils {
 		public WindowHandle WindowHandle { get; }
 
 		public VkSurfaceKHR? VkSurface { get; private set; }
-		public Gpu[] Gpus { get; private set; } = Array.Empty<Gpu>(); // TODO i'd like to not store this here but VkH#CreateGpu needs a surface. figure out how to store this
+		public Gpu[] AvailableGpus { get; private set; } = Array.Empty<Gpu>();
 		public Gpu? BestGpu { get; private set; }
 		public VkDevice? VkLogicalDevice { get; private set; }
 		public VkQueue? VkGraphicsQueue { get; private set; }
@@ -33,7 +33,7 @@ namespace Engine3.Utils {
 			if (!Engine3.WasGraphicsApiSetup) { throw new Engine3Exception("Cannot create a window with no graphics api setup"); }
 
 			WindowHandle windowHandle = Toolkit.Window.Create(Engine3.GraphicsApiHints!); // Engine3.GraphicsApiHints shouldn't be null here
-			Logger.Info("Created new window");
+			Logger.Info($"Created new window. Using Api: {Engine3.GraphicsApi}");
 
 			Toolkit.Window.SetTitle(windowHandle, title);
 			Toolkit.Window.SetSize(windowHandle, new(w, h));
@@ -47,7 +47,7 @@ namespace Engine3.Utils {
 			EngineWindow window = new(windowHandle);
 			Engine3.Windows.Add(window);
 
-			Logger.Info($"Setting up {Engine3.GraphicsApi} for window...");
+			Logger.Debug($"Setting up {Engine3.GraphicsApi} window...");
 			switch (Engine3.GraphicsApi) {
 				case GraphicsApi.OpenGL: window.SetupOpenGL(); break;
 				case GraphicsApi.Vulkan: window.SetupVulkan(); break;
@@ -64,15 +64,12 @@ namespace Engine3.Utils {
 			VkSurface = VkH.CreateSurface(vkInstance, WindowHandle);
 			Logger.Debug("Created surface");
 
-			Gpus = VkH.CreateGpus(vkInstance, VkSurface.Value);
-			Logger.Debug("Created GPUs");
+			AvailableGpus = VkH.GetValidGpus(Engine3.VkPhysicalDevices, VkSurface.Value);
+			Logger.Debug("Obtained surface capable GPUs ");
+			VkH.PrintGpus(AvailableGpus, Engine3.Debug);
 
-#if DEBUG
-			VkH.PrintGpus(Gpus, true);
-#endif
-
-			BestGpu = VkH.PickBestGpu(Gpus, gameInstance.VkIsGpuSuitable, gameInstance.VkRateGpuSuitability);
-			Logger.Debug($"Selected GPU: {BestGpu.Name}");
+			BestGpu = VkH.PickBestGpu(AvailableGpus, gameInstance.VkIsGpuSuitable, gameInstance.VkRateGpuSuitability);
+			Logger.Debug($"- Selected Gpu: {BestGpu.Name}");
 
 			VkH.CreateLogicalDevice(BestGpu, out VkDevice vkLogicalDevice, out VkQueue vkPresentQueue);
 			VkLogicalDevice = vkLogicalDevice;
