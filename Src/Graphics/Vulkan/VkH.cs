@@ -1,12 +1,14 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Engine3.Exceptions;
+using Engine3.Utils;
 using JetBrains.Annotations;
 using NLog;
 using OpenTK.Core.Native;
 using OpenTK.Graphics.Vulkan;
+using OpenTK.Mathematics;
 using OpenTK.Platform;
-using ZLinq;
 
 namespace Engine3.Graphics.Vulkan {
 	public static unsafe partial class VkH {
@@ -15,7 +17,7 @@ namespace Engine3.Graphics.Vulkan {
 		/// <summary> Note: This must be set before you set up Vulkan </summary>
 		public static readonly List<string> RequiredValidationLayers = new();
 		/// <summary> Note: This must be set before you set up Vulkan </summary>
-		public static readonly List<string> RequiredInstanceExtensions = new();
+		public static readonly List<string> RequiredInstanceExtensions = [ Vk.KhrGetSurfaceCapabilities2ExtensionName, ];
 		/// <summary> Note: This must be set before you set up Vulkan </summary>
 		public static readonly List<string> RequiredDeviceExtensions = [ Vk.KhrSwapchainExtensionName, ];
 
@@ -63,6 +65,49 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
+		public static VkInstance CreateVulkanInstance(string appName, string engineName, Version4 gameVersion, Version4 engineVersion) {
+			VkApplicationInfo vkApplicationInfo = new() {
+					pApplicationName = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(Encoding.UTF8.GetBytes(appName))),
+					applicationVersion = gameVersion.Packed,
+					pEngineName = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(Encoding.UTF8.GetBytes(engineName))),
+					engineVersion = engineVersion.Packed,
+					apiVersion = Vk.MAKE_API_VERSION(0, 1, 4, 0),
+			};
+
+			List<string> requiredExtensions = new();
+			requiredExtensions.AddRange(Toolkit.Vulkan.GetRequiredInstanceExtensions());
+			requiredExtensions.AddRange(VkH.RequiredInstanceExtensions);
+
+			IntPtr requiredExtensionsPtr = MarshalTk.StringArrayToCoTaskMemAnsi(CollectionsMarshal.AsSpan(requiredExtensions));
+#if DEBUG
+			IntPtr requiredValidationLayersPtr = MarshalTk.StringArrayToCoTaskMemAnsi(CollectionsMarshal.AsSpan(VkH.RequiredValidationLayers));
+
+			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = VkH.CreateVkDebugUtilsMessengerCreateInfoEXT();
+#endif
+
+			VkInstanceCreateInfo vkCreateInfo = new() {
+					pApplicationInfo = &vkApplicationInfo,
+#if DEBUG
+					pNext = &messengerCreateInfo,
+					enabledLayerCount = (uint)VkH.RequiredValidationLayers.Count,
+					ppEnabledLayerNames = (byte**)requiredValidationLayersPtr,
+#endif
+					enabledExtensionCount = (uint)requiredExtensions.Count,
+					ppEnabledExtensionNames = (byte**)requiredExtensionsPtr,
+			};
+
+			VkInstance vkInstance;
+			if (Vk.CreateInstance(&vkCreateInfo, null, &vkInstance) != VkResult.Success) { throw new VulkanException("Failed to create Vulkan instance"); }
+
+			MarshalTk.FreeStringArrayCoTaskMem(requiredExtensionsPtr, requiredExtensions.Count);
+#if DEBUG
+			MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, VkH.RequiredValidationLayers.Count);
+#endif
+
+			return vkInstance;
+		}
+
+		[MustUseReturnValue]
 		public static ReadOnlySpan<VkExtensionProperties> EnumerateInstanceExtensionProperties() {
 			uint extensionCount;
 			Vk.EnumerateInstanceExtensionProperties(null, &extensionCount, null);
@@ -80,63 +125,10 @@ namespace Engine3.Graphics.Vulkan {
 		public static VkSurfaceKHR CreateSurface(VkInstance vkInstance, WindowHandle windowHandle) =>
 				Toolkit.Vulkan.CreateWindowSurface(vkInstance, windowHandle, null, out VkSurfaceKHR vkSurface) != VkResult.Success ? throw new VulkanException("Failed to create surface") : vkSurface;
 
-		[MustUseReturnValue]
-		public static Gpu PickBestGpu(Gpu[] gpus, IsGpuSuitable isGpuSuitable, RateGpuSuitability rateGpuSuitability) {
-			if (gpus.Length == 0) { throw new VulkanException("Could not find any GPUs"); }
+		public static void CreateLogicalDevice(PhysicalGpu physicalGpu, out VkDevice vkLogicalDevice, out VkQueue vkPresentQueue) {
+			QueueFamilyIndices queueFamilyIndices = physicalGpu.QueueFamilyIndices;
 
-			HashSet<Gpu> capableDevices = new();
-			foreach (Gpu gpu in gpus.Where(gpu => isGpuSuitable(gpu))) {
-				if (!gpu.QueueFamilyIndices.IsValid) { continue; }
-				if (!CheckDeviceExtensionSupport(gpu)) { continue; }
-
-				capableDevices.Add(gpu);
-			}
-
-			return SelectBestDevice(capableDevices, rateGpuSuitability) ?? throw new VulkanException("Could not find any suitable GPUs");
-
-			static Gpu? SelectBestDevice(IEnumerable<Gpu> capableGpus, RateGpuSuitability rateGpuSuitability) {
-				Gpu? bestDevice = null;
-				int bestDeviceScore = 0;
-
-				foreach (Gpu device in capableGpus) {
-					int score = rateGpuSuitability(device);
-					if (score > bestDeviceScore) {
-						bestDevice = device;
-						bestDeviceScore = score;
-					}
-				}
-
-				return bestDevice;
-			}
-
-			static bool CheckDeviceExtensionSupport(Gpu gpu) {
-				ReadOnlySpan<VkExtensionProperties> availableExtensions = gpu.VkExtensionProperties;
-				if (availableExtensions.Length == 0) { throw new VulkanException("Could not find any device extension properties"); }
-
-				foreach (string wantedExtension in RequiredDeviceExtensions) {
-					bool layerFound = false;
-
-					foreach (VkExtensionProperties extensionProperties in availableExtensions) {
-						ReadOnlySpan<byte> extensionName = extensionProperties.extensionName;
-						if (Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)]) == wantedExtension) {
-							layerFound = true;
-							break;
-						}
-					}
-
-					if (!layerFound) { return false; }
-				}
-
-				return true;
-			}
-		}
-
-		public static void CreateLogicalDevice(Gpu gpu, out VkDevice vkLogicalDevice, out VkQueue vkPresentQueue) {
-			QueueFamilyIndices queueFamilyIndices = gpu.QueueFamilyIndices;
-			if (queueFamilyIndices.GraphicsFamily == null) { throw new VulkanException("Failed to find GraphicsFamily"); }
-			if (queueFamilyIndices.PresentFamily == null) { throw new VulkanException("Failed to find PresentFamily"); }
-
-			HashSet<uint> uniqueQueueFamilies = [ queueFamilyIndices.GraphicsFamily.Value, queueFamilyIndices.PresentFamily.Value, ];
+			HashSet<uint> uniqueQueueFamilies = [ queueFamilyIndices.GraphicsFamily, queueFamilyIndices.PresentFamily, ];
 			List<VkDeviceQueueCreateInfo> queueCreateInfos = new();
 
 			float queuePriority = 1f;
@@ -168,7 +160,7 @@ namespace Engine3.Graphics.Vulkan {
 				};
 
 				VkDevice logicalDevice;
-				if (Vk.CreateDevice(gpu.VkPhysicalDevice, &deviceCreateInfo, null, &logicalDevice) != VkResult.Success) { throw new VulkanException("Failed to create logical device"); }
+				if (Vk.CreateDevice(physicalGpu.VkPhysicalDevice, &deviceCreateInfo, null, &logicalDevice) != VkResult.Success) { throw new VulkanException("Failed to create logical device"); }
 				vkLogicalDevice = logicalDevice;
 			}
 
@@ -178,7 +170,7 @@ namespace Engine3.Graphics.Vulkan {
 			MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, RequiredValidationLayers.Count);
 #endif
 
-			VkDeviceQueueInfo2 deviceQueueInfo2 = new() { queueFamilyIndex = queueFamilyIndices.PresentFamily.Value, };
+			VkDeviceQueueInfo2 deviceQueueInfo2 = new() { queueFamilyIndex = queueFamilyIndices.PresentFamily, };
 
 			VkQueue presentQueue;
 			Vk.GetDeviceQueue2(vkLogicalDevice, &deviceQueueInfo2, &presentQueue);
@@ -188,20 +180,252 @@ namespace Engine3.Graphics.Vulkan {
 		[MustUseReturnValue] public static VkPhysicalDevice[] CreatePhysicalDevices(VkInstance vkInstance) => EnumeratePhysicalDevices(vkInstance).ToArray();
 
 		[MustUseReturnValue]
-		public static Gpu[] GetValidGpus(VkPhysicalDevice[] devices, VkSurfaceKHR vkSurface) =>
-				devices.Select(device => new Gpu(device, GetPhysicalDeviceProperties(device), GetPhysicalDeviceFeatures(device), EnumeratePhysicalDeviceExtensionProperties(device).ToArray(), FindQueueFamilies(device, vkSurface)))
-						.ToArray();
+		public static PhysicalGpu[] GetValidGpus(VkPhysicalDevice[] vkPhysicalDevices, VkSurfaceKHR vkSurface, IsPhysicalDeviceSuitable isPhysicalDeviceSuitable) {
+			List<PhysicalGpu> gpus = new();
 
-		public static void PrintGpus(Gpu[] gpus, bool verbose) {
-			if (gpus.Length == 0) { throw new VulkanException("Could not find any GPUs"); }
+			// ReSharper disable once LoopCanBeConvertedToQuery // don't think it can?
+			foreach (VkPhysicalDevice device in vkPhysicalDevices) {
+				VkPhysicalDeviceProperties2 vkPhysicalDeviceProperties2 = GetPhysicalDeviceProperties(device);
+				VkPhysicalDeviceFeatures2 vkPhysicalDeviceFeatures2 = GetPhysicalDeviceFeatures(device);
+				if (!isPhysicalDeviceSuitable(vkPhysicalDeviceProperties2, vkPhysicalDeviceFeatures2)) { continue; }
 
+				VkExtensionProperties[] vkExtensionProperties = EnumeratePhysicalDeviceExtensionProperties(device).ToArray();
+				if (!CheckDeviceExtensionSupport(vkExtensionProperties)) { continue; }
+
+				FindQueueFamilies(device, vkSurface, out uint? graphicsFamily, out uint? presentFamily);
+				if (graphicsFamily == null || presentFamily == null) { continue; }
+
+				SwapChainSupportInfo swapChainSupportInfo = QuerySwapChainSupport(device, vkSurface);
+				if (swapChainSupportInfo.VkSurfaceFormat.Length == 0 || swapChainSupportInfo.VkPresentMode.Length == 0) { continue; }
+
+				gpus.Add(new(device, vkPhysicalDeviceProperties2, vkPhysicalDeviceFeatures2, vkExtensionProperties, new(graphicsFamily.Value, presentFamily.Value), swapChainSupportInfo));
+			}
+
+			return gpus.ToArray();
+
+			static bool CheckDeviceExtensionSupport(VkExtensionProperties[] vkExtensionProperties) {
+				if (vkExtensionProperties.Length == 0) { throw new VulkanException("Could not find any device extension properties"); }
+
+				foreach (string wantedExtension in RequiredDeviceExtensions) {
+					bool layerFound = false;
+
+					foreach (VkExtensionProperties extensionProperties in vkExtensionProperties) {
+						ReadOnlySpan<byte> extensionName = extensionProperties.extensionName;
+						if (Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)]) == wantedExtension) {
+							layerFound = true;
+							break;
+						}
+					}
+
+					if (!layerFound) { return false; }
+				}
+
+				return true;
+			}
+		}
+
+		[MustUseReturnValue]
+		public static PhysicalGpu? PickBestGpu(PhysicalGpu[] gpus, RateGpuSuitability rateGpuSuitability) {
+			PhysicalGpu? bestDevice = null;
+			int bestDeviceScore = 0;
+
+			foreach (PhysicalGpu device in gpus) {
+				int score = rateGpuSuitability(device);
+				if (score > bestDeviceScore) {
+					bestDevice = device;
+					bestDeviceScore = score;
+				}
+			}
+
+			return bestDevice;
+		}
+
+		public static void PrintGpus(PhysicalGpu[] gpus, bool verbose) {
 			Logger.Debug("The following GPUs are available:");
-			foreach (Gpu gpu in gpus) {
+			foreach (PhysicalGpu gpu in gpus) {
 				if (verbose) {
 					foreach (string str in gpu.GetVerboseDescription()) { Logger.Debug(str); }
 				} else {
 					Logger.Debug($"- {gpu.GetSimpleDescription()}"); //
 				}
+			}
+		}
+
+		public static void CreateSwapChain(WindowHandle windowHandle, VkSurfaceKHR vkSurface, PhysicalGpu physicalGpu, VkDevice vkLogicalDevice, out VkSwapchainKHR vkSwapChain, out VkSurfaceFormat2KHR vkSurfaceFormat,
+			out VkExtent2D vkExtent, VkSurfaceTransformFlagBitsKHR? vkSurfaceTransform = null) {
+			vkSurfaceFormat = ChooseSwapSurfaceFormat(physicalGpu.SwapChainSupportInfo.VkSurfaceFormat) ?? throw new VulkanException("Could not find any valid surface formats");
+
+			VkPresentModeKHR vkPresentMode = ChooseSwapPresentMode(physicalGpu.SwapChainSupportInfo.VkPresentMode);
+			vkExtent = ChooseSwapExtent(windowHandle, physicalGpu.SwapChainSupportInfo.VkCapabilities);
+			VkSurfaceCapabilitiesKHR capabilities = physicalGpu.SwapChainSupportInfo.VkCapabilities.surfaceCapabilities;
+
+			VkSharingMode imageSharingMode;
+			uint queueFamilyIndexCount;
+			uint[]? queueFamilyIndices;
+
+			// https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Swap_chain#Creating_the_swap_chain - "Therefore it is recommended to request at least one more image than the minimum"
+			uint imageCount = capabilities.minImageCount + 1;
+			if (capabilities.maxImageCount > 0 && imageCount > capabilities.maxImageCount) { imageCount = capabilities.maxImageCount; }
+
+			if (physicalGpu.QueueFamilyIndices.GraphicsFamily != physicalGpu.QueueFamilyIndices.PresentFamily) {
+				imageSharingMode = VkSharingMode.SharingModeConcurrent;
+				queueFamilyIndexCount = 2;
+				queueFamilyIndices = [ physicalGpu.QueueFamilyIndices.GraphicsFamily, physicalGpu.QueueFamilyIndices.PresentFamily, ];
+			} else {
+				imageSharingMode = VkSharingMode.SharingModeExclusive;
+				queueFamilyIndexCount = 0;
+				queueFamilyIndices = null;
+			}
+
+			fixed (uint* pQueueFamilyIndicesPtr = queueFamilyIndices) {
+				VkSwapchainCreateInfoKHR createInfo = new() {
+						surface = vkSurface,
+						imageFormat = vkSurfaceFormat.surfaceFormat.format,
+						imageColorSpace = vkSurfaceFormat.surfaceFormat.colorSpace,
+						imageExtent = vkExtent,
+						minImageCount = imageCount,
+						imageArrayLayers = 1,
+						imageUsage = VkImageUsageFlagBits.ImageUsageColorAttachmentBit,
+						imageSharingMode = imageSharingMode,
+						queueFamilyIndexCount = queueFamilyIndexCount,
+						pQueueFamilyIndices = pQueueFamilyIndicesPtr,
+						preTransform = vkSurfaceTransform ?? physicalGpu.SwapChainSupportInfo.VkCapabilities.surfaceCapabilities.currentTransform,
+						compositeAlpha = VkCompositeAlphaFlagBitsKHR.CompositeAlphaOpaqueBitKhr,
+						presentMode = vkPresentMode,
+						clipped = (int)Vk.True,
+						oldSwapchain = VkSwapchainKHR.Zero,
+				};
+
+				VkSwapchainKHR swapChain;
+				if (Vk.CreateSwapchainKHR(vkLogicalDevice, &createInfo, null, &swapChain) != VkResult.Success) { throw new VulkanException("Failed to create swap chain"); }
+				vkSwapChain = swapChain;
+			}
+		}
+
+		[MustUseReturnValue]
+		public static VkImage[] GetSwapChainImages(VkDevice vkLogicalDevice, VkSwapchainKHR vkSwapChain) {
+			uint swapChainImagedCount;
+			Vk.GetSwapchainImagesKHR(vkLogicalDevice, vkSwapChain, &swapChainImagedCount, null);
+
+			VkImage[] swapChainImages = new VkImage[swapChainImagedCount];
+			fixed (VkImage* swapChainImagesPtr = swapChainImages) {
+				Vk.GetSwapchainImagesKHR(vkLogicalDevice, vkSwapChain, &swapChainImagedCount, swapChainImagesPtr);
+				return swapChainImages;
+			}
+		}
+
+		public static VkImageView[] CreateImageViews(VkDevice vkLogicalDevice, VkImage[] vkSwapChainImages, VkFormat vkSwapChainFormat) {
+			VkImageView[] vkImageViews = new VkImageView[vkSwapChainImages.Length];
+
+			fixed (VkImageView* vkImageViewsPtr = vkImageViews) {
+				// ReSharper disable once LoopCanBeConvertedToQuery // nope
+				for (int i = 0; i < vkSwapChainImages.Length; i++) {
+					VkImageViewCreateInfo createInfo = new() {
+							image = vkSwapChainImages[i],
+							viewType = VkImageViewType.ImageViewType2d,
+							format = vkSwapChainFormat,
+							components = new() {
+									r = VkComponentSwizzle.ComponentSwizzleIdentity,
+									g = VkComponentSwizzle.ComponentSwizzleIdentity,
+									b = VkComponentSwizzle.ComponentSwizzleIdentity,
+									a = VkComponentSwizzle.ComponentSwizzleIdentity,
+							},
+							subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+					};
+
+					if (Vk.CreateImageView(vkLogicalDevice, &createInfo, null, &vkImageViewsPtr[i]) != VkResult.Success) { throw new VulkanException("Failed to create image views"); }
+				}
+			}
+
+			return vkImageViews;
+		}
+
+		public static bool CheckSupportForRequiredInstanceExtensions() {
+			ReadOnlySpan<VkExtensionProperties> extensionProperties = EnumerateInstanceExtensionProperties();
+			if (extensionProperties.Length == 0) { throw new VulkanException("Could not find any instance extension properties"); }
+
+			Logger.Debug("The following instance extensions are available:");
+			foreach (VkExtensionProperties extensionProperty in extensionProperties) {
+				ReadOnlySpan<byte> extensionName = extensionProperty.extensionName;
+				Logger.Debug($"- {Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)])}");
+			}
+
+			foreach (string wantedExtension in RequiredInstanceExtensions) {
+				bool extensionFound = false;
+
+				foreach (VkExtensionProperties extensionProperty in extensionProperties) {
+					ReadOnlySpan<byte> extensionName = extensionProperty.extensionName;
+					if (Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)]) == wantedExtension) {
+						extensionFound = true;
+						break;
+					}
+				}
+
+				if (!extensionFound) { return false; }
+			}
+
+			return true;
+		}
+
+		[MustUseReturnValue]
+		private static SwapChainSupportInfo QuerySwapChainSupport(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR vkSurface) {
+			VkPhysicalDeviceSurfaceInfo2KHR surfaceInfo2 = new() { surface = vkSurface, };
+			VkSurfaceCapabilities2KHR surfaceCapabilities2 = new();
+
+			Vk.GetPhysicalDeviceSurfaceCapabilities2KHR(vkPhysicalDevice, &surfaceInfo2, &surfaceCapabilities2);
+
+			VkSurfaceFormat2KHR[] surfaceFormats = GetPhysicalDeviceSurfaceFormats(vkPhysicalDevice, surfaceInfo2);
+			if (surfaceFormats.Length == 0) { throw new Engine3Exception("No surface formats found"); }
+
+			VkPresentModeKHR[] presentModes = GetPhysicalDeviceSurfacePresentModes(vkPhysicalDevice, vkSurface);
+			return presentModes.Length == 0 ? throw new Engine3Exception("No present modes found") : new(surfaceCapabilities2, surfaceFormats, presentModes);
+		}
+
+		[MustUseReturnValue]
+		private static VkSurfaceFormat2KHR[] GetPhysicalDeviceSurfaceFormats(VkPhysicalDevice vkPhysicalDevice, VkPhysicalDeviceSurfaceInfo2KHR vkSurfaceInfo) {
+			uint formatCount;
+			Vk.GetPhysicalDeviceSurfaceFormats2KHR(vkPhysicalDevice, &vkSurfaceInfo, &formatCount, null);
+			if (formatCount == 0) { return Array.Empty<VkSurfaceFormat2KHR>(); }
+
+			VkSurfaceFormat2KHR[] surfaceFormats = new VkSurfaceFormat2KHR[formatCount];
+			for (int i = 0; i < formatCount; i++) { surfaceFormats[i] = new(); }
+
+			fixed (VkSurfaceFormat2KHR* surfaceFormatsPtr = surfaceFormats) {
+				Vk.GetPhysicalDeviceSurfaceFormats2KHR(vkPhysicalDevice, &vkSurfaceInfo, &formatCount, surfaceFormatsPtr);
+				return surfaceFormats;
+			}
+		}
+
+		[MustUseReturnValue]
+		private static VkSurfaceFormat2KHR? ChooseSwapSurfaceFormat(ReadOnlySpan<VkSurfaceFormat2KHR> availableFormats) =>
+				availableFormats.FirstOrDefault(static format => format.surfaceFormat is { format: VkFormat.FormatB8g8r8a8Srgb, colorSpace: VkColorSpaceKHR.ColorSpaceSrgbNonlinearKhr, });
+
+		[MustUseReturnValue]
+		private static VkPresentModeKHR ChooseSwapPresentMode(ReadOnlySpan<VkPresentModeKHR> availablePresentModes) =>
+				availablePresentModes.FirstOrDefault(static presentMode => presentMode is VkPresentModeKHR.PresentModeMailboxKhr, VkPresentModeKHR.PresentModeFifoKhr);
+
+		[MustUseReturnValue]
+		private static VkExtent2D ChooseSwapExtent(WindowHandle windowHandle, VkSurfaceCapabilities2KHR vkSurfaceCapabilities2) {
+			VkSurfaceCapabilitiesKHR capabilities = vkSurfaceCapabilities2.surfaceCapabilities;
+			if (capabilities.currentExtent.width != uint.MaxValue) { return capabilities.currentExtent; }
+
+			Toolkit.Window.GetFramebufferSize(windowHandle, out Vector2i framebufferSize);
+			return new() {
+					width = Math.Clamp((uint)framebufferSize.X, capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
+					height = Math.Clamp((uint)framebufferSize.Y, capabilities.minImageExtent.height, capabilities.maxImageExtent.height),
+			};
+		}
+
+		[MustUseReturnValue]
+		private static VkPresentModeKHR[] GetPhysicalDeviceSurfacePresentModes(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR vkSurface) {
+			uint presentModeCount;
+			Vk.GetPhysicalDeviceSurfacePresentModesKHR(vkPhysicalDevice, vkSurface, &presentModeCount, null);
+			if (presentModeCount == 0) { return Array.Empty<VkPresentModeKHR>(); }
+
+			VkPresentModeKHR[] presentModes = new VkPresentModeKHR[presentModeCount];
+			fixed (VkPresentModeKHR* presentModesPtr = presentModes) {
+				Vk.GetPhysicalDeviceSurfacePresentModesKHR(vkPhysicalDevice, vkSurface, &presentModeCount, presentModesPtr);
+				return presentModes;
 			}
 		}
 
@@ -270,10 +494,9 @@ namespace Engine3.Graphics.Vulkan {
 			}
 		}
 
-		[MustUseReturnValue]
-		private static QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR vkSurface) {
-			uint? graphicsFamily = null;
-			uint? presentFamily = null;
+		private static void FindQueueFamilies(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR vkSurface, out uint? graphicsFamily, out uint? presentFamily) {
+			graphicsFamily = null;
+			presentFamily = null;
 
 			ReadOnlySpan<VkQueueFamilyProperties2> queueFamilies = GetPhysicalDeviceQueueFamilyProperties(vkPhysicalDevice);
 			uint i = 0;
@@ -282,15 +505,13 @@ namespace Engine3.Graphics.Vulkan {
 				if ((queueFamilyProperties.queueFlags & VkQueueFlagBits.QueueGraphicsBit) != 0) { graphicsFamily = i; }
 				if (GetPhysicalDeviceSurfaceSupportKHR(vkPhysicalDevice, i, vkSurface)) { presentFamily = i; }
 
-				if (graphicsFamily != null && presentFamily != null) { break; } // basically QueueFamilyIndices#IsValid
+				if (graphicsFamily != null && presentFamily != null) { break; }
 
 				i++;
 			}
-
-			return new(graphicsFamily, presentFamily);
 		}
 
-		public delegate bool IsGpuSuitable(Gpu physicalDevice);
-		public delegate int RateGpuSuitability(Gpu physicalDevice);
+		public delegate bool IsPhysicalDeviceSuitable(VkPhysicalDeviceProperties2 vkPhysicalDeviceProperties2, VkPhysicalDeviceFeatures2 vkPhysicalDeviceFeatures2);
+		public delegate int RateGpuSuitability(PhysicalGpu physicalGpu);
 	}
 }

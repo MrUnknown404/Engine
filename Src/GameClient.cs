@@ -14,13 +14,13 @@ namespace Engine3 {
 		protected internal abstract void Update();
 		protected internal abstract void Render(float delta);
 
-		protected internal virtual bool VkIsGpuSuitable(Gpu gpu) {
-			VkPhysicalDeviceProperties deviceProperties = gpu.VkPhysicalDeviceProperties2.properties;
+		protected internal virtual bool VkIsPhysicalDeviceSuitable(VkPhysicalDeviceProperties2 vkPhysicalDeviceProperties2, VkPhysicalDeviceFeatures2 vkPhysicalDeviceFeatures2) {
+			VkPhysicalDeviceProperties deviceProperties = vkPhysicalDeviceProperties2.properties;
 			return deviceProperties.deviceType is VkPhysicalDeviceType.PhysicalDeviceTypeIntegratedGpu or VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu or VkPhysicalDeviceType.PhysicalDeviceTypeVirtualGpu;
 		}
 
-		protected internal virtual int VkRateGpuSuitability(Gpu gpu) {
-			VkPhysicalDeviceProperties deviceProperties = gpu.VkPhysicalDeviceProperties2.properties;
+		protected internal virtual int VkRateGpuSuitability(PhysicalGpu physicalGpu) {
+			VkPhysicalDeviceProperties deviceProperties = physicalGpu.VkPhysicalDeviceProperties2.properties;
 			int score = 0;
 
 			if (deviceProperties.deviceType == VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu) { score += 1000; }

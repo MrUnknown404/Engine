@@ -8,17 +8,22 @@ using OpenTK.Platform;
 using GraphicsApi = Engine3.Graphics.GraphicsApi;
 
 namespace Engine3.Utils {
-	public class EngineWindow {
+	public class EngineWindow { // TODO VulkanWindow & OpenGLWindow class
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public WindowHandle WindowHandle { get; }
 
-		public VkSurfaceKHR? VkSurface { get; private set; }
-		public Gpu[] AvailableGpus { get; private set; } = Array.Empty<Gpu>();
-		public Gpu? BestGpu { get; private set; }
-		public VkDevice? VkLogicalDevice { get; private set; }
+		public VkSurfaceKHR? VkSurface { get; private set; } // TODO look into removing nullability from these fields if i can
+		public PhysicalGpu[] AvailableGpus { get; private set; } = Array.Empty<PhysicalGpu>();
+		public PhysicalGpu? BestGpu { get; private set; }
+		public VkDevice? VkLogicalDevice { get; private set; } // TODO LogicalGpu class?
 		public VkQueue? VkGraphicsQueue { get; private set; }
 		public VkQueue? VkPresentQueue { get; private set; }
+		public VkSwapchainKHR? VkSwapChain { get; private set; }
+		public VkImage[] VkSwapChainImages { get; private set; } = Array.Empty<VkImage>();
+		public VkFormat? VkSwapChainImageFormat { get; private set; }
+		public VkExtent2D? VkSwapChainExtent { get; private set; }
+		public VkImageView[] VkSwapChainImageViews { get; private set; } = Array.Empty<VkImageView>();
 
 		public event AttemptCloseWindow? TryCloseWindowEvent;
 		public event Action? OnCloseWindowEvent;
@@ -64,11 +69,13 @@ namespace Engine3.Utils {
 			VkSurface = VkH.CreateSurface(vkInstance, WindowHandle);
 			Logger.Debug("Created surface");
 
-			AvailableGpus = VkH.GetValidGpus(Engine3.VkPhysicalDevices, VkSurface.Value);
+			AvailableGpus = VkH.GetValidGpus(Engine3.VkPhysicalDevices, VkSurface.Value, gameInstance.VkIsPhysicalDeviceSuitable);
+			if (AvailableGpus.Length == 0) { throw new VulkanException("Could not find any GPUs"); }
 			Logger.Debug("Obtained surface capable GPUs ");
 			VkH.PrintGpus(AvailableGpus, Engine3.Debug);
 
-			BestGpu = VkH.PickBestGpu(AvailableGpus, gameInstance.VkIsGpuSuitable, gameInstance.VkRateGpuSuitability);
+			BestGpu = VkH.PickBestGpu(AvailableGpus, gameInstance.VkRateGpuSuitability);
+			if (BestGpu == null) { throw new VulkanException("Could not find any suitable GPUs"); }
 			Logger.Debug($"- Selected Gpu: {BestGpu.Name}");
 
 			VkH.CreateLogicalDevice(BestGpu, out VkDevice vkLogicalDevice, out VkQueue vkPresentQueue);
@@ -78,8 +85,21 @@ namespace Engine3.Utils {
 
 			VkDeviceQueueInfo2 deviceQueueInfo2 = new();
 			VkQueue vkGraphicsQueue;
-			Vk.GetDeviceQueue2(VkLogicalDevice!.Value, &deviceQueueInfo2, &vkGraphicsQueue); // VkLogicalDevice shouldn't be null here
+			Vk.GetDeviceQueue2(VkLogicalDevice.Value, &deviceQueueInfo2, &vkGraphicsQueue);
 			VkGraphicsQueue = vkGraphicsQueue;
+			Logger.Debug("Obtained graphics queue");
+
+			VkH.CreateSwapChain(WindowHandle, VkSurface.Value, BestGpu, VkLogicalDevice.Value, out VkSwapchainKHR vkSwapChain, out VkSurfaceFormat2KHR vkSurfaceFormat, out VkExtent2D vkExtent);
+			VkSwapChain = vkSwapChain;
+			VkSwapChainImageFormat = vkSurfaceFormat.surfaceFormat.format;
+			VkSwapChainExtent = vkExtent;
+			Logger.Debug("Created swap chain");
+
+			VkSwapChainImages = VkH.GetSwapChainImages(VkLogicalDevice.Value, VkSwapChain.Value);
+			Logger.Debug("Obtained swap chain images");
+
+			VkSwapChainImageViews = VkH.CreateImageViews(VkLogicalDevice.Value, VkSwapChainImages, VkSwapChainImageFormat.Value);
+			Logger.Debug("Created swap chain image views");
 		}
 
 		private void SetupOpenGL() => throw new NotImplementedException(); // TODO opengl
@@ -117,6 +137,8 @@ namespace Engine3.Utils {
 				default: throw new ArgumentOutOfRangeException();
 			}
 
+			if (!Toolkit.Window.IsWindowDestroyed(WindowHandle)) { Toolkit.Window.Destroy(WindowHandle); } else { Logger.Warn("Tried to destroy an already destroyed window"); }
+
 			wasCleanedUp = true;
 		}
 
@@ -125,14 +147,24 @@ namespace Engine3.Utils {
 		private unsafe void CleanupVulkan() {
 			if (Engine3.VkInstance is not { } vkInstance) { return; }
 
+			if (VkLogicalDevice is { } vkLogicalDevice) {
+				if (VkSwapChain is { } vkSwapchain) {
+					Vk.DestroySwapchainKHR(vkLogicalDevice, vkSwapchain, null);
+					VkSwapChain = null;
+				}
+
+				if (VkSwapChainImageViews.Length != 0) {
+					foreach (VkImageView vkImageView in VkSwapChainImageViews) { Vk.DestroyImageView(vkLogicalDevice, vkImageView, null); }
+					VkSwapChainImageViews = Array.Empty<VkImageView>();
+				}
+
+				Vk.DestroyDevice(vkLogicalDevice, null);
+				VkLogicalDevice = null;
+			}
+
 			if (VkSurface is { } vkSurface) {
 				Vk.DestroySurfaceKHR(vkInstance, vkSurface, null);
 				VkSurface = null;
-			}
-
-			if (VkLogicalDevice is { } vkLogicalDevice) {
-				Vk.DestroyDevice(vkLogicalDevice, null);
-				VkLogicalDevice = null;
 			}
 		}
 

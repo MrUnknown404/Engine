@@ -30,4 +30,14 @@
 			<argument>Use 'Vk.GetDeviceQueue2()' for Vulkan 1.1+. See https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-devicelayers</argument>
 		</attribute>
 	</member>
+	<member name="M:OpenTK.Graphics.Vulkan.Vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(OpenTK.Graphics.Vulkan.VkPhysicalDevice,OpenTK.Graphics.Vulkan.VkSurfaceKHR,OpenTK.Graphics.Vulkan.VkSurfaceCapabilitiesKHR*)">
+		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
+			<argument>Use 'Vk.GetPhysicalDeviceSurfaceCapabilities2KHR()'. See https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-devicelayers</argument>
+		</attribute>
+	</member>
+	<member name="M:OpenTK.Graphics.Vulkan.Vk.GetPhysicalDeviceSurfaceFormatsKHR(OpenTK.Graphics.Vulkan.VkPhysicalDevice,OpenTK.Graphics.Vulkan.VkSurfaceKHR,System.UInt32*,OpenTK.Graphics.Vulkan.VkSurfaceFormatKHR*)">
+		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
+			<argument>Use 'Vk.GetPhysicalDeviceSurfaceCapabilities2KHR()'. See https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-devicelayers</argument>
+		</attribute>
+	</member>
 </assembly>

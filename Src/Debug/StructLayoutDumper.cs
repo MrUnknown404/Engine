@@ -27,7 +27,7 @@ namespace Engine3.Debug {
 		private static Dictionary<string, string> ToWrite { get; } = new();
 		private static bool wasSetup;
 
-		public static event Action? AddDumps;
+		public static event Action? AddStructs;
 
 		internal static void WriteDumpsToOutput() {
 			if (wasSetup) {
@@ -37,8 +37,8 @@ namespace Engine3.Debug {
 
 			Directory.CreateDirectory(OutputFolder);
 
-			AddDefaultDumps();
-			AddDumps?.Invoke();
+			AddDefaultStructs();
+			AddStructs?.Invoke();
 
 			foreach ((string fileName, string content) in ToWrite) {
 				using FileStream stream = File.Create($"{OutputFolder}/{fileName}.{OutputFileType}");
@@ -52,7 +52,7 @@ namespace Engine3.Debug {
 			wasSetup = true;
 		}
 
-		private static void AddDefaultDumps() {
+		private static void AddDefaultStructs() {
 			AddStruct<Version3>();
 			AddStruct<Version3<ushort>>();
 			AddStruct<Version4>();

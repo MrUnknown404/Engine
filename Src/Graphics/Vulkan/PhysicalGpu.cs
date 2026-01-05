@@ -2,22 +2,24 @@ using System.Text;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Graphics.Vulkan {
-	public class Gpu : IEquatable<Gpu> {
+	public class PhysicalGpu : IEquatable<PhysicalGpu> {
 		public VkPhysicalDevice VkPhysicalDevice { get; }
 		public VkPhysicalDeviceProperties2 VkPhysicalDeviceProperties2 { get; }
 		public VkPhysicalDeviceFeatures2 VkPhysicalDeviceFeatures2 { get; }
 		public VkExtensionProperties[] VkExtensionProperties { get; }
 		public QueueFamilyIndices QueueFamilyIndices { get; }
+		public SwapChainSupportInfo SwapChainSupportInfo { get; }
 
 		public string Name { get; }
 
-		public Gpu(VkPhysicalDevice vkPhysicalDevice, VkPhysicalDeviceProperties2 vkPhysicalDeviceProperties2, VkPhysicalDeviceFeatures2 vkPhysicalDeviceFeatures2, VkExtensionProperties[] vkExtensionProperties,
-			QueueFamilyIndices queueFamilyIndices) {
+		public PhysicalGpu(VkPhysicalDevice vkPhysicalDevice, VkPhysicalDeviceProperties2 vkPhysicalDeviceProperties2, VkPhysicalDeviceFeatures2 vkPhysicalDeviceFeatures2, VkExtensionProperties[] vkExtensionProperties,
+			QueueFamilyIndices queueFamilyIndices, SwapChainSupportInfo swapChainSupportInfo) {
 			VkPhysicalDevice = vkPhysicalDevice;
 			VkPhysicalDeviceProperties2 = vkPhysicalDeviceProperties2;
 			VkPhysicalDeviceFeatures2 = vkPhysicalDeviceFeatures2;
 			VkExtensionProperties = vkExtensionProperties;
 			QueueFamilyIndices = queueFamilyIndices;
+			SwapChainSupportInfo = swapChainSupportInfo;
 
 			VkPhysicalDeviceProperties.deviceNameInlineArray1 deviceNameArray = VkPhysicalDeviceProperties2.properties.deviceName;
 			ReadOnlySpan<byte> deviceNameSpan = deviceNameArray;
@@ -56,11 +58,11 @@ namespace Engine3.Graphics.Vulkan {
 			//@formatter:on
 		}
 
-		public static bool operator ==(Gpu? left, Gpu? right) => Equals(left, right);
-		public static bool operator !=(Gpu? left, Gpu? right) => !Equals(left, right);
+		public static bool operator ==(PhysicalGpu? left, PhysicalGpu? right) => Equals(left, right);
+		public static bool operator !=(PhysicalGpu? left, PhysicalGpu? right) => !Equals(left, right);
 
-		public bool Equals(Gpu? other) => other is not null && (other == this || VkPhysicalDevice.Handle.Equals(other.VkPhysicalDevice.Handle));
-		public override bool Equals(object? obj) => obj is Gpu gpu && Equals(gpu);
+		public bool Equals(PhysicalGpu? other) => other is not null && (other == this || VkPhysicalDevice.Handle.Equals(other.VkPhysicalDevice.Handle));
+		public override bool Equals(object? obj) => obj is PhysicalGpu gpu && Equals(gpu);
 
 		public override int GetHashCode() => VkPhysicalDevice.GetHashCode();
 	}

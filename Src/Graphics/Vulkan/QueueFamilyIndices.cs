@@ -1,13 +1,14 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Engine3.Graphics.Vulkan {
 	public readonly record struct QueueFamilyIndices {
-		public uint? GraphicsFamily { get; }
-		public uint? PresentFamily { get; }
+		public required uint GraphicsFamily { get; init; }
+		public required uint PresentFamily { get; init; }
 
-		public QueueFamilyIndices(uint? graphicsFamily, uint? presentFamily) {
+		[SetsRequiredMembers]
+		public QueueFamilyIndices(uint graphicsFamily, uint presentFamily) {
 			GraphicsFamily = graphicsFamily;
 			PresentFamily = presentFamily;
 		}
-
-		public bool IsValid => GraphicsFamily != null && PresentFamily != null;
 	}
 }

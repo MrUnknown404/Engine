@@ -2,6 +2,7 @@
 
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using Engine3.Exceptions;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
@@ -27,7 +28,7 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		public static VkDebugUtilsMessengerCreateInfoEXT CreateVkDebugUtilsMessengerCreateInfoEXT() =>
-				new() { messageSeverity = EnabledDebugMessageSeverities, messageType = EnabledDebugMessageTypes, pfnUserCallback = &VulkanDebugCallback, };
+				new() { messageSeverity = EnabledDebugMessageSeverities, messageType = EnabledDebugMessageTypes, pfnUserCallback = &DebugCallback, };
 
 		[MustUseReturnValue]
 		public static VkDebugUtilsMessengerEXT CreateDebugMessenger(VkInstance vkInstance) {
@@ -36,8 +37,29 @@ namespace Engine3.Graphics.Vulkan {
 			return Vk.CreateDebugUtilsMessengerEXT(vkInstance, &messengerCreateInfo, null, &debugMessenger) != VkResult.Success ? throw new VulkanException("Failed to create Vulkan Debug Messenger") : debugMessenger;
 		}
 
+		public static bool CheckSupportForRequiredValidationLayers() {
+			ReadOnlySpan<VkLayerProperties> availableLayerProperties = EnumerateInstanceLayerProperties();
+			if (availableLayerProperties.Length == 0) { throw new VulkanException("Could not find any instance layer properties"); }
+
+			foreach (string wantedLayer in RequiredValidationLayers) {
+				bool layerFound = false;
+
+				foreach (VkLayerProperties layerProperties in availableLayerProperties) {
+					ReadOnlySpan<byte> layerName = layerProperties.layerName;
+					if (Encoding.UTF8.GetString(layerName[..layerName.IndexOf((byte)0)]) == wantedLayer) {
+						layerFound = true;
+						break;
+					}
+				}
+
+				if (!layerFound) { return false; }
+			}
+
+			return true;
+		}
+
 		[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl), })]
-		private static int VulkanDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagBitsEXT messageType, VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
+		private static int DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagBitsEXT messageType, VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
 			string message = $"[Vulkan Callback] [{messageType switch {
 					VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeDeviceAddressBindingBitExt => "Device Address Binding",
 					VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeGeneralBitExt => "General",
