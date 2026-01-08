@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -9,6 +11,9 @@ using OpenTK.Core.Native;
 using OpenTK.Graphics.Vulkan;
 using OpenTK.Mathematics;
 using OpenTK.Platform;
+using shaderc;
+using SpirVCompiler = shaderc.Compiler;
+using SpirVResult = shaderc.Result;
 
 namespace Engine3.Graphics.Vulkan {
 	public static unsafe partial class VkH {
@@ -19,7 +24,7 @@ namespace Engine3.Graphics.Vulkan {
 		/// <summary> Note: This must be set before you set up Vulkan </summary>
 		public static readonly List<string> RequiredInstanceExtensions = [ Vk.KhrGetSurfaceCapabilities2ExtensionName, ];
 		/// <summary> Note: This must be set before you set up Vulkan </summary>
-		public static readonly List<string> RequiredDeviceExtensions = [ Vk.KhrSwapchainExtensionName, ];
+		public static readonly List<string> RequiredDeviceExtensions = [ Vk.KhrSwapchainExtensionName, Vk.KhrDynamicRenderingExtensionName, ];
 
 		public static VkDebugUtilsMessageSeverityFlagBitsEXT EnabledDebugMessageSeverities {
 			get;
@@ -76,20 +81,20 @@ namespace Engine3.Graphics.Vulkan {
 
 			List<string> requiredExtensions = new();
 			requiredExtensions.AddRange(Toolkit.Vulkan.GetRequiredInstanceExtensions());
-			requiredExtensions.AddRange(VkH.RequiredInstanceExtensions);
+			requiredExtensions.AddRange(RequiredInstanceExtensions);
 
 			IntPtr requiredExtensionsPtr = MarshalTk.StringArrayToCoTaskMemAnsi(CollectionsMarshal.AsSpan(requiredExtensions));
 #if DEBUG
-			IntPtr requiredValidationLayersPtr = MarshalTk.StringArrayToCoTaskMemAnsi(CollectionsMarshal.AsSpan(VkH.RequiredValidationLayers));
+			IntPtr requiredValidationLayersPtr = MarshalTk.StringArrayToCoTaskMemAnsi(CollectionsMarshal.AsSpan(RequiredValidationLayers));
 
-			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = VkH.CreateVkDebugUtilsMessengerCreateInfoEXT();
+			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateVkDebugUtilsMessengerCreateInfoEXT();
 #endif
 
 			VkInstanceCreateInfo vkCreateInfo = new() {
 					pApplicationInfo = &vkApplicationInfo,
 #if DEBUG
 					pNext = &messengerCreateInfo,
-					enabledLayerCount = (uint)VkH.RequiredValidationLayers.Count,
+					enabledLayerCount = (uint)RequiredValidationLayers.Count,
 					ppEnabledLayerNames = (byte**)requiredValidationLayersPtr,
 #endif
 					enabledExtensionCount = (uint)requiredExtensions.Count,
@@ -101,51 +106,40 @@ namespace Engine3.Graphics.Vulkan {
 
 			MarshalTk.FreeStringArrayCoTaskMem(requiredExtensionsPtr, requiredExtensions.Count);
 #if DEBUG
-			MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, VkH.RequiredValidationLayers.Count);
+			MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, RequiredValidationLayers.Count);
 #endif
 
 			return vkInstance;
 		}
 
 		[MustUseReturnValue]
-		public static ReadOnlySpan<VkExtensionProperties> EnumerateInstanceExtensionProperties() {
-			uint extensionCount;
-			Vk.EnumerateInstanceExtensionProperties(null, &extensionCount, null);
-
-			if (extensionCount == 0) { return ReadOnlySpan<VkExtensionProperties>.Empty; }
-
-			VkExtensionProperties[] extensionProperties = new VkExtensionProperties[extensionCount];
-			fixed (VkExtensionProperties* extensionPropertiesPtr = extensionProperties) {
-				Vk.EnumerateInstanceExtensionProperties(null, &extensionCount, extensionPropertiesPtr);
-				return extensionProperties;
-			}
-		}
-
-		[MustUseReturnValue]
 		public static VkSurfaceKHR CreateSurface(VkInstance vkInstance, WindowHandle windowHandle) =>
 				Toolkit.Vulkan.CreateWindowSurface(vkInstance, windowHandle, null, out VkSurfaceKHR vkSurface) != VkResult.Success ? throw new VulkanException("Failed to create surface") : vkSurface;
 
-		public static void CreateLogicalDevice(PhysicalGpu physicalGpu, out VkDevice vkLogicalDevice, out VkQueue vkPresentQueue) {
+		[MustUseReturnValue]
+		public static VkDevice CreateLogicalDevice(PhysicalGpu physicalGpu) {
 			QueueFamilyIndices queueFamilyIndices = physicalGpu.QueueFamilyIndices;
 
-			HashSet<uint> uniqueQueueFamilies = [ queueFamilyIndices.GraphicsFamily, queueFamilyIndices.PresentFamily, ];
 			List<VkDeviceQueueCreateInfo> queueCreateInfos = new();
-
 			float queuePriority = 1f;
 
 			// ReSharper disable once ForeachCanBeConvertedToQueryUsingAnotherGetEnumerator // CS0212
-			foreach (uint queueFamily in uniqueQueueFamilies) { queueCreateInfos.Add(new() { queueFamilyIndex = queueFamily, queueCount = 1, pQueuePriorities = &queuePriority, }); }
+			foreach (uint queueFamily in new HashSet<uint> { queueFamilyIndices.GraphicsFamily, queueFamilyIndices.PresentFamily, }) {
+				queueCreateInfos.Add(new() { queueFamilyIndex = queueFamily, queueCount = 1, pQueuePriorities = &queuePriority, });
+			}
 
+			VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeatures = new() { dynamicRendering = (int)Vk.True, };
 			VkPhysicalDeviceFeatures deviceFeatures = new(); // ???
 
 			IntPtr requiredDeviceExtensionsPtr = MarshalTk.StringArrayToCoTaskMemAnsi(CollectionsMarshal.AsSpan(RequiredDeviceExtensions));
-
 #if DEBUG
 			IntPtr requiredValidationLayersPtr = MarshalTk.StringArrayToCoTaskMemAnsi(CollectionsMarshal.AsSpan(RequiredValidationLayers));
 #endif
 
+			VkDevice logicalDevice;
 			fixed (VkDeviceQueueCreateInfo* queueCreateInfosPtr = CollectionsMarshal.AsSpan(queueCreateInfos)) {
 				VkDeviceCreateInfo deviceCreateInfo = new() {
+						pNext = &dynamicRenderingFeatures,
 						pQueueCreateInfos = queueCreateInfosPtr,
 						queueCreateInfoCount = (uint)queueCreateInfos.Count,
 						pEnabledFeatures = &deviceFeatures,
@@ -159,22 +153,15 @@ namespace Engine3.Graphics.Vulkan {
 #endif
 				};
 
-				VkDevice logicalDevice;
 				if (Vk.CreateDevice(physicalGpu.VkPhysicalDevice, &deviceCreateInfo, null, &logicalDevice) != VkResult.Success) { throw new VulkanException("Failed to create logical device"); }
-				vkLogicalDevice = logicalDevice;
 			}
 
 			MarshalTk.FreeStringArrayCoTaskMem(requiredDeviceExtensionsPtr, RequiredDeviceExtensions.Count);
-
 #if DEBUG
 			MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, RequiredValidationLayers.Count);
 #endif
 
-			VkDeviceQueueInfo2 deviceQueueInfo2 = new() { queueFamilyIndex = queueFamilyIndices.PresentFamily, };
-
-			VkQueue presentQueue;
-			Vk.GetDeviceQueue2(vkLogicalDevice, &deviceQueueInfo2, &presentQueue);
-			vkPresentQueue = presentQueue;
+			return logicalDevice;
 		}
 
 		[MustUseReturnValue] public static VkPhysicalDevice[] CreatePhysicalDevices(VkInstance vkInstance) => EnumeratePhysicalDevices(vkInstance).ToArray();
@@ -314,6 +301,7 @@ namespace Engine3.Graphics.Vulkan {
 			}
 		}
 
+		[MustUseReturnValue]
 		public static VkImageView[] CreateImageViews(VkDevice vkLogicalDevice, VkImage[] vkSwapChainImages, VkFormat vkSwapChainFormat) {
 			VkImageView[] vkImageViews = new VkImageView[vkSwapChainImages.Length];
 
@@ -340,6 +328,7 @@ namespace Engine3.Graphics.Vulkan {
 			return vkImageViews;
 		}
 
+		[MustUseReturnValue]
 		public static bool CheckSupportForRequiredInstanceExtensions() {
 			ReadOnlySpan<VkExtensionProperties> extensionProperties = EnumerateInstanceExtensionProperties();
 			if (extensionProperties.Length == 0) { throw new VulkanException("Could not find any instance extension properties"); }
@@ -365,6 +354,169 @@ namespace Engine3.Graphics.Vulkan {
 			}
 
 			return true;
+		}
+
+		public static void CreateGraphicsPipeline(VkDevice vkLogicalDevice, VkFormat vkSwapChainImageFormat, Assembly shaderAssembly, out VkPipeline vkGraphicsPipeline, out VkPipelineLayout vkPipelineLayout) {
+			VkShaderModule? vertShaderModule = CreateShaderModule(vkLogicalDevice, "Test", ShaderLanguage.Glsl, ShaderType.Vertex, shaderAssembly); // TODO allow this to be edited
+			VkShaderModule? fragShaderModule = CreateShaderModule(vkLogicalDevice, "Test", ShaderLanguage.Glsl, ShaderType.Fragment, shaderAssembly);
+			if (vertShaderModule == null || fragShaderModule == null) { throw new VulkanException("Failed to create shader modules"); }
+
+			byte* entryPointPtr = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference("main"u8));
+
+			VkPipelineShaderStageCreateInfo vertShaderStageCreateInfo = new() { stage = VkShaderStageFlagBits.ShaderStageVertexBit, module = vertShaderModule.Value, pName = entryPointPtr, };
+			VkPipelineShaderStageCreateInfo fragShaderStageCreateInfo = new() { stage = VkShaderStageFlagBits.ShaderStageFragmentBit, module = fragShaderModule.Value, pName = entryPointPtr, };
+
+			VkPipelineShaderStageCreateInfo[] shaderStageCreateInfos = [ vertShaderStageCreateInfo, fragShaderStageCreateInfo, ];
+			VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = new() { vertexBindingDescriptionCount = 0, vertexAttributeDescriptionCount = 0, };
+			VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo = new() { topology = VkPrimitiveTopology.PrimitiveTopologyTriangleList, };
+			VkPipelineViewportStateCreateInfo viewportStateCreateInfo = new() { viewportCount = 1, scissorCount = 1, };
+			VkPipelineRenderingCreateInfoKHR renderingCreateInfo = new() { colorAttachmentCount = 1, pColorAttachmentFormats = &vkSwapChainImageFormat, };
+
+			VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = new() {
+					depthClampEnable = (int)Vk.False,
+					rasterizerDiscardEnable = (int)Vk.False,
+					polygonMode = VkPolygonMode.PolygonModeFill,
+					lineWidth = 1,
+					cullMode = VkCullModeFlagBits.CullModeBackBit,
+					frontFace = VkFrontFace.FrontFaceClockwise,
+					depthBiasEnable = (int)Vk.False,
+					depthBiasConstantFactor = 0,
+					depthBiasClamp = 0,
+					depthBiasSlopeFactor = 0,
+			};
+
+			VkPipelineMultisampleStateCreateInfo multisampleStateCreateInfo = new() {
+					sampleShadingEnable = (int)Vk.False,
+					rasterizationSamples = VkSampleCountFlagBits.SampleCount1Bit,
+					minSampleShading = 1,
+					pSampleMask = null,
+					alphaToCoverageEnable = (int)Vk.False,
+					alphaToOneEnable = (int)Vk.False,
+			};
+
+			VkPipelineColorBlendAttachmentState colorBlendAttachmentState = new() {
+					colorWriteMask = VkColorComponentFlagBits.ColorComponentRBit | VkColorComponentFlagBits.ColorComponentGBit | VkColorComponentFlagBits.ColorComponentBBit | VkColorComponentFlagBits.ColorComponentABit,
+					blendEnable = (int)Vk.True,
+					srcColorBlendFactor = VkBlendFactor.BlendFactorSrcAlpha,
+					dstColorBlendFactor = VkBlendFactor.BlendFactorOneMinusSrcAlpha,
+					colorBlendOp = VkBlendOp.BlendOpAdd,
+					srcAlphaBlendFactor = VkBlendFactor.BlendFactorOne,
+					dstAlphaBlendFactor = VkBlendFactor.BlendFactorZero,
+					alphaBlendOp = VkBlendOp.BlendOpAdd,
+			};
+
+			VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = new() { logicOpEnable = (int)Vk.False, logicOp = VkLogicOp.LogicOpCopy, attachmentCount = 1, pAttachments = &colorBlendAttachmentState, };
+			colorBlendStateCreateInfo.blendConstants[0] = 0;
+			colorBlendStateCreateInfo.blendConstants[1] = 0;
+			colorBlendStateCreateInfo.blendConstants[2] = 0;
+			colorBlendStateCreateInfo.blendConstants[3] = 0;
+
+			// VkViewport viewport = new() { width = vkExtent.width, height = vkExtent.height, minDepth = 0, maxDepth = 1, };
+			// VkRect2D scissor = new() { offset = new(0, 0), extent = vkExtent, };
+
+			VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = new() { setLayoutCount = 0, pSetLayouts = null, pushConstantRangeCount = 0, pPushConstantRanges = null, };
+
+			VkPipelineLayout pipelineLayout;
+			if (Vk.CreatePipelineLayout(vkLogicalDevice, &pipelineLayoutCreateInfo, null, &pipelineLayout) != VkResult.Success) { throw new VulkanException("Failed to create pipeline layout"); }
+			vkPipelineLayout = pipelineLayout;
+
+			fixed (VkPipelineShaderStageCreateInfo* shaderStageCreateInfosPtr = shaderStageCreateInfos) {
+				VkDynamicState[] dynamicStates = [ VkDynamicState.DynamicStateViewport, VkDynamicState.DynamicStateScissor, ]; // TODO allow this to be edited
+
+				fixed (VkDynamicState* dynamicStatesPtr = dynamicStates) {
+					VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = new() { dynamicStateCount = (uint)dynamicStates.Length, pDynamicStates = dynamicStatesPtr, };
+
+					VkGraphicsPipelineCreateInfo pipelineCreateInfo = new() {
+							pNext = &renderingCreateInfo,
+							stageCount = (uint)shaderStageCreateInfos.Length,
+							pStages = shaderStageCreateInfosPtr,
+							pVertexInputState = &vertexInputStateCreateInfo,
+							pInputAssemblyState = &inputAssemblyStateCreateInfo,
+							pViewportState = &viewportStateCreateInfo,
+							pRasterizationState = &rasterizationStateCreateInfo,
+							pMultisampleState = &multisampleStateCreateInfo,
+							pDepthStencilState = null,
+							pColorBlendState = &colorBlendStateCreateInfo,
+							pDynamicState = &dynamicStateCreateInfo,
+							layout = pipelineLayout,
+							basePipelineHandle = VkPipeline.Zero, // should this be null or VkPipeline.Zero?
+							basePipelineIndex = -1,
+					};
+
+					VkPipeline graphicsPipeline;
+					if (Vk.CreateGraphicsPipelines(vkLogicalDevice, VkPipelineCache.Zero, 1, &pipelineCreateInfo, null, &graphicsPipeline) != VkResult.Success) { throw new VulkanException("Failed to create graphics pipeline"); }
+					vkGraphicsPipeline = graphicsPipeline;
+				}
+			}
+
+			Vk.DestroyShaderModule(vkLogicalDevice, fragShaderModule.Value, null);
+			Vk.DestroyShaderModule(vkLogicalDevice, vertShaderModule.Value, null);
+		}
+
+		[MustUseReturnValue]
+		public static VkQueue GetDeviceQueue(VkDevice vkLogicalDevice, uint queueFamilyIndex) {
+			VkDeviceQueueInfo2 deviceQueueInfo2 = new() { queueFamilyIndex = queueFamilyIndex, };
+			VkQueue vkGraphicsQueue;
+			Vk.GetDeviceQueue2(vkLogicalDevice, &deviceQueueInfo2, &vkGraphicsQueue);
+			return vkGraphicsQueue;
+		}
+
+		[MustUseReturnValue]
+		private static ReadOnlySpan<VkExtensionProperties> EnumerateInstanceExtensionProperties() {
+			uint extensionCount;
+			Vk.EnumerateInstanceExtensionProperties(null, &extensionCount, null);
+
+			if (extensionCount == 0) { return ReadOnlySpan<VkExtensionProperties>.Empty; }
+
+			VkExtensionProperties[] extensionProperties = new VkExtensionProperties[extensionCount];
+			fixed (VkExtensionProperties* extensionPropertiesPtr = extensionProperties) {
+				Vk.EnumerateInstanceExtensionProperties(null, &extensionCount, extensionPropertiesPtr);
+				return extensionProperties;
+			}
+		}
+
+		[MustUseReturnValue]
+		private static VkShaderModule? CreateShaderModule(VkDevice vkLogicalDevice, string fileName, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {
+			using Stream? stream = AssetH.GetAssetStream($"Shaders.{shaderLang.AssetFolderName}.{fileName}.{shaderType.FileExtension}{(shaderLang == ShaderLanguage.SpirV ? ".spv" : string.Empty)}", assembly);
+			if (stream == null) {
+				Logger.Error("Failed to create asset stream");
+				return null;
+			}
+
+			switch (shaderLang) {
+				case ShaderLanguage.Glsl or ShaderLanguage.Hlsl: {
+					using SpirVCompiler spirvCompiler = new(new Options {
+							SourceLanguage = shaderLang switch {
+									ShaderLanguage.Glsl => SourceLanguage.Glsl,
+									ShaderLanguage.Hlsl => SourceLanguage.Hlsl,
+									ShaderLanguage.SpirV => throw new UnreachableException(),
+									_ => throw new NotImplementedException(),
+							},
+					});
+
+					using StreamReader streamReader = new(stream);
+					using SpirVResult spirvResult = spirvCompiler.Compile(streamReader.ReadToEnd(), fileName, shaderType.ShaderKind);
+					if (spirvResult.Status != Status.Success) {
+						Logger.Error($"Failed to compile shader: {fileName}. {spirvResult.ErrorMessage}");
+						return null;
+					}
+
+					VkShaderModuleCreateInfo createInfo = new() { codeSize = spirvResult.CodeLength, pCode = (uint*)spirvResult.CodePointer, };
+					VkShaderModule vkShaderModule;
+					return Vk.CreateShaderModule(vkLogicalDevice, &createInfo, null, &vkShaderModule) != VkResult.Success ? throw new VulkanException("Failed to create shader module") : vkShaderModule;
+				}
+				case ShaderLanguage.SpirV: {
+					using BinaryReader reader = new(stream);
+					byte[] data = reader.ReadBytes((int)stream.Length);
+
+					fixed (byte* shaderCodePtr = data) {
+						VkShaderModuleCreateInfo createInfo = new() { codeSize = (UIntPtr)data.Length, pCode = (uint*)shaderCodePtr, };
+						VkShaderModule vkShaderModule;
+						return Vk.CreateShaderModule(vkLogicalDevice, &createInfo, null, &vkShaderModule) != VkResult.Success ? throw new VulkanException("Failed to create shader module") : vkShaderModule;
+					}
+				}
+				default: throw new ArgumentOutOfRangeException(nameof(shaderLang), shaderLang, null);
+			}
 		}
 
 		[MustUseReturnValue]

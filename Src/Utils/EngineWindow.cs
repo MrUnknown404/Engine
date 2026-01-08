@@ -24,6 +24,8 @@ namespace Engine3.Utils {
 		public VkFormat? VkSwapChainImageFormat { get; private set; }
 		public VkExtent2D? VkSwapChainExtent { get; private set; }
 		public VkImageView[] VkSwapChainImageViews { get; private set; } = Array.Empty<VkImageView>();
+		public VkPipelineLayout? VkPipelineLayout { get; private set; }
+		public VkPipeline? VkGraphicsPipeline { get; private set; }
 
 		public event AttemptCloseWindow? TryCloseWindowEvent;
 		public event Action? OnCloseWindowEvent;
@@ -63,7 +65,7 @@ namespace Engine3.Utils {
 			return window;
 		}
 
-		private unsafe void SetupVulkan() {
+		private void SetupVulkan() {
 			if (Engine3.VkInstance is not { } vkInstance || Engine3.GameInstance is not { } gameInstance) { throw new UnreachableException(); }
 
 			VkSurface = VkH.CreateSurface(vkInstance, WindowHandle);
@@ -78,15 +80,13 @@ namespace Engine3.Utils {
 			if (BestGpu == null) { throw new VulkanException("Could not find any suitable GPUs"); }
 			Logger.Debug($"- Selected Gpu: {BestGpu.Name}");
 
-			VkH.CreateLogicalDevice(BestGpu, out VkDevice vkLogicalDevice, out VkQueue vkPresentQueue);
-			VkLogicalDevice = vkLogicalDevice;
-			VkPresentQueue = vkPresentQueue;
-			Logger.Debug("Created logical device & present queue");
+			VkLogicalDevice = VkH.CreateLogicalDevice(BestGpu);
+			Logger.Debug("Created logical device");
 
-			VkDeviceQueueInfo2 deviceQueueInfo2 = new();
-			VkQueue vkGraphicsQueue;
-			Vk.GetDeviceQueue2(VkLogicalDevice.Value, &deviceQueueInfo2, &vkGraphicsQueue);
-			VkGraphicsQueue = vkGraphicsQueue;
+			VkPresentQueue = VkH.GetDeviceQueue(VkLogicalDevice.Value, BestGpu.QueueFamilyIndices.GraphicsFamily);
+			Logger.Debug("Obtained present queue");
+
+			VkGraphicsQueue = VkH.GetDeviceQueue(VkLogicalDevice.Value, BestGpu.QueueFamilyIndices.GraphicsFamily);
 			Logger.Debug("Obtained graphics queue");
 
 			VkH.CreateSwapChain(WindowHandle, VkSurface.Value, BestGpu, VkLogicalDevice.Value, out VkSwapchainKHR vkSwapChain, out VkSurfaceFormat2KHR vkSurfaceFormat, out VkExtent2D vkExtent);
@@ -100,6 +100,11 @@ namespace Engine3.Utils {
 
 			VkSwapChainImageViews = VkH.CreateImageViews(VkLogicalDevice.Value, VkSwapChainImages, VkSwapChainImageFormat.Value);
 			Logger.Debug("Created swap chain image views");
+
+			VkH.CreateGraphicsPipeline(VkLogicalDevice.Value, VkSwapChainImageFormat.Value, Engine3.GameInstance.Assembly, out VkPipeline vkGraphicsPipeline, out VkPipelineLayout vkPipelineLayout);
+			VkGraphicsPipeline = vkGraphicsPipeline;
+			VkPipelineLayout = vkPipelineLayout;
+			Logger.Debug("Created graphics pipeline");
 		}
 
 		private void SetupOpenGL() => throw new NotImplementedException(); // TODO opengl
@@ -156,6 +161,16 @@ namespace Engine3.Utils {
 				if (VkSwapChainImageViews.Length != 0) {
 					foreach (VkImageView vkImageView in VkSwapChainImageViews) { Vk.DestroyImageView(vkLogicalDevice, vkImageView, null); }
 					VkSwapChainImageViews = Array.Empty<VkImageView>();
+				}
+
+				if (VkPipelineLayout is { } vkPipelineLayout) {
+					Vk.DestroyPipelineLayout(vkLogicalDevice, vkPipelineLayout, null);
+					VkPipelineLayout = null;
+				}
+
+				if (VkGraphicsPipeline is { } vkGraphicsPipeline) {
+					Vk.DestroyPipeline(vkLogicalDevice, vkGraphicsPipeline, null);
+					VkGraphicsPipeline = null;
 				}
 
 				Vk.DestroyDevice(vkLogicalDevice, null);

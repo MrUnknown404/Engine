@@ -14,22 +14,6 @@ namespace Engine3.Graphics.Vulkan {
 			RequiredInstanceExtensions.Add(Vk.ExtDebugUtilsExtensionName);
 		}
 
-		public static ReadOnlySpan<VkLayerProperties> EnumerateInstanceLayerProperties() {
-			uint layerCount;
-			Vk.EnumerateInstanceLayerProperties(&layerCount, null);
-
-			if (layerCount == 0) { return ReadOnlySpan<VkLayerProperties>.Empty; }
-
-			VkLayerProperties[] layerProperties = new VkLayerProperties[layerCount];
-			fixed (VkLayerProperties* layerPropertiesPtr = layerProperties) {
-				Vk.EnumerateInstanceLayerProperties(&layerCount, layerPropertiesPtr);
-				return layerProperties;
-			}
-		}
-
-		public static VkDebugUtilsMessengerCreateInfoEXT CreateVkDebugUtilsMessengerCreateInfoEXT() =>
-				new() { messageSeverity = EnabledDebugMessageSeverities, messageType = EnabledDebugMessageTypes, pfnUserCallback = &DebugCallback, };
-
 		[MustUseReturnValue]
 		public static VkDebugUtilsMessengerEXT CreateDebugMessenger(VkInstance vkInstance) {
 			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateVkDebugUtilsMessengerCreateInfoEXT();
@@ -57,6 +41,22 @@ namespace Engine3.Graphics.Vulkan {
 
 			return true;
 		}
+
+		private static ReadOnlySpan<VkLayerProperties> EnumerateInstanceLayerProperties() {
+			uint layerCount;
+			Vk.EnumerateInstanceLayerProperties(&layerCount, null);
+
+			if (layerCount == 0) { return ReadOnlySpan<VkLayerProperties>.Empty; }
+
+			VkLayerProperties[] layerProperties = new VkLayerProperties[layerCount];
+			fixed (VkLayerProperties* layerPropertiesPtr = layerProperties) {
+				Vk.EnumerateInstanceLayerProperties(&layerCount, layerPropertiesPtr);
+				return layerProperties;
+			}
+		}
+
+		private static VkDebugUtilsMessengerCreateInfoEXT CreateVkDebugUtilsMessengerCreateInfoEXT() =>
+				new() { messageSeverity = EnabledDebugMessageSeverities, messageType = EnabledDebugMessageTypes, pfnUserCallback = &DebugCallback, };
 
 		[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl), })]
 		private static int DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagBitsEXT messageType, VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
