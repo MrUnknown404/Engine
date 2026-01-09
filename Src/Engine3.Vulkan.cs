@@ -3,11 +3,10 @@ using Engine3.Graphics.Vulkan;
 using Engine3.Utils;
 using OpenTK.Graphics;
 using OpenTK.Graphics.Vulkan;
-using shaderc;
-using SpirVCompiler = shaderc.Compiler;
+
 
 namespace Engine3 {
-	public static partial class Engine3 { // TODO all these preprocessor directives are getting annoying. i may want to refactor to take those in mind
+	public static partial class Engine3 {
 		public static bool WasVulkanSetup { get; private set; }
 
 		public static VkInstance? VkInstance { get; private set; }
@@ -28,9 +27,6 @@ namespace Engine3 {
 			VkInstance = VkH.CreateVulkanInstance(appTitle, Name, gameVersion, engineVersion);
 			VKLoader.SetInstance(VkInstance.Value);
 			Logger.Info("Created Vulkan instance");
-
-			SpirVCompiler.GetSpvVersion(out SpirVVersion version, out uint revision);
-			Logger.Debug($"- SpirV Version: {version.Major}.{version.Minor} - {revision}");
 
 #if DEBUG
 			vkDebugMessenger = VkH.CreateDebugMessenger(VkInstance.Value);
@@ -55,10 +51,6 @@ namespace Engine3 {
 
 			Vk.DestroyInstance(vkInstance, null);
 			VkInstance = null;
-		}
-
-		public class VulkanSettings {
-			public VulkanSettings() { }
 		}
 	}
 }

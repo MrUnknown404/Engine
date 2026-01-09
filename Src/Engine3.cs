@@ -6,7 +6,10 @@ using Engine3.Utils;
 using NLog;
 using OpenTK.Platform;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using shaderc;
 using GraphicsApi = Engine3.Graphics.GraphicsApi;
+using Window = Engine3.Graphics.Window;
+using SpirVCompiler = shaderc.Compiler;
 
 namespace Engine3 {
 	public static partial class Engine3 {
@@ -29,16 +32,14 @@ namespace Engine3 {
 		public static GraphicsApi GraphicsApi { get; private set; } = GraphicsApi.Console;
 		public static GraphicsApiHints? GraphicsApiHints { get; private set; }
 		public static GameClient? GameInstance { get; private set; }
-		internal static readonly List<EngineWindow> Windows = new();
+		internal static readonly List<Window> Windows = new();
 
-		public static ulong UpdateFrame { get; private set; }
-		public static ulong RenderFrame { get; private set; }
+		public static ulong UpdateFrameCount { get; private set; }
+		public static ulong RenderFrameCount { get; private set; }
 		public static uint Fps { get; private set; }
 		public static uint Ups { get; private set; }
 		public static float UpdateTime { get; private set; }
 		public static float RenderTime { get; private set; }
-
-		public static bool WasGraphicsApiSetup => WasOpenGLSetup | WasVulkanSetup;
 
 		private static bool shouldRunGameLoop = true;
 
@@ -68,6 +69,8 @@ namespace Engine3 {
 			Logger.Debug($"- Engine Version: {EngineVersion}");
 			Logger.Debug($"- GLFW Version: {GLFW.GetVersionString()}"); // TODO i have no idea what window manager OpenTK uses. i see GLFW, & SDL. but it looks like PAL is just using Win32 API/X11 API directly. help
 			Logger.Debug($"- Graphics Api: {GraphicsApi}");
+			SpirVCompiler.GetSpvVersion(out SpirVVersion version, out uint revision);
+			Logger.Debug($"- SpirV Version: {version.Major}.{version.Minor} - {revision}");
 
 			PreEngineSetupEvent?.Invoke();
 			SetupEngine();
@@ -90,17 +93,9 @@ namespace Engine3 {
 				OnSetupToolkitEvent?.Invoke();
 			}
 
-			switch (GraphicsApi) {
-				case GraphicsApi.OpenGL:
-					Logger.Info("Setting up OpenGL...");
-					SetupOpenGL();
-					break;
-				case GraphicsApi.Vulkan:
-					Logger.Info("Setting up Vulkan...");
-					SetupVulkan(settings.GameName, GameInstance.Version, EngineVersion);
-					break;
-				case GraphicsApi.Console:
-				default: break;
+			if (GraphicsApi == GraphicsApi.Vulkan) {
+				Logger.Info("Setting up Vulkan...");
+				SetupVulkan(settings.GameName, GameInstance.Version, EngineVersion);
 			}
 
 			Logger.Debug("Setup finished. Invoking events then entering loop");
@@ -113,7 +108,7 @@ namespace Engine3 {
 		}
 
 		public static void Shutdown(int errorCode) {
-			Logger.Debug("Shutdown called");
+			Logger.Info("Shutdown called");
 			OnShutdownEvent?.Invoke();
 			shouldRunGameLoop = false;
 			Cleanup();
@@ -148,7 +143,7 @@ namespace Engine3 {
 
 				Update();
 				GameInstance!.Update(); // shouldn't be null at this point
-				UpdateFrame++;
+				UpdateFrameCount++;
 
 				// RenderContext.PrepareFrame();
 
@@ -159,7 +154,7 @@ namespace Engine3 {
 				// RenderContext.FinalizeFrame();
 				// RenderContext.SwapBuffers();
 
-				RenderFrame++;
+				RenderFrameCount++;
 
 				Thread.Sleep(1); // TODO impl
 			}
@@ -178,8 +173,6 @@ namespace Engine3 {
 						throw new Engine3Exception("GraphicsApi was set to 'OpenGL' but the provided GraphicsApiHints was either not of type OpenGLGraphicsApiHints, or null");
 					} else if (openglGraphics is not { Version: { Major: 4, Minor: 6, }, Profile: OpenGLProfile.Core, }) {
 						throw new Engine3Exception("Engine only supports OpenGL version 4.6 Core"); //
-					} else if (settings.OpenGLSettings == null) {
-						throw new Engine3Exception("OpenGL Settings cannot be null when using OpenGL"); //
 					}
 
 					break;
@@ -188,8 +181,6 @@ namespace Engine3 {
 						throw new Engine3Exception("Toolkit cannot be null when using 'Vulkan' GraphicsApi"); //
 					} else if (settings.GraphicsApiHints is not VulkanGraphicsApiHints) {
 						throw new Engine3Exception("GraphicsApi was set to 'Vulkan' but the provided GraphicsApiHints was either not of type VulkanGraphicsApiHints, or null"); //
-					} else if (settings.VulkanSetting == null) {
-						throw new Engine3Exception("Vulkan Settings cannot be null when using Vulkan"); //
 					}
 
 					break;
@@ -201,14 +192,9 @@ namespace Engine3 {
 		private static void Cleanup() {
 			LogManager.Shutdown();
 
-			foreach (EngineWindow window in Windows) { window.CloseWindow(false); }
+			foreach (Window window in Windows) { window.CloseWindow(false); }
 
-			switch (GraphicsApi) {
-				case GraphicsApi.Vulkan: CleanupVulkan(); break;
-				case GraphicsApi.OpenGL: CleanupOpenGL(); break;
-				case GraphicsApi.Console:
-				default: break;
-			}
+			if (GraphicsApi == GraphicsApi.Vulkan) { CleanupVulkan(); }
 		}
 
 		[SuppressMessage("ReSharper", "MemberHidesStaticFromOuterClass")]
@@ -218,8 +204,6 @@ namespace Engine3 {
 			public GraphicsApi GraphicsApi { get; } = GraphicsApi.Console;
 			public ToolkitOptions? ToolkitOptions { get; }
 			public GraphicsApiHints? GraphicsApiHints { get; }
-			public OpenGLSettings? OpenGLSettings { get; }
-			public VulkanSettings? VulkanSetting { get; }
 
 			public StartupSettings() { }
 
@@ -238,10 +222,9 @@ namespace Engine3 {
 			}
 
 			[SetsRequiredMembers]
-			public StartupSettings(string gameName, string mainTheadName, ToolkitOptions toolkitOptions, OpenGLGraphicsApiHints graphicsApiHints, OpenGLSettings glSettings) : this(gameName, mainTheadName, toolkitOptions) {
+			public StartupSettings(string gameName, string mainTheadName, ToolkitOptions toolkitOptions, OpenGLGraphicsApiHints graphicsApiHints) : this(gameName, mainTheadName, toolkitOptions) {
 				GraphicsApi = GraphicsApi.OpenGL;
 				GraphicsApiHints = graphicsApiHints;
-				OpenGLSettings = glSettings;
 
 				toolkitOptions.FeatureFlags = ToolkitFlags.EnableOpenGL;
 
@@ -253,10 +236,9 @@ namespace Engine3 {
 			}
 
 			[SetsRequiredMembers]
-			public StartupSettings(string title, string mainTheadName, ToolkitOptions toolkitOptions, VulkanGraphicsApiHints graphicsApiHints, VulkanSettings vkSettings) : this(title, mainTheadName, toolkitOptions) {
+			public StartupSettings(string title, string mainTheadName, ToolkitOptions toolkitOptions, VulkanGraphicsApiHints graphicsApiHints) : this(title, mainTheadName, toolkitOptions) {
 				GraphicsApi = GraphicsApi.Vulkan;
 				GraphicsApiHints = graphicsApiHints;
-				VulkanSetting = vkSettings;
 
 				toolkitOptions.FeatureFlags = ToolkitFlags.EnableVulkan;
 			}
