@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Engine3.Graphics.OpenGL;
 using Engine3.Graphics.Vulkan;
 using NLog;
+using OpenTK.Mathematics;
 using OpenTK.Platform;
 
 namespace Engine3.Graphics {
@@ -9,6 +10,7 @@ namespace Engine3.Graphics {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public WindowHandle WindowHandle { get; }
+		public Color4<Rgba> ClearColor { get; set; }
 
 		public event AttemptCloseWindow? TryCloseWindowEvent;
 		public event Action? OnCloseWindowEvent;

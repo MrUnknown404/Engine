@@ -4,7 +4,6 @@ using Engine3.Utils;
 using OpenTK.Graphics;
 using OpenTK.Graphics.Vulkan;
 
-
 namespace Engine3 {
 	public static partial class Engine3 {
 		public static bool WasVulkanSetup { get; private set; }

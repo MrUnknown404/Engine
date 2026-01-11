@@ -16,6 +16,8 @@ using SpirVCompiler = shaderc.Compiler;
 using SpirVResult = shaderc.Result;
 
 namespace Engine3.Graphics.Vulkan {
+	// TODO decide if i want these methods to take in just the Vulkan objects or the entire wrapper class
+	// TODO remove most of the error handling from this class. i want whatever uses this class to handle that instead
 	public static unsafe partial class VkH {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
@@ -366,7 +368,7 @@ namespace Engine3.Graphics.Vulkan {
 			VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = new() { vertexBindingDescriptionCount = 0, vertexAttributeDescriptionCount = 0, };
 			VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo = new() { topology = VkPrimitiveTopology.PrimitiveTopologyTriangleList, };
 			VkPipelineViewportStateCreateInfo viewportStateCreateInfo = new() { viewportCount = 1, scissorCount = 1, };
-			VkPipelineRenderingCreateInfoKHR renderingCreateInfo = new() { colorAttachmentCount = 1, pColorAttachmentFormats = &vkSwapChainImageFormat, };
+			VkPipelineRenderingCreateInfo renderingCreateInfo = new() { colorAttachmentCount = 1, pColorAttachmentFormats = &vkSwapChainImageFormat, };
 
 			VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = new() {
 					depthClampEnable = (int)Vk.False,
@@ -406,9 +408,6 @@ namespace Engine3.Graphics.Vulkan {
 			colorBlendStateCreateInfo.blendConstants[1] = 0;
 			colorBlendStateCreateInfo.blendConstants[2] = 0;
 			colorBlendStateCreateInfo.blendConstants[3] = 0;
-
-			// VkViewport viewport = new() { width = vkExtent.width, height = vkExtent.height, minDepth = 0, maxDepth = 1, };
-			// VkRect2D scissor = new() { offset = new(0, 0), extent = vkExtent, };
 
 			VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = new() { setLayoutCount = 0, pSetLayouts = null, pushConstantRangeCount = 0, pPushConstantRanges = null, };
 
@@ -495,6 +494,117 @@ namespace Engine3.Graphics.Vulkan {
 					}
 				}
 				default: throw new ArgumentOutOfRangeException(nameof(shaderLang), shaderLang, null);
+			}
+		}
+
+		[MustUseReturnValue]
+		public static VkCommandPool CreateCommandPool(VkDevice vkLogicalDevice, QueueFamilyIndices queueFamilyIndices) {
+			VkCommandPoolCreateInfo commandPoolCreateInfo = new() { flags = VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit, queueFamilyIndex = queueFamilyIndices.GraphicsFamily, };
+			VkCommandPool vkCommandPool;
+			return Vk.CreateCommandPool(vkLogicalDevice, &commandPoolCreateInfo, null, &vkCommandPool) != VkResult.Success ? throw new VulkanException("Failed to create command pool") : vkCommandPool;
+		}
+
+		[MustUseReturnValue]
+		public static VkCommandBuffer CreateCommandBuffer(VkDevice vkLogicalDevice, VkCommandPool vkCommandPool) {
+			VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = vkCommandPool, level = VkCommandBufferLevel.CommandBufferLevelPrimary, commandBufferCount = 1, };
+			VkCommandBuffer vkCommandBuffer;
+			return Vk.AllocateCommandBuffers(vkLogicalDevice, &commandBufferAllocateInfo, &vkCommandBuffer) != VkResult.Success ? throw new VulkanException("Failed to create command buffer") : vkCommandBuffer;
+		}
+
+		public static void RecordCommandBuffer(VkCommandBuffer vkCommandBuffer, SwapChain swapChain, uint swapchainImageIndex, VkPipeline vkGraphicsPipeline, Color4<Rgba> clearColor) {
+			VkCommandBufferBeginInfo commandBufferBeginInfo = new() { flags = 0, pInheritanceInfo = null, };
+			if (Vk.BeginCommandBuffer(vkCommandBuffer, &commandBufferBeginInfo) != VkResult.Success) { throw new VulkanException("Failed to begin recording command buffer"); }
+
+			VkImageMemoryBarrier vkImageMemoryBarrier = new() {
+					dstAccessMask = VkAccessFlagBits.AccessColorAttachmentWriteBit,
+					oldLayout = VkImageLayout.ImageLayoutUndefined,
+					newLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
+					image = swapChain.VkImages[swapchainImageIndex],
+					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+			};
+
+			Vk.CmdPipelineBarrier(vkCommandBuffer, VkPipelineStageFlagBits.PipelineStageTopOfPipeBit, VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, 0, 0, null, 0, null, 1, &vkImageMemoryBarrier); // TODO use 2?
+
+			VkClearColorValue vkClearColorValue = new();
+			vkClearColorValue.float32[0] = clearColor.X;
+			vkClearColorValue.float32[1] = clearColor.Y;
+			vkClearColorValue.float32[2] = clearColor.Z;
+			vkClearColorValue.float32[3] = clearColor.W;
+
+			VkRenderingAttachmentInfo vkRenderingAttachmentInfo = new() {
+					imageView = swapChain.VkImageViews[swapchainImageIndex],
+					imageLayout = VkImageLayout.ImageLayoutAttachmentOptimalKhr,
+					loadOp = VkAttachmentLoadOp.AttachmentLoadOpClear,
+					storeOp = VkAttachmentStoreOp.AttachmentStoreOpStore,
+					clearValue = new() {
+							color = vkClearColorValue,
+							// depthStencil =, TODO look into what this is/how it works/if i want this
+					},
+			};
+
+			VkRenderingInfo vkRenderingInfo = new() { renderArea = new() { offset = new(0, 0), extent = swapChain.VkExtent, }, layerCount = 1, colorAttachmentCount = 1, pColorAttachments = &vkRenderingAttachmentInfo, };
+
+			Vk.CmdBeginRendering(vkCommandBuffer, &vkRenderingInfo);
+
+			Vk.CmdBindPipeline(vkCommandBuffer, VkPipelineBindPoint.PipelineBindPointGraphics, vkGraphicsPipeline);
+
+			VkViewport viewport = new() { x = 0, y = 0, width = swapChain.VkExtent.width, height = swapChain.VkExtent.height, minDepth = 0, maxDepth = 1, };
+			VkRect2D scissor = new() { offset = new(0, 0), extent = swapChain.VkExtent, };
+			Vk.CmdSetViewport(vkCommandBuffer, 0, 1, &viewport);
+			Vk.CmdSetScissor(vkCommandBuffer, 0, 1, &scissor);
+
+			Vk.CmdDraw(vkCommandBuffer, 3, 1, 0, 0); // TODO this'll need to be changed later
+
+			Vk.CmdEndRendering(vkCommandBuffer);
+
+			vkImageMemoryBarrier = new() {
+					srcAccessMask = VkAccessFlagBits.AccessColorAttachmentWriteBit,
+					oldLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
+					newLayout = VkImageLayout.ImageLayoutPresentSrcKhr,
+					image = swapChain.VkImages[swapchainImageIndex],
+					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+			};
+
+			Vk.CmdPipelineBarrier(vkCommandBuffer, VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, VkPipelineStageFlagBits.PipelineStageBottomOfPipeBit, 0, 0, null, 0, null, 1, &vkImageMemoryBarrier); // TODO use 2?
+
+			if (Vk.EndCommandBuffer(vkCommandBuffer) != VkResult.Success) { throw new VulkanException("Failed to end recording command buffer"); }
+		}
+
+		[MustUseReturnValue]
+		public static VkSemaphore CreateSemaphore(VkDevice vkLogicalDevice) {
+			VkSemaphoreCreateInfo semaphoreCreateInfo = new();
+			VkSemaphore vkSemaphore;
+			return Vk.CreateSemaphore(vkLogicalDevice, &semaphoreCreateInfo, null, &vkSemaphore) != VkResult.Success ? throw new VulkanException("failed to create semaphore") : vkSemaphore;
+		}
+
+		[MustUseReturnValue]
+		public static VkFence CreateFence(VkDevice vkLogicalDevice) {
+			VkFenceCreateInfo fenceCreateInfo = new() { flags = VkFenceCreateFlagBits.FenceCreateSignaledBit, };
+			VkFence vkFence;
+			return Vk.CreateFence(vkLogicalDevice, &fenceCreateInfo, null, &vkFence) != VkResult.Success ? throw new VulkanException("Failed to create fence") : vkFence;
+		}
+
+		public static void SubmitCommandBufferQueue(VkQueue vkQueue, VkCommandBuffer vkCommandBuffer, VkSemaphore imageAvailable, VkSemaphore renderFinished, VkFence inFlight) {
+			VkPipelineStageFlagBits[] waitStages = [ VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, ];
+
+			fixed (VkPipelineStageFlagBits* waitStagesPtr = waitStages) {
+				VkSubmitInfo vkSubmitInfo = new() { // TODO 2?
+						waitSemaphoreCount = 1,
+						pWaitSemaphores = &imageAvailable, // these can all be arrays if needed
+						pWaitDstStageMask = waitStagesPtr,
+						commandBufferCount = 1,
+						pCommandBuffers = &vkCommandBuffer,
+						signalSemaphoreCount = 1,
+						pSignalSemaphores = &renderFinished,
+				};
+
+				SubmitQueue(vkQueue, [ vkSubmitInfo, ], inFlight);
+			}
+		}
+
+		public static void SubmitQueue(VkQueue vkQueue, VkSubmitInfo[] vkSubmitInfos, VkFence vkFence) {
+			fixed (VkSubmitInfo* vkSubmitInfosPtr = vkSubmitInfos) {
+				if (Vk.QueueSubmit(vkQueue, (uint)vkSubmitInfos.Length, vkSubmitInfosPtr, vkFence) != VkResult.Success) { throw new VulkanException("Failed to submit queue"); } // TODO 2
 			}
 		}
 

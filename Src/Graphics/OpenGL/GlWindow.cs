@@ -27,17 +27,19 @@ namespace Engine3.Graphics.OpenGL {
 			GLH.CreateDebugMessageCallback(); // must be called after GLLoader.LoadBindings. otherwise i'd move this into Engine3
 #endif
 
-			GL.ClearColor(new(0.1f, 0.1f, 0.1f, 1));
+			VertexArrayHandle emptyVao = new(GL.CreateVertexArray());
+			GL.BindVertexArray((int)emptyVao); // Some hardware requires vao to be bound even if it's not in use
+			Logger.Debug($"EmptyVao has Handle: {emptyVao.Handle}");
+
+			GlWindow window = new(windowHandle, openGLContextHandle, emptyVao);
+
+			GL.ClearColor(window.ClearColor);
 			GL.Enable(EnableCap.DepthTest);
 			GL.Enable(EnableCap.CullFace);
 			GL.Enable(EnableCap.Blend);
 			GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
-			VertexArrayHandle emptyVao = new(GL.CreateVertexArray());
-			GL.BindVertexArray((int)emptyVao); // Some hardware requires vao to be bound even if it's not in use
-			Logger.Debug($"EmptyVao has Handle: {emptyVao.Handle}");
-
-			return new(windowHandle, openGLContextHandle, emptyVao);
+			return window;
 		}
 
 		protected override void CleanupGraphics() {

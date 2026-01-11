@@ -11,40 +11,52 @@ namespace Engine3.Graphics.Vulkan {
 		public VkSurfaceKHR VkSurface { get; }
 		public PhysicalGpu[] AvailableGpus { get; }
 		public PhysicalGpu SelectedGpu { get; }
-		public VkDevice VkLogicalDevice { get; } // TODO LogicalGpu class?
-		public VkQueue VkGraphicsQueue { get; }
-		public VkQueue VkPresentQueue { get; }
-		public VkSwapchainKHR VkSwapChain { get; }
-		public VkImage[] VkSwapChainImages { get; }
-		public VkFormat VkSwapChainImageFormat { get; }
-		public VkExtent2D VkSwapChainExtent { get; }
-		public VkImageView[] VkSwapChainImageViews { get; }
+		public LogicalGpu LogicalGpu { get; }
+		public SwapChain SwapChain { get; }
 
 		public VkPipelineLayout? VkPipelineLayout { get; private set; } // i'm pretty sure these are gonna need to be reworked later
 		public VkPipeline? VkGraphicsPipeline { get; private set; }
 
-		private VkWindow(WindowHandle windowHandle, VkSurfaceKHR vkSurface, PhysicalGpu[] availableGpus, PhysicalGpu selectedGpu, VkDevice vkLogicalDevice, VkQueue vkGraphicsQueue, VkQueue vkPresentQueue,
-			VkSwapchainKHR vkSwapChain, VkImage[] vkSwapChainImages, VkFormat vkSwapChainImageFormat, VkExtent2D vkSwapChainExtent, VkImageView[] vkSwapChainImageViews) : base(windowHandle) {
+		public VkCommandPool? VkCommandPool { get; private set; }
+		public VkCommandBuffer? VkCommandBuffer { get; private set; }
+
+		public VkSemaphore? VkImageAvailable { get; private set; }
+		public VkSemaphore? VkRenderFinished { get; private set; }
+		public VkFence? VkInFlight { get; private set; }
+
+		private VkWindow(WindowHandle windowHandle, VkSurfaceKHR vkSurface, PhysicalGpu[] availableGpus, PhysicalGpu selectedGpu, LogicalGpu logicalGpu, SwapChain swapChain) : base(windowHandle) {
 			VkSurface = vkSurface;
 			AvailableGpus = availableGpus;
 			SelectedGpu = selectedGpu;
-			VkLogicalDevice = vkLogicalDevice;
-			VkGraphicsQueue = vkGraphicsQueue;
-			VkPresentQueue = vkPresentQueue;
-			VkSwapChain = vkSwapChain;
-			VkSwapChainImages = vkSwapChainImages;
-			VkSwapChainImageFormat = vkSwapChainImageFormat;
-			VkSwapChainExtent = vkSwapChainExtent;
-			VkSwapChainImageViews = vkSwapChainImageViews;
+			LogicalGpu = logicalGpu;
+			SwapChain = swapChain;
 		}
 
 		public void CreateGraphicsPipeline(VkPipelineShaderStageCreateInfo[] vkShaderStageCreateInfos) {
 			if (VkGraphicsPipeline != null) { throw new NotImplementedException(); } // TODO impl
 
-			VkH.CreateGraphicsPipeline(VkLogicalDevice, VkSwapChainImageFormat, vkShaderStageCreateInfos, out VkPipeline vkGraphicsPipeline, out VkPipelineLayout vkPipelineLayout);
+			VkH.CreateGraphicsPipeline(LogicalGpu.VkLogicalDevice, SwapChain.VkImageFormat, vkShaderStageCreateInfos, out VkPipeline vkGraphicsPipeline, out VkPipelineLayout vkPipelineLayout);
 			VkGraphicsPipeline = vkGraphicsPipeline;
 			VkPipelineLayout = vkPipelineLayout;
 			Logger.Debug("Created graphics pipeline");
+		}
+
+		public void CreateCommandPool() {
+			VkCommandPool = VkH.CreateCommandPool(LogicalGpu.VkLogicalDevice, SelectedGpu.QueueFamilyIndices);
+			Logger.Debug("Created command pool");
+		}
+
+		public void CreateCommandBuffer() {
+			if (VkCommandPool is not { } vkCommandPool) { throw new VulkanException("Cannot create command buffer before the command pool is created"); }
+
+			VkCommandBuffer = VkH.CreateCommandBuffer(LogicalGpu.VkLogicalDevice, vkCommandPool);
+			Logger.Debug("Created command buffer");
+		}
+
+		public void CreateSyncObjects() {
+			VkImageAvailable = VkH.CreateSemaphore(LogicalGpu.VkLogicalDevice);
+			VkRenderFinished = VkH.CreateSemaphore(LogicalGpu.VkLogicalDevice);
+			VkInFlight = VkH.CreateFence(LogicalGpu.VkLogicalDevice);
 		}
 
 		internal static VkWindow MakeVkWindow(WindowHandle windowHandle) {
@@ -65,11 +77,11 @@ namespace Engine3.Graphics.Vulkan {
 			VkDevice vkLogicalDevice = VkH.CreateLogicalDevice(selectedGpu);
 			Logger.Debug("Created logical device");
 
-			VkQueue vkPresentQueue = VkH.GetDeviceQueue(vkLogicalDevice, selectedGpu.QueueFamilyIndices.GraphicsFamily);
-			Logger.Debug("Obtained present queue");
-
 			VkQueue vkGraphicsQueue = VkH.GetDeviceQueue(vkLogicalDevice, selectedGpu.QueueFamilyIndices.GraphicsFamily);
 			Logger.Debug("Obtained graphics queue");
+
+			VkQueue vkPresentQueue = VkH.GetDeviceQueue(vkLogicalDevice, selectedGpu.QueueFamilyIndices.PresentFamily);
+			Logger.Debug("Obtained present queue");
 
 			VkH.CreateSwapChain(windowHandle, vkSurface, selectedGpu, vkLogicalDevice, out VkSwapchainKHR vkSwapChain, out VkFormat vkSwapChainImageFormat, out VkExtent2D vkSwapChainExtent);
 			Logger.Debug("Created swap chain");
@@ -80,19 +92,27 @@ namespace Engine3.Graphics.Vulkan {
 			VkImageView[] vkSwapChainImageViews = VkH.CreateImageViews(vkLogicalDevice, vkSwapChainImages, vkSwapChainImageFormat);
 			Logger.Debug("Created swap chain image views");
 
-			return new(windowHandle, vkSurface, availableGpus, selectedGpu, vkLogicalDevice, vkGraphicsQueue, vkPresentQueue, vkSwapChain, vkSwapChainImages, vkSwapChainImageFormat, vkSwapChainExtent, vkSwapChainImageViews);
+			return new(windowHandle, vkSurface, availableGpus, selectedGpu, new(vkLogicalDevice, vkGraphicsQueue, vkPresentQueue),
+				new(vkSwapChain, vkSwapChainImages, vkSwapChainImageFormat, vkSwapChainExtent, vkSwapChainImageViews));
 		}
 
 		protected override unsafe void CleanupGraphics() {
 			if (Engine3.VkInstance is not { } vkInstance) { return; }
 
-			Vk.DestroySwapchainKHR(VkLogicalDevice, VkSwapChain, null);
-			foreach (VkImageView vkImageView in VkSwapChainImageViews) { Vk.DestroyImageView(VkLogicalDevice, vkImageView, null); }
+			if (VkCommandPool is { } vkCommandPool) { Vk.DestroyCommandPool(LogicalGpu.VkLogicalDevice, vkCommandPool, null); }
 
-			if (VkPipelineLayout is { } vkPipelineLayout) { Vk.DestroyPipelineLayout(VkLogicalDevice, vkPipelineLayout, null); }
-			if (VkGraphicsPipeline is { } vkGraphicsPipeline) { Vk.DestroyPipeline(VkLogicalDevice, vkGraphicsPipeline, null); }
+			SwapChain.Destroy(LogicalGpu.VkLogicalDevice);
 
-			Vk.DestroyDevice(VkLogicalDevice, null);
+			if (VkPipelineLayout is { } vkPipelineLayout) { Vk.DestroyPipelineLayout(LogicalGpu.VkLogicalDevice, vkPipelineLayout, null); }
+			if (VkGraphicsPipeline is { } vkGraphicsPipeline) { Vk.DestroyPipeline(LogicalGpu.VkLogicalDevice, vkGraphicsPipeline, null); }
+
+			if (VkImageAvailable is { } vkImageAvailable) { Vk.DestroySemaphore(LogicalGpu.VkLogicalDevice, vkImageAvailable, null); }
+			if (VkRenderFinished is { } vkRenderFinished) { Vk.DestroySemaphore(LogicalGpu.VkLogicalDevice, vkRenderFinished, null); }
+			if (VkInFlight is { } vkInFlight) { Vk.DestroyFence(LogicalGpu.VkLogicalDevice, vkInFlight, null); }
+
+			Vk.DeviceWaitIdle(LogicalGpu.VkLogicalDevice);
+
+			LogicalGpu.Destroy();
 			Vk.DestroySurfaceKHR(vkInstance, VkSurface, null);
 		}
 	}
