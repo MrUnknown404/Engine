@@ -21,6 +21,7 @@ namespace Engine3.Graphics.Vulkan {
 			return Vk.CreateDebugUtilsMessengerEXT(vkInstance, &messengerCreateInfo, null, &debugMessenger) != VkResult.Success ? throw new VulkanException("Failed to create Vulkan Debug Messenger") : debugMessenger;
 		}
 
+		[MustUseReturnValue]
 		public static bool CheckSupportForRequiredValidationLayers() {
 			ReadOnlySpan<VkLayerProperties> availableLayerProperties = EnumerateInstanceLayerProperties();
 			if (availableLayerProperties.Length == 0) { throw new VulkanException("Could not find any instance layer properties"); }
@@ -42,11 +43,20 @@ namespace Engine3.Graphics.Vulkan {
 			return true;
 		}
 
-		private static ReadOnlySpan<VkLayerProperties> EnumerateInstanceLayerProperties() {
+		public static void PrintInstanceExtensions(VkExtensionProperties[] extensionProperties) {
+			Logger.Debug("The following instance extensions are available:");
+			foreach (VkExtensionProperties extensionProperty in extensionProperties) {
+				ReadOnlySpan<byte> extensionName = extensionProperty.extensionName;
+				Logger.Debug($"- {Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)])}");
+			}
+		}
+
+		[MustUseReturnValue]
+		private static VkLayerProperties[] EnumerateInstanceLayerProperties() {
 			uint layerCount;
 			Vk.EnumerateInstanceLayerProperties(&layerCount, null);
 
-			if (layerCount == 0) { return ReadOnlySpan<VkLayerProperties>.Empty; }
+			if (layerCount == 0) { return Array.Empty<VkLayerProperties>(); }
 
 			VkLayerProperties[] layerProperties = new VkLayerProperties[layerCount];
 			fixed (VkLayerProperties* layerPropertiesPtr = layerProperties) {

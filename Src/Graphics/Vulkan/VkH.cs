@@ -16,8 +16,6 @@ using SpirVCompiler = shaderc.Compiler;
 using SpirVResult = shaderc.Result;
 
 namespace Engine3.Graphics.Vulkan {
-	// TODO decide if i want these methods to take in just the Vulkan objects or the entire wrapper class
-	// TODO remove most of the error handling from this class. i want whatever uses this class to handle that instead
 	public static unsafe partial class VkH {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
@@ -32,7 +30,7 @@ namespace Engine3.Graphics.Vulkan {
 		public static VkDebugUtilsMessageSeverityFlagBitsEXT EnabledDebugMessageSeverities {
 			get;
 			set {
-				if (Engine3.WasVulkanSetup) { Logger.Warn("Attempted to set EnabledDebugMessageSeverities too late. This must be set before the debug messenger is created"); }
+				if (Engine3.WasVulkanSetup) { Logger.Warn($"Attempted to set {nameof(EnabledDebugMessageSeverities)} too late. This must be set before the debug messenger is created"); }
 				field = value;
 			}
 		} = VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityVerboseBitExt |
@@ -44,13 +42,15 @@ namespace Engine3.Graphics.Vulkan {
 		public static VkDebugUtilsMessageTypeFlagBitsEXT EnabledDebugMessageTypes {
 			get;
 			set {
-				if (Engine3.WasVulkanSetup) { Logger.Warn("Attempted to set EnabledDebugMessageTypes too late. This must be set before the debug messenger is created"); }
+				if (Engine3.WasVulkanSetup) { Logger.Warn($"Attempted to set {nameof(EnabledDebugMessageTypes)} too late. This must be set before the debug messenger is created"); }
 				field = value;
 			}
 		} = VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeGeneralBitExt |
 			VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeValidationBitExt |
 			VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypePerformanceBitExt |
 			VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeDeviceAddressBindingBitExt;
+
+		public static byte MaxFramesInFlight { get; set; } = 2; // TODO make readonly
 
 		/// <summary>
 		/// Helper method for extracting version information out of a packed uint following Vulkan's Version Specification.<br/><br/>
@@ -168,8 +168,6 @@ namespace Engine3.Graphics.Vulkan {
 			return logicalDevice;
 		}
 
-		[MustUseReturnValue] public static VkPhysicalDevice[] CreatePhysicalDevices(VkInstance vkInstance) => EnumeratePhysicalDevices(vkInstance).ToArray();
-
 		[MustUseReturnValue]
 		public static PhysicalGpu[] GetValidGpus(VkPhysicalDevice[] vkPhysicalDevices, VkSurfaceKHR vkSurface, IsPhysicalDeviceSuitable isPhysicalDeviceSuitable) {
 			List<PhysicalGpu> gpus = new();
@@ -180,20 +178,74 @@ namespace Engine3.Graphics.Vulkan {
 				VkPhysicalDeviceFeatures2 vkPhysicalDeviceFeatures2 = GetPhysicalDeviceFeatures(device);
 				if (!isPhysicalDeviceSuitable(vkPhysicalDeviceProperties2, vkPhysicalDeviceFeatures2)) { continue; }
 
-				VkExtensionProperties[] vkExtensionProperties = EnumeratePhysicalDeviceExtensionProperties(device).ToArray();
+				VkExtensionProperties[] vkExtensionProperties = GetPhysicalDeviceExtensionProperties(device);
 				if (!CheckDeviceExtensionSupport(vkExtensionProperties)) { continue; }
 
 				FindQueueFamilies(device, vkSurface, out uint? graphicsFamily, out uint? presentFamily);
 				if (graphicsFamily == null || presentFamily == null) { continue; }
 
 				SwapChainSupportInfo swapChainSupportInfo = QuerySwapChainSupport(device, vkSurface);
-				if (swapChainSupportInfo.VkSurfaceFormat.Length == 0 || swapChainSupportInfo.VkPresentMode.Length == 0) { continue; }
+				if (swapChainSupportInfo.VkSurfaceFormats.Length == 0 || swapChainSupportInfo.VkPresentModes.Length == 0) { continue; }
 
-				gpus.Add(new(device, vkPhysicalDeviceProperties2, vkPhysicalDeviceFeatures2, vkExtensionProperties, new(graphicsFamily.Value, presentFamily.Value), swapChainSupportInfo));
+				gpus.Add(new(device, vkPhysicalDeviceProperties2, vkPhysicalDeviceFeatures2, vkExtensionProperties, new(graphicsFamily.Value, presentFamily.Value)));
 			}
 
 			return gpus.ToArray();
 
+			// idk. not sure if i like local methods
+
+			[MustUseReturnValue]
+			static VkPhysicalDeviceProperties2 GetPhysicalDeviceProperties(VkPhysicalDevice vkPhysicalDevice) {
+				VkPhysicalDeviceProperties2 deviceProperties2 = new();
+				Vk.GetPhysicalDeviceProperties2(vkPhysicalDevice, &deviceProperties2);
+				return deviceProperties2;
+			}
+
+			[MustUseReturnValue]
+			static VkPhysicalDeviceFeatures2 GetPhysicalDeviceFeatures(VkPhysicalDevice vkPhysicalDevice) {
+				VkPhysicalDeviceFeatures2 deviceFeatures2 = new();
+				Vk.GetPhysicalDeviceFeatures2(vkPhysicalDevice, &deviceFeatures2);
+				return deviceFeatures2;
+			}
+
+			[MustUseReturnValue]
+			static VkExtensionProperties[] GetPhysicalDeviceExtensionProperties(VkPhysicalDevice vkPhysicalDevice) {
+				uint extensionCount;
+				Vk.EnumerateDeviceExtensionProperties(vkPhysicalDevice, null, &extensionCount, null);
+
+				if (extensionCount == 0) { return Array.Empty<VkExtensionProperties>(); }
+
+				VkExtensionProperties[] extensionProperties = new VkExtensionProperties[extensionCount];
+				fixed (VkExtensionProperties* extensionPropertiesPtr = extensionProperties) {
+					Vk.EnumerateDeviceExtensionProperties(vkPhysicalDevice, null, &extensionCount, extensionPropertiesPtr);
+					return extensionProperties;
+				}
+			}
+
+			[MustUseReturnValue]
+			static bool GetPhysicalDeviceSurfaceSupportKHR(VkPhysicalDevice vkPhysicalDevice, uint index, VkSurfaceKHR vkSurface) {
+				int presentSupport;
+				Vk.GetPhysicalDeviceSurfaceSupportKHR(vkPhysicalDevice, index, vkSurface, &presentSupport);
+				return presentSupport == 1;
+			}
+
+			[MustUseReturnValue]
+			static VkQueueFamilyProperties2[] GetPhysicalDeviceQueueFamilyProperties(VkPhysicalDevice device) {
+				uint queueFamilyPropertyCount = 0;
+				Vk.GetPhysicalDeviceQueueFamilyProperties2(device, &queueFamilyPropertyCount, null);
+
+				if (queueFamilyPropertyCount == 0) { return Array.Empty<VkQueueFamilyProperties2>(); }
+
+				VkQueueFamilyProperties2[] queueFamilyProperties = new VkQueueFamilyProperties2[queueFamilyPropertyCount];
+				for (int i = 0; i < queueFamilyPropertyCount; i++) { queueFamilyProperties[i] = new() { sType = VkStructureType.StructureTypeQueueFamilyProperties2, }; }
+
+				fixed (VkQueueFamilyProperties2* queueFamilyPropertiesPtr = queueFamilyProperties) {
+					Vk.GetPhysicalDeviceQueueFamilyProperties2(device, &queueFamilyPropertyCount, queueFamilyPropertiesPtr);
+					return queueFamilyProperties;
+				}
+			}
+
+			[MustUseReturnValue]
 			static bool CheckDeviceExtensionSupport(VkExtensionProperties[] vkExtensionProperties) {
 				if (vkExtensionProperties.Length == 0) { throw new VulkanException("Could not find any device extension properties"); }
 
@@ -212,6 +264,23 @@ namespace Engine3.Graphics.Vulkan {
 				}
 
 				return true;
+			}
+
+			static void FindQueueFamilies(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR vkSurface, out uint? graphicsFamily, out uint? presentFamily) {
+				graphicsFamily = null;
+				presentFamily = null;
+
+				VkQueueFamilyProperties2[] queueFamilies = GetPhysicalDeviceQueueFamilyProperties(vkPhysicalDevice);
+				uint i = 0;
+				foreach (VkQueueFamilyProperties2 queueFamilyProperties2 in queueFamilies) {
+					VkQueueFamilyProperties queueFamilyProperties = queueFamilyProperties2.queueFamilyProperties;
+					if ((queueFamilyProperties.queueFlags & VkQueueFlagBits.QueueGraphicsBit) != 0) { graphicsFamily = i; }
+					if (GetPhysicalDeviceSurfaceSupportKHR(vkPhysicalDevice, i, vkSurface)) { presentFamily = i; }
+
+					if (graphicsFamily != null && presentFamily != null) { break; }
+
+					i++;
+				}
 			}
 		}
 
@@ -242,108 +311,135 @@ namespace Engine3.Graphics.Vulkan {
 			}
 		}
 
-		public static void CreateSwapChain(WindowHandle windowHandle, VkSurfaceKHR vkSurface, PhysicalGpu physicalGpu, VkDevice vkLogicalDevice, out VkSwapchainKHR vkSwapChain, out VkFormat vkSwapChainImageFormat,
-			out VkExtent2D vkExtent, VkSurfaceTransformFlagBitsKHR? vkSurfaceTransform = null) {
-			VkSurfaceFormat2KHR vkSurfaceFormat = ChooseSwapSurfaceFormat(physicalGpu.SwapChainSupportInfo.VkSurfaceFormat) ?? throw new VulkanException("Could not find any valid surface formats");
-			vkSwapChainImageFormat = vkSurfaceFormat.surfaceFormat.format;
+		[MustUseReturnValue]
+		public static SwapChain CreateSwapChain(WindowHandle windowHandle, VkSurfaceKHR vkSurface, PhysicalGpu physicalGpu, VkDevice vkLogicalDevice, VkPresentModeKHR vkPresentMode = VkPresentModeKHR.PresentModeMailboxKhr,
+			VkSurfaceTransformFlagBitsKHR? vkSurfaceTransform = null, SwapChain? oldSwapChain = null) {
+			SwapChainSupportInfo swapChainSupportInfo = QuerySwapChainSupport(physicalGpu.VkPhysicalDevice, vkSurface);
+			QueueFamilyIndices queueFamilyIndices = physicalGpu.QueueFamilyIndices;
+			VkSurfaceCapabilitiesKHR surfaceCapabilities = swapChainSupportInfo.VkCapabilities.surfaceCapabilities;
 
-			VkPresentModeKHR vkPresentMode = ChooseSwapPresentMode(physicalGpu.SwapChainSupportInfo.VkPresentMode);
-			vkExtent = ChooseSwapExtent(windowHandle, physicalGpu.SwapChainSupportInfo.VkCapabilities);
-			VkSurfaceCapabilitiesKHR capabilities = physicalGpu.SwapChainSupportInfo.VkCapabilities.surfaceCapabilities;
+			VkSurfaceFormat2KHR vkSurfaceFormat = ChooseSwapSurfaceFormat(swapChainSupportInfo.VkSurfaceFormats) ?? throw new VulkanException("Could not find any valid surface formats");
+			VkFormat vkSwapChainImageFormat = vkSurfaceFormat.surfaceFormat.format;
+			VkPresentModeKHR chosenPresentMode = ChooseSwapPresentMode(swapChainSupportInfo.VkPresentModes, vkPresentMode);
+			VkExtent2D vkSwapChainExtent = ChooseSwapExtent(windowHandle, surfaceCapabilities);
+
+			// https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Swap_chain#Creating_the_swap_chain - "Therefore it is recommended to request at least one more image than the minimum"
+			uint imageCount = surfaceCapabilities.minImageCount + 1;
+			if (surfaceCapabilities.maxImageCount > 0 && imageCount > surfaceCapabilities.maxImageCount) { imageCount = surfaceCapabilities.maxImageCount; }
 
 			VkSharingMode imageSharingMode;
 			uint queueFamilyIndexCount;
-			uint[]? queueFamilyIndices;
+			uint[]? queueFamilyIndicesArray;
 
-			// https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Swap_chain#Creating_the_swap_chain - "Therefore it is recommended to request at least one more image than the minimum"
-			uint imageCount = capabilities.minImageCount + 1;
-			if (capabilities.maxImageCount > 0 && imageCount > capabilities.maxImageCount) { imageCount = capabilities.maxImageCount; }
-
-			if (physicalGpu.QueueFamilyIndices.GraphicsFamily != physicalGpu.QueueFamilyIndices.PresentFamily) {
+			if (queueFamilyIndices.GraphicsFamily != queueFamilyIndices.PresentFamily) {
 				imageSharingMode = VkSharingMode.SharingModeConcurrent;
 				queueFamilyIndexCount = 2;
-				queueFamilyIndices = [ physicalGpu.QueueFamilyIndices.GraphicsFamily, physicalGpu.QueueFamilyIndices.PresentFamily, ];
+				queueFamilyIndicesArray = [ queueFamilyIndices.GraphicsFamily, queueFamilyIndices.PresentFamily, ];
 			} else {
 				imageSharingMode = VkSharingMode.SharingModeExclusive;
 				queueFamilyIndexCount = 0;
-				queueFamilyIndices = null;
+				queueFamilyIndicesArray = null;
 			}
 
-			fixed (uint* pQueueFamilyIndicesPtr = queueFamilyIndices) {
+			VkSwapchainKHR vkSwapChain;
+			fixed (uint* pQueueFamilyIndicesPtr = queueFamilyIndicesArray) {
 				VkSwapchainCreateInfoKHR createInfo = new() {
 						surface = vkSurface,
-						imageFormat = vkSurfaceFormat.surfaceFormat.format,
+						imageFormat = vkSwapChainImageFormat,
 						imageColorSpace = vkSurfaceFormat.surfaceFormat.colorSpace,
-						imageExtent = vkExtent,
+						imageExtent = vkSwapChainExtent,
 						minImageCount = imageCount,
 						imageArrayLayers = 1,
 						imageUsage = VkImageUsageFlagBits.ImageUsageColorAttachmentBit,
 						imageSharingMode = imageSharingMode,
 						queueFamilyIndexCount = queueFamilyIndexCount,
 						pQueueFamilyIndices = pQueueFamilyIndicesPtr,
-						preTransform = vkSurfaceTransform ?? physicalGpu.SwapChainSupportInfo.VkCapabilities.surfaceCapabilities.currentTransform,
+						preTransform = vkSurfaceTransform ?? surfaceCapabilities.currentTransform,
 						compositeAlpha = VkCompositeAlphaFlagBitsKHR.CompositeAlphaOpaqueBitKhr,
-						presentMode = vkPresentMode,
+						presentMode = chosenPresentMode,
 						clipped = (int)Vk.True,
-						oldSwapchain = VkSwapchainKHR.Zero,
+						oldSwapchain = oldSwapChain?.VkSwapChain ?? VkSwapchainKHR.Zero,
 				};
 
-				VkSwapchainKHR swapChain;
-				if (Vk.CreateSwapchainKHR(vkLogicalDevice, &createInfo, null, &swapChain) != VkResult.Success) { throw new VulkanException("Failed to create swap chain"); }
-				vkSwapChain = swapChain;
+				VkResult vkResult = Vk.CreateSwapchainKHR(vkLogicalDevice, &createInfo, null, &vkSwapChain);
+				if (vkResult != VkResult.Success) { throw new VulkanException($"Failed to create swap chain. {vkResult}"); }
 			}
-		}
 
-		[MustUseReturnValue]
-		public static VkImage[] GetSwapChainImages(VkDevice vkLogicalDevice, VkSwapchainKHR vkSwapChain) {
-			uint swapChainImagedCount;
-			Vk.GetSwapchainImagesKHR(vkLogicalDevice, vkSwapChain, &swapChainImagedCount, null);
+			VkImage[] vkSwapChainImages = GetSwapChainImages(vkLogicalDevice, vkSwapChain);
+			VkImageView[] vkSwapChainImageViews = CreateImageViews(vkLogicalDevice, vkSwapChainImages, vkSwapChainImageFormat);
 
-			VkImage[] swapChainImages = new VkImage[swapChainImagedCount];
-			fixed (VkImage* swapChainImagesPtr = swapChainImages) {
-				Vk.GetSwapchainImagesKHR(vkLogicalDevice, vkSwapChain, &swapChainImagedCount, swapChainImagesPtr);
-				return swapChainImages;
+			return new(vkSwapChain, vkSwapChainImages, vkSwapChainImageFormat, vkSwapChainExtent, vkSwapChainImageViews);
+
+			[MustUseReturnValue]
+			static VkSurfaceFormat2KHR? ChooseSwapSurfaceFormat(ReadOnlySpan<VkSurfaceFormat2KHR> availableFormats) =>
+					availableFormats.FirstOrDefault(static format => format.surfaceFormat is { format: VkFormat.FormatB8g8r8a8Srgb, colorSpace: VkColorSpaceKHR.ColorSpaceSrgbNonlinearKhr, });
+
+			[MustUseReturnValue]
+			static VkPresentModeKHR ChooseSwapPresentMode(ReadOnlySpan<VkPresentModeKHR> availablePresentModes, VkPresentModeKHR vkPresentMode) =>
+					availablePresentModes.FirstOrDefault(presentMode => presentMode == vkPresentMode, VkPresentModeKHR.PresentModeFifoKhr);
+
+			[MustUseReturnValue]
+			static VkExtent2D ChooseSwapExtent(WindowHandle windowHandle, VkSurfaceCapabilitiesKHR vkSurfaceCapabilities) {
+				if (vkSurfaceCapabilities.currentExtent.width != uint.MaxValue) { return vkSurfaceCapabilities.currentExtent; }
+
+				Toolkit.Window.GetFramebufferSize(windowHandle, out Vector2i framebufferSize);
+
+				return new() {
+						width = Math.Clamp((uint)framebufferSize.X, vkSurfaceCapabilities.minImageExtent.width, vkSurfaceCapabilities.maxImageExtent.width),
+						height = Math.Clamp((uint)framebufferSize.Y, vkSurfaceCapabilities.minImageExtent.height, vkSurfaceCapabilities.maxImageExtent.height),
+				};
 			}
-		}
 
-		[MustUseReturnValue]
-		public static VkImageView[] CreateImageViews(VkDevice vkLogicalDevice, VkImage[] vkSwapChainImages, VkFormat vkSwapChainFormat) {
-			VkImageView[] vkImageViews = new VkImageView[vkSwapChainImages.Length];
+			[MustUseReturnValue]
+			static VkImage[] GetSwapChainImages(VkDevice vkLogicalDevice, VkSwapchainKHR vkSwapChain) {
+				uint swapChainImageCount;
+				Vk.GetSwapchainImagesKHR(vkLogicalDevice, vkSwapChain, &swapChainImageCount, null);
 
-			fixed (VkImageView* vkImageViewsPtr = vkImageViews) {
-				// ReSharper disable once LoopCanBeConvertedToQuery // nope
-				for (int i = 0; i < vkSwapChainImages.Length; i++) {
-					VkImageViewCreateInfo createInfo = new() {
-							image = vkSwapChainImages[i],
-							viewType = VkImageViewType.ImageViewType2d,
-							format = vkSwapChainFormat,
-							components = new() {
-									r = VkComponentSwizzle.ComponentSwizzleIdentity,
-									g = VkComponentSwizzle.ComponentSwizzleIdentity,
-									b = VkComponentSwizzle.ComponentSwizzleIdentity,
-									a = VkComponentSwizzle.ComponentSwizzleIdentity,
-							},
-							subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
-					};
-
-					if (Vk.CreateImageView(vkLogicalDevice, &createInfo, null, &vkImageViewsPtr[i]) != VkResult.Success) { throw new VulkanException("Failed to create image views"); }
+				VkImage[] swapChainImages = new VkImage[swapChainImageCount];
+				fixed (VkImage* swapChainImagesPtr = swapChainImages) {
+					Vk.GetSwapchainImagesKHR(vkLogicalDevice, vkSwapChain, &swapChainImageCount, swapChainImagesPtr);
+					return swapChainImages;
 				}
 			}
 
-			return vkImageViews;
+			[MustUseReturnValue]
+			static VkImageView[] CreateImageViews(VkDevice vkLogicalDevice, VkImage[] vkSwapChainImages, VkFormat vkSwapChainFormat) {
+				VkImageView[] vkImageViews = new VkImageView[vkSwapChainImages.Length];
+
+				fixed (VkImageView* vkImageViewsPtr = vkImageViews) {
+					// ReSharper disable once LoopCanBeConvertedToQuery // nope
+					for (int i = 0; i < vkSwapChainImages.Length; i++) {
+						VkImageViewCreateInfo createInfo = new() {
+								image = vkSwapChainImages[i],
+								viewType = VkImageViewType.ImageViewType2d,
+								format = vkSwapChainFormat,
+								components = new() {
+										r = VkComponentSwizzle.ComponentSwizzleIdentity,
+										g = VkComponentSwizzle.ComponentSwizzleIdentity,
+										b = VkComponentSwizzle.ComponentSwizzleIdentity,
+										a = VkComponentSwizzle.ComponentSwizzleIdentity,
+								},
+								subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+						};
+
+						if (Vk.CreateImageView(vkLogicalDevice, &createInfo, null, &vkImageViewsPtr[i]) != VkResult.Success) { throw new VulkanException("Failed to create image views"); }
+					}
+				}
+
+				return vkImageViews;
+			}
 		}
 
 		[MustUseReturnValue]
-		public static bool CheckSupportForRequiredInstanceExtensions() {
-			ReadOnlySpan<VkExtensionProperties> extensionProperties = EnumerateInstanceExtensionProperties();
-			if (extensionProperties.Length == 0) { throw new VulkanException("Could not find any instance extension properties"); }
+		public static SwapChain RecreateSwapChain(WindowHandle windowHandle, VkSurfaceKHR vkSurface, PhysicalGpu selectedGpu, VkDevice vkLogicalDevice, SwapChain oldSwapChain) {
+			Vk.DeviceWaitIdle(vkLogicalDevice);
+			SwapChain newSwapChain = CreateSwapChain(windowHandle, vkSurface, selectedGpu, vkLogicalDevice, VkPresentModeKHR.PresentModeImmediateKhr, oldSwapChain: oldSwapChain);
+			oldSwapChain.Destroy(vkLogicalDevice);
+			return newSwapChain;
+		}
 
-			Logger.Debug("The following instance extensions are available:");
-			foreach (VkExtensionProperties extensionProperty in extensionProperties) {
-				ReadOnlySpan<byte> extensionName = extensionProperty.extensionName;
-				Logger.Debug($"- {Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)])}");
-			}
-
+		[MustUseReturnValue]
+		public static bool CheckSupportForRequiredInstanceExtensions(VkExtensionProperties[] extensionProperties) {
 			foreach (string wantedExtension in RequiredInstanceExtensions) {
 				bool extensionFound = false;
 
@@ -404,7 +500,7 @@ namespace Engine3.Graphics.Vulkan {
 			};
 
 			VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = new() { logicOpEnable = (int)Vk.False, logicOp = VkLogicOp.LogicOpCopy, attachmentCount = 1, pAttachments = &colorBlendAttachmentState, };
-			colorBlendStateCreateInfo.blendConstants[0] = 0;
+			colorBlendStateCreateInfo.blendConstants[0] = 0; // is there a better way of initializing this?
 			colorBlendStateCreateInfo.blendConstants[1] = 0;
 			colorBlendStateCreateInfo.blendConstants[2] = 0;
 			colorBlendStateCreateInfo.blendConstants[3] = 0;
@@ -474,6 +570,7 @@ namespace Engine3.Graphics.Vulkan {
 
 					using StreamReader streamReader = new(stream);
 					using SpirVResult spirvResult = spirvCompiler.Compile(streamReader.ReadToEnd(), fileName, shaderType.ShaderKind);
+
 					if (spirvResult.Status != Status.Success) {
 						Logger.Error($"Failed to compile shader: {fileName}. {spirvResult.ErrorMessage}");
 						return null;
@@ -505,10 +602,12 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public static VkCommandBuffer CreateCommandBuffer(VkDevice vkLogicalDevice, VkCommandPool vkCommandPool) {
-			VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = vkCommandPool, level = VkCommandBufferLevel.CommandBufferLevelPrimary, commandBufferCount = 1, };
-			VkCommandBuffer vkCommandBuffer;
-			return Vk.AllocateCommandBuffers(vkLogicalDevice, &commandBufferAllocateInfo, &vkCommandBuffer) != VkResult.Success ? throw new VulkanException("Failed to create command buffer") : vkCommandBuffer;
+		public static VkCommandBuffer[] CreateCommandBuffers(VkDevice vkLogicalDevice, VkCommandPool vkCommandPool, uint count) {
+			VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = vkCommandPool, level = VkCommandBufferLevel.CommandBufferLevelPrimary, commandBufferCount = count, };
+			VkCommandBuffer[] vkCommandBuffers = new VkCommandBuffer[count];
+			fixed (VkCommandBuffer* vkCommandBuffersPtr = vkCommandBuffers) {
+				return Vk.AllocateCommandBuffers(vkLogicalDevice, &commandBufferAllocateInfo, vkCommandBuffersPtr) != VkResult.Success ? throw new VulkanException("Failed to create command buffer") : vkCommandBuffers;
+			}
 		}
 
 		public static void RecordCommandBuffer(VkCommandBuffer vkCommandBuffer, SwapChain swapChain, uint swapchainImageIndex, VkPipeline vkGraphicsPipeline, Color4<Rgba> clearColor) {
@@ -571,17 +670,31 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public static VkSemaphore CreateSemaphore(VkDevice vkLogicalDevice) {
+		public static VkSemaphore[] CreateSemaphores(VkDevice vkLogicalDevice, uint count) {
+			VkSemaphore[] vkSemaphores = new VkSemaphore[count];
 			VkSemaphoreCreateInfo semaphoreCreateInfo = new();
-			VkSemaphore vkSemaphore;
-			return Vk.CreateSemaphore(vkLogicalDevice, &semaphoreCreateInfo, null, &vkSemaphore) != VkResult.Success ? throw new VulkanException("failed to create semaphore") : vkSemaphore;
+
+			fixed (VkSemaphore* vkSemaphoresPtr = vkSemaphores) {
+				for (int i = 0; i < count; i++) {
+					if (Vk.CreateSemaphore(vkLogicalDevice, &semaphoreCreateInfo, null, &vkSemaphoresPtr[i]) != VkResult.Success) { throw new VulkanException("failed to create semaphore"); }
+				}
+			}
+
+			return vkSemaphores;
 		}
 
 		[MustUseReturnValue]
-		public static VkFence CreateFence(VkDevice vkLogicalDevice) {
+		public static VkFence[] CreateFence(VkDevice vkLogicalDevice, uint count) {
+			VkFence[] vkFences = new VkFence[count];
 			VkFenceCreateInfo fenceCreateInfo = new() { flags = VkFenceCreateFlagBits.FenceCreateSignaledBit, };
-			VkFence vkFence;
-			return Vk.CreateFence(vkLogicalDevice, &fenceCreateInfo, null, &vkFence) != VkResult.Success ? throw new VulkanException("Failed to create fence") : vkFence;
+
+			fixed (VkFence* vkFencesPtr = vkFences) {
+				for (int i = 0; i < count; i++) {
+					if (Vk.CreateFence(vkLogicalDevice, &fenceCreateInfo, null, &vkFencesPtr[i]) != VkResult.Success) { throw new VulkanException("Failed to create fence"); }
+				}
+			}
+
+			return vkFences;
 		}
 
 		public static void SubmitCommandBufferQueue(VkQueue vkQueue, VkCommandBuffer vkCommandBuffer, VkSemaphore imageAvailable, VkSemaphore renderFinished, VkFence inFlight) {
@@ -609,11 +722,25 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		private static ReadOnlySpan<VkExtensionProperties> EnumerateInstanceExtensionProperties() {
+		public static VkPhysicalDevice[] GetPhysicalDevices(VkInstance vkInstance) {
+			uint deviceCount;
+			Vk.EnumeratePhysicalDevices(vkInstance, &deviceCount, null);
+
+			if (deviceCount == 0) { return Array.Empty<VkPhysicalDevice>(); }
+
+			VkPhysicalDevice[] physicalDevices = new VkPhysicalDevice[deviceCount];
+			fixed (VkPhysicalDevice* physicalDevicesPtr = physicalDevices) {
+				Vk.EnumeratePhysicalDevices(vkInstance, &deviceCount, physicalDevicesPtr);
+				return physicalDevices;
+			}
+		}
+
+		[MustUseReturnValue]
+		public static VkExtensionProperties[] GetInstanceExtensionProperties() {
 			uint extensionCount;
 			Vk.EnumerateInstanceExtensionProperties(null, &extensionCount, null);
 
-			if (extensionCount == 0) { return ReadOnlySpan<VkExtensionProperties>.Empty; }
+			if (extensionCount == 0) { return Array.Empty<VkExtensionProperties>(); }
 
 			VkExtensionProperties[] extensionProperties = new VkExtensionProperties[extensionCount];
 			fixed (VkExtensionProperties* extensionPropertiesPtr = extensionProperties) {
@@ -623,146 +750,44 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		private static SwapChainSupportInfo QuerySwapChainSupport(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR vkSurface) {
-			VkPhysicalDeviceSurfaceInfo2KHR surfaceInfo2 = new() { surface = vkSurface, };
-			VkSurfaceCapabilities2KHR surfaceCapabilities2 = new();
+		private static SwapChainSupportInfo QuerySwapChainSupport(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR vkSurface) { // turns out this changes so it shouldn't be stored
+			VkPhysicalDeviceSurfaceInfo2KHR surfaceInfo = new() { surface = vkSurface, };
+			VkSurfaceCapabilities2KHR surfaceCapabilities = new();
 
-			Vk.GetPhysicalDeviceSurfaceCapabilities2KHR(vkPhysicalDevice, &surfaceInfo2, &surfaceCapabilities2);
+			Vk.GetPhysicalDeviceSurfaceCapabilities2KHR(vkPhysicalDevice, &surfaceInfo, &surfaceCapabilities);
 
-			VkSurfaceFormat2KHR[] surfaceFormats = GetPhysicalDeviceSurfaceFormats(vkPhysicalDevice, surfaceInfo2);
+			VkSurfaceFormat2KHR[] surfaceFormats = GetPhysicalDeviceSurfaceFormats(vkPhysicalDevice, surfaceInfo);
 			if (surfaceFormats.Length == 0) { throw new Engine3Exception("No surface formats found"); }
 
 			VkPresentModeKHR[] presentModes = GetPhysicalDeviceSurfacePresentModes(vkPhysicalDevice, vkSurface);
-			return presentModes.Length == 0 ? throw new Engine3Exception("No present modes found") : new(surfaceCapabilities2, surfaceFormats, presentModes);
-		}
+			return presentModes.Length == 0 ? throw new Engine3Exception("No present modes found") : new(surfaceCapabilities, surfaceFormats, presentModes);
 
-		[MustUseReturnValue]
-		private static VkSurfaceFormat2KHR[] GetPhysicalDeviceSurfaceFormats(VkPhysicalDevice vkPhysicalDevice, VkPhysicalDeviceSurfaceInfo2KHR vkSurfaceInfo) {
-			uint formatCount;
-			Vk.GetPhysicalDeviceSurfaceFormats2KHR(vkPhysicalDevice, &vkSurfaceInfo, &formatCount, null);
-			if (formatCount == 0) { return Array.Empty<VkSurfaceFormat2KHR>(); }
+			[MustUseReturnValue]
+			static VkSurfaceFormat2KHR[] GetPhysicalDeviceSurfaceFormats(VkPhysicalDevice vkPhysicalDevice, VkPhysicalDeviceSurfaceInfo2KHR vkSurfaceInfo) {
+				uint formatCount;
+				Vk.GetPhysicalDeviceSurfaceFormats2KHR(vkPhysicalDevice, &vkSurfaceInfo, &formatCount, null);
+				if (formatCount == 0) { return Array.Empty<VkSurfaceFormat2KHR>(); }
 
-			VkSurfaceFormat2KHR[] surfaceFormats = new VkSurfaceFormat2KHR[formatCount];
-			for (int i = 0; i < formatCount; i++) { surfaceFormats[i] = new(); }
+				VkSurfaceFormat2KHR[] surfaceFormats = new VkSurfaceFormat2KHR[formatCount];
+				for (int i = 0; i < formatCount; i++) { surfaceFormats[i] = new(); }
 
-			fixed (VkSurfaceFormat2KHR* surfaceFormatsPtr = surfaceFormats) {
-				Vk.GetPhysicalDeviceSurfaceFormats2KHR(vkPhysicalDevice, &vkSurfaceInfo, &formatCount, surfaceFormatsPtr);
-				return surfaceFormats;
+				fixed (VkSurfaceFormat2KHR* surfaceFormatsPtr = surfaceFormats) {
+					Vk.GetPhysicalDeviceSurfaceFormats2KHR(vkPhysicalDevice, &vkSurfaceInfo, &formatCount, surfaceFormatsPtr);
+					return surfaceFormats;
+				}
 			}
-		}
 
-		[MustUseReturnValue]
-		private static VkSurfaceFormat2KHR? ChooseSwapSurfaceFormat(ReadOnlySpan<VkSurfaceFormat2KHR> availableFormats) =>
-				availableFormats.FirstOrDefault(static format => format.surfaceFormat is { format: VkFormat.FormatB8g8r8a8Srgb, colorSpace: VkColorSpaceKHR.ColorSpaceSrgbNonlinearKhr, });
+			[MustUseReturnValue]
+			static VkPresentModeKHR[] GetPhysicalDeviceSurfacePresentModes(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR vkSurface) {
+				uint presentModeCount;
+				Vk.GetPhysicalDeviceSurfacePresentModesKHR(vkPhysicalDevice, vkSurface, &presentModeCount, null);
+				if (presentModeCount == 0) { return Array.Empty<VkPresentModeKHR>(); }
 
-		[MustUseReturnValue]
-		private static VkPresentModeKHR ChooseSwapPresentMode(ReadOnlySpan<VkPresentModeKHR> availablePresentModes) =>
-				availablePresentModes.FirstOrDefault(static presentMode => presentMode is VkPresentModeKHR.PresentModeMailboxKhr, VkPresentModeKHR.PresentModeFifoKhr);
-
-		[MustUseReturnValue]
-		private static VkExtent2D ChooseSwapExtent(WindowHandle windowHandle, VkSurfaceCapabilities2KHR vkSurfaceCapabilities2) {
-			VkSurfaceCapabilitiesKHR capabilities = vkSurfaceCapabilities2.surfaceCapabilities;
-			if (capabilities.currentExtent.width != uint.MaxValue) { return capabilities.currentExtent; }
-
-			Toolkit.Window.GetFramebufferSize(windowHandle, out Vector2i framebufferSize);
-			return new() {
-					width = Math.Clamp((uint)framebufferSize.X, capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
-					height = Math.Clamp((uint)framebufferSize.Y, capabilities.minImageExtent.height, capabilities.maxImageExtent.height),
-			};
-		}
-
-		[MustUseReturnValue]
-		private static VkPresentModeKHR[] GetPhysicalDeviceSurfacePresentModes(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR vkSurface) {
-			uint presentModeCount;
-			Vk.GetPhysicalDeviceSurfacePresentModesKHR(vkPhysicalDevice, vkSurface, &presentModeCount, null);
-			if (presentModeCount == 0) { return Array.Empty<VkPresentModeKHR>(); }
-
-			VkPresentModeKHR[] presentModes = new VkPresentModeKHR[presentModeCount];
-			fixed (VkPresentModeKHR* presentModesPtr = presentModes) {
-				Vk.GetPhysicalDeviceSurfacePresentModesKHR(vkPhysicalDevice, vkSurface, &presentModeCount, presentModesPtr);
-				return presentModes;
-			}
-		}
-
-		[MustUseReturnValue]
-		private static bool GetPhysicalDeviceSurfaceSupportKHR(VkPhysicalDevice vkPhysicalDevice, uint index, VkSurfaceKHR vkSurface) {
-			int presentSupport;
-			Vk.GetPhysicalDeviceSurfaceSupportKHR(vkPhysicalDevice, index, vkSurface, &presentSupport);
-			return presentSupport == 1;
-		}
-
-		[MustUseReturnValue]
-		private static VkPhysicalDeviceProperties2 GetPhysicalDeviceProperties(VkPhysicalDevice vkPhysicalDevice) {
-			VkPhysicalDeviceProperties2 deviceProperties2 = new();
-			Vk.GetPhysicalDeviceProperties2(vkPhysicalDevice, &deviceProperties2);
-			return deviceProperties2;
-		}
-
-		[MustUseReturnValue]
-		private static VkPhysicalDeviceFeatures2 GetPhysicalDeviceFeatures(VkPhysicalDevice vkPhysicalDevice) {
-			VkPhysicalDeviceFeatures2 deviceFeatures2 = new();
-			Vk.GetPhysicalDeviceFeatures2(vkPhysicalDevice, &deviceFeatures2);
-			return deviceFeatures2;
-		}
-
-		[MustUseReturnValue]
-		private static ReadOnlySpan<VkQueueFamilyProperties2> GetPhysicalDeviceQueueFamilyProperties(VkPhysicalDevice device) {
-			uint queueFamilyPropertyCount = 0;
-			Vk.GetPhysicalDeviceQueueFamilyProperties2(device, &queueFamilyPropertyCount, null);
-
-			if (queueFamilyPropertyCount == 0) { return ReadOnlySpan<VkQueueFamilyProperties2>.Empty; }
-
-			VkQueueFamilyProperties2[] queueFamilyProperties = new VkQueueFamilyProperties2[queueFamilyPropertyCount];
-			for (int i = 0; i < queueFamilyPropertyCount; i++) { queueFamilyProperties[i] = new() { sType = VkStructureType.StructureTypeQueueFamilyProperties2, }; }
-
-			fixed (VkQueueFamilyProperties2* queueFamilyPropertiesPtr = queueFamilyProperties) {
-				Vk.GetPhysicalDeviceQueueFamilyProperties2(device, &queueFamilyPropertyCount, queueFamilyPropertiesPtr);
-				return queueFamilyProperties;
-			}
-		}
-
-		[MustUseReturnValue]
-		private static ReadOnlySpan<VkExtensionProperties> EnumeratePhysicalDeviceExtensionProperties(VkPhysicalDevice vkPhysicalDevice) {
-			uint extensionCount;
-			Vk.EnumerateDeviceExtensionProperties(vkPhysicalDevice, null, &extensionCount, null);
-
-			if (extensionCount == 0) { return ReadOnlySpan<VkExtensionProperties>.Empty; }
-
-			VkExtensionProperties[] extensionProperties = new VkExtensionProperties[extensionCount];
-			fixed (VkExtensionProperties* extensionPropertiesPtr = extensionProperties) {
-				Vk.EnumerateDeviceExtensionProperties(vkPhysicalDevice, null, &extensionCount, extensionPropertiesPtr);
-				return extensionProperties;
-			}
-		}
-
-		[MustUseReturnValue]
-		private static ReadOnlySpan<VkPhysicalDevice> EnumeratePhysicalDevices(VkInstance vkInstance) {
-			uint deviceCount;
-			Vk.EnumeratePhysicalDevices(vkInstance, &deviceCount, null);
-
-			if (deviceCount == 0) { return ReadOnlySpan<VkPhysicalDevice>.Empty; }
-
-			VkPhysicalDevice[] physicalDevices = new VkPhysicalDevice[deviceCount];
-			fixed (VkPhysicalDevice* physicalDevicesPtr = physicalDevices) {
-				Vk.EnumeratePhysicalDevices(vkInstance, &deviceCount, physicalDevicesPtr);
-				return physicalDevices;
-			}
-		}
-
-		private static void FindQueueFamilies(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR vkSurface, out uint? graphicsFamily, out uint? presentFamily) {
-			graphicsFamily = null;
-			presentFamily = null;
-
-			ReadOnlySpan<VkQueueFamilyProperties2> queueFamilies = GetPhysicalDeviceQueueFamilyProperties(vkPhysicalDevice);
-			uint i = 0;
-			foreach (VkQueueFamilyProperties2 queueFamilyProperties2 in queueFamilies) {
-				VkQueueFamilyProperties queueFamilyProperties = queueFamilyProperties2.queueFamilyProperties;
-				if ((queueFamilyProperties.queueFlags & VkQueueFlagBits.QueueGraphicsBit) != 0) { graphicsFamily = i; }
-				if (GetPhysicalDeviceSurfaceSupportKHR(vkPhysicalDevice, i, vkSurface)) { presentFamily = i; }
-
-				if (graphicsFamily != null && presentFamily != null) { break; }
-
-				i++;
+				VkPresentModeKHR[] presentModes = new VkPresentModeKHR[presentModeCount];
+				fixed (VkPresentModeKHR* presentModesPtr = presentModes) {
+					Vk.GetPhysicalDeviceSurfacePresentModesKHR(vkPhysicalDevice, vkSurface, &presentModeCount, presentModesPtr);
+					return presentModes;
+				}
 			}
 		}
 

@@ -8,18 +8,16 @@ namespace Engine3.Graphics.Vulkan {
 		public VkPhysicalDeviceFeatures2 VkPhysicalDeviceFeatures2 { get; }
 		public VkExtensionProperties[] VkExtensionProperties { get; }
 		public QueueFamilyIndices QueueFamilyIndices { get; }
-		public SwapChainSupportInfo SwapChainSupportInfo { get; }
 
 		public string Name { get; }
 
 		public PhysicalGpu(VkPhysicalDevice vkPhysicalDevice, VkPhysicalDeviceProperties2 vkPhysicalDeviceProperties2, VkPhysicalDeviceFeatures2 vkPhysicalDeviceFeatures2, VkExtensionProperties[] vkExtensionProperties,
-			QueueFamilyIndices queueFamilyIndices, SwapChainSupportInfo swapChainSupportInfo) {
+			QueueFamilyIndices queueFamilyIndices) {
 			VkPhysicalDevice = vkPhysicalDevice;
 			VkPhysicalDeviceProperties2 = vkPhysicalDeviceProperties2;
 			VkPhysicalDeviceFeatures2 = vkPhysicalDeviceFeatures2;
 			VkExtensionProperties = vkExtensionProperties;
 			QueueFamilyIndices = queueFamilyIndices;
-			SwapChainSupportInfo = swapChainSupportInfo;
 
 			VkPhysicalDeviceProperties.deviceNameInlineArray1 deviceNameArray = VkPhysicalDeviceProperties2.properties.deviceName;
 			ReadOnlySpan<byte> deviceNameSpan = deviceNameArray;

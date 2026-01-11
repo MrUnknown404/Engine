@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Engine3.Exceptions;
 using Engine3.Graphics.OpenGL;
 using Engine3.Graphics.Vulkan;
 using NLog;
@@ -11,6 +12,7 @@ namespace Engine3.Graphics {
 
 		public WindowHandle WindowHandle { get; }
 		public Color4<Rgba> ClearColor { get; set; }
+		public bool WasResized { get; set; }
 
 		public event AttemptCloseWindow? TryCloseWindowEvent;
 		public event Action? OnCloseWindowEvent;
@@ -19,12 +21,11 @@ namespace Engine3.Graphics {
 
 		protected Window(WindowHandle windowHandle) => WindowHandle = windowHandle;
 
-		public static Window? MakeWindow(string title, uint width, uint height) {
+		public static Window MakeWindow(string title, uint width, uint height) {
 			GraphicsApi graphicsApi = Engine3.GraphicsApi;
-			if (graphicsApi == GraphicsApi.Console) {
-				Logger.Error("Cannot create window when graphics api is set to console");
-				return null;
-			}
+			if (graphicsApi == GraphicsApi.Console) { throw new Engine3Exception("Cannot create window when graphics api is set to console"); }
+
+			Logger.Info("Making new window...");
 
 			WindowHandle windowHandle = Toolkit.Window.Create(Engine3.GraphicsApiHints!); // if graphicsApi != GraphicsApi.Console then Engine3.GraphicsApiHints shouldn't be null here
 
@@ -37,6 +38,8 @@ namespace Engine3.Graphics {
 					GraphicsApi.Console => throw new UnreachableException(),
 					_ => throw new ArgumentOutOfRangeException(),
 			};
+
+			Logger.Info("Window setup complete");
 
 			Engine3.Windows.Add(window);
 			return window;

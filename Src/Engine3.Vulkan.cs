@@ -19,7 +19,15 @@ namespace Engine3 {
 #if DEBUG
 			if (!VkH.CheckSupportForRequiredValidationLayers()) { throw new VulkanException("Requested validation layers are not available"); }
 #endif
-			if (!VkH.CheckSupportForRequiredInstanceExtensions()) { throw new VulkanException("Requested instance extensions are not available"); }
+
+			VkExtensionProperties[] vkInstanceExtensions = VkH.GetInstanceExtensionProperties();
+			if (vkInstanceExtensions.Length == 0) { throw new VulkanException("Could not find any instance extension properties"); }
+
+			if (!VkH.CheckSupportForRequiredInstanceExtensions(vkInstanceExtensions)) { throw new VulkanException("Requested instance extensions are not available"); }
+
+#if DEBUG
+			VkH.PrintInstanceExtensions(vkInstanceExtensions);
+#endif
 
 			VKLoader.Init();
 
@@ -32,7 +40,7 @@ namespace Engine3 {
 			Logger.Debug("Created Vulkan Debug Messenger");
 #endif
 
-			VkPhysicalDevices = VkH.CreatePhysicalDevices(VkInstance.Value);
+			VkPhysicalDevices = VkH.GetPhysicalDevices(VkInstance.Value);
 			Logger.Debug("Created Physical Devices");
 
 			WasVulkanSetup = true;

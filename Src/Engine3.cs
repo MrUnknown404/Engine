@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Engine3.Debug;
@@ -105,6 +106,33 @@ namespace Engine3 {
 
 			Logger.Debug("GameLoop exited naturally");
 			Shutdown(0);
+
+			return;
+
+			static void CheckValidStartupSettings(StartupSettings settings) {
+				switch (GraphicsApi) {
+					case GraphicsApi.OpenGL:
+						if (settings.ToolkitOptions == null) {
+							throw new Engine3Exception("Toolkit cannot be null when using 'OpenGL' GraphicsApi"); //
+						} else if (settings.GraphicsApiHints is not OpenGLGraphicsApiHints openglGraphics) {
+							throw new Engine3Exception("GraphicsApi was set to 'OpenGL' but the provided GraphicsApiHints was either not of type OpenGLGraphicsApiHints, or null");
+						} else if (openglGraphics is not { Version: { Major: 4, Minor: 6, }, Profile: OpenGLProfile.Core, }) {
+							throw new Engine3Exception("Engine only supports OpenGL version 4.6 Core"); //
+						}
+
+						break;
+					case GraphicsApi.Vulkan:
+						if (settings.ToolkitOptions == null) {
+							throw new Engine3Exception("Toolkit cannot be null when using 'Vulkan' GraphicsApi"); //
+						} else if (settings.GraphicsApiHints is not VulkanGraphicsApiHints) {
+							throw new Engine3Exception("GraphicsApi was set to 'Vulkan' but the provided GraphicsApiHints was either not of type VulkanGraphicsApiHints, or null"); //
+						}
+
+						break;
+					case GraphicsApi.Console:
+					default: break;
+				}
+			}
 		}
 
 		public static void Shutdown(int errorCode) {
@@ -118,25 +146,41 @@ namespace Engine3 {
 		private static void SetupEngine() { }
 
 		private static void SetupToolkit(ToolkitOptions toolkitOptions) {
-			EventQueue.EventRaised += OnEventRaised;
+			EventQueue.EventRaised += OnTkEventRaised;
 
 			Toolkit.Init(toolkitOptions);
 
 			return;
 
-			static void OnEventRaised(PalHandle? handle, PlatformEventType type, EventArgs args) {
-				if (args is CloseEventArgs closeArgs) {
-					if (Windows.Find(w => w.WindowHandle == closeArgs.Window) is { } window) {
-						window.TryCloseWindow();
-						return;
-					}
+			static void OnTkEventRaised(PalHandle? handle, PlatformEventType type, EventArgs args) {
+				switch (args) {
+					case CloseEventArgs closeArgs: {
+						if (Windows.Find(w => w.WindowHandle == closeArgs.Window) is { } window) {
+							window.TryCloseWindow();
+							return;
+						}
 
-					Logger.Warn("Attempted to close an unknown window");
+						Logger.Warn("Attempted to close an unknown window");
+						break;
+					}
+					case WindowResizeEventArgs resizeArgs: {
+						if (Windows.Find(w => w.WindowHandle == resizeArgs.Window) is { } window) {
+							window.WasResized = true;
+							return;
+						}
+
+						Logger.Warn("Attempted to resize an unknown window");
+						break;
+					}
 				}
 			}
 		}
 
 		private static void GameLoop() {
+			Stopwatch stopwatch = new(); // TODO remove
+			stopwatch.Start();
+			uint fpsCounter = 0;
+
 			while (shouldRunGameLoop) {
 				Toolkit.Window.ProcessEvents(false);
 				if (!shouldRunGameLoop) { break; } // Early exit
@@ -147,7 +191,7 @@ namespace Engine3 {
 
 				// RenderContext.PrepareFrame();
 
-				float delta = 0;
+				float delta = 0; // TODO impl
 				Render(delta);
 				GameInstance.Render(delta);
 
@@ -156,38 +200,18 @@ namespace Engine3 {
 
 				RenderFrameCount++;
 
-				Thread.Sleep(1); // TODO impl
+				fpsCounter++;
+				if (stopwatch.Elapsed.TotalSeconds >= 1) {
+					Logger.Debug($"Fps: {fpsCounter}");
+					stopwatch.Restart();
+					fpsCounter = 0;
+				}
 			}
 		}
 
 		private static void Update() { }
 
 		private static void Render(float delta) { }
-
-		private static void CheckValidStartupSettings(StartupSettings settings) {
-			switch (GraphicsApi) {
-				case GraphicsApi.OpenGL:
-					if (settings.ToolkitOptions == null) {
-						throw new Engine3Exception("Toolkit cannot be null when using 'OpenGL' GraphicsApi"); //
-					} else if (settings.GraphicsApiHints is not OpenGLGraphicsApiHints openglGraphics) {
-						throw new Engine3Exception("GraphicsApi was set to 'OpenGL' but the provided GraphicsApiHints was either not of type OpenGLGraphicsApiHints, or null");
-					} else if (openglGraphics is not { Version: { Major: 4, Minor: 6, }, Profile: OpenGLProfile.Core, }) {
-						throw new Engine3Exception("Engine only supports OpenGL version 4.6 Core"); //
-					}
-
-					break;
-				case GraphicsApi.Vulkan:
-					if (settings.ToolkitOptions == null) {
-						throw new Engine3Exception("Toolkit cannot be null when using 'Vulkan' GraphicsApi"); //
-					} else if (settings.GraphicsApiHints is not VulkanGraphicsApiHints) {
-						throw new Engine3Exception("GraphicsApi was set to 'Vulkan' but the provided GraphicsApiHints was either not of type VulkanGraphicsApiHints, or null"); //
-					}
-
-					break;
-				case GraphicsApi.Console:
-				default: break;
-			}
-		}
 
 		private static void Cleanup() {
 			LogManager.Shutdown();
