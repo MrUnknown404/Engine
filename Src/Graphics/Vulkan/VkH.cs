@@ -461,7 +461,6 @@ namespace Engine3.Graphics.Vulkan {
 			out VkPipelineLayout vkPipelineLayout) {
 			if (vkShaderStageCreateInfos.Length == 0) { throw new VulkanException($"{nameof(vkShaderStageCreateInfos)} cannot be empty"); }
 
-			VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = new() { vertexBindingDescriptionCount = 0, vertexAttributeDescriptionCount = 0, };
 			VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo = new() { topology = VkPrimitiveTopology.PrimitiveTopologyTriangleList, };
 			VkPipelineViewportStateCreateInfo viewportStateCreateInfo = new() { viewportCount = 1, scissorCount = 1, };
 			VkPipelineRenderingCreateInfo renderingCreateInfo = new() { colorAttachmentCount = 1, pColorAttachmentFormats = &vkSwapChainImageFormat, };
@@ -516,27 +515,41 @@ namespace Engine3.Graphics.Vulkan {
 
 				fixed (VkDynamicState* dynamicStatesPtr = dynamicStates) {
 					VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = new() { dynamicStateCount = (uint)dynamicStates.Length, pDynamicStates = dynamicStatesPtr, };
+					VkVertexInputBindingDescription bindingDescription = TestVertex.GetBindingDescription();
+					VkVertexInputAttributeDescription[] attributeDescriptions = TestVertex.GetAttributeDescriptions();
 
-					VkGraphicsPipelineCreateInfo pipelineCreateInfo = new() {
-							pNext = &renderingCreateInfo,
-							stageCount = (uint)vkShaderStageCreateInfos.Length,
-							pStages = shaderStageCreateInfosPtr,
-							pVertexInputState = &vertexInputStateCreateInfo,
-							pInputAssemblyState = &inputAssemblyStateCreateInfo,
-							pViewportState = &viewportStateCreateInfo,
-							pRasterizationState = &rasterizationStateCreateInfo,
-							pMultisampleState = &multisampleStateCreateInfo,
-							pDepthStencilState = null,
-							pColorBlendState = &colorBlendStateCreateInfo,
-							pDynamicState = &dynamicStateCreateInfo,
-							layout = pipelineLayout,
-							basePipelineHandle = VkPipeline.Zero,
-							basePipelineIndex = -1,
-					};
+					fixed (VkVertexInputAttributeDescription* attributeDescriptionsPtr = attributeDescriptions) {
+						VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = new() {
+								vertexBindingDescriptionCount = 1,
+								vertexAttributeDescriptionCount = (uint)attributeDescriptions.Length,
+								pVertexBindingDescriptions = &bindingDescription,
+								pVertexAttributeDescriptions = attributeDescriptionsPtr,
+						};
 
-					VkPipeline graphicsPipeline;
-					if (Vk.CreateGraphicsPipelines(vkLogicalDevice, VkPipelineCache.Zero, 1, &pipelineCreateInfo, null, &graphicsPipeline) != VkResult.Success) { throw new VulkanException("Failed to create graphics pipeline"); }
-					vkGraphicsPipeline = graphicsPipeline;
+						VkGraphicsPipelineCreateInfo pipelineCreateInfo = new() {
+								pNext = &renderingCreateInfo,
+								stageCount = (uint)vkShaderStageCreateInfos.Length,
+								pStages = shaderStageCreateInfosPtr,
+								pVertexInputState = &vertexInputStateCreateInfo,
+								pInputAssemblyState = &inputAssemblyStateCreateInfo,
+								pViewportState = &viewportStateCreateInfo,
+								pRasterizationState = &rasterizationStateCreateInfo,
+								pMultisampleState = &multisampleStateCreateInfo,
+								pDepthStencilState = null,
+								pColorBlendState = &colorBlendStateCreateInfo,
+								pDynamicState = &dynamicStateCreateInfo,
+								layout = pipelineLayout,
+								basePipelineHandle = VkPipeline.Zero,
+								basePipelineIndex = -1,
+						};
+
+						VkPipeline graphicsPipeline;
+						if (Vk.CreateGraphicsPipelines(vkLogicalDevice, VkPipelineCache.Zero, 1, &pipelineCreateInfo, null, &graphicsPipeline) != VkResult.Success) {
+							throw new VulkanException("Failed to create graphics pipeline");
+						}
+
+						vkGraphicsPipeline = graphicsPipeline;
+					}
 				}
 			}
 		}
@@ -610,7 +623,7 @@ namespace Engine3.Graphics.Vulkan {
 			}
 		}
 
-		public static void RecordCommandBuffer(VkCommandBuffer vkCommandBuffer, SwapChain swapChain, uint swapchainImageIndex, VkPipeline vkGraphicsPipeline, Color4<Rgba> clearColor) {
+		public static void RecordCommandBuffer(VkCommandBuffer vkCommandBuffer, SwapChain swapChain, uint swapchainImageIndex, VkPipeline vkGraphicsPipeline, Color4<Rgba> clearColor, VkBuffer[] vertexBuffers, uint drawSize) {
 			VkCommandBufferBeginInfo commandBufferBeginInfo = new() { flags = 0, pInheritanceInfo = null, };
 			if (Vk.BeginCommandBuffer(vkCommandBuffer, &commandBufferBeginInfo) != VkResult.Success) { throw new VulkanException("Failed to begin recording command buffer"); }
 
@@ -652,7 +665,14 @@ namespace Engine3.Graphics.Vulkan {
 			Vk.CmdSetViewport(vkCommandBuffer, 0, 1, &viewport);
 			Vk.CmdSetScissor(vkCommandBuffer, 0, 1, &scissor);
 
-			Vk.CmdDraw(vkCommandBuffer, 3, 1, 0, 0); // TODO this'll need to be changed later
+			ulong[] offsets = [ 0, ];
+			fixed (VkBuffer* vertexBuffersPtr = vertexBuffers) {
+				fixed (ulong* offsetsPtr = offsets) {
+					Vk.CmdBindVertexBuffers(vkCommandBuffer, 0, 1, vertexBuffersPtr, offsetsPtr); // TODO 2
+				}
+			}
+
+			Vk.CmdDraw(vkCommandBuffer, drawSize, 1, 0, 0); // TODO this'll need to be changed later
 
 			Vk.CmdEndRendering(vkCommandBuffer);
 
@@ -747,6 +767,25 @@ namespace Engine3.Graphics.Vulkan {
 				Vk.EnumerateInstanceExtensionProperties(null, &extensionCount, extensionPropertiesPtr);
 				return extensionProperties;
 			}
+		}
+
+		[MustUseReturnValue]
+		public static VkBuffer CreateVertexBuffer(VkDevice vkLogicalDevice, ulong size) {
+			VkBufferCreateInfo bufferCreateInfo = new() { size = size, usage = VkBufferUsageFlagBits.BufferUsageVertexBufferBit, sharingMode = VkSharingMode.SharingModeExclusive, };
+			VkBuffer vkBuffer;
+			return Vk.CreateBuffer(vkLogicalDevice, &bufferCreateInfo, null, &vkBuffer) != VkResult.Success ? throw new VulkanException("Failed to create vertex buffer") : vkBuffer;
+		}
+
+		[MustUseReturnValue]
+		public static uint FindMemoryType(VkPhysicalDevice vkPhysicalDevice, uint typeFilter, VkMemoryPropertyFlagBits vkMemoryProperty) {
+			VkPhysicalDeviceMemoryProperties vkMemoryProperties = new(); // TODO 2
+			Vk.GetPhysicalDeviceMemoryProperties(vkPhysicalDevice, &vkMemoryProperties);
+
+			for (uint i = 0; i < vkMemoryProperties.memoryTypeCount; i++) {
+				if ((uint)(typeFilter & (1 << (int)i)) != 0 && (vkMemoryProperties.memoryTypes[(int)i].propertyFlags & vkMemoryProperty) == vkMemoryProperty) { return i; }
+			}
+
+			throw new VulkanException("Failed to find suitable memory type");
 		}
 
 		[MustUseReturnValue]

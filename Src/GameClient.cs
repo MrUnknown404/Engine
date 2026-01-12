@@ -14,6 +14,8 @@ namespace Engine3 {
 		protected internal abstract void Update();
 		protected internal abstract void Render(float delta);
 
+		protected internal abstract void Cleanup();
+
 		protected internal virtual bool VkIsPhysicalDeviceSuitable(VkPhysicalDeviceProperties2 vkPhysicalDeviceProperties2, VkPhysicalDeviceFeatures2 vkPhysicalDeviceFeatures2) {
 			VkPhysicalDeviceProperties deviceProperties = vkPhysicalDeviceProperties2.properties;
 			return deviceProperties.deviceType is VkPhysicalDeviceType.PhysicalDeviceTypeIntegratedGpu or VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu or VkPhysicalDeviceType.PhysicalDeviceTypeVirtualGpu;

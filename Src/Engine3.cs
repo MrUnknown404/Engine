@@ -216,6 +216,8 @@ namespace Engine3 {
 		private static void Cleanup() {
 			LogManager.Shutdown();
 
+			GameInstance?.Cleanup();
+
 			foreach (Window window in Windows) { window.CloseWindow(false); }
 
 			if (GraphicsApi == GraphicsApi.Vulkan) { CleanupVulkan(); }
