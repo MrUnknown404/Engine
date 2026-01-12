@@ -27,7 +27,7 @@ namespace Engine3.Graphics {
 		public float YawRadians => float.Pi / 180 * YawDegrees;
 
 		public Vector3 Forward { get; private set; }
-		public Vector3 Right { get; private set; } = Vector3.UnitX;
+		public Vector3 Right { get; private set; }
 		public Vector3 Backwards => -Forward;
 		public Vector3 Left => -Right;
 
@@ -43,12 +43,15 @@ namespace Engine3.Graphics {
 		public Matrix4x4 CreateViewMatrix() {
 			if (shouldRebuildVectors) {
 				shouldRebuildVectors = false;
-
-				Forward = Vector3.Normalize(new(MathF.Cos(PitchRadians) * MathF.Cos(YawRadians), MathF.Sin(PitchRadians), MathF.Cos(PitchRadians) * MathF.Sin(YawRadians)));
-				Right = Vector3.Normalize(Vector3.Cross(Forward, Vector3.UnitY));
+				RebuildVectors();
 			}
 
 			return Matrix4x4.CreateLookAt(Position, Position + Forward, Vector3.UnitY);
+		}
+
+		private void RebuildVectors() {
+			Forward = Vector3.Normalize(new(MathF.Cos(PitchRadians) * MathF.Cos(YawRadians), MathF.Sin(PitchRadians), MathF.Cos(PitchRadians) * MathF.Sin(YawRadians)));
+			Right = Vector3.Normalize(Vector3.Cross(Forward, Vector3.UnitY));
 		}
 	}
 }
