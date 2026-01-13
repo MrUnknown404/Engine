@@ -230,14 +230,10 @@ namespace Engine3 {
 		[SuppressMessage("ReSharper", "MemberHidesStaticFromOuterClass")]
 		public abstract class StartupSettings {
 			public required string GameName { get; init; }
-			public required string MainThreadName { get; init; }
+			public string MainThreadName { get; init; } = "Main";
 			public abstract GraphicsApi GraphicsApi { get; }
 
-			[SetsRequiredMembers]
-			protected StartupSettings(string gameName, string mainThreadName) {
-				GameName = gameName;
-				MainThreadName = mainThreadName;
-			}
+			[SetsRequiredMembers] protected StartupSettings(string gameName) => GameName = gameName;
 		}
 	}
 }

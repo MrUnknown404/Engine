@@ -12,7 +12,7 @@ namespace Engine3 {
 			public override GraphicsApi GraphicsApi => GraphicsApi.OpenGL;
 
 			[SetsRequiredMembers]
-			public OpenGLSettings(string gameName, string mainThreadName, ToolkitOptions toolkitOptions, OpenGLGraphicsApiHints? graphicsApiHints = null) : base(gameName, mainThreadName) {
+			public OpenGLSettings(string gameName, ToolkitOptions toolkitOptions, OpenGLGraphicsApiHints? graphicsApiHints = null) : base(gameName) {
 				ToolkitOptions = toolkitOptions;
 				GraphicsApiHints = graphicsApiHints ?? new();
 

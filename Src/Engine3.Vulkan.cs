@@ -103,7 +103,7 @@ namespace Engine3 {
 			public override GraphicsApi GraphicsApi => GraphicsApi.Vulkan;
 
 			[SetsRequiredMembers]
-			public VulkanSettings(string gameName, string mainThreadName, ToolkitOptions toolkitOptions, VulkanGraphicsApiHints? graphicsApiHints = null) : base(gameName, mainThreadName) {
+			public VulkanSettings(string gameName, ToolkitOptions toolkitOptions, VulkanGraphicsApiHints? graphicsApiHints = null) : base(gameName) {
 				ToolkitOptions = toolkitOptions;
 				GraphicsApiHints = graphicsApiHints ?? new();
 
