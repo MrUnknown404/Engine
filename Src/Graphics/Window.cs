@@ -44,7 +44,7 @@ namespace Engine3.Graphics {
 
 			Logger.Info("Window setup complete");
 
-			Engine3.Windows.Add(window);
+			gameClient.Windows.Add(window);
 			return window;
 		}
 

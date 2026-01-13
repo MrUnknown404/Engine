@@ -1,4 +1,5 @@
 using System.Reflection;
+using Engine3.Graphics;
 using Engine3.Utils;
 
 namespace Engine3 {
@@ -6,6 +7,8 @@ namespace Engine3 {
 		public abstract Version4 Version { get; }
 		public Assembly Assembly { get; internal init; } = null!; // Set in Engine3#Start
 		public string Name { get; internal init; } = null!; // Set in Engine3#Start
+
+		public List<Window> Windows { get; } = new();
 
 		protected internal abstract void Setup();
 		protected internal abstract void Update();

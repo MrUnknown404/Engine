@@ -1,8 +1,11 @@
+using System.Diagnostics.CodeAnalysis;
 using Engine3.Exceptions;
 using Engine3.Graphics.Vulkan;
 using Engine3.Utils;
 using OpenTK.Graphics;
 using OpenTK.Graphics.Vulkan;
+using OpenTK.Platform;
+using GraphicsApi = Engine3.Graphics.GraphicsApi;
 
 namespace Engine3 {
 	public static partial class Engine3 {
@@ -74,6 +77,39 @@ namespace Engine3 {
 
 			Vk.DestroyInstance(vkInstance, null);
 			VkInstance = null;
+		}
+
+		[SuppressMessage("ReSharper", "MemberHidesStaticFromOuterClass")]
+		public class VulkanSettings : StartupSettings {
+			public required ToolkitOptions ToolkitOptions { get; init; }
+			public required VulkanGraphicsApiHints GraphicsApiHints { get; init; }
+
+			public string[] RequiredValidationLayers { get; init; } = Array.Empty<string>();
+			public string[] RequiredInstanceExtensions { get; init; } = Array.Empty<string>();
+			public string[] RequiredDeviceExtensions { get; init; } = Array.Empty<string>();
+
+			public VkDebugUtilsMessageSeverityFlagBitsEXT EnabledDebugMessageSeverities { get; init; } = VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityVerboseBitExt |
+																										 VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityInfoBitExt |
+																										 VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityWarningBitExt |
+																										 VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityErrorBitExt;
+
+			public VkDebugUtilsMessageTypeFlagBitsEXT EnabledDebugMessageTypes { get; init; } = VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeGeneralBitExt |
+																								VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeValidationBitExt |
+																								VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypePerformanceBitExt |
+																								VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeDeviceAddressBindingBitExt;
+
+			public byte MaxFramesInFlight { get; init; } = 2;
+
+			public override GraphicsApi GraphicsApi => GraphicsApi.Vulkan;
+
+			[SetsRequiredMembers]
+			public VulkanSettings(string gameName, string mainThreadName, ToolkitOptions toolkitOptions, VulkanGraphicsApiHints? graphicsApiHints = null) : base(gameName, mainThreadName) {
+				ToolkitOptions = toolkitOptions;
+				GraphicsApiHints = graphicsApiHints ?? new();
+
+				ToolkitOptions.Logger = new TkLogger();
+				ToolkitOptions.FeatureFlags = ToolkitFlags.EnableVulkan;
+			}
 		}
 	}
 }

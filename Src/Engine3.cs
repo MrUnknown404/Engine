@@ -5,7 +5,6 @@ using Engine3.Debug;
 using Engine3.Exceptions;
 using Engine3.Utils;
 using NLog;
-using OpenTK.Graphics.Vulkan;
 using OpenTK.Platform;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using shaderc;
@@ -15,10 +14,10 @@ using Window = Engine3.Graphics.Window;
 using SpirVCompiler = shaderc.Compiler;
 
 namespace Engine3 {
-	public static partial class Engine3 {
+	public static partial class Engine3 { // TODO remove this class and merge into GameClient
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-		public const string Name = "Engine3";
+		public const string Name = nameof(Engine3);
 
 		public const bool Debug =
 #if DEBUG
@@ -27,26 +26,22 @@ namespace Engine3 {
 				false;
 #endif
 
-		// ReSharper disable once InconsistentNaming
+		// ReSharper disable once InconsistentNaming // backing field. name is taken
 		private static readonly Lazy<Assembly> engineAssembly = new(static () => Assembly.GetAssembly(typeof(Engine3)) ?? throw new NullReferenceException("Failed to get Engine3 Assembly"));
 
-		public static readonly Version4 EngineVersion = new(0, 0, 0);
+		public static Version4 EngineVersion { get; } = new(0, 0, 0);
 		public static Assembly EngineAssembly => engineAssembly.Value;
 		public static GameClient? GameInstance { get; private set; }
 
 		public static GraphicsApi GraphicsApi { get; private set; } = GraphicsApi.Console;
 		public static GraphicsApiHints? GraphicsApiHints { get; private set; }
 
-		public static readonly List<Window> Windows = new();
-
 		public static ulong UpdateFrameCount { get; private set; }
-		public static ulong RenderFrameCount { get; private set; }
-		public static uint Fps { get; private set; }
-		public static uint Ups { get; private set; }
-		public static float UpdateTime { get; private set; }
-		public static float RenderTime { get; private set; }
+		public static uint UpdatesPerSecond { get; private set; }
+		public static float UpdateFrameTime { get; private set; }
 
 		private static bool shouldRunGameLoop = true;
+		private static bool requestShutdown;
 
 		public static event Action? PreEngineSetupEvent;
 		public static event Action? PostEngineSetupEvent;
@@ -143,18 +138,15 @@ namespace Engine3 {
 			Environment.Exit(0);
 		}
 
-		public static void Shutdown() {
-			Logger.Debug("Shutdown called");
-			shouldRunGameLoop = false;
-		}
-
 		private static void SetupEngine() { }
 
 		private static void SetupToolkit(ToolkitOptions toolkitOptions) {
 			EventQueue.EventRaised += static (_, _, args) => {
+				if (GameInstance is not { } gameInstance) { return; }
+
 				switch (args) {
 					case CloseEventArgs closeArgs: {
-						if (Windows.Find(w => w.WindowHandle == closeArgs.Window) is { } window) {
+						if (gameInstance.Windows.Find(w => w.WindowHandle == closeArgs.Window) is { } window) {
 							window.TryCloseWindow();
 							return;
 						}
@@ -163,7 +155,7 @@ namespace Engine3 {
 						break;
 					}
 					case WindowResizeEventArgs resizeArgs: {
-						if (Windows.Find(w => w.WindowHandle == resizeArgs.Window) is { } window) {
+						if (gameInstance.Windows.Find(w => w.WindowHandle == resizeArgs.Window) is { } window) {
 							window.WasResized = true;
 							return;
 						}
@@ -186,17 +178,18 @@ namespace Engine3 {
 
 			while (shouldRunGameLoop) {
 				if (GraphicsApi != GraphicsApi.Console) { Toolkit.Window.ProcessEvents(false); }
+				if (requestShutdown) { shouldRunGameLoop = false; } // TODO check more?
 				if (!shouldRunGameLoop) { break; } // Early exit
 
 				Update();
-				gameInstance.Update(); // shouldn't be null at this point
+				gameInstance.Update();
 				UpdateFrameCount++;
 
 				if (GraphicsApi == GraphicsApi.Console) { continue; }
 
 				float delta = 0; // TODO impl
 
-				foreach (Window window in Windows.Where(static w => w is { WasDestroyed: false, })) {
+				foreach (Window window in gameInstance.Windows.Where(static w => w is { WasDestroyed: false, })) {
 					if (window.ShouldClose) {
 						window.DestroyWindow();
 						continue;
@@ -204,8 +197,6 @@ namespace Engine3 {
 
 					if (window.Renderer is { } renderer) { renderer.DrawFrame(delta); }
 				}
-
-				RenderFrameCount++;
 
 				fpsCounter++;
 				if (stopwatch.Elapsed.TotalSeconds >= 1) {
@@ -218,10 +209,17 @@ namespace Engine3 {
 
 		private static void Update() { }
 
-		private static void Cleanup() {
-			GameInstance?.Cleanup();
+		public static void Shutdown() {
+			Logger.Debug("Shutdown called");
+			requestShutdown = true;
+		}
 
-			foreach (Window window in Windows.Where(static w => !w.WasDestroyed)) { window.DestroyWindow(); }
+		private static void Cleanup() {
+			if (GameInstance is { } gameInstance) {
+				gameInstance.Cleanup();
+
+				foreach (Window window in gameInstance.Windows.Where(static w => !w.WasDestroyed)) { window.DestroyWindow(); }
+			}
 
 			if (GraphicsApi == GraphicsApi.Vulkan) { CleanupVulkan(); }
 
@@ -239,61 +237,6 @@ namespace Engine3 {
 			protected StartupSettings(string gameName, string mainThreadName) {
 				GameName = gameName;
 				MainThreadName = mainThreadName;
-			}
-		}
-
-		[SuppressMessage("ReSharper", "MemberHidesStaticFromOuterClass")]
-		public class OpenGLSettings : StartupSettings {
-			public required ToolkitOptions ToolkitOptions { get; init; }
-			public required OpenGLGraphicsApiHints GraphicsApiHints { get; init; }
-			public override GraphicsApi GraphicsApi => GraphicsApi.OpenGL;
-
-			[SetsRequiredMembers]
-			public OpenGLSettings(string gameName, string mainThreadName, ToolkitOptions toolkitOptions, OpenGLGraphicsApiHints? graphicsApiHints = null) : base(gameName, mainThreadName) {
-				ToolkitOptions = toolkitOptions;
-				GraphicsApiHints = graphicsApiHints ?? new();
-
-				ToolkitOptions.Logger = new TkLogger();
-				ToolkitOptions.FeatureFlags = ToolkitFlags.EnableOpenGL;
-
-				GraphicsApiHints.Version = new(4, 6);
-				GraphicsApiHints.Profile = OpenGLProfile.Core;
-#if DEBUG
-				GraphicsApiHints.DebugFlag = true;
-#endif
-			}
-		}
-
-		[SuppressMessage("ReSharper", "MemberHidesStaticFromOuterClass")]
-		public class VulkanSettings : StartupSettings {
-			public required ToolkitOptions ToolkitOptions { get; init; }
-			public required VulkanGraphicsApiHints GraphicsApiHints { get; init; }
-
-			public string[] RequiredValidationLayers { get; init; } = Array.Empty<string>();
-			public string[] RequiredInstanceExtensions { get; init; } = Array.Empty<string>();
-			public string[] RequiredDeviceExtensions { get; init; } = Array.Empty<string>();
-
-			public VkDebugUtilsMessageSeverityFlagBitsEXT EnabledDebugMessageSeverities { get; init; } = VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityVerboseBitExt |
-																										 VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityInfoBitExt |
-																										 VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityWarningBitExt |
-																										 VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityErrorBitExt;
-
-			public VkDebugUtilsMessageTypeFlagBitsEXT EnabledDebugMessageTypes { get; init; } = VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeGeneralBitExt |
-																								VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeValidationBitExt |
-																								VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypePerformanceBitExt |
-																								VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeDeviceAddressBindingBitExt;
-
-			public byte MaxFramesInFlight { get; init; } = 2;
-
-			public override GraphicsApi GraphicsApi => GraphicsApi.Vulkan;
-
-			[SetsRequiredMembers]
-			public VulkanSettings(string gameName, string mainThreadName, ToolkitOptions toolkitOptions, VulkanGraphicsApiHints? graphicsApiHints = null) : base(gameName, mainThreadName) {
-				ToolkitOptions = toolkitOptions;
-				GraphicsApiHints = graphicsApiHints ?? new();
-
-				ToolkitOptions.Logger = new TkLogger();
-				ToolkitOptions.FeatureFlags = ToolkitFlags.EnableVulkan;
 			}
 		}
 	}
