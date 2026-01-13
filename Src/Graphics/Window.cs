@@ -7,19 +7,19 @@ using OpenTK.Mathematics;
 using OpenTK.Platform;
 
 namespace Engine3.Graphics {
-	public abstract class Window {
+	public abstract class Window : IEquatable<Window> {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public WindowHandle WindowHandle { get; }
 		public Color4<Rgba> ClearColor { get; set; } = new(0.01f, 0.01f, 0.01f, 1);
 		public bool ShouldClose { get; private set; }
-		public bool WasResized { get; set; } // TODO visibility
+		public bool WasResized { get; internal set; }
 		public bool WasDestroyed { get; private set; }
+
+		public Renderer? Renderer { get; set; }
 
 		public event AttemptCloseWindow? TryCloseWindowEvent;
 		public event Action? OnCloseWindowEvent;
-		public event Action? OnPreCleanGraphicsEvent;
-		public event Action? OnPostCleanGraphicsEvent;
 		public event Action? OnDestroyedEvent;
 
 		protected Window(WindowHandle windowHandle) => WindowHandle = windowHandle;
@@ -69,7 +69,7 @@ namespace Engine3.Graphics {
 		public void Hide() => SetWindowMode(WindowMode.Hidden);
 		public void SetWindowMode(WindowMode windowMode) => Toolkit.Window.SetMode(WindowHandle, windowMode);
 
-		public void DestroyWindow() { // TODO visibility
+		internal void DestroyWindow() {
 			if (WasDestroyed) {
 				Logger.Warn("Attempted to destroy a window that was already destroyed");
 				return;
@@ -77,12 +77,15 @@ namespace Engine3.Graphics {
 
 			Logger.Debug("Destroying window...");
 
-			OnPreCleanGraphicsEvent?.Invoke();
+			if (Renderer is { WasDestroyed: false, }) {
+				Logger.Debug("Destroying renderer...");
+				Renderer.TryCleanup();
+			}
+
 			CleanupGraphics();
-			OnPostCleanGraphicsEvent?.Invoke();
 
 			if (!Toolkit.Window.IsWindowDestroyed(WindowHandle)) {
-				Toolkit.Window.Destroy(WindowHandle);
+				Toolkit.Window.Destroy(WindowHandle); // TODO remove from window list
 				OnDestroyedEvent?.Invoke();
 			} else { Logger.Warn("Tried to destroy an already destroyed window"); }
 
@@ -92,5 +95,13 @@ namespace Engine3.Graphics {
 		protected abstract void CleanupGraphics();
 
 		public delegate void AttemptCloseWindow(ref bool shouldCloseWindow);
+
+		public bool Equals(Window? other) => other != null && WindowHandle.Equals(other.WindowHandle); // TODO replace with our own window id
+		public override bool Equals(object? obj) => obj is Window window && Equals(window);
+
+		public override int GetHashCode() => WindowHandle.GetHashCode();
+
+		public static bool operator ==(Window? left, Window? right) => Equals(left, right);
+		public static bool operator !=(Window? left, Window? right) => !Equals(left, right);
 	}
 }

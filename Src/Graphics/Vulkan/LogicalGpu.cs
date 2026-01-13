@@ -5,11 +5,13 @@ namespace Engine3.Graphics.Vulkan {
 		public VkDevice VkLogicalDevice { get; }
 		public VkQueue VkGraphicsQueue { get; }
 		public VkQueue VkPresentQueue { get; }
+		public VkQueue VkTransferQueue { get; }
 
-		public LogicalGpu(VkDevice vkLogicalDevice, VkQueue vkGraphicsQueue, VkQueue vkPresentQueue) {
+		public LogicalGpu(VkDevice vkLogicalDevice, VkQueue vkGraphicsQueue, VkQueue vkPresentQueue, VkQueue vkTransferQueue) {
 			VkLogicalDevice = vkLogicalDevice;
 			VkGraphicsQueue = vkGraphicsQueue;
 			VkPresentQueue = vkPresentQueue;
+			VkTransferQueue = vkTransferQueue;
 		}
 
 		public unsafe void Destroy() => Vk.DestroyDevice(VkLogicalDevice, null);

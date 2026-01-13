@@ -32,10 +32,12 @@ namespace Engine3 {
 
 		public static readonly Version4 EngineVersion = new(0, 0, 0);
 		public static Assembly EngineAssembly => engineAssembly.Value;
+		public static GameClient? GameInstance { get; private set; }
+
 		public static GraphicsApi GraphicsApi { get; private set; } = GraphicsApi.Console;
 		public static GraphicsApiHints? GraphicsApiHints { get; private set; }
-		public static GameClient? GameInstance { get; private set; }
-		internal static readonly List<Window> Windows = new();
+
+		public static readonly List<Window> Windows = new();
 
 		public static ulong UpdateFrameCount { get; private set; }
 		public static ulong RenderFrameCount { get; private set; }
@@ -180,17 +182,10 @@ namespace Engine3 {
 			stopwatch.Start();
 			uint fpsCounter = 0;
 
-			Action<GameClient, float> renderFunc = GraphicsApi switch { // is this faster than an if statement?
-					GraphicsApi.Console => null!, // this isn't used if GraphicsApi is set to Console
-					GraphicsApi.OpenGL => GlRender,
-					GraphicsApi.Vulkan => VkRender,
-					_ => throw new ArgumentOutOfRangeException(),
-			};
-
 			if (GameInstance is not { } gameInstance) { throw new UnreachableException(); }
 
 			while (shouldRunGameLoop) {
-				Toolkit.Window.ProcessEvents(false);
+				if (GraphicsApi != GraphicsApi.Console) { Toolkit.Window.ProcessEvents(false); }
 				if (!shouldRunGameLoop) { break; } // Early exit
 
 				Update();
@@ -200,7 +195,15 @@ namespace Engine3 {
 				if (GraphicsApi == GraphicsApi.Console) { continue; }
 
 				float delta = 0; // TODO impl
-				renderFunc(gameInstance, delta); // TODO think of a better way of doing this
+
+				foreach (Window window in Windows.Where(static w => w is { WasDestroyed: false, })) {
+					if (window.ShouldClose) {
+						window.DestroyWindow();
+						continue;
+					}
+
+					if (window.Renderer is { } renderer) { renderer.DrawFrame(delta); }
+				}
 
 				RenderFrameCount++;
 

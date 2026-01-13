@@ -281,7 +281,7 @@ namespace Engine3.Graphics.Vulkan {
 
 		[MustUseReturnValue]
 		public static SwapChain CreateSwapChain(WindowHandle windowHandle, VkSurfaceKHR vkSurface, PhysicalGpu physicalGpu, VkDevice vkLogicalDevice, VkPresentModeKHR vkPresentMode = VkPresentModeKHR.PresentModeMailboxKhr,
-			VkSurfaceTransformFlagBitsKHR? vkSurfaceTransform = null, SwapChain? oldSwapChain = null) {
+			VkSurfaceTransformFlagBitsKHR? vkSurfaceTransform = null, VkSwapchainKHR? oldSwapChain = null) {
 			SwapChainSupportInfo swapChainSupportInfo = QuerySwapChainSupport(physicalGpu.VkPhysicalDevice, vkSurface);
 			QueueFamilyIndices queueFamilyIndices = physicalGpu.QueueFamilyIndices;
 			VkSurfaceCapabilitiesKHR surfaceCapabilities = swapChainSupportInfo.VkCapabilities.surfaceCapabilities;
@@ -328,7 +328,7 @@ namespace Engine3.Graphics.Vulkan {
 						compositeAlpha = VkCompositeAlphaFlagBitsKHR.CompositeAlphaOpaqueBitKhr,
 						presentMode = chosenPresentMode,
 						clipped = (int)Vk.True,
-						oldSwapchain = oldSwapChain?.VkSwapChain ?? VkSwapchainKHR.Zero,
+						oldSwapchain = oldSwapChain ?? VkSwapchainKHR.Zero,
 				};
 
 				VkResult vkResult = Vk.CreateSwapchainKHR(vkLogicalDevice, &createInfo, null, &vkSwapChain);
@@ -403,7 +403,7 @@ namespace Engine3.Graphics.Vulkan {
 		[MustUseReturnValue]
 		public static SwapChain RecreateSwapChain(WindowHandle windowHandle, VkSurfaceKHR vkSurface, PhysicalGpu selectedGpu, VkDevice vkLogicalDevice, SwapChain oldSwapChain) {
 			Vk.DeviceWaitIdle(vkLogicalDevice);
-			SwapChain newSwapChain = CreateSwapChain(windowHandle, vkSurface, selectedGpu, vkLogicalDevice, VkPresentModeKHR.PresentModeImmediateKhr, oldSwapChain: oldSwapChain);
+			SwapChain newSwapChain = CreateSwapChain(windowHandle, vkSurface, selectedGpu, vkLogicalDevice, VkPresentModeKHR.PresentModeImmediateKhr, oldSwapChain: oldSwapChain.VkSwapChain);
 			oldSwapChain.Destroy(vkLogicalDevice);
 			return newSwapChain;
 		}
