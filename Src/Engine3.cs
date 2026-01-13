@@ -58,7 +58,7 @@ namespace Engine3 {
 				return;
 			}
 
-			Thread.CurrentThread.Name = settings.MainTheadName;
+			Thread.CurrentThread.Name = settings.MainThreadName;
 
 			LoggerH.Setup();
 			Logger.Debug("Finished setting up NLog");
@@ -229,13 +229,13 @@ namespace Engine3 {
 		[SuppressMessage("ReSharper", "MemberHidesStaticFromOuterClass")]
 		public abstract class StartupSettings {
 			public required string GameName { get; init; }
-			public required string MainTheadName { get; init; }
+			public required string MainThreadName { get; init; }
 			public abstract GraphicsApi GraphicsApi { get; }
 
 			[SetsRequiredMembers]
-			protected StartupSettings(string gameName, string mainTheadName) {
+			protected StartupSettings(string gameName, string mainThreadName) {
 				GameName = gameName;
-				MainTheadName = mainTheadName;
+				MainThreadName = mainThreadName;
 			}
 		}
 
@@ -246,7 +246,7 @@ namespace Engine3 {
 			public override GraphicsApi GraphicsApi => GraphicsApi.OpenGL;
 
 			[SetsRequiredMembers]
-			public OpenGLSettings(string gameName, string mainTheadName, ToolkitOptions toolkitOptions, OpenGLGraphicsApiHints? graphicsApiHints = null) : base(gameName, mainTheadName) {
+			public OpenGLSettings(string gameName, string mainThreadName, ToolkitOptions toolkitOptions, OpenGLGraphicsApiHints? graphicsApiHints = null) : base(gameName, mainThreadName) {
 				ToolkitOptions = toolkitOptions;
 				GraphicsApiHints = graphicsApiHints ?? new();
 
@@ -285,7 +285,7 @@ namespace Engine3 {
 			public override GraphicsApi GraphicsApi => GraphicsApi.Vulkan;
 
 			[SetsRequiredMembers]
-			public VulkanSettings(string gameName, string mainTheadName, ToolkitOptions toolkitOptions, VulkanGraphicsApiHints? graphicsApiHints = null) : base(gameName, mainTheadName) {
+			public VulkanSettings(string gameName, string mainThreadName, ToolkitOptions toolkitOptions, VulkanGraphicsApiHints? graphicsApiHints = null) : base(gameName, mainThreadName) {
 				ToolkitOptions = toolkitOptions;
 				GraphicsApiHints = graphicsApiHints ?? new();
 
