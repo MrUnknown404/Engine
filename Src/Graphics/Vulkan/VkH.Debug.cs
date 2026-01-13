@@ -9,24 +9,19 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Graphics.Vulkan {
 	public static unsafe partial class VkH {
-		static VkH() {
-			RequiredValidationLayers.Add("VK_LAYER_KHRONOS_validation"); // if OpenTK defines this somewhere, i could not find it
-			RequiredInstanceExtensions.Add(Vk.ExtDebugUtilsExtensionName);
-		}
-
 		[MustUseReturnValue]
-		public static VkDebugUtilsMessengerEXT CreateDebugMessenger(VkInstance vkInstance) {
-			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateVkDebugUtilsMessengerCreateInfoEXT();
+		public static VkDebugUtilsMessengerEXT CreateDebugMessenger(VkInstance vkInstance, GameClient gameClient) {
+			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(gameClient);
 			VkDebugUtilsMessengerEXT debugMessenger;
 			return Vk.CreateDebugUtilsMessengerEXT(vkInstance, &messengerCreateInfo, null, &debugMessenger) != VkResult.Success ? throw new VulkanException("Failed to create Vulkan Debug Messenger") : debugMessenger;
 		}
 
 		[MustUseReturnValue]
-		public static bool CheckSupportForRequiredValidationLayers() {
+		public static bool CheckSupportForRequiredValidationLayers(string[] requiredValidationLayers) {
 			ReadOnlySpan<VkLayerProperties> availableLayerProperties = EnumerateInstanceLayerProperties();
 			if (availableLayerProperties.Length == 0) { throw new VulkanException("Could not find any instance layer properties"); }
 
-			foreach (string wantedLayer in RequiredValidationLayers) {
+			foreach (string wantedLayer in requiredValidationLayers) {
 				bool layerFound = false;
 
 				foreach (VkLayerProperties layerProperties in availableLayerProperties) {
@@ -65,8 +60,8 @@ namespace Engine3.Graphics.Vulkan {
 			}
 		}
 
-		private static VkDebugUtilsMessengerCreateInfoEXT CreateVkDebugUtilsMessengerCreateInfoEXT() =>
-				new() { messageSeverity = EnabledDebugMessageSeverities, messageType = EnabledDebugMessageTypes, pfnUserCallback = &DebugCallback, };
+		private static VkDebugUtilsMessengerCreateInfoEXT CreateDebugUtilsMessengerCreateInfoEXT(GameClient gameClient) =>
+				new() { messageSeverity = gameClient.EnabledDebugMessageSeverities, messageType = gameClient.EnabledDebugMessageTypes, pfnUserCallback = &DebugCallback, };
 
 		[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl), })]
 		private static int DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagBitsEXT messageType, VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {

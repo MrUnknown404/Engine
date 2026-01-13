@@ -3,7 +3,7 @@ using System.Text;
 
 namespace Engine3.Utils {
 	public static class Extensions {
-		extension(Type self) { // TODO atm something is bugged nad this fails to compile with a local method. edit: i need to use dotnet 10 but can't atm. not available?
+		extension(Type self) { // TODO atm something is bugged and this fails to compile with a local method. edit: i need to use dotnet 10 but can't atm. not available?
 			[SuppressMessage("Performance", "CA1822:Mark members as static")] // CA1822 warning is wrong here
 			public string ToReadableName() {
 				StringBuilder sb = new();

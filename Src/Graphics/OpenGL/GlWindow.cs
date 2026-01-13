@@ -10,6 +10,8 @@ namespace Engine3.Graphics.OpenGL {
 		public OpenGLContextHandle GLContextHandle { get; }
 		public VertexArrayHandle EmptyVao { get; }
 
+		public ClearBufferMask ClearBufferMask { get; set; } = ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit;
+
 		private GlWindow(WindowHandle windowHandle, OpenGLContextHandle glContextHandle, VertexArrayHandle emptyVao) : base(windowHandle) {
 			GLContextHandle = glContextHandle;
 			EmptyVao = emptyVao;
@@ -19,7 +21,7 @@ namespace Engine3.Graphics.OpenGL {
 			Logger.Debug("Creating and setting OpenGL context...");
 			OpenGLContextHandle openGLContextHandle = Toolkit.OpenGL.CreateFromWindow(windowHandle);
 			Toolkit.OpenGL.SetCurrentContext(openGLContextHandle);
-			GLLoader.LoadBindings(Toolkit.OpenGL.GetBindingsContext(openGLContextHandle));
+			GLLoader.LoadBindings(Toolkit.OpenGL.GetBindingsContext(openGLContextHandle)); // do i call this per window?
 			Logger.Debug($"- Version: {GL.GetString(StringName.Version)}");
 
 #if DEBUG

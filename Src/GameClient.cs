@@ -4,31 +4,16 @@ using Engine3.Utils;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3 {
-	public abstract class GameClient {
-		public Assembly Assembly { get; internal init; } = null!; // Set in Engine3#Start
-
+	public abstract partial class GameClient { // TODO split GL/VK?
 		public abstract Version4 Version { get; }
+		public Assembly Assembly { get; internal init; } = null!; // Set in Engine3#Start
+		public string Name { get; internal init; } = null!; // Set in Engine3#Start
 
 		protected internal abstract void Setup();
-
 		protected internal abstract void Update();
-		protected internal abstract void Render(float delta);
+		protected internal abstract void GlRender(float delta);
+		protected internal abstract void VkRender(VkCommandBuffer vkGraphicsCommandBuffer, SwapChain swapChain, float delta);
 
 		protected internal abstract void Cleanup();
-
-		protected internal virtual bool VkIsPhysicalDeviceSuitable(VkPhysicalDeviceProperties2 vkPhysicalDeviceProperties2, VkPhysicalDeviceFeatures2 vkPhysicalDeviceFeatures2) {
-			VkPhysicalDeviceProperties deviceProperties = vkPhysicalDeviceProperties2.properties;
-			return deviceProperties.deviceType is VkPhysicalDeviceType.PhysicalDeviceTypeIntegratedGpu or VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu or VkPhysicalDeviceType.PhysicalDeviceTypeVirtualGpu;
-		}
-
-		protected internal virtual int VkRateGpuSuitability(PhysicalGpu physicalGpu) {
-			VkPhysicalDeviceProperties deviceProperties = physicalGpu.VkPhysicalDeviceProperties2.properties;
-			int score = 0;
-
-			if (deviceProperties.deviceType == VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu) { score += 1000; }
-			score += (int)deviceProperties.limits.maxImageDimension2D;
-
-			return score;
-		}
 	}
 }

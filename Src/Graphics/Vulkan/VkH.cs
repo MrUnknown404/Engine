@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -18,39 +19,6 @@ using SpirVResult = shaderc.Result;
 namespace Engine3.Graphics.Vulkan {
 	public static unsafe partial class VkH {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-
-		/// <summary> Note: This must be set before you set up Vulkan </summary>
-		public static readonly List<string> RequiredValidationLayers = new();
-		/// <summary> Note: This must be set before you set up Vulkan </summary>
-		public static readonly List<string> RequiredInstanceExtensions = [ Vk.KhrGetSurfaceCapabilities2ExtensionName, ];
-		/// <summary> Note: This must be set before you set up Vulkan </summary>
-		public static readonly List<string> RequiredDeviceExtensions = [ Vk.KhrSwapchainExtensionName, Vk.KhrDynamicRenderingExtensionName, ];
-
-		/// <summary> Note: This must be set before you set up Vulkan </summary>
-		public static VkDebugUtilsMessageSeverityFlagBitsEXT EnabledDebugMessageSeverities {
-			get;
-			set {
-				if (Engine3.WasVulkanSetup) { Logger.Warn($"Attempted to set {nameof(EnabledDebugMessageSeverities)} too late. This must be set before the debug messenger is created"); }
-				field = value;
-			}
-		} = VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityVerboseBitExt |
-			VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityInfoBitExt |
-			VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityWarningBitExt |
-			VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityErrorBitExt;
-
-		/// <summary> Note: This must be set before you set up Vulkan </summary>
-		public static VkDebugUtilsMessageTypeFlagBitsEXT EnabledDebugMessageTypes {
-			get;
-			set {
-				if (Engine3.WasVulkanSetup) { Logger.Warn($"Attempted to set {nameof(EnabledDebugMessageTypes)} too late. This must be set before the debug messenger is created"); }
-				field = value;
-			}
-		} = VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeGeneralBitExt |
-			VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeValidationBitExt |
-			VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypePerformanceBitExt |
-			VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeDeviceAddressBindingBitExt;
-
-		public static byte MaxFramesInFlight { get; set; } = 2; // TODO make readonly
 
 		/// <summary>
 		/// Helper method for extracting version information out of a packed uint following Vulkan's Version Specification.<br/><br/>
@@ -74,43 +42,42 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public static VkInstance CreateVulkanInstance(string appName, string engineName, Version4 gameVersion, Version4 engineVersion) {
+		public static VkInstance CreateVulkanInstance(GameClient gameClient, string engineName, Version4 gameVersion, Version4 engineVersion) {
+			string[] requiredInstanceExtensions = gameClient.VkGetInstanceExtensions();
+			string[] requiredValidationLayers = gameClient.VkGetRequiredValidationLayers();
+
 			VkApplicationInfo vkApplicationInfo = new() {
-					pApplicationName = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(Encoding.UTF8.GetBytes(appName))),
+					pApplicationName = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(Encoding.UTF8.GetBytes(gameClient.Name))),
 					applicationVersion = gameVersion.Packed,
 					pEngineName = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(Encoding.UTF8.GetBytes(engineName))),
 					engineVersion = engineVersion.Packed,
 					apiVersion = Vk.MAKE_API_VERSION(0, 1, 4, 0),
 			};
 
-			List<string> requiredExtensions = new();
-			requiredExtensions.AddRange(Toolkit.Vulkan.GetRequiredInstanceExtensions());
-			requiredExtensions.AddRange(RequiredInstanceExtensions);
-
-			IntPtr requiredExtensionsPtr = MarshalTk.StringArrayToCoTaskMemAnsi(CollectionsMarshal.AsSpan(requiredExtensions));
+			IntPtr requiredExtensionsPtr = MarshalTk.StringArrayToCoTaskMemAnsi(requiredInstanceExtensions);
 #if DEBUG
-			IntPtr requiredValidationLayersPtr = MarshalTk.StringArrayToCoTaskMemAnsi(CollectionsMarshal.AsSpan(RequiredValidationLayers));
+			IntPtr requiredValidationLayersPtr = MarshalTk.StringArrayToCoTaskMemAnsi(requiredValidationLayers);
 
-			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateVkDebugUtilsMessengerCreateInfoEXT();
+			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(gameClient);
 #endif
 
 			VkInstanceCreateInfo vkCreateInfo = new() {
 					pApplicationInfo = &vkApplicationInfo,
 #if DEBUG
 					pNext = &messengerCreateInfo,
-					enabledLayerCount = (uint)RequiredValidationLayers.Count,
+					enabledLayerCount = (uint)requiredValidationLayers.Length,
 					ppEnabledLayerNames = (byte**)requiredValidationLayersPtr,
 #endif
-					enabledExtensionCount = (uint)requiredExtensions.Count,
+					enabledExtensionCount = (uint)requiredInstanceExtensions.Length,
 					ppEnabledExtensionNames = (byte**)requiredExtensionsPtr,
 			};
 
 			VkInstance vkInstance;
 			if (Vk.CreateInstance(&vkCreateInfo, null, &vkInstance) != VkResult.Success) { throw new VulkanException("Failed to create Vulkan instance"); }
 
-			MarshalTk.FreeStringArrayCoTaskMem(requiredExtensionsPtr, requiredExtensions.Count);
+			MarshalTk.FreeStringArrayCoTaskMem(requiredExtensionsPtr, requiredInstanceExtensions.Length);
 #if DEBUG
-			MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, RequiredValidationLayers.Count);
+			MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, requiredValidationLayers.Length);
 #endif
 
 			return vkInstance;
@@ -121,23 +88,23 @@ namespace Engine3.Graphics.Vulkan {
 				Toolkit.Vulkan.CreateWindowSurface(vkInstance, windowHandle, null, out VkSurfaceKHR vkSurface) != VkResult.Success ? throw new VulkanException("Failed to create surface") : vkSurface;
 
 		[MustUseReturnValue]
-		public static VkDevice CreateLogicalDevice(PhysicalGpu physicalGpu) {
+		public static VkDevice CreateLogicalDevice(PhysicalGpu physicalGpu, string[] requiredDeviceExtensions, string[] requiredValidationLayers) {
 			QueueFamilyIndices queueFamilyIndices = physicalGpu.QueueFamilyIndices;
 
 			List<VkDeviceQueueCreateInfo> queueCreateInfos = new();
 			float queuePriority = 1f;
 
 			// ReSharper disable once ForeachCanBeConvertedToQueryUsingAnotherGetEnumerator // CS0212
-			foreach (uint queueFamily in new HashSet<uint> { queueFamilyIndices.GraphicsFamily, queueFamilyIndices.PresentFamily, }) {
+			foreach (uint queueFamily in new HashSet<uint> { queueFamilyIndices.GraphicsFamily, queueFamilyIndices.PresentFamily, queueFamilyIndices.TransferFamily, }) {
 				queueCreateInfos.Add(new() { queueFamilyIndex = queueFamily, queueCount = 1, pQueuePriorities = &queuePriority, });
 			}
 
 			VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeatures = new() { dynamicRendering = (int)Vk.True, };
 			VkPhysicalDeviceFeatures deviceFeatures = new(); // ???
 
-			IntPtr requiredDeviceExtensionsPtr = MarshalTk.StringArrayToCoTaskMemAnsi(CollectionsMarshal.AsSpan(RequiredDeviceExtensions));
+			IntPtr requiredDeviceExtensionsPtr = MarshalTk.StringArrayToCoTaskMemAnsi(requiredDeviceExtensions);
 #if DEBUG
-			IntPtr requiredValidationLayersPtr = MarshalTk.StringArrayToCoTaskMemAnsi(CollectionsMarshal.AsSpan(RequiredValidationLayers));
+			IntPtr requiredValidationLayersPtr = MarshalTk.StringArrayToCoTaskMemAnsi(requiredValidationLayers);
 #endif
 
 			VkDevice logicalDevice;
@@ -148,10 +115,10 @@ namespace Engine3.Graphics.Vulkan {
 						queueCreateInfoCount = (uint)queueCreateInfos.Count,
 						pEnabledFeatures = &deviceFeatures,
 						ppEnabledExtensionNames = (byte**)requiredDeviceExtensionsPtr,
-						enabledExtensionCount = (uint)RequiredDeviceExtensions.Count,
+						enabledExtensionCount = (uint)requiredDeviceExtensions.Length,
 #if DEBUG // https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-devicelayers
 #pragma warning disable CS0618 // Type or member is obsolete
-						enabledLayerCount = (uint)RequiredValidationLayers.Count,
+						enabledLayerCount = (uint)requiredValidationLayers.Length,
 						ppEnabledLayerNames = (byte**)requiredValidationLayersPtr,
 #pragma warning restore CS0618 // Type or member is obsolete
 #endif
@@ -160,16 +127,16 @@ namespace Engine3.Graphics.Vulkan {
 				if (Vk.CreateDevice(physicalGpu.VkPhysicalDevice, &deviceCreateInfo, null, &logicalDevice) != VkResult.Success) { throw new VulkanException("Failed to create logical device"); }
 			}
 
-			MarshalTk.FreeStringArrayCoTaskMem(requiredDeviceExtensionsPtr, RequiredDeviceExtensions.Count);
+			MarshalTk.FreeStringArrayCoTaskMem(requiredDeviceExtensionsPtr, requiredDeviceExtensions.Length);
 #if DEBUG
-			MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, RequiredValidationLayers.Count);
+			MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, requiredValidationLayers.Length);
 #endif
 
 			return logicalDevice;
 		}
 
 		[MustUseReturnValue]
-		public static PhysicalGpu[] GetValidGpus(VkPhysicalDevice[] vkPhysicalDevices, VkSurfaceKHR vkSurface, IsPhysicalDeviceSuitable isPhysicalDeviceSuitable) {
+		public static PhysicalGpu[] GetValidGpus(VkPhysicalDevice[] vkPhysicalDevices, VkSurfaceKHR vkSurface, IsPhysicalDeviceSuitable isPhysicalDeviceSuitable, string[] requiredDeviceExtensions) {
 			List<PhysicalGpu> gpus = new();
 
 			// ReSharper disable once LoopCanBeConvertedToQuery // don't think it can?
@@ -179,15 +146,16 @@ namespace Engine3.Graphics.Vulkan {
 				if (!isPhysicalDeviceSuitable(vkPhysicalDeviceProperties2, vkPhysicalDeviceFeatures2)) { continue; }
 
 				VkExtensionProperties[] vkExtensionProperties = GetPhysicalDeviceExtensionProperties(device);
-				if (!CheckDeviceExtensionSupport(vkExtensionProperties)) { continue; }
+				if (vkExtensionProperties.Length == 0) { throw new VulkanException("Could not find any device extension properties"); }
+				if (!CheckDeviceExtensionSupport(vkExtensionProperties, requiredDeviceExtensions)) { continue; }
 
-				FindQueueFamilies(device, vkSurface, out uint? graphicsFamily, out uint? presentFamily);
-				if (graphicsFamily == null || presentFamily == null) { continue; }
+				FindQueueFamilies(device, vkSurface, out uint? graphicsFamily, out uint? presentFamily, out uint? transferFamily);
+				if (graphicsFamily == null || presentFamily == null || transferFamily == null) { continue; }
 
 				SwapChainSupportInfo swapChainSupportInfo = QuerySwapChainSupport(device, vkSurface);
 				if (swapChainSupportInfo.VkSurfaceFormats.Length == 0 || swapChainSupportInfo.VkPresentModes.Length == 0) { continue; }
 
-				gpus.Add(new(device, vkPhysicalDeviceProperties2, vkPhysicalDeviceFeatures2, vkExtensionProperties, new(graphicsFamily.Value, presentFamily.Value)));
+				gpus.Add(new(device, vkPhysicalDeviceProperties2, vkPhysicalDeviceFeatures2, vkExtensionProperties, new(graphicsFamily.Value, presentFamily.Value, transferFamily.Value)));
 			}
 
 			return gpus.ToArray();
@@ -246,10 +214,8 @@ namespace Engine3.Graphics.Vulkan {
 			}
 
 			[MustUseReturnValue]
-			static bool CheckDeviceExtensionSupport(VkExtensionProperties[] vkExtensionProperties) {
-				if (vkExtensionProperties.Length == 0) { throw new VulkanException("Could not find any device extension properties"); }
-
-				foreach (string wantedExtension in RequiredDeviceExtensions) {
+			static bool CheckDeviceExtensionSupport(VkExtensionProperties[] vkExtensionProperties, string[] requiredDeviceExtensions) {
+				foreach (string wantedExtension in requiredDeviceExtensions) {
 					bool layerFound = false;
 
 					foreach (VkExtensionProperties extensionProperties in vkExtensionProperties) {
@@ -266,18 +232,20 @@ namespace Engine3.Graphics.Vulkan {
 				return true;
 			}
 
-			static void FindQueueFamilies(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR vkSurface, out uint? graphicsFamily, out uint? presentFamily) {
+			static void FindQueueFamilies(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR vkSurface, out uint? graphicsFamily, out uint? presentFamily, out uint? transferFamily) {
 				graphicsFamily = null;
 				presentFamily = null;
+				transferFamily = null;
 
 				VkQueueFamilyProperties2[] queueFamilies = GetPhysicalDeviceQueueFamilyProperties(vkPhysicalDevice);
 				uint i = 0;
 				foreach (VkQueueFamilyProperties2 queueFamilyProperties2 in queueFamilies) {
 					VkQueueFamilyProperties queueFamilyProperties = queueFamilyProperties2.queueFamilyProperties;
 					if ((queueFamilyProperties.queueFlags & VkQueueFlagBits.QueueGraphicsBit) != 0) { graphicsFamily = i; }
+					if ((queueFamilyProperties.queueFlags & VkQueueFlagBits.QueueTransferBit) != 0) { transferFamily = i; }
 					if (GetPhysicalDeviceSurfaceSupportKHR(vkPhysicalDevice, i, vkSurface)) { presentFamily = i; }
 
-					if (graphicsFamily != null && presentFamily != null) { break; }
+					if (graphicsFamily != null && presentFamily != null && transferFamily != null) { break; }
 
 					i++;
 				}
@@ -329,16 +297,18 @@ namespace Engine3.Graphics.Vulkan {
 
 			VkSharingMode imageSharingMode;
 			uint queueFamilyIndexCount;
-			uint[]? queueFamilyIndicesArray;
+			uint[] queueFamilyIndicesArray;
 
-			if (queueFamilyIndices.GraphicsFamily != queueFamilyIndices.PresentFamily) {
+			HashSet<uint> hashSet = [ queueFamilyIndices.GraphicsFamily, queueFamilyIndices.TransferFamily, queueFamilyIndices.PresentFamily, ];
+
+			if (hashSet.Count != 1) {
 				imageSharingMode = VkSharingMode.SharingModeConcurrent;
-				queueFamilyIndexCount = 2;
-				queueFamilyIndicesArray = [ queueFamilyIndices.GraphicsFamily, queueFamilyIndices.PresentFamily, ];
+				queueFamilyIndexCount = (uint)hashSet.Count;
+				queueFamilyIndicesArray = hashSet.ToArray();
 			} else {
 				imageSharingMode = VkSharingMode.SharingModeExclusive;
 				queueFamilyIndexCount = 0;
-				queueFamilyIndicesArray = null;
+				queueFamilyIndicesArray = Array.Empty<uint>();
 			}
 
 			VkSwapchainKHR vkSwapChain;
@@ -353,7 +323,7 @@ namespace Engine3.Graphics.Vulkan {
 						imageUsage = VkImageUsageFlagBits.ImageUsageColorAttachmentBit,
 						imageSharingMode = imageSharingMode,
 						queueFamilyIndexCount = queueFamilyIndexCount,
-						pQueueFamilyIndices = pQueueFamilyIndicesPtr,
+						pQueueFamilyIndices = queueFamilyIndicesArray.Length == 0 ? null : pQueueFamilyIndicesPtr,
 						preTransform = vkSurfaceTransform ?? surfaceCapabilities.currentTransform,
 						compositeAlpha = VkCompositeAlphaFlagBitsKHR.CompositeAlphaOpaqueBitKhr,
 						presentMode = chosenPresentMode,
@@ -439,8 +409,8 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public static bool CheckSupportForRequiredInstanceExtensions(VkExtensionProperties[] extensionProperties) {
-			foreach (string wantedExtension in RequiredInstanceExtensions) {
+		public static bool CheckSupportForRequiredInstanceExtensions(VkExtensionProperties[] extensionProperties, string[] requiredInstanceExtensions) {
+			foreach (string wantedExtension in requiredInstanceExtensions) {
 				bool extensionFound = false;
 
 				foreach (VkExtensionProperties extensionProperty in extensionProperties) {
@@ -608,8 +578,8 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public static VkCommandPool CreateCommandPool(VkDevice vkLogicalDevice, QueueFamilyIndices queueFamilyIndices) {
-			VkCommandPoolCreateInfo commandPoolCreateInfo = new() { flags = VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit, queueFamilyIndex = queueFamilyIndices.GraphicsFamily, };
+		public static VkCommandPool CreateCommandPool(VkDevice vkLogicalDevice, uint queueFamilyIndex) {
+			VkCommandPoolCreateInfo commandPoolCreateInfo = new() { flags = VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit, queueFamilyIndex = queueFamilyIndex, };
 			VkCommandPool vkCommandPool;
 			return Vk.CreateCommandPool(vkLogicalDevice, &commandPoolCreateInfo, null, &vkCommandPool) != VkResult.Success ? throw new VulkanException("Failed to create command pool") : vkCommandPool;
 		}
@@ -621,72 +591,6 @@ namespace Engine3.Graphics.Vulkan {
 			fixed (VkCommandBuffer* vkCommandBuffersPtr = vkCommandBuffers) {
 				return Vk.AllocateCommandBuffers(vkLogicalDevice, &commandBufferAllocateInfo, vkCommandBuffersPtr) != VkResult.Success ? throw new VulkanException("Failed to create command buffer") : vkCommandBuffers;
 			}
-		}
-
-		public static void RecordCommandBuffer(VkCommandBuffer vkCommandBuffer, SwapChain swapChain, uint swapchainImageIndex, VkPipeline vkGraphicsPipeline, Color4<Rgba> clearColor, VkBuffer[] vertexBuffers, uint drawSize) {
-			VkCommandBufferBeginInfo commandBufferBeginInfo = new() { flags = 0, pInheritanceInfo = null, };
-			if (Vk.BeginCommandBuffer(vkCommandBuffer, &commandBufferBeginInfo) != VkResult.Success) { throw new VulkanException("Failed to begin recording command buffer"); }
-
-			VkImageMemoryBarrier vkImageMemoryBarrier = new() {
-					dstAccessMask = VkAccessFlagBits.AccessColorAttachmentWriteBit,
-					oldLayout = VkImageLayout.ImageLayoutUndefined,
-					newLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
-					image = swapChain.VkImages[swapchainImageIndex],
-					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
-			};
-
-			Vk.CmdPipelineBarrier(vkCommandBuffer, VkPipelineStageFlagBits.PipelineStageTopOfPipeBit, VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, 0, 0, null, 0, null, 1, &vkImageMemoryBarrier); // TODO use 2?
-
-			VkClearColorValue vkClearColorValue = new();
-			vkClearColorValue.float32[0] = clearColor.X;
-			vkClearColorValue.float32[1] = clearColor.Y;
-			vkClearColorValue.float32[2] = clearColor.Z;
-			vkClearColorValue.float32[3] = clearColor.W;
-
-			VkRenderingAttachmentInfo vkRenderingAttachmentInfo = new() {
-					imageView = swapChain.VkImageViews[swapchainImageIndex],
-					imageLayout = VkImageLayout.ImageLayoutAttachmentOptimalKhr,
-					loadOp = VkAttachmentLoadOp.AttachmentLoadOpClear,
-					storeOp = VkAttachmentStoreOp.AttachmentStoreOpStore,
-					clearValue = new() {
-							color = vkClearColorValue,
-							// depthStencil =, TODO look into what this is/how it works/if i want this
-					},
-			};
-
-			VkRenderingInfo vkRenderingInfo = new() { renderArea = new() { offset = new(0, 0), extent = swapChain.VkExtent, }, layerCount = 1, colorAttachmentCount = 1, pColorAttachments = &vkRenderingAttachmentInfo, };
-
-			Vk.CmdBeginRendering(vkCommandBuffer, &vkRenderingInfo);
-
-			Vk.CmdBindPipeline(vkCommandBuffer, VkPipelineBindPoint.PipelineBindPointGraphics, vkGraphicsPipeline);
-
-			VkViewport viewport = new() { x = 0, y = 0, width = swapChain.VkExtent.width, height = swapChain.VkExtent.height, minDepth = 0, maxDepth = 1, };
-			VkRect2D scissor = new() { offset = new(0, 0), extent = swapChain.VkExtent, };
-			Vk.CmdSetViewport(vkCommandBuffer, 0, 1, &viewport);
-			Vk.CmdSetScissor(vkCommandBuffer, 0, 1, &scissor);
-
-			ulong[] offsets = [ 0, ];
-			fixed (VkBuffer* vertexBuffersPtr = vertexBuffers) {
-				fixed (ulong* offsetsPtr = offsets) {
-					Vk.CmdBindVertexBuffers(vkCommandBuffer, 0, 1, vertexBuffersPtr, offsetsPtr); // TODO 2
-				}
-			}
-
-			Vk.CmdDraw(vkCommandBuffer, drawSize, 1, 0, 0); // TODO this'll need to be changed later
-
-			Vk.CmdEndRendering(vkCommandBuffer);
-
-			vkImageMemoryBarrier = new() {
-					srcAccessMask = VkAccessFlagBits.AccessColorAttachmentWriteBit,
-					oldLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
-					newLayout = VkImageLayout.ImageLayoutPresentSrcKhr,
-					image = swapChain.VkImages[swapchainImageIndex],
-					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
-			};
-
-			Vk.CmdPipelineBarrier(vkCommandBuffer, VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, VkPipelineStageFlagBits.PipelineStageBottomOfPipeBit, 0, 0, null, 0, null, 1, &vkImageMemoryBarrier); // TODO use 2?
-
-			if (Vk.EndCommandBuffer(vkCommandBuffer) != VkResult.Success) { throw new VulkanException("Failed to end recording command buffer"); }
 		}
 
 		[MustUseReturnValue]
@@ -769,15 +673,45 @@ namespace Engine3.Graphics.Vulkan {
 			}
 		}
 
+		[MustUseReturnValue] public static VkBuffer CreateVertexBuffer(VkDevice vkLogicalDevice, ulong size) => CreateBuffer(vkLogicalDevice, size, VkBufferUsageFlagBits.BufferUsageVertexBufferBit);
+
 		[MustUseReturnValue]
-		public static VkBuffer CreateVertexBuffer(VkDevice vkLogicalDevice, ulong size) {
-			VkBufferCreateInfo bufferCreateInfo = new() { size = size, usage = VkBufferUsageFlagBits.BufferUsageVertexBufferBit, sharingMode = VkSharingMode.SharingModeExclusive, };
-			VkBuffer vkBuffer;
-			return Vk.CreateBuffer(vkLogicalDevice, &bufferCreateInfo, null, &vkBuffer) != VkResult.Success ? throw new VulkanException("Failed to create vertex buffer") : vkBuffer;
+		public static VkBuffer CreateVertexBuffer(VkDevice vkLogicalDevice, ulong size, uint[] queueFamilyIndices) => CreateBuffer(vkLogicalDevice, size, VkBufferUsageFlagBits.BufferUsageVertexBufferBit, queueFamilyIndices);
+
+		[MustUseReturnValue]
+		public static VkBuffer CreateBuffer(VkDevice vkLogicalDevice, ulong size, VkBufferUsageFlagBits vkBufferUsage) =>
+				CreateBuffer(vkLogicalDevice, new() { size = size, usage = vkBufferUsage, sharingMode = VkSharingMode.SharingModeExclusive, });
+
+		[MustUseReturnValue]
+		public static VkBuffer CreateBuffer(VkDevice vkLogicalDevice, ulong size, VkBufferUsageFlagBits vkBufferUsage, uint[] queueFamilyIndices) {
+			fixed (uint* queueFamilyIndicesPtr = queueFamilyIndices) {
+				return CreateBuffer(vkLogicalDevice,
+					new() { size = size, usage = vkBufferUsage, sharingMode = VkSharingMode.SharingModeConcurrent, queueFamilyIndexCount = (uint)queueFamilyIndices.Length, pQueueFamilyIndices = queueFamilyIndicesPtr, });
+			}
 		}
 
 		[MustUseReturnValue]
-		public static uint FindMemoryType(VkPhysicalDevice vkPhysicalDevice, uint typeFilter, VkMemoryPropertyFlagBits vkMemoryProperty) {
+		public static VkDeviceMemory CreateDeviceMemory(VkPhysicalDevice vkPhysicalDevice, VkDevice vkLogicalDevice, VkBuffer vkBuffer) {
+			VkMemoryRequirements vkMemoryRequirements = new(); // TODO 2
+			Vk.GetBufferMemoryRequirements(vkLogicalDevice, vkBuffer, &vkMemoryRequirements);
+
+			VkMemoryAllocateInfo vkMemoryAllocateInfo = new() {
+					allocationSize = vkMemoryRequirements.size,
+					memoryTypeIndex = FindMemoryType(vkPhysicalDevice, vkMemoryRequirements.memoryTypeBits, VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit),
+			};
+
+			VkDeviceMemory vkVertexBufferMemory;
+			return Vk.AllocateMemory(vkLogicalDevice, &vkMemoryAllocateInfo, null, &vkVertexBufferMemory) != VkResult.Success ? throw new VulkanException("Failed to allocate memory") : vkVertexBufferMemory;
+		}
+
+		[MustUseReturnValue]
+		private static VkBuffer CreateBuffer(VkDevice vkLogicalDevice, VkBufferCreateInfo vkBufferCreateInfo) {
+			VkBuffer vkBuffer;
+			return Vk.CreateBuffer(vkLogicalDevice, &vkBufferCreateInfo, null, &vkBuffer) != VkResult.Success ? throw new VulkanException("Failed to create buffer") : vkBuffer;
+		}
+
+		[MustUseReturnValue]
+		private static uint FindMemoryType(VkPhysicalDevice vkPhysicalDevice, uint typeFilter, VkMemoryPropertyFlagBits vkMemoryProperty) {
 			VkPhysicalDeviceMemoryProperties vkMemoryProperties = new(); // TODO 2
 			Vk.GetPhysicalDeviceMemoryProperties(vkPhysicalDevice, &vkMemoryProperties);
 
@@ -832,5 +766,18 @@ namespace Engine3.Graphics.Vulkan {
 
 		public delegate bool IsPhysicalDeviceSuitable(VkPhysicalDeviceProperties2 vkPhysicalDeviceProperties2, VkPhysicalDeviceFeatures2 vkPhysicalDeviceFeatures2);
 		public delegate int RateGpuSuitability(PhysicalGpu physicalGpu);
+
+		private readonly record struct SwapChainSupportInfo {
+			public required VkSurfaceCapabilities2KHR VkCapabilities { get; init; }
+			public required VkSurfaceFormat2KHR[] VkSurfaceFormats { get; init; }
+			public required VkPresentModeKHR[] VkPresentModes { get; init; }
+
+			[SetsRequiredMembers]
+			public SwapChainSupportInfo(VkSurfaceCapabilities2KHR vkCapabilities, VkSurfaceFormat2KHR[] vkSurfaceFormats, VkPresentModeKHR[] vkPresentModes) {
+				VkCapabilities = vkCapabilities;
+				VkSurfaceFormats = vkSurfaceFormats;
+				VkPresentModes = vkPresentModes;
+			}
+		}
 	}
 }

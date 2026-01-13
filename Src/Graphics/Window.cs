@@ -11,17 +11,20 @@ namespace Engine3.Graphics {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public WindowHandle WindowHandle { get; }
-		public Color4<Rgba> ClearColor { get; set; }
-		public bool WasResized { get; set; }
+		public Color4<Rgba> ClearColor { get; set; } = new(0.01f, 0.01f, 0.01f, 1);
+		public bool ShouldClose { get; private set; }
+		public bool WasResized { get; set; } // TODO visibility
+		public bool WasDestroyed { get; private set; }
 
 		public event AttemptCloseWindow? TryCloseWindowEvent;
 		public event Action? OnCloseWindowEvent;
-
-		private bool wasCleanedUp;
+		public event Action? OnPreCleanGraphicsEvent;
+		public event Action? OnPostCleanGraphicsEvent;
+		public event Action? OnDestroyedEvent;
 
 		protected Window(WindowHandle windowHandle) => WindowHandle = windowHandle;
 
-		public static Window MakeWindow(string title, uint width, uint height) {
+		public static Window MakeWindow(GameClient gameClient, string title, uint width, uint height) {
 			GraphicsApi graphicsApi = Engine3.GraphicsApi;
 			if (graphicsApi == GraphicsApi.Console) { throw new Engine3Exception("Cannot create window when graphics api is set to console"); }
 
@@ -34,7 +37,7 @@ namespace Engine3.Graphics {
 
 			Window window = graphicsApi switch {
 					GraphicsApi.OpenGL => GlWindow.MakeGlWindow(windowHandle),
-					GraphicsApi.Vulkan => VkWindow.MakeVkWindow(windowHandle),
+					GraphicsApi.Vulkan => VkWindow.MakeVkWindow(gameClient, windowHandle),
 					GraphicsApi.Console => throw new UnreachableException(),
 					_ => throw new ArgumentOutOfRangeException(),
 			};
@@ -46,7 +49,7 @@ namespace Engine3.Graphics {
 		}
 
 		public void TryCloseWindow() {
-			if (wasCleanedUp) { return; }
+			if (WasDestroyed) { return; }
 
 			bool shouldClose = true;
 			TryCloseWindowEvent?.Invoke(ref shouldClose);
@@ -54,28 +57,36 @@ namespace Engine3.Graphics {
 			if (shouldClose) { CloseWindow(); }
 		}
 
-		public void CloseWindow(bool callEvent = true) {
-			if (wasCleanedUp) { return; }
+		public void CloseWindow() {
+			if (WasDestroyed) { return; }
 
-			if (callEvent) { OnCloseWindowEvent?.Invoke(); }
-			Cleanup();
+			OnCloseWindowEvent?.Invoke();
+			Logger.Debug("Close window requested. Destroying next frame");
+			ShouldClose = true;
 		}
 
 		public void Show() => SetWindowMode(WindowMode.Normal);
 		public void Hide() => SetWindowMode(WindowMode.Hidden);
 		public void SetWindowMode(WindowMode windowMode) => Toolkit.Window.SetMode(WindowHandle, windowMode);
 
-		private void Cleanup() {
-			if (wasCleanedUp) {
-				Logger.Warn("Attempted to cleanup a window that was already cleaned up");
+		public void DestroyWindow() { // TODO visibility
+			if (WasDestroyed) {
+				Logger.Warn("Attempted to destroy a window that was already destroyed");
 				return;
 			}
 
+			Logger.Debug("Destroying window...");
+
+			OnPreCleanGraphicsEvent?.Invoke();
 			CleanupGraphics();
+			OnPostCleanGraphicsEvent?.Invoke();
 
-			if (!Toolkit.Window.IsWindowDestroyed(WindowHandle)) { Toolkit.Window.Destroy(WindowHandle); } else { Logger.Warn("Tried to destroy an already destroyed window"); }
+			if (!Toolkit.Window.IsWindowDestroyed(WindowHandle)) {
+				Toolkit.Window.Destroy(WindowHandle);
+				OnDestroyedEvent?.Invoke();
+			} else { Logger.Warn("Tried to destroy an already destroyed window"); }
 
-			wasCleanedUp = true;
+			WasDestroyed = true;
 		}
 
 		protected abstract void CleanupGraphics();

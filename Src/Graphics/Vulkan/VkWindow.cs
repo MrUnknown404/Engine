@@ -9,14 +9,14 @@ namespace Engine3.Graphics.Vulkan {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public VkSurfaceKHR VkSurface { get; }
-		public PhysicalGpu[] AvailableGpus { get; }
 		public PhysicalGpu SelectedGpu { get; }
 		public LogicalGpu LogicalGpu { get; }
 		public SwapChain SwapChain { get; private set; }
 
-		public VkCommandPool VkCommandPool { get; }
+		public VkCommandPool VkGraphicsCommandPool { get; }
+		public VkCommandPool VkTransferCommandPool { get; }
 
-		public VkCommandBuffer[] VkCommandBuffers { get; } // TODO should these be wrapped into their own class?
+		public VkCommandBuffer[] VkGraphicsCommandBuffers { get; } // TODO should these be wrapped into their own class?
 		public VkSemaphore[] VkImageAvailable { get; }
 		public VkSemaphore[] VkRenderFinished { get; }
 		public VkFence[] VkInFlights { get; }
@@ -24,15 +24,17 @@ namespace Engine3.Graphics.Vulkan {
 		public VkPipelineLayout? VkPipelineLayout { get; private set; } // i'm pretty sure these are gonna need to be reworked later
 		public VkPipeline? VkGraphicsPipeline { get; private set; }
 
-		private VkWindow(WindowHandle windowHandle, VkSurfaceKHR vkSurface, PhysicalGpu[] availableGpus, PhysicalGpu selectedGpu, LogicalGpu logicalGpu, SwapChain swapChain, VkCommandPool vkCommandPool,
-			VkCommandBuffer[] vkCommandBuffers, VkSemaphore[] vkImageAvailable, VkSemaphore[] vkRenderFinished, VkFence[] vkInFlights) : base(windowHandle) {
+		public uint CurrentFrame { get; internal set; }
+
+		private VkWindow(WindowHandle windowHandle, VkSurfaceKHR vkSurface, PhysicalGpu selectedGpu, LogicalGpu logicalGpu, SwapChain swapChain, VkCommandPool vkGraphicsCommandPool, VkCommandPool vkTransferCommandPool,
+			VkCommandBuffer[] vkGraphicsCommandBuffers, VkSemaphore[] vkImageAvailable, VkSemaphore[] vkRenderFinished, VkFence[] vkInFlights) : base(windowHandle) {
 			VkSurface = vkSurface;
-			AvailableGpus = availableGpus;
 			SelectedGpu = selectedGpu;
 			LogicalGpu = logicalGpu;
 			SwapChain = swapChain;
-			VkCommandPool = vkCommandPool;
-			VkCommandBuffers = vkCommandBuffers;
+			VkGraphicsCommandPool = vkGraphicsCommandPool;
+			VkTransferCommandPool = vkTransferCommandPool;
+			VkGraphicsCommandBuffers = vkGraphicsCommandBuffers;
 			VkImageAvailable = vkImageAvailable;
 			VkRenderFinished = vkRenderFinished;
 			VkInFlights = vkInFlights;
@@ -47,18 +49,18 @@ namespace Engine3.Graphics.Vulkan {
 			Logger.Debug("Created graphics pipeline");
 		}
 
-		public void RecreateSwapChain() {
+		public void RecreateSwapChain() { // TODO move into swapchain class
 			SwapChain = VkH.RecreateSwapChain(WindowHandle, VkSurface, SelectedGpu, LogicalGpu.VkLogicalDevice, SwapChain);
 			Logger.Debug("Recreated swap chain");
 		}
 
-		internal static VkWindow MakeVkWindow(WindowHandle windowHandle) {
+		internal static VkWindow MakeVkWindow(GameClient gameClient, WindowHandle windowHandle) {
 			if (Engine3.VkInstance is not { } vkInstance || Engine3.GameInstance is not { } gameInstance) { throw new UnreachableException(); }
 
 			VkSurfaceKHR vkSurface = VkH.CreateSurface(vkInstance, windowHandle);
 			Logger.Debug("Created surface");
 
-			PhysicalGpu[] availableGpus = VkH.GetValidGpus(Engine3.VkPhysicalDevices, vkSurface, gameInstance.VkIsPhysicalDeviceSuitable);
+			PhysicalGpu[] availableGpus = VkH.GetValidGpus(Engine3.VkPhysicalDevices, vkSurface, gameInstance.VkIsPhysicalDeviceSuitable, gameClient.VkGetDeviceExtensions());
 			if (availableGpus.Length == 0) { throw new VulkanException("Could not find any valid GPUs"); }
 			Logger.Debug("Obtained surface capable GPUs ");
 			VkH.PrintGpus(availableGpus, Engine3.Debug);
@@ -67,7 +69,7 @@ namespace Engine3.Graphics.Vulkan {
 			if (selectedGpu == null) { throw new VulkanException("Could not find any suitable GPUs"); }
 			Logger.Debug($"- Selected Gpu: {selectedGpu.Name}");
 
-			VkDevice vkLogicalDevice = VkH.CreateLogicalDevice(selectedGpu);
+			VkDevice vkLogicalDevice = VkH.CreateLogicalDevice(selectedGpu, gameClient.VkGetDeviceExtensions(), gameClient.VkGetRequiredValidationLayers());
 			Logger.Debug("Created logical device");
 
 			VkQueue vkGraphicsQueue = VkH.GetDeviceQueue(vkLogicalDevice, selectedGpu.QueueFamilyIndices.GraphicsFamily);
@@ -77,26 +79,31 @@ namespace Engine3.Graphics.Vulkan {
 			Logger.Debug("Obtained present queue");
 
 			SwapChain swapChain = VkH.CreateSwapChain(windowHandle, vkSurface, selectedGpu, vkLogicalDevice, VkPresentModeKHR.PresentModeImmediateKhr);
-			Logger.Debug($"Created swap chain. Handle: {swapChain.VkSwapChain.Handle}");
+			Logger.Debug("Created swap chain");
 
-			VkCommandPool vkCommandPool = VkH.CreateCommandPool(vkLogicalDevice, selectedGpu.QueueFamilyIndices);
-			Logger.Debug("Created command pool");
+			VkCommandPool vkGraphicsCommandPool = VkH.CreateCommandPool(vkLogicalDevice, selectedGpu.QueueFamilyIndices.GraphicsFamily);
+			Logger.Debug("Created graphics command pool");
 
-			VkCommandBuffer[] vkCommandBuffers = VkH.CreateCommandBuffers(vkLogicalDevice, vkCommandPool, VkH.MaxFramesInFlight);
+			VkCommandPool vkTransferCommandPool = VkH.CreateCommandPool(vkLogicalDevice, selectedGpu.QueueFamilyIndices.TransferFamily);
+			Logger.Debug("Created transfer command pool");
+
+			VkCommandBuffer[] vkCommandBuffers = VkH.CreateCommandBuffers(vkLogicalDevice, vkGraphicsCommandPool, gameClient.MaxFramesInFlight);
 			Logger.Debug("Created command buffer");
 
-			VkSemaphore[] vkImageAvailable = VkH.CreateSemaphores(vkLogicalDevice, VkH.MaxFramesInFlight);
-			VkSemaphore[] vkRenderFinished = VkH.CreateSemaphores(vkLogicalDevice, VkH.MaxFramesInFlight);
-			VkFence[] vkInFlight = VkH.CreateFence(vkLogicalDevice, VkH.MaxFramesInFlight);
+			VkSemaphore[] vkImageAvailable = VkH.CreateSemaphores(vkLogicalDevice, gameClient.MaxFramesInFlight);
+			VkSemaphore[] vkRenderFinished = VkH.CreateSemaphores(vkLogicalDevice, gameClient.MaxFramesInFlight);
+			VkFence[] vkInFlight = VkH.CreateFence(vkLogicalDevice, gameClient.MaxFramesInFlight);
 			Logger.Debug("Created sync objects");
 
-			return new(windowHandle, vkSurface, availableGpus, selectedGpu, new(vkLogicalDevice, vkGraphicsQueue, vkPresentQueue), swapChain, vkCommandPool, vkCommandBuffers, vkImageAvailable, vkRenderFinished, vkInFlight);
+			return new(windowHandle, vkSurface, selectedGpu, new(vkLogicalDevice, vkGraphicsQueue, vkPresentQueue), swapChain, vkGraphicsCommandPool, vkTransferCommandPool, vkCommandBuffers, vkImageAvailable, vkRenderFinished,
+				vkInFlight);
 		}
 
 		protected override unsafe void CleanupGraphics() {
 			if (Engine3.VkInstance is not { } vkInstance) { return; }
 
-			Vk.DestroyCommandPool(LogicalGpu.VkLogicalDevice, VkCommandPool, null);
+			Vk.DestroyCommandPool(LogicalGpu.VkLogicalDevice, VkTransferCommandPool, null);
+			Vk.DestroyCommandPool(LogicalGpu.VkLogicalDevice, VkGraphicsCommandPool, null);
 
 			SwapChain.Destroy(LogicalGpu.VkLogicalDevice);
 
