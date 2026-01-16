@@ -707,13 +707,12 @@ namespace Engine3.Graphics.Vulkan {
 			Vk.BindBufferMemory(vkLogicalDevice, vkBuffer, vkDeviceMemory, 0);
 		}
 
-		public static void MapMemory(VkDevice vkLogicalDevice, VkDeviceMemory vkDeviceMemory, TestVertex[] vertices) {
-			ulong bufferSize = (ulong)(sizeof(TestVertex) * vertices.Length);
-
-			fixed (TestVertex* verticesPtr = vertices) {
+		public static void MapMemory<T>(VkDevice vkLogicalDevice, VkDeviceMemory vkDeviceMemory, T[] inData) where T : unmanaged {
+			ulong bufferSize = (ulong)(sizeof(T) * inData.Length);
+			fixed (T* inDataPtr = inData) {
 				void* data;
 				Vk.MapMemory(vkLogicalDevice, vkDeviceMemory, 0, bufferSize, 0, &data); // TODO 2
-				Buffer.MemoryCopy(verticesPtr, data, bufferSize, bufferSize);
+				Buffer.MemoryCopy(inDataPtr, data, bufferSize, bufferSize);
 				Vk.UnmapMemory(vkLogicalDevice, vkDeviceMemory);
 			}
 		}
