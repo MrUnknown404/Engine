@@ -31,10 +31,10 @@ namespace Engine3.Graphics.Vulkan {
 		private readonly uint maxFramesInFlight;
 		private uint currentFrame;
 
-		protected VkRenderer(VkWindow window, uint maxFramesInFlight, VkCommandPool graphicsCommandPool, VkCommandPool transferCommandPool, VkCommandBuffer[] graphicsCommandBuffers, VkSemaphore[] imageAvailableSemaphores,
+		protected VkRenderer(GameClient gameClient, VkWindow window, VkCommandPool graphicsCommandPool, VkCommandPool transferCommandPool, VkCommandBuffer[] graphicsCommandBuffers, VkSemaphore[] imageAvailableSemaphores,
 			VkSemaphore[] renderFinishedSemaphores, VkFence[] inFlightFences) {
 			Window = window;
-			this.maxFramesInFlight = maxFramesInFlight;
+			maxFramesInFlight = gameClient.MaxFramesInFlight;
 			GraphicsCommandPool = graphicsCommandPool;
 			TransferCommandPool = transferCommandPool;
 			GraphicsCommandBuffers = graphicsCommandBuffers;
@@ -86,11 +86,11 @@ namespace Engine3.Graphics.Vulkan {
 			Vk.CmdPipelineBarrier(vkCommandBuffer, VkPipelineStageFlagBits.PipelineStageTopOfPipeBit, VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, 0, 0, null, 0, null, 1, &vkImageMemoryBarrier); // TODO use 2?
 
 			Color4<Rgba> clearColor = Window.ClearColor;
-			VkClearColorValue vkClearColorValue = new();
-			vkClearColorValue.float32[0] = clearColor.X;
-			vkClearColorValue.float32[1] = clearColor.Y;
-			vkClearColorValue.float32[2] = clearColor.Z;
-			vkClearColorValue.float32[3] = clearColor.W;
+			VkClearColorValue vkClearColor = new();
+			vkClearColor.float32[0] = clearColor.X;
+			vkClearColor.float32[1] = clearColor.Y;
+			vkClearColor.float32[2] = clearColor.Z;
+			vkClearColor.float32[3] = clearColor.W;
 
 			VkRenderingAttachmentInfo vkRenderingAttachmentInfo = new() {
 					imageView = SwapChain.VkImageViews[swapChainImageIndex],
@@ -98,7 +98,7 @@ namespace Engine3.Graphics.Vulkan {
 					loadOp = VkAttachmentLoadOp.AttachmentLoadOpClear,
 					storeOp = VkAttachmentStoreOp.AttachmentStoreOpStore,
 					clearValue = new() {
-							color = vkClearColorValue,
+							color = vkClearColor,
 							// depthStencil =, TODO look into what this is/how it works/if i want this
 					},
 			};
@@ -126,8 +126,9 @@ namespace Engine3.Graphics.Vulkan {
 			if (Vk.EndCommandBuffer(vkCommandBuffer) != VkResult.Success) { throw new VulkanException("Failed to end recording command buffer"); }
 
 			VkH.SubmitCommandBufferQueue(Window.LogicalGpu.VkGraphicsQueue, vkCommandBuffer, CurrentImageAvailableSemaphore, CurrentRenderFinishedSemaphore, CurrentInFlightFences);
+		}
 
-			// present image
+		protected unsafe void PresentFrame(uint swapChainImageIndex) {
 			VkSwapchainKHR vkSwapchain = SwapChain.VkSwapChain;
 			VkSemaphore renderFinishedSemaphore = CurrentRenderFinishedSemaphore;
 			VkPresentInfoKHR presentInfo = new() { waitSemaphoreCount = 1, pWaitSemaphores = &renderFinishedSemaphore, swapchainCount = 1, pSwapchains = &vkSwapchain, pImageIndices = &swapChainImageIndex, };
@@ -156,19 +157,20 @@ namespace Engine3.Graphics.Vulkan {
 			Vk.DestroyShaderModule(vkLogicalDevice, vertShaderModule.Value, null);
 		}
 
-		protected static unsafe void CreateVertexBuffer(VkPhysicalDevice vkPhysicalDevice, VkDevice vkLogicalDevice, TestVertex[] vertices, out VkBuffer vkVertexBuffer, out VkDeviceMemory vkVertexBufferDeviceMemory) { // TODO move
+		protected static unsafe void CreateVertexBuffer(VkPhysicalDevice vkPhysicalDevice, VkDevice vkLogicalDevice, VkMemoryPropertyFlagBits vkMemoryPropertyFlag, TestVertex[] vertices, out VkBuffer vertexBuffer,
+			out VkDeviceMemory vertexBufferDeviceMemory) { // TODO move
 			ulong bufferSize = (ulong)(sizeof(TestVertex) * vertices.Length);
 
-			vkVertexBuffer = VkH.CreateVertexBuffer(vkLogicalDevice, bufferSize);
-			vkVertexBufferDeviceMemory = VkH.CreateDeviceMemory(vkPhysicalDevice, vkLogicalDevice, vkVertexBuffer);
+			vertexBuffer = VkH.CreateVertexBuffer(vkLogicalDevice, bufferSize);
+			vertexBufferDeviceMemory = VkH.CreateDeviceMemory(vkPhysicalDevice, vkLogicalDevice, vertexBuffer, vkMemoryPropertyFlag);
 
-			Vk.BindBufferMemory(vkLogicalDevice, vkVertexBuffer, vkVertexBufferDeviceMemory, 0);
+			Vk.BindBufferMemory(vkLogicalDevice, vertexBuffer, vertexBufferDeviceMemory, 0);
 
 			fixed (TestVertex* verticesPtr = vertices) {
 				void* data;
-				Vk.MapMemory(vkLogicalDevice, vkVertexBufferDeviceMemory, 0, bufferSize, 0, &data); // TODO 2
+				Vk.MapMemory(vkLogicalDevice, vertexBufferDeviceMemory, 0, bufferSize, 0, &data); // TODO 2
 				Buffer.MemoryCopy(verticesPtr, data, bufferSize, bufferSize);
-				Vk.UnmapMemory(vkLogicalDevice, vkVertexBufferDeviceMemory);
+				Vk.UnmapMemory(vkLogicalDevice, vertexBufferDeviceMemory);
 			}
 		}
 	}

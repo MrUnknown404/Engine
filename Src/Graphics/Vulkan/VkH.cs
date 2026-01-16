@@ -578,8 +578,8 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public static VkCommandPool CreateCommandPool(VkDevice vkLogicalDevice, uint queueFamilyIndex) {
-			VkCommandPoolCreateInfo commandPoolCreateInfo = new() { flags = VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit, queueFamilyIndex = queueFamilyIndex, };
+		public static VkCommandPool CreateCommandPool(VkDevice vkLogicalDevice, VkCommandPoolCreateFlagBits vkCommandPoolCreateFlag, uint queueFamilyIndex) {
+			VkCommandPoolCreateInfo commandPoolCreateInfo = new() { flags = vkCommandPoolCreateFlag, queueFamilyIndex = queueFamilyIndex, };
 			VkCommandPool vkCommandPool;
 			return Vk.CreateCommandPool(vkLogicalDevice, &commandPoolCreateInfo, null, &vkCommandPool) != VkResult.Success ? throw new VulkanException("Failed to create command pool") : vkCommandPool;
 		}
@@ -673,17 +673,14 @@ namespace Engine3.Graphics.Vulkan {
 			}
 		}
 
-		[MustUseReturnValue] public static VkBuffer CreateVertexBuffer(VkDevice vkLogicalDevice, ulong size) => CreateBuffer(vkLogicalDevice, size, VkBufferUsageFlagBits.BufferUsageVertexBufferBit);
+		[MustUseReturnValue]
+		public static VkBuffer CreateVertexBuffer(VkDevice vkLogicalDevice, ulong size, uint[]? queueFamilyIndices = null) =>
+				CreateBuffer(vkLogicalDevice, size, VkBufferUsageFlagBits.BufferUsageVertexBufferBit, queueFamilyIndices);
 
 		[MustUseReturnValue]
-		public static VkBuffer CreateVertexBuffer(VkDevice vkLogicalDevice, ulong size, uint[] queueFamilyIndices) => CreateBuffer(vkLogicalDevice, size, VkBufferUsageFlagBits.BufferUsageVertexBufferBit, queueFamilyIndices);
+		public static VkBuffer CreateBuffer(VkDevice vkLogicalDevice, ulong size, VkBufferUsageFlagBits vkBufferUsage, uint[]? queueFamilyIndices = null) {
+			if (queueFamilyIndices == null) { return CreateBuffer(vkLogicalDevice, new() { size = size, usage = vkBufferUsage, sharingMode = VkSharingMode.SharingModeExclusive, }); }
 
-		[MustUseReturnValue]
-		public static VkBuffer CreateBuffer(VkDevice vkLogicalDevice, ulong size, VkBufferUsageFlagBits vkBufferUsage) =>
-				CreateBuffer(vkLogicalDevice, new() { size = size, usage = vkBufferUsage, sharingMode = VkSharingMode.SharingModeExclusive, });
-
-		[MustUseReturnValue]
-		public static VkBuffer CreateBuffer(VkDevice vkLogicalDevice, ulong size, VkBufferUsageFlagBits vkBufferUsage, uint[] queueFamilyIndices) {
 			fixed (uint* queueFamilyIndicesPtr = queueFamilyIndices) {
 				return CreateBuffer(vkLogicalDevice,
 					new() { size = size, usage = vkBufferUsage, sharingMode = VkSharingMode.SharingModeConcurrent, queueFamilyIndexCount = (uint)queueFamilyIndices.Length, pQueueFamilyIndices = queueFamilyIndicesPtr, });
@@ -691,17 +688,52 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public static VkDeviceMemory CreateDeviceMemory(VkPhysicalDevice vkPhysicalDevice, VkDevice vkLogicalDevice, VkBuffer vkBuffer) {
+		public static VkDeviceMemory CreateDeviceMemory(VkPhysicalDevice vkPhysicalDevice, VkDevice vkLogicalDevice, VkBuffer vkBuffer, VkMemoryPropertyFlagBits vkMemoryPropertyFlag) {
 			VkMemoryRequirements vkMemoryRequirements = new(); // TODO 2
 			Vk.GetBufferMemoryRequirements(vkLogicalDevice, vkBuffer, &vkMemoryRequirements);
 
-			VkMemoryAllocateInfo vkMemoryAllocateInfo = new() {
-					allocationSize = vkMemoryRequirements.size,
-					memoryTypeIndex = FindMemoryType(vkPhysicalDevice, vkMemoryRequirements.memoryTypeBits, VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit),
-			};
-
+			VkMemoryAllocateInfo vkMemoryAllocateInfo = new() { allocationSize = vkMemoryRequirements.size, memoryTypeIndex = FindMemoryType(vkPhysicalDevice, vkMemoryRequirements.memoryTypeBits, vkMemoryPropertyFlag), };
 			VkDeviceMemory vkVertexBufferMemory;
+
+			// TODO "It should be noted that in a real world application, you're not supposed to actually call vkAllocateMemory for every individual buffer."
+			// "The right way to allocate memory for a large number of objects at the same time is to create a custom allocator that splits up a single allocation among many different objects by using the offset parameters that we've seen in many functions."
 			return Vk.AllocateMemory(vkLogicalDevice, &vkMemoryAllocateInfo, null, &vkVertexBufferMemory) != VkResult.Success ? throw new VulkanException("Failed to allocate memory") : vkVertexBufferMemory;
+		}
+
+		public static void CreateBufferAndMemory(VkPhysicalDevice vkPhysicalDevice, VkDevice vkLogicalDevice, ulong size, VkBufferUsageFlagBits vkBufferUsage, VkMemoryPropertyFlagBits vkMemoryPropertyFlag, out VkBuffer vkBuffer,
+			out VkDeviceMemory vkDeviceMemory) {
+			vkBuffer = CreateBuffer(vkLogicalDevice, size, vkBufferUsage);
+			vkDeviceMemory = CreateDeviceMemory(vkPhysicalDevice, vkLogicalDevice, vkBuffer, vkMemoryPropertyFlag);
+			Vk.BindBufferMemory(vkLogicalDevice, vkBuffer, vkDeviceMemory, 0);
+		}
+
+		public static void MapMemory(VkDevice vkLogicalDevice, VkDeviceMemory vkDeviceMemory, TestVertex[] vertices) {
+			ulong bufferSize = (ulong)(sizeof(TestVertex) * vertices.Length);
+
+			fixed (TestVertex* verticesPtr = vertices) {
+				void* data;
+				Vk.MapMemory(vkLogicalDevice, vkDeviceMemory, 0, bufferSize, 0, &data); // TODO 2
+				Buffer.MemoryCopy(verticesPtr, data, bufferSize, bufferSize);
+				Vk.UnmapMemory(vkLogicalDevice, vkDeviceMemory);
+			}
+		}
+
+		public static void CopyBuffer(VkDevice vkLogicalDevice, VkQueue vkTransferQueue, VkCommandPool vkCommandPool, VkBuffer srcBuffer, VkBuffer dstBuffer, ulong bufferSize) {
+			VkCommandBuffer vkCommandBuffer = CreateCommandBuffers(vkLogicalDevice, vkCommandPool, 1)[0];
+
+			VkCommandBufferBeginInfo beginInfo = new() { flags = VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit, };
+			Vk.BeginCommandBuffer(vkCommandBuffer, &beginInfo);
+
+			VkBufferCopy vkBufferCopy = new() { size = bufferSize, }; // TODO 2
+			Vk.CmdCopyBuffer(vkCommandBuffer, srcBuffer, dstBuffer, 1, &vkBufferCopy);
+
+			Vk.EndCommandBuffer(vkCommandBuffer);
+
+			VkSubmitInfo vkSubmitInfo = new() { commandBufferCount = 1, pCommandBuffers = &vkCommandBuffer, };
+			Vk.QueueSubmit(vkTransferQueue, 1, &vkSubmitInfo, VkFence.Zero);
+			Vk.QueueWaitIdle(vkTransferQueue);
+
+			Vk.FreeCommandBuffers(vkLogicalDevice, vkCommandPool, 1, &vkCommandBuffer);
 		}
 
 		[MustUseReturnValue]
