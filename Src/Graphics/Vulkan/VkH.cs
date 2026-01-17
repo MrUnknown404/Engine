@@ -43,8 +43,8 @@ namespace Engine3.Graphics.Vulkan {
 
 		[MustUseReturnValue]
 		public static VkInstance CreateVulkanInstance(GameClient gameClient, string engineName, Version4 gameVersion, Version4 engineVersion) {
-			string[] requiredInstanceExtensions = gameClient.VkGetInstanceExtensions();
-			string[] requiredValidationLayers = gameClient.VkGetRequiredValidationLayers();
+			string[] requiredInstanceExtensions = gameClient.GetAllRequiredInstanceExtensions();
+			string[] requiredValidationLayers = gameClient.GetAllRequiredValidationLayers();
 
 			VkApplicationInfo vkApplicationInfo = new() {
 					pApplicationName = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(Encoding.UTF8.GetBytes(gameClient.Name))),
@@ -58,7 +58,7 @@ namespace Engine3.Graphics.Vulkan {
 #if DEBUG
 			IntPtr requiredValidationLayersPtr = MarshalTk.StringArrayToCoTaskMemAnsi(requiredValidationLayers);
 
-			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(gameClient);
+			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(gameClient.EnabledDebugMessageSeverities, gameClient.EnabledDebugMessageTypes);
 #endif
 
 			VkInstanceCreateInfo vkCreateInfo = new() {
@@ -278,16 +278,16 @@ namespace Engine3.Graphics.Vulkan {
 		[MustUseReturnValue]
 		public static SwapChain CreateSwapChain(PhysicalGpu physicalGpu, VkDevice logicalDevice, VkSurfaceKHR surface, Vector2i framebufferSize, VkPresentModeKHR presentMode = VkPresentModeKHR.PresentModeMailboxKhr,
 			VkSurfaceTransformFlagBitsKHR? vkSurfaceTransform = null, VkSwapchainKHR? oldSwapChain = null) {
-			if (!QuerySwapChainSupport(physicalGpu.PhysicalDevice, surface, out VkSurfaceCapabilities2KHR surfaceCapabilities2, out VkSurfaceFormat2KHR[]? surfaceFormats2, out VkPresentModeKHR[]? presentModes)) {
+			if (!QuerySwapChainSupport(physicalGpu.PhysicalDevice, surface, out VkSurfaceCapabilities2KHR surfaceCapabilities2, out VkSurfaceFormat2KHR[]? surfaceFormats2, out VkPresentModeKHR[]? supportedPresentModes)) {
 				throw new VulkanException("Failed to query swap chain support");
 			}
 
+			if (!supportedPresentModes.Contains(presentMode)) { throw new VulkanException("Surface does not support requested present mode"); }
+
 			VkSurfaceCapabilitiesKHR surfaceCapabilities = surfaceCapabilities2.surfaceCapabilities;
 			QueueFamilyIndices queueFamilyIndices = physicalGpu.QueueFamilyIndices;
-
 			VkSurfaceFormat2KHR surfaceFormat = ChooseSwapSurfaceFormat(surfaceFormats2) ?? throw new VulkanException("Could not find any valid surface formats");
 			VkFormat swapChainImageFormat = surfaceFormat.surfaceFormat.format;
-			VkPresentModeKHR chosenPresentMode = ChooseSwapPresentMode(presentModes, presentMode);
 			VkExtent2D swapChainExtent = ChooseSwapExtent(framebufferSize, surfaceCapabilities);
 
 			// https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Swap_chain#Creating_the_swap_chain - "Therefore it is recommended to request at least one more image than the minimum"
@@ -325,7 +325,7 @@ namespace Engine3.Graphics.Vulkan {
 						pQueueFamilyIndices = queueFamilyIndicesArray.Length == 0 ? null : pQueueFamilyIndicesPtr,
 						preTransform = vkSurfaceTransform ?? surfaceCapabilities.currentTransform,
 						compositeAlpha = VkCompositeAlphaFlagBitsKHR.CompositeAlphaOpaqueBitKhr,
-						presentMode = chosenPresentMode,
+						presentMode = presentMode,
 						clipped = (int)Vk.True,
 						oldSwapchain = oldSwapChain ?? VkSwapchainKHR.Zero,
 				};
@@ -337,15 +337,11 @@ namespace Engine3.Graphics.Vulkan {
 			VkImage[] swapChainImages = GetSwapChainImages(logicalDevice, swapChain);
 			VkImageView[] swapChainImageViews = CreateImageViews(logicalDevice, swapChainImages, swapChainImageFormat);
 
-			return new(swapChain, swapChainImageFormat, swapChainExtent, swapChainImages, swapChainImageViews);
+			return new(swapChain, swapChainImageFormat, swapChainExtent, swapChainImages, swapChainImageViews, presentMode);
 
 			[MustUseReturnValue]
 			static VkSurfaceFormat2KHR? ChooseSwapSurfaceFormat(ReadOnlySpan<VkSurfaceFormat2KHR> availableFormats) =>
 					availableFormats.FirstOrDefault(static format => format.surfaceFormat is { format: VkFormat.FormatB8g8r8a8Srgb, colorSpace: VkColorSpaceKHR.ColorSpaceSrgbNonlinearKhr, });
-
-			[MustUseReturnValue]
-			static VkPresentModeKHR ChooseSwapPresentMode(ReadOnlySpan<VkPresentModeKHR> availablePresentModes, VkPresentModeKHR presentModeToCheckFor) =>
-					availablePresentModes.FirstOrDefault(presentMode => presentMode == presentModeToCheckFor, VkPresentModeKHR.PresentModeFifoKhr);
 
 			[MustUseReturnValue]
 			static VkExtent2D ChooseSwapExtent(Vector2i framebufferSize, VkSurfaceCapabilitiesKHR surfaceCapabilities) =>
@@ -613,7 +609,7 @@ namespace Engine3.Graphics.Vulkan {
 			VkPipelineStageFlagBits[] waitStages = [ VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, ];
 
 			fixed (VkPipelineStageFlagBits* waitStagesPtr = waitStages) {
-				VkSubmitInfo vkSubmitInfo = new() { // TODO 2?
+				VkSubmitInfo vkSubmitInfo = new() { // TODO 2
 						waitSemaphoreCount = 1,
 						pWaitSemaphores = &imageAvailable, // these can all be arrays if needed
 						pWaitDstStageMask = waitStagesPtr,

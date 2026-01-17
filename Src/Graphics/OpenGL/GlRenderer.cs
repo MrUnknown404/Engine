@@ -7,7 +7,7 @@ namespace Engine3.Graphics.OpenGL {
 
 		protected GlRenderer(GlWindow window) => Window = window;
 
-		protected internal override void DrawFrame(float delta) {
+		protected override void DrawFrame(float delta) {
 			Toolkit.OpenGL.SetCurrentContext(Window.GLContextHandle);
 			GL.Clear(Window.ClearBufferMask);
 			Draw(delta);

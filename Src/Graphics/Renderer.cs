@@ -1,12 +1,19 @@
 namespace Engine3.Graphics {
 	public abstract class Renderer {
-		public abstract bool IsWindowValid { get; }
+		public ulong FrameCount { get; protected set; }
 		public bool WasDestroyed { get; private set; }
+
+		public abstract bool IsWindowValid { get; }
 
 		public bool CanRender => IsWindowValid && !WasDestroyed;
 
 		public abstract void Setup();
-		protected internal abstract void DrawFrame(float delta);
+		protected abstract void DrawFrame(float delta);
+
+		internal void InternalDrawFrame(float delta) {
+			DrawFrame(delta);
+			FrameCount++;
+		}
 
 		public void TryCleanup() {
 			if (!WasDestroyed) {

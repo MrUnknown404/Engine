@@ -22,21 +22,21 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		internal static VkWindow MakeVkWindow(GameClient gameClient, WindowHandle windowHandle) {
-			if (Engine3.VkInstance is not { } vkInstance || Engine3.GameInstance is not { } gameInstance) { throw new UnreachableException(); }
+			if (gameClient.VkInstance is not { } vkInstance) { throw new UnreachableException(); }
 
 			VkSurfaceKHR surface = VkH.CreateSurface(vkInstance, windowHandle);
 			Logger.Debug("Created surface");
 
-			PhysicalGpu[] availableGpus = VkH.GetValidGpus(Engine3.VkPhysicalDevices, surface, gameInstance.VkIsPhysicalDeviceSuitable, gameClient.VkGetDeviceExtensions());
+			PhysicalGpu[] availableGpus = VkH.GetValidGpus(gameClient.PhysicalDevices, surface, gameClient.IsPhysicalDeviceSuitable, gameClient.GetAllRequiredDeviceExtensions());
 			if (availableGpus.Length == 0) { throw new VulkanException("Could not find any valid GPUs"); }
 			Logger.Debug("Obtained surface capable GPUs ");
 			VkH.PrintGpus(availableGpus, Engine3.Debug);
 
-			PhysicalGpu? selectedGpu = VkH.PickBestGpu(availableGpus, gameInstance.VkRateGpuSuitability);
+			PhysicalGpu? selectedGpu = VkH.PickBestGpu(availableGpus, gameClient.RateGpuSuitability);
 			if (selectedGpu == null) { throw new VulkanException("Could not find any suitable GPUs"); }
 			Logger.Debug($"- Selected Gpu: {selectedGpu.Name}");
 
-			VkDevice logicalDevice = VkH.CreateLogicalDevice(selectedGpu.PhysicalDevice, selectedGpu.QueueFamilyIndices, gameClient.VkGetDeviceExtensions(), gameClient.VkGetRequiredValidationLayers());
+			VkDevice logicalDevice = VkH.CreateLogicalDevice(selectedGpu.PhysicalDevice, selectedGpu.QueueFamilyIndices, gameClient.GetAllRequiredDeviceExtensions(), gameClient.GetAllRequiredValidationLayers());
 			VkQueue graphicsQueue = VkH.GetDeviceQueue(logicalDevice, selectedGpu.QueueFamilyIndices.GraphicsFamily);
 			VkQueue presentQueue = VkH.GetDeviceQueue(logicalDevice, selectedGpu.QueueFamilyIndices.PresentFamily);
 			VkQueue transferQueue = VkH.GetDeviceQueue(logicalDevice, selectedGpu.QueueFamilyIndices.TransferFamily);
@@ -44,7 +44,7 @@ namespace Engine3.Graphics.Vulkan {
 			Logger.Debug("Created logical gpu");
 
 			Toolkit.Window.GetFramebufferSize(windowHandle, out Vector2i framebufferSize);
-			SwapChain swapChain = VkH.CreateSwapChain(selectedGpu, logicalDevice, surface, framebufferSize, VkPresentModeKHR.PresentModeImmediateKhr);
+			SwapChain swapChain = VkH.CreateSwapChain(selectedGpu, logicalDevice, surface, framebufferSize, VkPresentModeKHR.PresentModeImmediateKhr); // TODO allow this to be changed
 			Logger.Debug("Created swap chain");
 
 			VkWindow window = new(windowHandle, surface, selectedGpu, logicalGpu, swapChain);
@@ -54,7 +54,7 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		protected override unsafe void CleanupGraphics() {
-			if (Engine3.VkInstance is not { } vkInstance) { return; }
+			if (Engine3.GameInstance.VkInstance is not { } vkInstance) { return; }
 
 			SwapChain.Destroy();
 

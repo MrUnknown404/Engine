@@ -10,8 +10,8 @@ using OpenTK.Graphics.Vulkan;
 namespace Engine3.Graphics.Vulkan {
 	public static unsafe partial class VkH {
 		[MustUseReturnValue]
-		public static VkDebugUtilsMessengerEXT CreateDebugMessenger(VkInstance vkInstance, GameClient gameClient) {
-			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(gameClient);
+		public static VkDebugUtilsMessengerEXT CreateDebugMessenger(VkInstance vkInstance, VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagBitsEXT messageType) {
+			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(messageSeverity, messageType);
 			VkDebugUtilsMessengerEXT debugMessenger;
 			return Vk.CreateDebugUtilsMessengerEXT(vkInstance, &messengerCreateInfo, null, &debugMessenger) != VkResult.Success ? throw new VulkanException("Failed to create Vulkan Debug Messenger") : debugMessenger;
 		}
@@ -60,8 +60,8 @@ namespace Engine3.Graphics.Vulkan {
 			}
 		}
 
-		private static VkDebugUtilsMessengerCreateInfoEXT CreateDebugUtilsMessengerCreateInfoEXT(GameClient gameClient) =>
-				new() { messageSeverity = gameClient.EnabledDebugMessageSeverities, messageType = gameClient.EnabledDebugMessageTypes, pfnUserCallback = &DebugCallback, };
+		private static VkDebugUtilsMessengerCreateInfoEXT CreateDebugUtilsMessengerCreateInfoEXT(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagBitsEXT messageType) =>
+				new() { messageSeverity = messageSeverity, messageType = messageType, pfnUserCallback = &DebugCallback, };
 
 		[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl), })]
 		private static int DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagBitsEXT messageType, VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {

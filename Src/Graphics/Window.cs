@@ -20,17 +20,17 @@ namespace Engine3.Graphics {
 
 		public event AttemptCloseWindow? TryCloseWindowEvent;
 		public event Action? OnCloseWindowEvent;
-		public event Action? OnDestroyedEvent;
+		public event Action? OnDestroyEvent;
 
 		protected Window(WindowHandle windowHandle) => WindowHandle = windowHandle;
 
 		public static Window MakeWindow(GameClient gameClient, string title, uint width, uint height) {
-			GraphicsApi graphicsApi = Engine3.GraphicsApi;
+			GraphicsApi graphicsApi = gameClient.GraphicsApi;
 			if (graphicsApi == GraphicsApi.Console) { throw new Engine3Exception("Cannot create window when graphics api is set to console"); }
 
 			Logger.Info("Making new window...");
 
-			WindowHandle windowHandle = Toolkit.Window.Create(Engine3.GraphicsApiHints!); // if graphicsApi != GraphicsApi.Console then Engine3.GraphicsApiHints shouldn't be null here
+			WindowHandle windowHandle = Toolkit.Window.Create(gameClient.GraphicsApiHints!); // if graphicsApi != GraphicsApi.Console then GraphicsApiHints shouldn't be null here
 
 			Toolkit.Window.SetTitle(windowHandle, title);
 			Toolkit.Window.SetSize(windowHandle, new((int)width, (int)height));
@@ -86,7 +86,7 @@ namespace Engine3.Graphics {
 
 			if (!Toolkit.Window.IsWindowDestroyed(WindowHandle)) {
 				Toolkit.Window.Destroy(WindowHandle); // TODO remove from window list
-				OnDestroyedEvent?.Invoke();
+				OnDestroyEvent?.Invoke();
 			} else { Logger.Warn("Tried to destroy an already destroyed window"); }
 
 			WasDestroyed = true;

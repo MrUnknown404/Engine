@@ -63,7 +63,7 @@ namespace Engine3.Debug {
 
 		private static void TryAdd(string fileName, string content) {
 			if (wasSetup) {
-				Logger.Warn($"Attempted to add a debug output file to write too late. This must be set before calling {nameof(Engine3)}#{nameof(Engine3.Start)}");
+				Logger.Warn($"Attempted to add a debug output file to write too late. This must be set before calling {nameof(GameClient)}#{nameof(GameClient.Start)}");
 				return;
 			}
 
