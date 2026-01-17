@@ -12,165 +12,176 @@ namespace Engine3.Graphics.Vulkan {
 		protected VkCommandPool GraphicsCommandPool { get; }
 		protected VkCommandPool TransferCommandPool { get; }
 
-		protected VkCommandBuffer[] GraphicsCommandBuffers { get; } // TODO should these be wrapped into their own class?
-		protected VkSemaphore[] ImageAvailableSemaphores { get; }
-		protected VkSemaphore[] RenderFinishedSemaphores { get; }
-		protected VkFence[] InFlightFences { get; }
+		protected FrameData[] Frames { get; }
 
-		protected VkCommandBuffer CurrentGraphicsCommandBuffer => GraphicsCommandBuffers[currentFrame];
-		protected VkSemaphore CurrentImageAvailableSemaphore => ImageAvailableSemaphores[currentFrame];
-		protected VkSemaphore CurrentRenderFinishedSemaphore => RenderFinishedSemaphores[currentFrame];
-		protected VkFence CurrentInFlightFences => InFlightFences[currentFrame];
+		protected FrameData CurrentFrame => Frames[currentFrame];
+		protected VkCommandBuffer CurrentGraphicsCommandBuffer => CurrentFrame.GraphicsCommandBuffer;
+		protected VkSemaphore CurrentImageAvailableSemaphore => CurrentFrame.ImageAvailableSemaphore;
+		protected VkSemaphore CurrentRenderFinishedSemaphore => CurrentFrame.RenderFinishedSemaphore;
+		protected VkFence CurrentInFlightFence => CurrentFrame.InFlightFence;
 
-		protected VkPhysicalDevice PhysicalDevice => Window.SelectedGpu.VkPhysicalDevice;
-		protected VkDevice LogicalDevice => Window.LogicalGpu.VkLogicalDevice;
+		protected PhysicalGpu PhysicalGpu => Window.SelectedGpu;
+		protected LogicalGpu LogicalGpu => Window.LogicalGpu;
 		protected SwapChain SwapChain => Window.SwapChain;
+		protected VkPhysicalDevice PhysicalDevice => PhysicalGpu.PhysicalDevice;
+		protected VkDevice LogicalDevice => LogicalGpu.LogicalDevice;
 
 		public override bool IsWindowValid => !Window.WasDestroyed;
 
-		private readonly uint maxFramesInFlight;
-		private uint currentFrame;
+		private readonly byte maxFramesInFlight;
+		private byte currentFrame;
 
-		protected VkRenderer(GameClient gameClient, VkWindow window, VkCommandPool graphicsCommandPool, VkCommandPool transferCommandPool, VkCommandBuffer[] graphicsCommandBuffers, VkSemaphore[] imageAvailableSemaphores,
-			VkSemaphore[] renderFinishedSemaphores, VkFence[] inFlightFences) {
+		protected VkRenderer(GameClient gameClient, VkWindow window, VkCommandPool graphicsCommandPool, VkCommandPool transferCommandPool) {
 			Window = window;
 			maxFramesInFlight = gameClient.MaxFramesInFlight;
 			GraphicsCommandPool = graphicsCommandPool;
 			TransferCommandPool = transferCommandPool;
-			GraphicsCommandBuffers = graphicsCommandBuffers;
-			ImageAvailableSemaphores = imageAvailableSemaphores;
-			RenderFinishedSemaphores = renderFinishedSemaphores;
-			InFlightFences = inFlightFences;
+
+			VkCommandBuffer[] pGraphicsCommandBuffers = VkH.CreateCommandBuffers(LogicalDevice, graphicsCommandPool, maxFramesInFlight);
+			VkSemaphore[] pImageAvailableSemaphores = VkH.CreateSemaphores(LogicalDevice, maxFramesInFlight);
+			VkSemaphore[] pRenderFinishedSemaphores = VkH.CreateSemaphores(LogicalDevice, maxFramesInFlight);
+			VkFence[] pInFlightFences = VkH.CreateFences(LogicalDevice, maxFramesInFlight);
+
+			Frames = new FrameData[maxFramesInFlight];
+			for (int i = 0; i < maxFramesInFlight; i++) { Frames[i] = new(LogicalDevice, pGraphicsCommandBuffers[i], pImageAvailableSemaphores[i], pRenderFinishedSemaphores[i], pInFlightFences[i]); }
 		}
 
-		protected abstract void DrawFrame(VkPipeline vkGraphicsPipeline, VkCommandBuffer vkCommandBuffer, VkExtent2D vkExtent, float delta);
+		protected abstract void DrawFrame(VkPipeline graphicsPipeline, VkCommandBuffer graphicsCommandBuffer, float delta);
 
 		protected override unsafe void Cleanup() {
 			Vk.DestroyCommandPool(LogicalDevice, TransferCommandPool, null);
 			Vk.DestroyCommandPool(LogicalDevice, GraphicsCommandPool, null);
 
-			foreach (VkSemaphore vkSemaphore in ImageAvailableSemaphores) { Vk.DestroySemaphore(LogicalDevice, vkSemaphore, null); }
-			foreach (VkSemaphore vkSemaphore in RenderFinishedSemaphores) { Vk.DestroySemaphore(LogicalDevice, vkSemaphore, null); }
-			foreach (VkFence vkFence in InFlightFences) { Vk.DestroyFence(LogicalDevice, vkFence, null); }
+			foreach (FrameData frame in Frames) { frame.Destroy(); }
 		}
 
-		protected unsafe bool BeginFrame(VkCommandBuffer vkCommandBuffer, out uint swapChainImageIndex) {
-			fixed (VkFence* inFlightPtr = InFlightFences) {
-				Vk.WaitForFences(LogicalDevice, 1, &inFlightPtr[currentFrame], (int)Vk.True, ulong.MaxValue);
+		protected unsafe bool BeginFrame(VkCommandBuffer graphicsCommandBuffer, out uint swapChainImageIndex) {
+			VkFence currentFence = CurrentInFlightFence;
 
-				uint tempSwapChainImageIndex;
-				VkResult vkResult = Vk.AcquireNextImageKHR(LogicalDevice, SwapChain.VkSwapChain, ulong.MaxValue, CurrentImageAvailableSemaphore, VkFence.Zero, &tempSwapChainImageIndex); // TODO 2
-				swapChainImageIndex = tempSwapChainImageIndex; // ew
+			// not sure if i'm supposed to wait for all fences or just the relevant one. vulkan-tutorial.com & vkguide.dev differ
+			// vulkan-tutorial.com says wait for all
+			// vkguide.dev says wait for current
+			Vk.WaitForFences(LogicalDevice, 1, &currentFence, (int)Vk.True, ulong.MaxValue);
 
-				if (vkResult == VkResult.ErrorOutOfDateKhr) {
-					SwapChain.Recreate(Window);
-					return false;
-				} else if (vkResult is not VkResult.Success and not VkResult.SuboptimalKhr) { throw new VulkanException("Failed to acquire swap chain image"); }
+			uint tempSwapChainImageIndex;
+			VkResult vkResult = Vk.AcquireNextImageKHR(LogicalDevice, SwapChain.VkSwapChain, ulong.MaxValue, CurrentImageAvailableSemaphore, VkFence.Zero, &tempSwapChainImageIndex); // TODO 2
+			swapChainImageIndex = tempSwapChainImageIndex; // ew
 
-				Vk.ResetFences(LogicalDevice, 1, &inFlightPtr[currentFrame]);
-			}
+			if (vkResult == VkResult.ErrorOutOfDateKhr) {
+				SwapChain.Recreate();
+				return false;
+			} else if (vkResult is not VkResult.Success and not VkResult.SuboptimalKhr) { throw new VulkanException("Failed to acquire swap chain image"); }
 
-			Vk.ResetCommandBuffer(vkCommandBuffer, 0);
+			Vk.ResetFences(LogicalDevice, 1, &currentFence);
+
+			Vk.ResetCommandBuffer(graphicsCommandBuffer, 0);
 
 			VkCommandBufferBeginInfo commandBufferBeginInfo = new() { flags = 0, pInheritanceInfo = null, };
-			if (Vk.BeginCommandBuffer(vkCommandBuffer, &commandBufferBeginInfo) != VkResult.Success) { throw new VulkanException("Failed to begin recording command buffer"); }
+			if (Vk.BeginCommandBuffer(graphicsCommandBuffer, &commandBufferBeginInfo) != VkResult.Success) { throw new VulkanException("Failed to begin recording command buffer"); }
 
-			VkImageMemoryBarrier vkImageMemoryBarrier = new() {
+			VkImageMemoryBarrier imageMemoryBarrier = new() {
 					dstAccessMask = VkAccessFlagBits.AccessColorAttachmentWriteBit,
 					oldLayout = VkImageLayout.ImageLayoutUndefined,
 					newLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
-					image = SwapChain.VkImages[swapChainImageIndex],
+					image = SwapChain.Images[swapChainImageIndex],
 					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 			};
 
-			Vk.CmdPipelineBarrier(vkCommandBuffer, VkPipelineStageFlagBits.PipelineStageTopOfPipeBit, VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, 0, 0, null, 0, null, 1, &vkImageMemoryBarrier); // TODO use 2?
+			Vk.CmdPipelineBarrier(graphicsCommandBuffer, VkPipelineStageFlagBits.PipelineStageTopOfPipeBit, VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, 0, 0, null, 0, null, 1, &imageMemoryBarrier); // TODO 2
 
 			Color4<Rgba> clearColor = Window.ClearColor;
-			VkClearColorValue vkClearColor = new();
-			vkClearColor.float32[0] = clearColor.X;
-			vkClearColor.float32[1] = clearColor.Y;
-			vkClearColor.float32[2] = clearColor.Z;
-			vkClearColor.float32[3] = clearColor.W;
+			VkClearColorValue clearColorValue = new();
+			clearColorValue.float32[0] = clearColor.X;
+			clearColorValue.float32[1] = clearColor.Y;
+			clearColorValue.float32[2] = clearColor.Z;
+			clearColorValue.float32[3] = clearColor.W;
 
 			VkRenderingAttachmentInfo vkRenderingAttachmentInfo = new() {
-					imageView = SwapChain.VkImageViews[swapChainImageIndex],
+					imageView = SwapChain.ImageViews[swapChainImageIndex],
 					imageLayout = VkImageLayout.ImageLayoutAttachmentOptimalKhr,
 					loadOp = VkAttachmentLoadOp.AttachmentLoadOpClear,
 					storeOp = VkAttachmentStoreOp.AttachmentStoreOpStore,
 					clearValue = new() {
-							color = vkClearColor,
+							color = clearColorValue,
 							// depthStencil =, TODO look into what this is/how it works/if i want this
 					},
 			};
 
-			VkRenderingInfo vkRenderingInfo = new() { renderArea = new() { offset = new(0, 0), extent = SwapChain.VkExtent, }, layerCount = 1, colorAttachmentCount = 1, pColorAttachments = &vkRenderingAttachmentInfo, };
+			VkRenderingInfo renderingInfo = new() { renderArea = new() { offset = new(0, 0), extent = SwapChain.Extent, }, layerCount = 1, colorAttachmentCount = 1, pColorAttachments = &vkRenderingAttachmentInfo, };
 
-			Vk.CmdBeginRendering(vkCommandBuffer, &vkRenderingInfo);
+			Vk.CmdBeginRendering(graphicsCommandBuffer, &renderingInfo);
 
 			return true;
 		}
 
-		protected unsafe void EndFrame(VkCommandBuffer vkCommandBuffer, uint swapChainImageIndex) {
-			Vk.CmdEndRendering(vkCommandBuffer);
+		protected unsafe void EndFrame(VkCommandBuffer graphicsCommandBuffer, uint swapChainImageIndex) {
+			Vk.CmdEndRendering(graphicsCommandBuffer);
 
-			VkImageMemoryBarrier vkImageMemoryBarrier = new() {
+			VkImageMemoryBarrier imageMemoryBarrier = new() {
 					srcAccessMask = VkAccessFlagBits.AccessColorAttachmentWriteBit,
 					oldLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
 					newLayout = VkImageLayout.ImageLayoutPresentSrcKhr,
-					image = SwapChain.VkImages[swapChainImageIndex],
+					image = SwapChain.Images[swapChainImageIndex],
 					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 			};
 
-			Vk.CmdPipelineBarrier(vkCommandBuffer, VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, VkPipelineStageFlagBits.PipelineStageBottomOfPipeBit, 0, 0, null, 0, null, 1, &vkImageMemoryBarrier); // TODO use 2?
+			Vk.CmdPipelineBarrier(graphicsCommandBuffer, VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, VkPipelineStageFlagBits.PipelineStageBottomOfPipeBit, 0, 0, null, 0, null, 1, &imageMemoryBarrier); // TODO 2
 
-			if (Vk.EndCommandBuffer(vkCommandBuffer) != VkResult.Success) { throw new VulkanException("Failed to end recording command buffer"); }
+			if (Vk.EndCommandBuffer(graphicsCommandBuffer) != VkResult.Success) { throw new VulkanException("Failed to end recording command buffer"); }
 
-			VkH.SubmitCommandBufferQueue(Window.LogicalGpu.VkGraphicsQueue, vkCommandBuffer, CurrentImageAvailableSemaphore, CurrentRenderFinishedSemaphore, CurrentInFlightFences);
+			VkH.SubmitCommandBufferQueue(LogicalGpu.GraphicsQueue, graphicsCommandBuffer, CurrentImageAvailableSemaphore, CurrentRenderFinishedSemaphore, CurrentInFlightFence);
 		}
 
 		protected unsafe void PresentFrame(uint swapChainImageIndex) {
-			VkSwapchainKHR vkSwapchain = SwapChain.VkSwapChain;
+			VkSwapchainKHR swapChain = SwapChain.VkSwapChain;
 			VkSemaphore renderFinishedSemaphore = CurrentRenderFinishedSemaphore;
-			VkPresentInfoKHR presentInfo = new() { waitSemaphoreCount = 1, pWaitSemaphores = &renderFinishedSemaphore, swapchainCount = 1, pSwapchains = &vkSwapchain, pImageIndices = &swapChainImageIndex, };
+			VkPresentInfoKHR presentInfo = new() { waitSemaphoreCount = 1, pWaitSemaphores = &renderFinishedSemaphore, swapchainCount = 1, pSwapchains = &swapChain, pImageIndices = &swapChainImageIndex, };
 
-			VkResult vkResult = Vk.QueuePresentKHR(Window.LogicalGpu.VkPresentQueue, &presentInfo);
+			VkResult vkResult = Vk.QueuePresentKHR(LogicalGpu.PresentQueue, &presentInfo);
 			if (vkResult is VkResult.ErrorOutOfDateKhr or VkResult.SuboptimalKhr || Window.WasResized) {
 				Window.WasResized = false;
-				SwapChain.Recreate(Window);
+				SwapChain.Recreate();
 			} else if (vkResult != VkResult.Success) { throw new VulkanException("Failed to present swap chain image"); }
 
-			currentFrame = (currentFrame + 1) % maxFramesInFlight;
+			currentFrame = (byte)((currentFrame + 1) % maxFramesInFlight);
 		}
 
-		protected static unsafe void CreateGraphicsPipeline(VkDevice vkLogicalDevice, VkFormat swapChainImageFormat, Assembly assembly, out VkPipeline vkGraphicsPipeline, out VkPipelineLayout vkPipelineLayout) { // TODO move
-			VkShaderModule? vertShaderModule = VkH.CreateShaderModule(vkLogicalDevice, "Test", ShaderLanguage.Glsl, ShaderType.Vertex, assembly);
-			VkShaderModule? fragShaderModule = VkH.CreateShaderModule(vkLogicalDevice, "Test", ShaderLanguage.Glsl, ShaderType.Fragment, assembly);
+		[Obsolete("replace this method with a better system")]
+		protected static unsafe void CreateGraphicsPipeline(VkDevice logicalDevice, VkFormat swapChainImageFormat, Assembly assembly, out VkPipeline graphicsPipeline, out VkPipelineLayout pipelineLayout) { // TODO move
+			VkShaderModule? vertShaderModule = VkH.CreateShaderModule(logicalDevice, "Test", ShaderLanguage.Glsl, ShaderType.Vertex, assembly);
+			VkShaderModule? fragShaderModule = VkH.CreateShaderModule(logicalDevice, "Test", ShaderLanguage.Glsl, ShaderType.Fragment, assembly);
 			if (vertShaderModule == null || fragShaderModule == null) { throw new VulkanException("Failed to create shader modules"); }
 
 			byte* entryPointPtr = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference("main"u8));
 			VkPipelineShaderStageCreateInfo vertShaderStageCreateInfo = new() { stage = VkShaderStageFlagBits.ShaderStageVertexBit, module = vertShaderModule.Value, pName = entryPointPtr, };
 			VkPipelineShaderStageCreateInfo fragShaderStageCreateInfo = new() { stage = VkShaderStageFlagBits.ShaderStageFragmentBit, module = fragShaderModule.Value, pName = entryPointPtr, };
 
-			VkH.CreateGraphicsPipeline(vkLogicalDevice, swapChainImageFormat, [ vertShaderStageCreateInfo, fragShaderStageCreateInfo, ], out vkGraphicsPipeline, out vkPipelineLayout);
+			VkH.CreateGraphicsPipeline(logicalDevice, swapChainImageFormat, [ vertShaderStageCreateInfo, fragShaderStageCreateInfo, ], out graphicsPipeline, out pipelineLayout);
 
-			Vk.DestroyShaderModule(vkLogicalDevice, fragShaderModule.Value, null);
-			Vk.DestroyShaderModule(vkLogicalDevice, vertShaderModule.Value, null);
+			Vk.DestroyShaderModule(logicalDevice, fragShaderModule.Value, null);
+			Vk.DestroyShaderModule(logicalDevice, vertShaderModule.Value, null);
 		}
 
-		protected static unsafe void CreateVertexBuffer(VkPhysicalDevice vkPhysicalDevice, VkDevice vkLogicalDevice, VkMemoryPropertyFlagBits vkMemoryPropertyFlag, TestVertex[] vertices, out VkBuffer vertexBuffer,
-			out VkDeviceMemory vertexBufferDeviceMemory) { // TODO move
-			ulong bufferSize = (ulong)(sizeof(TestVertex) * vertices.Length);
+		protected class FrameData {
+			public VkCommandBuffer GraphicsCommandBuffer { get; }
+			public VkSemaphore ImageAvailableSemaphore { get; }
+			public VkSemaphore RenderFinishedSemaphore { get; }
+			public VkFence InFlightFence { get; }
 
-			vertexBuffer = VkH.CreateVertexBuffer(vkLogicalDevice, bufferSize);
-			vertexBufferDeviceMemory = VkH.CreateDeviceMemory(vkPhysicalDevice, vkLogicalDevice, vertexBuffer, vkMemoryPropertyFlag);
+			private readonly VkDevice vkLogicalDevice;
 
-			Vk.BindBufferMemory(vkLogicalDevice, vertexBuffer, vertexBufferDeviceMemory, 0);
+			public FrameData(VkDevice vkLogicalDevice, VkCommandBuffer graphicsCommandBuffer, VkSemaphore imageAvailableSemaphore, VkSemaphore renderFinishedSemaphore, VkFence inFlightFence) {
+				GraphicsCommandBuffer = graphicsCommandBuffer;
+				ImageAvailableSemaphore = imageAvailableSemaphore;
+				RenderFinishedSemaphore = renderFinishedSemaphore;
+				InFlightFence = inFlightFence;
+				this.vkLogicalDevice = vkLogicalDevice;
+			}
 
-			fixed (TestVertex* verticesPtr = vertices) {
-				void* data;
-				Vk.MapMemory(vkLogicalDevice, vertexBufferDeviceMemory, 0, bufferSize, 0, &data); // TODO 2
-				Buffer.MemoryCopy(verticesPtr, data, bufferSize, bufferSize);
-				Vk.UnmapMemory(vkLogicalDevice, vertexBufferDeviceMemory);
+			public unsafe void Destroy() {
+				Vk.DestroySemaphore(vkLogicalDevice, ImageAvailableSemaphore, null);
+				Vk.DestroySemaphore(vkLogicalDevice, RenderFinishedSemaphore, null);
+				Vk.DestroyFence(vkLogicalDevice, InFlightFence, null);
 			}
 		}
 	}

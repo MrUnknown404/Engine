@@ -7,7 +7,7 @@ namespace Engine3.Utils {
 			[SuppressMessage("Performance", "CA1822:Mark members as static")] // CA1822 warning is wrong here
 			public string ToReadableName() {
 				StringBuilder sb = new();
-				VisitType(self, sb, self);
+				Type.VisitType(self, sb, self);
 				return sb.ToString();
 			}
 
@@ -21,7 +21,7 @@ namespace Engine3.Utils {
 						elementType = elementType.GetElementType()!; // should be checked above
 					} while (elementType.IsArray);
 
-					VisitType(self2, sb, elementType);
+					Type.VisitType(self2, sb, elementType);
 
 					while (rankDeclarations.Count > 0) { sb.Append(rankDeclarations.Dequeue()); }
 				} else if (type.IsGenericType) {
@@ -31,11 +31,11 @@ namespace Engine3.Utils {
 					bool isNullable = self2.GetGenericTypeDefinition() == typeof(Nullable<>);
 					if (!isNullable) { sb.Append($"{type.Name[..type.Name.IndexOf('`')]}<"); }
 
-					VisitType(self2, sb, genericArgsEnumerator.Current);
+					Type.VisitType(self2, sb, genericArgsEnumerator.Current);
 
 					while (genericArgsEnumerator.MoveNext()) {
 						sb.Append(',');
-						VisitType(self2, sb, genericArgsEnumerator.Current);
+						Type.VisitType(self2, sb, genericArgsEnumerator.Current);
 					}
 
 					sb.Append(isNullable ? '?' : '>');

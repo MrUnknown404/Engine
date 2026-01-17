@@ -3,29 +3,29 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Graphics.Vulkan {
 	public class PhysicalGpu : IEquatable<PhysicalGpu> {
-		public VkPhysicalDevice VkPhysicalDevice { get; }
-		public VkPhysicalDeviceProperties2 VkPhysicalDeviceProperties2 { get; }
-		public VkPhysicalDeviceFeatures2 VkPhysicalDeviceFeatures2 { get; }
-		public VkExtensionProperties[] VkExtensionProperties { get; }
+		public VkPhysicalDevice PhysicalDevice { get; }
+		public VkPhysicalDeviceProperties2 PhysicalDeviceProperties2 { get; }
+		public VkPhysicalDeviceFeatures2 PhysicalDeviceFeatures2 { get; }
+		public VkExtensionProperties[] ExtensionProperties { get; }
 		public QueueFamilyIndices QueueFamilyIndices { get; }
 
 		public string Name { get; }
 
-		public PhysicalGpu(VkPhysicalDevice vkPhysicalDevice, VkPhysicalDeviceProperties2 vkPhysicalDeviceProperties2, VkPhysicalDeviceFeatures2 vkPhysicalDeviceFeatures2, VkExtensionProperties[] vkExtensionProperties,
+		public PhysicalGpu(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2 physicalDeviceProperties2, VkPhysicalDeviceFeatures2 physicalDeviceFeatures2, VkExtensionProperties[] extensionProperties,
 			QueueFamilyIndices queueFamilyIndices) {
-			VkPhysicalDevice = vkPhysicalDevice;
-			VkPhysicalDeviceProperties2 = vkPhysicalDeviceProperties2;
-			VkPhysicalDeviceFeatures2 = vkPhysicalDeviceFeatures2;
-			VkExtensionProperties = vkExtensionProperties;
+			PhysicalDevice = physicalDevice;
+			PhysicalDeviceProperties2 = physicalDeviceProperties2;
+			PhysicalDeviceFeatures2 = physicalDeviceFeatures2;
+			ExtensionProperties = extensionProperties;
 			QueueFamilyIndices = queueFamilyIndices;
 
-			VkPhysicalDeviceProperties.deviceNameInlineArray1 deviceNameArray = VkPhysicalDeviceProperties2.properties.deviceName;
+			VkPhysicalDeviceProperties.deviceNameInlineArray1 deviceNameArray = PhysicalDeviceProperties2.properties.deviceName;
 			ReadOnlySpan<byte> deviceNameSpan = deviceNameArray;
 			Name = Encoding.UTF8.GetString(deviceNameSpan[..deviceNameSpan.IndexOf((byte)0)]);
 		}
 
 		public string GetSimpleDescription() {
-			VkPhysicalDeviceProperties deviceProperties = VkPhysicalDeviceProperties2.properties;
+			VkPhysicalDeviceProperties deviceProperties = PhysicalDeviceProperties2.properties;
 			VkH.GetApiVersion(deviceProperties.apiVersion, out _, out byte major, out ushort minor, out ushort patch);
 			return $"{Name} - Api v{deviceProperties.apiVersion.ToString()} ({major}.{minor}.{patch})";
 		}
@@ -34,7 +34,7 @@ namespace Engine3.Graphics.Vulkan {
 			const string PhysicalDeviceTypeEnumName = "PhysicalDeviceType";
 			const string VendorIdEnumName = "VendorId";
 
-			VkPhysicalDeviceProperties deviceProperties = VkPhysicalDeviceProperties2.properties;
+			VkPhysicalDeviceProperties deviceProperties = PhysicalDeviceProperties2.properties;
 			int physicalDeviceTypeEnumNameLength = PhysicalDeviceTypeEnumName.Length;
 			int vendorIdEnumNameLength = VendorIdEnumName.Length;
 
@@ -59,9 +59,9 @@ namespace Engine3.Graphics.Vulkan {
 		public static bool operator ==(PhysicalGpu? left, PhysicalGpu? right) => Equals(left, right);
 		public static bool operator !=(PhysicalGpu? left, PhysicalGpu? right) => !Equals(left, right);
 
-		public bool Equals(PhysicalGpu? other) => other is not null && (other == this || VkPhysicalDevice.Handle.Equals(other.VkPhysicalDevice.Handle));
+		public bool Equals(PhysicalGpu? other) => other is not null && (other == this || PhysicalDevice.Handle.Equals(other.PhysicalDevice.Handle));
 		public override bool Equals(object? obj) => obj is PhysicalGpu gpu && Equals(gpu);
 
-		public override int GetHashCode() => VkPhysicalDevice.GetHashCode();
+		public override int GetHashCode() => PhysicalDevice.GetHashCode();
 	}
 }

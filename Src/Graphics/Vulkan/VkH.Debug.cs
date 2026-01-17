@@ -38,10 +38,10 @@ namespace Engine3.Graphics.Vulkan {
 			return true;
 		}
 
-		public static void PrintInstanceExtensions(VkExtensionProperties[] extensionProperties) {
+		public static void PrintInstanceExtensions(VkExtensionProperties[] instanceExtensionProperties) {
 			Logger.Debug("The following instance extensions are available:");
-			foreach (VkExtensionProperties extensionProperty in extensionProperties) {
-				ReadOnlySpan<byte> extensionName = extensionProperty.extensionName;
+			foreach (VkExtensionProperties extensionProperties in instanceExtensionProperties) {
+				ReadOnlySpan<byte> extensionName = extensionProperties.extensionName;
 				Logger.Debug($"- {Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)])}");
 			}
 		}

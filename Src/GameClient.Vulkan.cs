@@ -8,10 +8,10 @@ namespace Engine3 {
 		public string[] RequiredInstanceExtensions { get; internal init; } = Array.Empty<string>(); // Set in Engine3#Start
 		public string[] RequiredDeviceExtensions { get; internal init; } = Array.Empty<string>(); // Set in Engine3#Start
 
-		public VkDebugUtilsMessageSeverityFlagBitsEXT EnabledDebugMessageSeverities { get; init; } // Set in Engine3#Start
-		public VkDebugUtilsMessageTypeFlagBitsEXT EnabledDebugMessageTypes { get; init; } // Set in Engine3#Start
+		public VkDebugUtilsMessageSeverityFlagBitsEXT EnabledDebugMessageSeverities { get; internal init; } // Set in Engine3#Start
+		public VkDebugUtilsMessageTypeFlagBitsEXT EnabledDebugMessageTypes { get; internal init; } // Set in Engine3#Start
 
-		public byte MaxFramesInFlight { get; init; } // Set in Engine3#Start
+		public byte MaxFramesInFlight { get; internal init; } // Set in Engine3#Start
 
 		public string[] VkGetRequiredValidationLayers() {
 			HashSet<string> allRequiredValidationLayers = new();
@@ -35,13 +35,13 @@ namespace Engine3 {
 			return allDeviceExtensions.ToArray();
 		}
 
-		protected internal virtual bool VkIsPhysicalDeviceSuitable(VkPhysicalDeviceProperties2 vkPhysicalDeviceProperties2, VkPhysicalDeviceFeatures2 vkPhysicalDeviceFeatures2) {
-			VkPhysicalDeviceProperties deviceProperties = vkPhysicalDeviceProperties2.properties;
+		protected internal virtual bool VkIsPhysicalDeviceSuitable(VkPhysicalDeviceProperties2 physicalDeviceProperties2, VkPhysicalDeviceFeatures2 physicalDeviceFeatures2) {
+			VkPhysicalDeviceProperties deviceProperties = physicalDeviceProperties2.properties;
 			return deviceProperties.deviceType is VkPhysicalDeviceType.PhysicalDeviceTypeIntegratedGpu or VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu or VkPhysicalDeviceType.PhysicalDeviceTypeVirtualGpu;
 		}
 
 		protected internal virtual int VkRateGpuSuitability(PhysicalGpu physicalGpu) {
-			VkPhysicalDeviceProperties deviceProperties = physicalGpu.VkPhysicalDeviceProperties2.properties;
+			VkPhysicalDeviceProperties deviceProperties = physicalGpu.PhysicalDeviceProperties2.properties;
 			int score = 0;
 
 			if (deviceProperties.deviceType == VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu) { score += 1000; }

@@ -38,14 +38,14 @@ namespace Engine3 {
 			if (!VkH.CheckSupportForRequiredValidationLayers(gameClient.VkGetRequiredValidationLayers())) { throw new VulkanException("Requested validation layers are not available"); }
 #endif
 
-			VkExtensionProperties[] vkInstanceExtensions = VkH.GetInstanceExtensionProperties();
-			if (vkInstanceExtensions.Length == 0) { throw new VulkanException("Could not find any instance extension properties"); }
+			VkExtensionProperties[] instanceExtensionProperties = VkH.GetInstanceExtensionProperties();
+			if (instanceExtensionProperties.Length == 0) { throw new VulkanException("Could not find any instance extension properties"); }
 
 			string[] instanceExtensions = gameClient.VkGetInstanceExtensions();
-			if (!VkH.CheckSupportForRequiredInstanceExtensions(vkInstanceExtensions, instanceExtensions)) { throw new VulkanException("Requested instance extensions are not available"); }
+			if (!VkH.CheckSupportForRequiredInstanceExtensions(instanceExtensionProperties, instanceExtensions)) { throw new VulkanException("Requested instance extensions are not available"); }
 
 #if DEBUG
-			VkH.PrintInstanceExtensions(vkInstanceExtensions);
+			VkH.PrintInstanceExtensions(instanceExtensionProperties);
 #endif
 
 			VKLoader.Init();

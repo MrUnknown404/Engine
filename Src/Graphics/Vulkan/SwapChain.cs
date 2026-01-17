@@ -1,40 +1,48 @@
+using System.Diagnostics.CodeAnalysis;
+using Engine3.Exceptions;
 using OpenTK.Graphics.Vulkan;
+using OpenTK.Mathematics;
+using OpenTK.Platform;
 
 namespace Engine3.Graphics.Vulkan {
 	public class SwapChain {
 		public VkSwapchainKHR VkSwapChain { get; private set; }
-		public VkImage[] VkImages { get; private set; }
-		public VkFormat VkImageFormat { get; private set; }
-		public VkExtent2D VkExtent { get; private set; }
-		public VkImageView[] VkImageViews { get; private set; }
+		public VkFormat ImageFormat { get; private set; }
+		public VkExtent2D Extent { get; private set; }
+		public VkImage[] Images { get; private set; }
+		public VkImageView[] ImageViews { get; private set; }
 
-		public SwapChain(VkSwapchainKHR vkSwapChain, VkImage[] vkImages, VkFormat vkImageFormat, VkExtent2D vkExtent, VkImageView[] vkImageViews) {
+		[field: MaybeNull] internal VkWindow Window { private get => field ?? throw new Engine3Exception("Forgot to set window?"); set; }
+
+		private VkDevice LogicalDevice => Window.LogicalGpu.LogicalDevice;
+
+		public SwapChain(VkSwapchainKHR vkSwapChain, VkFormat imageFormat, VkExtent2D extent, VkImage[] images, VkImageView[] imageViews) {
 			VkSwapChain = vkSwapChain;
-			VkImages = vkImages;
-			VkImageFormat = vkImageFormat;
-			VkExtent = vkExtent;
-			VkImageViews = vkImageViews;
+			ImageFormat = imageFormat;
+			Extent = extent;
+			Images = images;
+			ImageViews = imageViews;
 		}
 
-		public unsafe void Recreate(VkWindow window) {
-			VkDevice vkLogicalDevice = window.LogicalGpu.VkLogicalDevice;
+		public unsafe void Recreate() {
+			Vk.DeviceWaitIdle(LogicalDevice);
 
-			Vk.DeviceWaitIdle(vkLogicalDevice);
-			SwapChain newSwapChain = VkH.CreateSwapChain(window.WindowHandle, window.VkSurface, window.SelectedGpu, vkLogicalDevice, VkPresentModeKHR.PresentModeImmediateKhr, oldSwapChain: VkSwapChain);
+			Toolkit.Window.GetFramebufferSize(Window.WindowHandle, out Vector2i framebufferSize);
+			SwapChain newSwapChain = VkH.CreateSwapChain(Window.SelectedGpu, LogicalDevice, Window.Surface, framebufferSize, VkPresentModeKHR.PresentModeImmediateKhr, oldSwapChain: VkSwapChain);
 
-			Vk.DestroySwapchainKHR(vkLogicalDevice, VkSwapChain, null);
-			foreach (VkImageView vkImageView in VkImageViews) { Vk.DestroyImageView(vkLogicalDevice, vkImageView, null); }
+			Vk.DestroySwapchainKHR(LogicalDevice, VkSwapChain, null);
+			foreach (VkImageView imageView in ImageViews) { Vk.DestroyImageView(LogicalDevice, imageView, null); }
 
 			VkSwapChain = newSwapChain.VkSwapChain;
-			VkImages = newSwapChain.VkImages;
-			VkImageFormat = newSwapChain.VkImageFormat;
-			VkExtent = newSwapChain.VkExtent;
-			VkImageViews = newSwapChain.VkImageViews;
+			Images = newSwapChain.Images;
+			ImageFormat = newSwapChain.ImageFormat;
+			Extent = newSwapChain.Extent;
+			ImageViews = newSwapChain.ImageViews;
 		}
 
-		public unsafe void Destroy(VkDevice vkLogicalDevice) {
-			Vk.DestroySwapchainKHR(vkLogicalDevice, VkSwapChain, null);
-			foreach (VkImageView vkImageView in VkImageViews) { Vk.DestroyImageView(vkLogicalDevice, vkImageView, null); }
+		public unsafe void Destroy() {
+			Vk.DestroySwapchainKHR(LogicalDevice, VkSwapChain, null);
+			foreach (VkImageView imageView in ImageViews) { Vk.DestroyImageView(LogicalDevice, imageView, null); }
 		}
 	}
 }

@@ -33,8 +33,4 @@
 
 		<Compile Remove="Src/Debug/**/*.cs" Condition="'$(Configuration)' == 'Release'"/>
 	</ItemGroup>
-	<ItemGroup>
-		<Folder Include="Src\Engine\"/>
-		<Folder Include="Src\Math\"/>
-	</ItemGroup>
 </Project>

@@ -3,7 +3,7 @@ namespace Engine3.Graphics {
 		public abstract bool IsWindowValid { get; }
 		public bool WasDestroyed { get; private set; }
 
-		public virtual bool CanRender => IsWindowValid && !WasDestroyed;
+		public bool CanRender => IsWindowValid && !WasDestroyed;
 
 		public abstract void Setup();
 		protected internal abstract void DrawFrame(float delta);

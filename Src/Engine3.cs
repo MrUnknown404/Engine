@@ -131,7 +131,7 @@ namespace Engine3 {
 
 			GameLoop();
 
-			Logger.Debug("GameLoop exited");
+			Logger.Info("GameLoop exited");
 			OnShutdownEvent?.Invoke();
 
 			Cleanup();
