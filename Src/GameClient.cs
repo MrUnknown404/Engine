@@ -7,11 +7,11 @@ using Engine3.Utils;
 using NLog;
 using OpenTK.Platform;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using shaderc;
+using Silk.NET.Core.Loader;
+using Silk.NET.Shaderc;
 using ZLinq;
 using GraphicsApi = Engine3.Graphics.GraphicsApi;
 using Window = Engine3.Graphics.Window;
-using SpirVCompiler = shaderc.Compiler;
 
 namespace Engine3 {
 	public abstract partial class GameClient {
@@ -24,10 +24,11 @@ namespace Engine3 {
 		public GraphicsApi GraphicsApi { get; }
 		public GraphicsApiHints? GraphicsApiHints { get; }
 		public List<Window> Windows { get; } = new();
+		public Shaderc Shaderc { get; } = new(Shaderc.CreateDefaultContext(new ShadercSearchPathContainer().GetLibraryNames()));
 
-		public ulong UpdateFrameCount { get; private set; }
+		public ulong UpdateCount { get; private set; }
 		public uint UpdatesPerSecond { get; private set; }
-		public float UpdateFrameTime { get; private set; }
+		public float UpdateTime { get; private set; }
 
 		public bool WasGraphicsSetup => WasOpenGLSetup | WasVulkanSetup;
 
@@ -76,8 +77,10 @@ namespace Engine3 {
 			Logger.Debug($"- Game Version: {Version}");
 			Logger.Debug($"- GLFW Version: {GLFW.GetVersionString()}"); // TODO i have no idea what window manager OpenTK uses. i see GLFW, & SDL. but it looks like PAL is just using Win32 API/X11 API directly. help
 			Logger.Debug($"- Graphics Api: {GraphicsApi}");
-			SpirVCompiler.GetSpvVersion(out SpirVVersion version, out uint revision);
-			Logger.Debug($"- SpirV Version: {version.Major}.{version.Minor} - {revision}");
+
+			uint spvVersion = 0, spvRevision = 0;
+			Shaderc.GetSpvVersion(ref spvVersion, ref spvRevision);
+			Logger.Debug($"- SpirV Version: {(spvVersion & 16711680U) >> 16}.{(spvVersion & 65280U) >> 8} - {spvRevision}");
 
 			SetupEngine();
 
@@ -143,7 +146,7 @@ namespace Engine3 {
 
 				EngineUpdate();
 				Update();
-				UpdateFrameCount++;
+				UpdateCount++;
 
 				if (GraphicsApi == GraphicsApi.Console) { continue; }
 
@@ -210,6 +213,15 @@ namespace Engine3 {
 
 		public class StartupSettings {
 			public string MainThreadName { get; init; } = "Main";
+		}
+
+		private class ShadercSearchPathContainer : SearchPathContainer { // TODO rename
+			public override string[] Linux => new[] { "libshaderc_shared.so", "libshaderc.so", };
+			public override string[] MacOS => new[] { "libshaderc_shared.dylib", };
+			public override string[] Android => new[] { "libshaderc_shared.so", };
+			public override string[] IOS => new[] { string.Empty, };
+			public override string[] Windows64 => new[] { "shaderc_shared.dll", };
+			public override string[] Windows86 => new[] { "shaderc_shared.dll", };
 		}
 	}
 }

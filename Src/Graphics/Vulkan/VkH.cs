@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Engine3.Exceptions;
+using Engine3.Graphics.Test;
 using Engine3.Utils;
 using JetBrains.Annotations;
 using NLog;
@@ -12,12 +13,13 @@ using OpenTK.Core.Native;
 using OpenTK.Graphics.Vulkan;
 using OpenTK.Mathematics;
 using OpenTK.Platform;
-using shaderc;
-using SpirVCompiler = shaderc.Compiler;
-using SpirVResult = shaderc.Result;
+using Silk.NET.Shaderc;
+using Compiler = Silk.NET.Shaderc.Compiler;
+using ShaderKind = Silk.NET.Shaderc.ShaderKind;
+using SourceLanguage = Silk.NET.Shaderc.SourceLanguage;
 
 namespace Engine3.Graphics.Vulkan {
-	public static unsafe partial class VkH {
+	public static unsafe partial class VkH { // TODO any VK method that can take an array should
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		/// <summary>
@@ -147,7 +149,7 @@ namespace Engine3.Graphics.Vulkan {
 				if (physicalDeviceExtensionProperties.Length == 0) { throw new VulkanException("Could not find any device extension properties"); }
 				if (!CheckDeviceExtensionSupport(physicalDeviceExtensionProperties, requiredDeviceExtensions)) { continue; }
 				if (!FindQueueFamilies(device, surface, out uint? graphicsFamily, out uint? presentFamily, out uint? transferFamily)) { continue; }
-				if (!QuerySwapChainSupport(device, surface, out _, out VkSurfaceFormat2KHR[]? surfaceFormats2, out VkPresentModeKHR[]? presentModes)) { continue; }
+				if (!QuerySwapChainSupport(device, surface, out _, out _, out _)) { continue; }
 
 				gpus.Add(new(device, physicalDeviceProperties2, physicalDeviceFeatures2, physicalDeviceExtensionProperties, new(graphicsFamily.Value, presentFamily.Value, transferFamily.Value)));
 			}
@@ -411,8 +413,8 @@ namespace Engine3.Graphics.Vulkan {
 			return true;
 		}
 
-		public static void CreateGraphicsPipeline(VkDevice logicalDevice, VkFormat swapChainImageFormat, VkPipelineShaderStageCreateInfo[] shaderStageCreateInfos, out VkPipeline graphicsPipeline,
-			out VkPipelineLayout pipelineLayout) {
+		public static void CreateGraphicsPipeline(VkDevice logicalDevice, VkFormat swapChainImageFormat, VkPipelineShaderStageCreateInfo[] shaderStageCreateInfos, VkDescriptorSetLayout[]? descriptorSetLayouts,
+			out VkPipeline graphicsPipeline, out VkPipelineLayout pipelineLayout) {
 			if (shaderStageCreateInfos.Length == 0) { throw new VulkanException($"{nameof(shaderStageCreateInfos)} cannot be empty"); }
 
 			VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo = new() { topology = VkPrimitiveTopology.PrimitiveTopologyTriangleList, };
@@ -458,21 +460,29 @@ namespace Engine3.Graphics.Vulkan {
 			colorBlendStateCreateInfo.blendConstants[2] = 0;
 			colorBlendStateCreateInfo.blendConstants[3] = 0;
 
-			VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = new() { setLayoutCount = 0, pSetLayouts = null, pushConstantRangeCount = 0, pPushConstantRanges = null, };
+			fixed (VkDescriptorSetLayout* descriptorSetLayoutsPtr = descriptorSetLayouts) {
+				VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = new() {
+						setLayoutCount = descriptorSetLayouts != null ? (uint)descriptorSetLayouts.Length : 0,
+						pSetLayouts = descriptorSetLayouts != null ? descriptorSetLayoutsPtr : null,
+						pushConstantRangeCount = 0,
+						pPushConstantRanges = null,
+				};
 
-			VkPipelineLayout tempPipelineLayout;
-			if (Vk.CreatePipelineLayout(logicalDevice, &pipelineLayoutCreateInfo, null, &tempPipelineLayout) != VkResult.Success) { throw new VulkanException("Failed to create pipeline layout"); }
-			pipelineLayout = tempPipelineLayout;
+				VkPipelineLayout tempPipelineLayout;
+				if (Vk.CreatePipelineLayout(logicalDevice, &pipelineLayoutCreateInfo, null, &tempPipelineLayout) != VkResult.Success) { throw new VulkanException("Failed to create pipeline layout"); }
+				pipelineLayout = tempPipelineLayout;
+			}
 
 			fixed (VkPipelineShaderStageCreateInfo* shaderStageCreateInfosPtr = shaderStageCreateInfos) {
 				VkDynamicState[] dynamicStates = [ VkDynamicState.DynamicStateViewport, VkDynamicState.DynamicStateScissor, ]; // TODO allow this to be edited
 
 				fixed (VkDynamicState* dynamicStatesPtr = dynamicStates) {
-					VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = new() { dynamicStateCount = (uint)dynamicStates.Length, pDynamicStates = dynamicStatesPtr, };
-					VkVertexInputBindingDescription bindingDescription = TestVertex.GetBindingDescription();
 					VkVertexInputAttributeDescription[] attributeDescriptions = TestVertex.GetAttributeDescriptions();
 
 					fixed (VkVertexInputAttributeDescription* attributeDescriptionsPtr = attributeDescriptions) {
+						VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = new() { dynamicStateCount = (uint)dynamicStates.Length, pDynamicStates = dynamicStatesPtr, };
+						VkVertexInputBindingDescription bindingDescription = TestVertex.GetBindingDescription();
+
 						VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = new() {
 								vertexBindingDescriptionCount = 1,
 								vertexAttributeDescriptionCount = (uint)attributeDescriptions.Length,
@@ -492,7 +502,7 @@ namespace Engine3.Graphics.Vulkan {
 								pDepthStencilState = null,
 								pColorBlendState = &colorBlendStateCreateInfo,
 								pDynamicState = &dynamicStateCreateInfo,
-								layout = tempPipelineLayout,
+								layout = pipelineLayout,
 								basePipelineHandle = VkPipeline.Zero,
 								basePipelineIndex = -1,
 						};
@@ -517,8 +527,10 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public static VkShaderModule? CreateShaderModule(VkDevice logicalDevice, string fileName, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {
-			using Stream? shaderStream = AssetH.GetAssetStream($"Shaders.{shaderLang.AssetFolderName}.{fileName}.{shaderType.FileExtension}{(shaderLang == ShaderLanguage.SpirV ? ".spv" : string.Empty)}", assembly);
+		public static VkShaderModule? CreateShaderModule(VkDevice logicalDevice, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {
+			string fullFileName = $"{fileLocation}.{shaderType.FileExtension}.{shaderLang.FileExtension}";
+
+			using Stream? shaderStream = AssetH.GetAssetStream($"Shaders.{fullFileName}", assembly);
 			if (shaderStream == null) {
 				Logger.Error("Failed to create asset stream");
 				return null;
@@ -526,26 +538,55 @@ namespace Engine3.Graphics.Vulkan {
 
 			switch (shaderLang) {
 				case ShaderLanguage.Glsl or ShaderLanguage.Hlsl: {
-					using SpirVCompiler spirvCompiler = new(new Options {
-							SourceLanguage = shaderLang switch {
-									ShaderLanguage.Glsl => SourceLanguage.Glsl,
-									ShaderLanguage.Hlsl => SourceLanguage.Hlsl,
-									ShaderLanguage.SpirV => throw new UnreachableException(),
-									_ => throw new NotImplementedException(),
-							},
+					Shaderc shaderc = Engine3.GameInstance.Shaderc;
+
+					Compiler* compiler = shaderc.CompilerInitialize();
+					CompileOptions* options = shaderc.CompileOptionsInitialize();
+
+					shaderc.CompileOptionsSetSourceLanguage(options, shaderLang switch {
+							ShaderLanguage.Glsl => SourceLanguage.Glsl,
+							ShaderLanguage.Hlsl => SourceLanguage.Hlsl,
+							ShaderLanguage.SpirV => throw new UnreachableException(),
+							_ => throw new NotImplementedException(),
 					});
 
 					using StreamReader streamReader = new(shaderStream);
-					using SpirVResult spirvResult = spirvCompiler.Compile(streamReader.ReadToEnd(), fileName, shaderType.ShaderKind);
+					string source = streamReader.ReadToEnd();
+					byte* sourcePtr = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(Encoding.UTF8.GetBytes(source)));
+					byte* shaderNamePtr = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(Encoding.UTF8.GetBytes(fullFileName)));
+					ShaderKind shaderKind = shaderType switch {
+							ShaderType.Fragment => ShaderKind.FragmentShader,
+							ShaderType.Vertex => ShaderKind.VertexShader,
+							ShaderType.Geometry => ShaderKind.GeometryShader,
+							ShaderType.TessEvaluation => ShaderKind.TessEvaluationShader,
+							ShaderType.TessControl => ShaderKind.TessControlShader,
+							ShaderType.Compute => ShaderKind.ComputeShader,
+							_ => throw new ArgumentOutOfRangeException(nameof(shaderType), shaderType, null),
+					};
 
-					if (spirvResult.Status != Status.Success) {
-						Logger.Error($"Failed to compile shader: {fileName}. {spirvResult.ErrorMessage}");
+					CompilationResult* result = shaderc.CompileIntoSpv(compiler, sourcePtr, (nuint)source.Length, shaderKind, shaderNamePtr, "main", options);
+					shaderc.CompileOptionsRelease(options);
+
+					CompilationStatus status = shaderc.ResultGetCompilationStatus(result);
+					shaderc.CompilerRelease(compiler);
+
+					if (status != CompilationStatus.Success) {
+						Logger.Error($"Failed to compile {shaderType} shader: {fileLocation}. {shaderc.ResultGetErrorMessageS(result)}");
+						shaderc.ResultRelease(result);
 						return null;
 					}
 
-					VkShaderModuleCreateInfo shaderModuleCreateInfo = new() { codeSize = spirvResult.CodeLength, pCode = (uint*)spirvResult.CodePointer, };
+					VkShaderModuleCreateInfo shaderModuleCreateInfo = new() { codeSize = shaderc.ResultGetLength(result), pCode = (uint*)shaderc.ResultGetBytes(result), };
 					VkShaderModule shaderModule;
-					return Vk.CreateShaderModule(logicalDevice, &shaderModuleCreateInfo, null, &shaderModule) != VkResult.Success ? throw new VulkanException("Failed to create shader module") : shaderModule;
+
+					if (Vk.CreateShaderModule(logicalDevice, &shaderModuleCreateInfo, null, &shaderModule) != VkResult.Success) {
+						shaderc.ResultRelease(result);
+						throw new VulkanException("Failed to create shader module");
+					}
+
+					shaderc.ResultRelease(result);
+
+					return shaderModule;
 				}
 				case ShaderLanguage.SpirV: {
 					using BinaryReader reader = new(shaderStream);
@@ -668,11 +709,11 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public static VkDeviceMemory CreateDeviceMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkBuffer buffer, VkMemoryPropertyFlagBits memoryPropertyFlag) {
+		public static VkDeviceMemory CreateDeviceMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkBuffer buffer, VkMemoryPropertyFlagBits memoryPropertyFlags) {
 			VkMemoryRequirements memoryRequirements = new(); // TODO 2
 			Vk.GetBufferMemoryRequirements(logicalDevice, buffer, &memoryRequirements);
 
-			VkMemoryAllocateInfo memoryAllocateInfo = new() { allocationSize = memoryRequirements.size, memoryTypeIndex = FindMemoryType(physicalDevice, memoryRequirements.memoryTypeBits, memoryPropertyFlag), };
+			VkMemoryAllocateInfo memoryAllocateInfo = new() { allocationSize = memoryRequirements.size, memoryTypeIndex = FindMemoryType(physicalDevice, memoryRequirements.memoryTypeBits, memoryPropertyFlags), };
 			VkDeviceMemory deviceMemory;
 
 			// TODO "It should be noted that in a real world application, you're not supposed to actually call vkAllocateMemory for every individual buffer."
@@ -680,10 +721,10 @@ namespace Engine3.Graphics.Vulkan {
 			return Vk.AllocateMemory(logicalDevice, &memoryAllocateInfo, null, &deviceMemory) != VkResult.Success ? throw new VulkanException("Failed to allocate memory") : deviceMemory;
 		}
 
-		public static void CreateBufferAndMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkBufferUsageFlagBits vkBufferUsage, VkMemoryPropertyFlagBits vkMemoryPropertyFlag, ulong size, out VkBuffer buffer,
+		public static void CreateBufferAndMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkBufferUsageFlagBits bufferUsage, VkMemoryPropertyFlagBits memoryPropertyFlags, ulong size, out VkBuffer buffer,
 			out VkDeviceMemory deviceMemory) {
-			buffer = CreateBuffer(logicalDevice, vkBufferUsage, size);
-			deviceMemory = CreateDeviceMemory(physicalDevice, logicalDevice, buffer, vkMemoryPropertyFlag);
+			buffer = CreateBuffer(logicalDevice, bufferUsage, size);
+			deviceMemory = CreateDeviceMemory(physicalDevice, logicalDevice, buffer, memoryPropertyFlags);
 			Vk.BindBufferMemory(logicalDevice, buffer, deviceMemory, 0);
 		}
 

@@ -1,5 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
-
 namespace Engine3.Graphics {
 	public enum ShaderLanguage {
 		Glsl,
@@ -9,12 +7,11 @@ namespace Engine3.Graphics {
 
 	public static class ShaderLanguageExtensions {
 		extension(ShaderLanguage self) {
-			[SuppressMessage("Performance", "CA1822:Mark members as static")]
-			public string AssetFolderName =>
+			public string FileExtension =>
 					self switch {
-							ShaderLanguage.Glsl => "GLSL",
-							ShaderLanguage.Hlsl => "HLSL",
-							ShaderLanguage.SpirV => "SPIR-V",
+							ShaderLanguage.Glsl => "glsl",
+							ShaderLanguage.Hlsl => "hlsl",
+							ShaderLanguage.SpirV => "spv",
 							_ => throw new ArgumentOutOfRangeException(nameof(self), self, null),
 					};
 		}

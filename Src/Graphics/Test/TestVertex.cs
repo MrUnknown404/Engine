@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Graphics {
+namespace Engine3.Graphics.Test {
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
 	public readonly record struct TestVertex {
 		public required float X { get; init; }

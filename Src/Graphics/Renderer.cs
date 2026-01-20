@@ -1,6 +1,6 @@
 namespace Engine3.Graphics {
 	public abstract class Renderer {
-		public ulong FrameCount { get; protected set; }
+		public ulong FrameCount { get; private set; }
 		public bool WasDestroyed { get; private set; }
 
 		public abstract bool IsWindowValid { get; }
