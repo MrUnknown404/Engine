@@ -48,17 +48,12 @@ namespace Engine3.Graphics.Vulkan {
 
 		protected abstract void DrawFrame(VkPipeline graphicsPipeline, VkCommandBuffer graphicsCommandBuffer, float delta);
 
-		protected override unsafe void Cleanup() {
-			Vk.DestroyCommandPool(LogicalDevice, TransferCommandPool, null);
-			Vk.DestroyCommandPool(LogicalDevice, GraphicsCommandPool, null);
-
-			foreach (FrameData frame in Frames) { frame.Destroy(); }
-		}
+		protected virtual void UpdateUniformBuffer(float delta) { }
 
 		protected unsafe bool BeginFrame(VkCommandBuffer graphicsCommandBuffer, out uint swapChainImageIndex) {
 			VkFence currentFence = CurrentInFlightFence;
 
-			// not sure if i'm supposed to wait for all fences or just the relevant one. vulkan-tutorial.com & vkguide.dev differ
+			// not sure if i'm supposed to wait for all fences or just the current one. vulkan-tutorial.com & vkguide.dev differ. i should probably read the docs
 			// vulkan-tutorial.com says wait for all
 			// vkguide.dev says wait for current
 			Vk.WaitForFences(LogicalDevice, 1, &currentFence, (int)Vk.True, ulong.MaxValue);
@@ -132,8 +127,6 @@ namespace Engine3.Graphics.Vulkan {
 			VkH.SubmitCommandBufferQueue(LogicalGpu.GraphicsQueue, graphicsCommandBuffer, CurrentImageAvailableSemaphore, CurrentRenderFinishedSemaphore, CurrentInFlightFence);
 		}
 
-		protected virtual void UpdateUniformBuffer(float delta) { }
-
 		protected unsafe void PresentFrame(uint swapChainImageIndex) {
 			VkSwapchainKHR swapChain = SwapChain.VkSwapChain;
 			VkSemaphore renderFinishedSemaphore = CurrentRenderFinishedSemaphore;
@@ -146,6 +139,13 @@ namespace Engine3.Graphics.Vulkan {
 			} else if (vkResult != VkResult.Success) { throw new VulkanException("Failed to present swap chain image"); }
 
 			CurrentFrame = (byte)((CurrentFrame + 1) % MaxFramesInFlight);
+		}
+
+		protected override unsafe void Cleanup() {
+			Vk.DestroyCommandPool(LogicalDevice, TransferCommandPool, null);
+			Vk.DestroyCommandPool(LogicalDevice, GraphicsCommandPool, null);
+
+			foreach (FrameData frame in Frames) { frame.Destroy(); }
 		}
 
 		[Obsolete("create a proper way of creating shaders & pipelines")] // TODO move
