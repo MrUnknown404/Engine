@@ -16,7 +16,13 @@ namespace Engine3.Graphics {
 		public bool WasResized { get; internal set; }
 		public bool WasDestroyed { get; private set; }
 
-		public Renderer? Renderer { get; set; }
+		public Renderer? Renderer {
+			get;
+			set {
+				if (field is { WasDestroyed: false, }) { Logger.Warn("Window renderer was set without having destroyed the previous renderer. This will cause problems"); }
+				field = value;
+			}
+		}
 
 		public event AttemptCloseWindow? TryCloseWindowEvent;
 		public event Action? OnCloseWindowEvent;

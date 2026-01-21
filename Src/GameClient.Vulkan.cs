@@ -17,8 +17,7 @@ namespace Engine3 {
 
 		public VkDebugUtilsMessageTypeFlagBitsEXT EnabledDebugMessageTypes { get; init; } = VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeGeneralBitExt |
 																							VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeValidationBitExt |
-																							VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypePerformanceBitExt |
-																							VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeDeviceAddressBindingBitExt;
+																							VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypePerformanceBitExt;
 
 		public VkPresentModeKHR PresentMode { get; init; } = VkPresentModeKHR.PresentModeImmediateKhr;
 
@@ -32,9 +31,13 @@ namespace Engine3 {
 		private static VkDebugUtilsMessengerEXT? vkDebugMessenger;
 #endif
 
-		private void SetupVulkan() {
+		private unsafe void SetupVulkan() {
 			Logger.Debug("Loading Vulkan library...");
 			VKLoader.Init();
+
+			uint apiVersion;
+			Vk.EnumerateInstanceVersion(&apiVersion);
+			Logger.Debug($"- Version: {apiVersion} ({Vk.API_VERSION_MAJOR(apiVersion)}.{Vk.API_VERSION_MINOR(apiVersion)}.{Vk.API_VERSION_PATCH(apiVersion)})");
 
 #if DEBUG
 			VkLayerProperties[] availableLayerProperties = VkH.EnumerateInstanceLayerProperties();

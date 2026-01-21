@@ -70,7 +70,7 @@ namespace Engine3.Graphics.Vulkan {
 			}
 
 			public void AddDescriptorSets(VkShaderStageFlagBits shaderStageFlags, uint bindingLocation, uint maxFramesInFlight, VkBuffer[] uniformBuffers, uint uniformBufferSize) {
-				descriptorPool = VkH.CreateDescriptorPool(logicalDevice, maxFramesInFlight);
+				descriptorPool = VkH.CreateDescriptorPool(logicalDevice, VkDescriptorType.DescriptorTypeUniformBuffer, maxFramesInFlight);
 				descriptorSetLayout = VkH.CreateDescriptorSetLayout(logicalDevice, bindingLocation, shaderStageFlags);
 				descriptorSets = VkH.CreateDescriptorSets(logicalDevice, descriptorPool.Value, descriptorSetLayout.Value, maxFramesInFlight, uniformBufferSize, uniformBuffers);
 			}
