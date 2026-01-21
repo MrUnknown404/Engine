@@ -20,6 +20,8 @@ namespace Engine3 {
 																							VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypePerformanceBitExt |
 																							VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeDeviceAddressBindingBitExt;
 
+		public VkPresentModeKHR PresentMode { get; init; } = VkPresentModeKHR.PresentModeImmediateKhr;
+
 		public byte MaxFramesInFlight { get; init; } = 2;
 
 		public VkInstance? VkInstance { get; private set; }
@@ -31,21 +33,22 @@ namespace Engine3 {
 #endif
 
 		private void SetupVulkan() {
+			Logger.Debug("Loading Vulkan library...");
+			VKLoader.Init();
+
 #if DEBUG
-			if (!VkH.CheckSupportForRequiredValidationLayers(GetAllRequiredValidationLayers())) { throw new VulkanException("Requested validation layers are not available"); }
+			VkLayerProperties[] availableLayerProperties = VkH.EnumerateInstanceLayerProperties();
+			if (availableLayerProperties.Length == 0) { throw new VulkanException("Could not find any instance layer properties"); }
+			if (!VkH.CheckSupportForRequiredValidationLayers(availableLayerProperties, GetAllRequiredValidationLayers())) { throw new VulkanException("Requested validation layers are not available"); }
 #endif
 
 			VkExtensionProperties[] instanceExtensionProperties = VkH.GetInstanceExtensionProperties();
 			if (instanceExtensionProperties.Length == 0) { throw new VulkanException("Could not find any instance extension properties"); }
-
-			string[] instanceExtensions = GetAllRequiredInstanceExtensions();
-			if (!VkH.CheckSupportForRequiredInstanceExtensions(instanceExtensionProperties, instanceExtensions)) { throw new VulkanException("Requested instance extensions are not available"); }
+			if (!VkH.CheckSupportForRequiredInstanceExtensions(instanceExtensionProperties, GetAllRequiredInstanceExtensions())) { throw new VulkanException("Requested instance extensions are not available"); }
 
 #if DEBUG
 			VkH.PrintInstanceExtensions(instanceExtensionProperties);
 #endif
-
-			VKLoader.Init();
 
 			VkInstance = VkH.CreateVulkanInstance(this, Engine3.Name, Version, Engine3.Version);
 			VKLoader.SetInstance(VkInstance.Value);

@@ -1,7 +1,7 @@
 using System.Text;
 
-namespace Engine3.Utils {
-	public static class Extensions {
+namespace Engine3.Utils.Extensions {
+	public static class TypeExtensions {
 		extension(Type self) {
 			public string ToReadableName() {
 				StringBuilder sb = new();

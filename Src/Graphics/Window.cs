@@ -78,15 +78,20 @@ namespace Engine3.Graphics {
 			Logger.Debug("Destroying window...");
 
 			if (Renderer is { WasDestroyed: false, }) {
-				Logger.Debug("Destroying renderer...");
+				Logger.Debug("Cleaning up window's renderer...");
 				Renderer.TryCleanup();
 			}
 
+			Logger.Debug("Cleaning up window's graphics...");
 			CleanupGraphics();
 
 			if (!Toolkit.Window.IsWindowDestroyed(WindowHandle)) {
-				Toolkit.Window.Destroy(WindowHandle); // TODO remove from window list
 				OnDestroyEvent?.Invoke();
+
+				bool successful = Engine3.GameInstance.Windows.Remove(this);
+				if (!successful) { Logger.Warn("Could not find to be destroyed window in game client window list"); }
+
+				Toolkit.Window.Destroy(WindowHandle);
 			} else { Logger.Warn("Tried to destroy an already destroyed window"); }
 
 			WasDestroyed = true;

@@ -14,38 +14,39 @@ namespace Engine3.Graphics.Vulkan {
 
 		[field: MaybeNull] internal VkWindow Window { private get => field ?? throw new Engine3Exception("Forgot to set window?"); set; }
 
+		private readonly VkDevice logicalDevice;
 		private readonly VkPresentModeKHR presentMode;
 
-		private VkDevice LogicalDevice => Window.LogicalGpu.LogicalDevice;
-
-		public SwapChain(VkSwapchainKHR vkSwapChain, VkFormat imageFormat, VkExtent2D extent, VkImage[] images, VkImageView[] imageViews, VkPresentModeKHR presentMode) {
+		public SwapChain(VkDevice logicalDevice, VkSwapchainKHR vkSwapChain, VkFormat imageFormat, VkExtent2D extent, VkPresentModeKHR presentMode) {
+			this.logicalDevice = logicalDevice;
 			VkSwapChain = vkSwapChain;
 			ImageFormat = imageFormat;
 			Extent = extent;
-			Images = images;
-			ImageViews = imageViews;
+			Images = VkH.GetSwapChainImages(logicalDevice, vkSwapChain);
+			ImageViews = VkH.CreateImageViews(logicalDevice, Images, ImageFormat);
 			this.presentMode = presentMode;
 		}
 
-		public unsafe void Recreate() {
-			Vk.DeviceWaitIdle(LogicalDevice);
+		public void Recreate() {
+			Vk.DeviceWaitIdle(logicalDevice);
 
 			Toolkit.Window.GetFramebufferSize(Window.WindowHandle, out Vector2i framebufferSize);
-			SwapChain newSwapChain = VkH.CreateSwapChain(Window.SelectedGpu, LogicalDevice, Window.Surface, framebufferSize, presentMode, oldSwapChain: VkSwapChain);
 
-			Vk.DestroySwapchainKHR(LogicalDevice, VkSwapChain, null);
-			foreach (VkImageView imageView in ImageViews) { Vk.DestroyImageView(LogicalDevice, imageView, null); }
+			VkH.CreateSwapChain(Window.SelectedGpu.PhysicalDevice, logicalDevice, Window.Surface, Window.SelectedGpu.QueueFamilyIndices, framebufferSize, out VkSwapchainKHR vkSwapChain, out VkExtent2D swapChainExtent,
+				out VkFormat swapChainImageFormat, presentMode, oldSwapChain: VkSwapChain);
 
-			VkSwapChain = newSwapChain.VkSwapChain;
-			Images = newSwapChain.Images;
-			ImageFormat = newSwapChain.ImageFormat;
-			Extent = newSwapChain.Extent;
-			ImageViews = newSwapChain.ImageViews;
+			Destroy();
+
+			VkSwapChain = vkSwapChain;
+			ImageFormat = swapChainImageFormat;
+			Extent = swapChainExtent;
+			Images = VkH.GetSwapChainImages(logicalDevice, vkSwapChain);
+			ImageViews = VkH.CreateImageViews(logicalDevice, Images, swapChainImageFormat);
 		}
 
 		public unsafe void Destroy() {
-			Vk.DestroySwapchainKHR(LogicalDevice, VkSwapChain, null);
-			foreach (VkImageView imageView in ImageViews) { Vk.DestroyImageView(LogicalDevice, imageView, null); }
+			Vk.DestroySwapchainKHR(logicalDevice, VkSwapChain, null);
+			foreach (VkImageView imageView in ImageViews) { Vk.DestroyImageView(logicalDevice, imageView, null); }
 		}
 	}
 }

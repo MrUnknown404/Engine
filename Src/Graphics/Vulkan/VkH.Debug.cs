@@ -13,30 +13,16 @@ namespace Engine3.Graphics.Vulkan {
 		public static VkDebugUtilsMessengerEXT CreateDebugMessenger(VkInstance vkInstance, VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagBitsEXT messageType) {
 			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(messageSeverity, messageType);
 			VkDebugUtilsMessengerEXT debugMessenger;
-			return Vk.CreateDebugUtilsMessengerEXT(vkInstance, &messengerCreateInfo, null, &debugMessenger) != VkResult.Success ? throw new VulkanException("Failed to create Vulkan Debug Messenger") : debugMessenger;
+			VkResult result = Vk.CreateDebugUtilsMessengerEXT(vkInstance, &messengerCreateInfo, null, &debugMessenger);
+			return result != VkResult.Success ? throw new VulkanException($"Failed to create Vulkan Debug Messenger. {result}") : debugMessenger;
 		}
 
 		[MustUseReturnValue]
-		public static bool CheckSupportForRequiredValidationLayers(string[] requiredValidationLayers) {
-			ReadOnlySpan<VkLayerProperties> availableLayerProperties = EnumerateInstanceLayerProperties();
-			if (availableLayerProperties.Length == 0) { throw new VulkanException("Could not find any instance layer properties"); }
-
-			foreach (string wantedLayer in requiredValidationLayers) {
-				bool layerFound = false;
-
-				foreach (VkLayerProperties layerProperties in availableLayerProperties) {
+		public static bool CheckSupportForRequiredValidationLayers(VkLayerProperties[] availableLayerProperties, string[] requiredValidationLayers) =>
+				requiredValidationLayers.All(wantedLayer => availableLayerProperties.Any(layerProperties => {
 					ReadOnlySpan<byte> layerName = layerProperties.layerName;
-					if (Encoding.UTF8.GetString(layerName[..layerName.IndexOf((byte)0)]) == wantedLayer) {
-						layerFound = true;
-						break;
-					}
-				}
-
-				if (!layerFound) { return false; }
-			}
-
-			return true;
-		}
+					return Encoding.UTF8.GetString(layerName[..layerName.IndexOf((byte)0)]) == wantedLayer;
+				}));
 
 		public static void PrintInstanceExtensions(VkExtensionProperties[] instanceExtensionProperties) {
 			Logger.Debug("The following instance extensions are available:");
@@ -47,7 +33,7 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		private static VkLayerProperties[] EnumerateInstanceLayerProperties() {
+		public static VkLayerProperties[] EnumerateInstanceLayerProperties() {
 			uint layerCount;
 			Vk.EnumerateInstanceLayerProperties(&layerCount, null);
 

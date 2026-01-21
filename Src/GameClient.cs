@@ -196,9 +196,17 @@ namespace Engine3 {
 		}
 
 		private void CleanupEverything() {
+			Logger.Debug("Cleaning up everything...");
+
+			Logger.Debug("Cleaning up instance...");
 			Cleanup();
 
-			foreach (Window window in Windows.Where(static w => !w.WasDestroyed)) { window.DestroyWindow(); }
+			Window[] windowsToDestroy = Windows.Where(static w => !w.WasDestroyed).ToArray();
+
+			Logger.Debug($"Cleaning up {Windows.Count} windows...");
+			foreach (Window window in windowsToDestroy) { window.DestroyWindow(); }
+
+			Logger.Debug("Cleaning up graphics api...");
 
 			switch (GraphicsApi) {
 				case GraphicsApi.Console: break;

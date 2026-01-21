@@ -44,8 +44,6 @@ namespace Engine3.Graphics.OpenGL {
 			return window;
 		}
 
-		protected override void CleanupGraphics() {
-			// TODO OpenGL doesn't seem to need to be cleaned up?
-		}
+		protected override void CleanupGraphics() { }
 	}
 }

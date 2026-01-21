@@ -4,16 +4,16 @@ using JetBrains.Annotations;
 namespace Engine3.Graphics {
 	[PublicAPI]
 	public class OrthographicCamera : Camera {
-		public float MinX { get; set; } = -1;
-		public float MinY { get; set; } = -1;
-		public float MaxX { get; set; } = 1;
-		public float MaxY { get; set; } = 1;
+		public float Width { get; set; }
+		public float Height { get; set; }
 
-		public OrthographicCamera(float nearPlane = -1, float farPlane = 1) {
+		public OrthographicCamera(float width, float height, float nearPlane, float farPlane) {
+			Width = width;
+			Height = height;
 			NearPlane = nearPlane;
 			FarPlane = farPlane;
 		}
 
-		public override Matrix4x4 CreateProjectionMatrix() => Matrix4x4.CreateOrthographicOffCenter(MinX, MaxX, MaxY, MinY, NearPlane, FarPlane);
+		public override Matrix4x4 CreateProjectionMatrix() => Matrix4x4.CreateOrthographic(Width, Height, NearPlane, FarPlane);
 	}
 }

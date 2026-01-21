@@ -5,7 +5,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Engine3.Exceptions;
-using Engine3.Graphics.Test;
 using Engine3.Utils;
 using JetBrains.Annotations;
 using NLog;
@@ -14,12 +13,13 @@ using OpenTK.Graphics.Vulkan;
 using OpenTK.Mathematics;
 using OpenTK.Platform;
 using Silk.NET.Shaderc;
+using ZLinq;
 using Compiler = Silk.NET.Shaderc.Compiler;
 using ShaderKind = Silk.NET.Shaderc.ShaderKind;
 using SourceLanguage = Silk.NET.Shaderc.SourceLanguage;
 
 namespace Engine3.Graphics.Vulkan {
-	public static unsafe partial class VkH { // TODO any VK method that can take an array should
+	public static unsafe partial class VkH {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		/// <summary>
@@ -75,19 +75,21 @@ namespace Engine3.Graphics.Vulkan {
 			};
 
 			VkInstance vkInstance;
-			if (Vk.CreateInstance(&instanceCreateInfo, null, &vkInstance) != VkResult.Success) { throw new VulkanException("Failed to create Vulkan instance"); }
+			VkResult result = Vk.CreateInstance(&instanceCreateInfo, null, &vkInstance);
 
 			MarshalTk.FreeStringArrayCoTaskMem(requiredExtensionsPtr, requiredInstanceExtensions.Length);
 #if DEBUG
 			MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, requiredValidationLayers.Length);
 #endif
 
-			return vkInstance;
+			return result != VkResult.Success ? throw new VulkanException($"Failed to create Vulkan instance. {result}") : vkInstance;
 		}
 
 		[MustUseReturnValue]
-		public static VkSurfaceKHR CreateSurface(VkInstance vkInstance, WindowHandle windowHandle) =>
-				Toolkit.Vulkan.CreateWindowSurface(vkInstance, windowHandle, null, out VkSurfaceKHR surface) != VkResult.Success ? throw new VulkanException("Failed to create surface") : surface;
+		public static VkSurfaceKHR CreateSurface(VkInstance vkInstance, WindowHandle windowHandle) {
+			VkResult result = Toolkit.Vulkan.CreateWindowSurface(vkInstance, windowHandle, null, out VkSurfaceKHR surface);
+			return result != VkResult.Success ? throw new VulkanException($"Failed to create surface. {result}") : surface;
+		}
 
 		[MustUseReturnValue]
 		public static VkDevice CreateLogicalDevice(VkPhysicalDevice physicalDevice, QueueFamilyIndices queueFamilyIndices, string[] requiredDeviceExtensions, string[] requiredValidationLayers) {
@@ -107,7 +109,6 @@ namespace Engine3.Graphics.Vulkan {
 			IntPtr requiredValidationLayersPtr = MarshalTk.StringArrayToCoTaskMemAnsi(requiredValidationLayers);
 #endif
 
-			VkDevice logicalDevice;
 			fixed (VkDeviceQueueCreateInfo* queueCreateInfosPtr = CollectionsMarshal.AsSpan(queueCreateInfos)) {
 				VkDeviceCreateInfo deviceCreateInfo = new() {
 						pNext = &dynamicRenderingFeatures,
@@ -124,15 +125,16 @@ namespace Engine3.Graphics.Vulkan {
 #endif
 				};
 
-				if (Vk.CreateDevice(physicalDevice, &deviceCreateInfo, null, &logicalDevice) != VkResult.Success) { throw new VulkanException("Failed to create logical device"); }
-			}
+				VkDevice logicalDevice;
+				VkResult result = Vk.CreateDevice(physicalDevice, &deviceCreateInfo, null, &logicalDevice);
 
-			MarshalTk.FreeStringArrayCoTaskMem(requiredDeviceExtensionsPtr, requiredDeviceExtensions.Length);
+				MarshalTk.FreeStringArrayCoTaskMem(requiredDeviceExtensionsPtr, requiredDeviceExtensions.Length);
 #if DEBUG
-			MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, requiredValidationLayers.Length);
+				MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, requiredValidationLayers.Length);
 #endif
 
-			return logicalDevice;
+				return result != VkResult.Success ? throw new VulkanException($"Failed to create logical device. {result}") : logicalDevice;
+			}
 		}
 
 		[MustUseReturnValue]
@@ -148,7 +150,7 @@ namespace Engine3.Graphics.Vulkan {
 				if (!isPhysicalDeviceSuitable(physicalDeviceProperties2, physicalDeviceFeatures2)) { continue; }
 
 				VkExtensionProperties[] physicalDeviceExtensionProperties = GetPhysicalDeviceExtensionProperties(physicalDevice);
-				if (physicalDeviceExtensionProperties.Length == 0) { throw new VulkanException("Could not find any device extension properties"); }
+				if (physicalDeviceExtensionProperties.Length == 0) { continue; }
 				if (!CheckDeviceExtensionSupport(physicalDeviceExtensionProperties, requiredDeviceExtensions)) { continue; }
 				if (!FindQueueFamilies(physicalDevice, surface, out uint? graphicsFamily, out uint? presentFamily, out uint? transferFamily)) { continue; }
 				if (!QuerySwapChainSupport(physicalDevice, surface, out _, out _, out _)) { continue; }
@@ -157,8 +159,6 @@ namespace Engine3.Graphics.Vulkan {
 			}
 
 			return gpus.ToArray();
-
-			// idk. not sure if i like local methods
 
 			[MustUseReturnValue]
 			static VkExtensionProperties[] GetPhysicalDeviceExtensionProperties(VkPhysicalDevice physicalDevice) {
@@ -223,9 +223,9 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public static PhysicalGpu? PickBestGpu(PhysicalGpu[] physicalGpus, RateGpuSuitability rateGpuSuitability) {
+		public static PhysicalGpu PickBestGpu(PhysicalGpu[] physicalGpus, RateGpuSuitability rateGpuSuitability) {
 			PhysicalGpu? bestDevice = null;
-			int bestDeviceScore = 0;
+			int bestDeviceScore = int.MinValue;
 
 			foreach (PhysicalGpu device in physicalGpus) {
 				int score = rateGpuSuitability(device);
@@ -235,7 +235,7 @@ namespace Engine3.Graphics.Vulkan {
 				}
 			}
 
-			return bestDevice;
+			return bestDevice ?? throw new VulkanException("Failed to find any gpus");
 		}
 
 		public static void PrintGpus(PhysicalGpu[] physicalGpus, bool verbose) {
@@ -249,20 +249,19 @@ namespace Engine3.Graphics.Vulkan {
 			}
 		}
 
-		[MustUseReturnValue]
-		public static SwapChain CreateSwapChain(PhysicalGpu physicalGpu, VkDevice logicalDevice, VkSurfaceKHR surface, Vector2i framebufferSize, VkPresentModeKHR presentMode = VkPresentModeKHR.PresentModeMailboxKhr,
-			VkSurfaceTransformFlagBitsKHR? vkSurfaceTransform = null, VkSwapchainKHR? oldSwapChain = null) {
-			if (!QuerySwapChainSupport(physicalGpu.PhysicalDevice, surface, out VkSurfaceCapabilities2KHR surfaceCapabilities2, out VkSurfaceFormat2KHR[]? surfaceFormats2, out VkPresentModeKHR[]? supportedPresentModes)) {
+		public static void CreateSwapChain(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkSurfaceKHR surface, QueueFamilyIndices queueFamilyIndices, Vector2i framebufferSize, out VkSwapchainKHR swapChain,
+			out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat, VkPresentModeKHR presentMode = VkPresentModeKHR.PresentModeMailboxKhr, VkSurfaceTransformFlagBitsKHR? surfaceTransform = null,
+			VkSwapchainKHR? oldSwapChain = null) {
+			if (!QuerySwapChainSupport(physicalDevice, surface, out VkSurfaceCapabilities2KHR surfaceCapabilities2, out VkSurfaceFormat2KHR[]? surfaceFormats2, out VkPresentModeKHR[]? supportedPresentModes)) {
 				throw new VulkanException("Failed to query swap chain support");
 			}
 
 			if (!supportedPresentModes.Contains(presentMode)) { throw new VulkanException("Surface does not support requested present mode"); }
+			if (ChooseSwapSurfaceFormat(surfaceFormats2) is not { } surfaceFormat2) { throw new VulkanException("Could not find any valid surface formats"); }
 
 			VkSurfaceCapabilitiesKHR surfaceCapabilities = surfaceCapabilities2.surfaceCapabilities;
-			QueueFamilyIndices queueFamilyIndices = physicalGpu.QueueFamilyIndices;
-			VkSurfaceFormat2KHR surfaceFormat = ChooseSwapSurfaceFormat(surfaceFormats2) ?? throw new VulkanException("Could not find any valid surface formats");
-			VkFormat swapChainImageFormat = surfaceFormat.surfaceFormat.format;
-			VkExtent2D swapChainExtent = ChooseSwapExtent(framebufferSize, surfaceCapabilities);
+			swapChainImageFormat = surfaceFormat2.surfaceFormat.format;
+			swapChainExtent = ChooseSwapExtent(framebufferSize, surfaceCapabilities);
 
 			// https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Swap_chain#Creating_the_swap_chain - "Therefore it is recommended to request at least one more image than the minimum"
 			uint imageCount = surfaceCapabilities.minImageCount + 1;
@@ -284,12 +283,11 @@ namespace Engine3.Graphics.Vulkan {
 				queueFamilyIndicesArray = Array.Empty<uint>();
 			}
 
-			VkSwapchainKHR swapChain;
 			fixed (uint* pQueueFamilyIndicesPtr = queueFamilyIndicesArray) {
 				VkSwapchainCreateInfoKHR createInfo = new() {
 						surface = surface,
 						imageFormat = swapChainImageFormat,
-						imageColorSpace = surfaceFormat.surfaceFormat.colorSpace,
+						imageColorSpace = surfaceFormat2.surfaceFormat.colorSpace,
 						imageExtent = swapChainExtent,
 						minImageCount = imageCount,
 						imageArrayLayers = 1,
@@ -297,25 +295,25 @@ namespace Engine3.Graphics.Vulkan {
 						imageSharingMode = imageSharingMode,
 						queueFamilyIndexCount = queueFamilyIndexCount,
 						pQueueFamilyIndices = queueFamilyIndicesArray.Length == 0 ? null : pQueueFamilyIndicesPtr,
-						preTransform = vkSurfaceTransform ?? surfaceCapabilities.currentTransform,
+						preTransform = surfaceTransform ?? surfaceCapabilities.currentTransform,
 						compositeAlpha = VkCompositeAlphaFlagBitsKHR.CompositeAlphaOpaqueBitKhr,
 						presentMode = presentMode,
 						clipped = (int)Vk.True,
 						oldSwapchain = oldSwapChain ?? VkSwapchainKHR.Zero,
 				};
 
-				VkResult vkResult = Vk.CreateSwapchainKHR(logicalDevice, &createInfo, null, &swapChain);
-				if (vkResult != VkResult.Success) { throw new VulkanException($"Failed to create swap chain. {vkResult}"); }
+				VkSwapchainKHR tempSwapChain;
+				VkResult result = Vk.CreateSwapchainKHR(logicalDevice, &createInfo, null, &tempSwapChain);
+				if (result != VkResult.Success) { throw new VulkanException($"Failed to create swap chain. {result}"); }
+
+				swapChain = tempSwapChain;
 			}
 
-			VkImage[] swapChainImages = GetSwapChainImages(logicalDevice, swapChain);
-			VkImageView[] swapChainImageViews = CreateImageViews(logicalDevice, swapChainImages, swapChainImageFormat);
-
-			return new(swapChain, swapChainImageFormat, swapChainExtent, swapChainImages, swapChainImageViews, presentMode);
+			return;
 
 			[MustUseReturnValue]
 			static VkSurfaceFormat2KHR? ChooseSwapSurfaceFormat(ReadOnlySpan<VkSurfaceFormat2KHR> availableFormats) =>
-					availableFormats.FirstOrDefault(static format => format.surfaceFormat is { format: VkFormat.FormatB8g8r8a8Srgb, colorSpace: VkColorSpaceKHR.ColorSpaceSrgbNonlinearKhr, });
+					availableFormats.Where(static format => format.surfaceFormat is { format: VkFormat.FormatB8g8r8a8Srgb, colorSpace: VkColorSpaceKHR.ColorSpaceSrgbNonlinearKhr, }).Cast<VkSurfaceFormat2KHR?>().FirstOrDefault();
 
 			[MustUseReturnValue]
 			static VkExtent2D ChooseSwapExtent(Vector2i framebufferSize, VkSurfaceCapabilitiesKHR surfaceCapabilities) =>
@@ -325,45 +323,45 @@ namespace Engine3.Graphics.Vulkan {
 									width = Math.Clamp((uint)framebufferSize.X, surfaceCapabilities.minImageExtent.width, surfaceCapabilities.maxImageExtent.width),
 									height = Math.Clamp((uint)framebufferSize.Y, surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height),
 							};
+		}
 
-			[MustUseReturnValue]
-			static VkImage[] GetSwapChainImages(VkDevice logicalDevice, VkSwapchainKHR swapChain) {
-				uint swapChainImageCount;
-				Vk.GetSwapchainImagesKHR(logicalDevice, swapChain, &swapChainImageCount, null);
+		[MustUseReturnValue]
+		public static VkImage[] GetSwapChainImages(VkDevice logicalDevice, VkSwapchainKHR swapChain) {
+			uint swapChainImageCount;
+			Vk.GetSwapchainImagesKHR(logicalDevice, swapChain, &swapChainImageCount, null);
 
-				VkImage[] swapChainImages = new VkImage[swapChainImageCount];
-				fixed (VkImage* swapChainImagesPtr = swapChainImages) {
-					Vk.GetSwapchainImagesKHR(logicalDevice, swapChain, &swapChainImageCount, swapChainImagesPtr);
-					return swapChainImages;
+			VkImage[] swapChainImages = new VkImage[swapChainImageCount];
+			fixed (VkImage* swapChainImagesPtr = swapChainImages) {
+				VkResult result = Vk.GetSwapchainImagesKHR(logicalDevice, swapChain, &swapChainImageCount, swapChainImagesPtr);
+				return result != VkResult.Success ? throw new VulkanException($"Failed to get swap chain images. {result}") : swapChainImages;
+			}
+		}
+
+		[MustUseReturnValue]
+		public static VkImageView[] CreateImageViews(VkDevice logicalDevice, VkImage[] swapChainImages, VkFormat swapChainFormat) {
+			VkImageView[] imageViews = new VkImageView[swapChainImages.Length];
+
+			fixed (VkImageView* imageViewsPtr = imageViews) {
+				for (int i = 0; i < swapChainImages.Length; i++) {
+					VkImageViewCreateInfo createInfo = new() {
+							image = swapChainImages[i],
+							viewType = VkImageViewType.ImageViewType2d,
+							format = swapChainFormat,
+							components = new() {
+									r = VkComponentSwizzle.ComponentSwizzleIdentity,
+									g = VkComponentSwizzle.ComponentSwizzleIdentity,
+									b = VkComponentSwizzle.ComponentSwizzleIdentity,
+									a = VkComponentSwizzle.ComponentSwizzleIdentity,
+							},
+							subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+					};
+
+					VkResult result = Vk.CreateImageView(logicalDevice, &createInfo, null, &imageViewsPtr[i]);
+					if (result != VkResult.Success) { throw new VulkanException($"Failed to create swap chain image view {i}. {result}"); }
 				}
 			}
 
-			[MustUseReturnValue]
-			static VkImageView[] CreateImageViews(VkDevice logicalDevice, VkImage[] swapChainImages, VkFormat swapChainFormat) {
-				VkImageView[] imageViews = new VkImageView[swapChainImages.Length];
-
-				fixed (VkImageView* imageViewsPtr = imageViews) {
-					// ReSharper disable once LoopCanBeConvertedToQuery // nope
-					for (int i = 0; i < swapChainImages.Length; i++) {
-						VkImageViewCreateInfo createInfo = new() {
-								image = swapChainImages[i],
-								viewType = VkImageViewType.ImageViewType2d,
-								format = swapChainFormat,
-								components = new() {
-										r = VkComponentSwizzle.ComponentSwizzleIdentity,
-										g = VkComponentSwizzle.ComponentSwizzleIdentity,
-										b = VkComponentSwizzle.ComponentSwizzleIdentity,
-										a = VkComponentSwizzle.ComponentSwizzleIdentity,
-								},
-								subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
-						};
-
-						if (Vk.CreateImageView(logicalDevice, &createInfo, null, &imageViewsPtr[i]) != VkResult.Success) { throw new VulkanException("Failed to create image views"); }
-					}
-				}
-
-				return imageViews;
-			}
+			return imageViews;
 		}
 
 		[MustUseReturnValue]
@@ -372,111 +370,6 @@ namespace Engine3.Graphics.Vulkan {
 					ReadOnlySpan<byte> extensionName = extensionProperties.extensionName;
 					return Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)]) == wantedExtension;
 				}));
-
-		// TODO maybe make a GraphicsPipelineBuilder? idk.
-		public static void CreateGraphicsPipeline(VkDevice logicalDevice, VkFormat swapChainImageFormat, VkPipelineShaderStageCreateInfo[] shaderStageCreateInfos, VkDescriptorSetLayout[]? descriptorSetLayouts,
-			out VkPipeline graphicsPipeline, out VkPipelineLayout pipelineLayout) {
-			if (shaderStageCreateInfos.Length == 0) { throw new VulkanException($"{nameof(shaderStageCreateInfos)} cannot be empty"); }
-
-			VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo = new() { topology = VkPrimitiveTopology.PrimitiveTopologyTriangleList, };
-			VkPipelineViewportStateCreateInfo viewportStateCreateInfo = new() { viewportCount = 1, scissorCount = 1, };
-			VkPipelineRenderingCreateInfo renderingCreateInfo = new() { colorAttachmentCount = 1, pColorAttachmentFormats = &swapChainImageFormat, };
-
-			VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = new() {
-					depthClampEnable = (int)Vk.False,
-					rasterizerDiscardEnable = (int)Vk.False,
-					polygonMode = VkPolygonMode.PolygonModeFill,
-					lineWidth = 1,
-					cullMode = VkCullModeFlagBits.CullModeBackBit,
-					frontFace = VkFrontFace.FrontFaceClockwise,
-					depthBiasEnable = (int)Vk.False,
-					depthBiasConstantFactor = 0,
-					depthBiasClamp = 0,
-					depthBiasSlopeFactor = 0,
-			};
-
-			VkPipelineMultisampleStateCreateInfo multisampleStateCreateInfo = new() {
-					sampleShadingEnable = (int)Vk.False,
-					rasterizationSamples = VkSampleCountFlagBits.SampleCount1Bit,
-					minSampleShading = 1,
-					pSampleMask = null,
-					alphaToCoverageEnable = (int)Vk.False,
-					alphaToOneEnable = (int)Vk.False,
-			};
-
-			VkPipelineColorBlendAttachmentState colorBlendAttachmentState = new() {
-					colorWriteMask = VkColorComponentFlagBits.ColorComponentRBit | VkColorComponentFlagBits.ColorComponentGBit | VkColorComponentFlagBits.ColorComponentBBit | VkColorComponentFlagBits.ColorComponentABit,
-					blendEnable = (int)Vk.True,
-					srcColorBlendFactor = VkBlendFactor.BlendFactorSrcAlpha,
-					dstColorBlendFactor = VkBlendFactor.BlendFactorOneMinusSrcAlpha,
-					colorBlendOp = VkBlendOp.BlendOpAdd,
-					srcAlphaBlendFactor = VkBlendFactor.BlendFactorOne,
-					dstAlphaBlendFactor = VkBlendFactor.BlendFactorZero,
-					alphaBlendOp = VkBlendOp.BlendOpAdd,
-			};
-
-			VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = new() { logicOpEnable = (int)Vk.False, logicOp = VkLogicOp.LogicOpCopy, attachmentCount = 1, pAttachments = &colorBlendAttachmentState, };
-			colorBlendStateCreateInfo.blendConstants[0] = 0; // is there a better way of initializing this?
-			colorBlendStateCreateInfo.blendConstants[1] = 0;
-			colorBlendStateCreateInfo.blendConstants[2] = 0;
-			colorBlendStateCreateInfo.blendConstants[3] = 0;
-
-			fixed (VkDescriptorSetLayout* descriptorSetLayoutsPtr = descriptorSetLayouts) {
-				VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = new() {
-						setLayoutCount = descriptorSetLayouts != null ? (uint)descriptorSetLayouts.Length : 0,
-						pSetLayouts = descriptorSetLayouts != null ? descriptorSetLayoutsPtr : null,
-						pushConstantRangeCount = 0,
-						pPushConstantRanges = null,
-				};
-
-				VkPipelineLayout tempPipelineLayout;
-				if (Vk.CreatePipelineLayout(logicalDevice, &pipelineLayoutCreateInfo, null, &tempPipelineLayout) != VkResult.Success) { throw new VulkanException("Failed to create pipeline layout"); }
-				pipelineLayout = tempPipelineLayout;
-			}
-
-			VkDynamicState[] dynamicStates = [ VkDynamicState.DynamicStateViewport, VkDynamicState.DynamicStateScissor, ]; // TODO allow this to be edited
-			VkVertexInputAttributeDescription[] attributeDescriptions = TestVertex.GetAttributeDescriptions();
-
-			fixed (VkPipelineShaderStageCreateInfo* shaderStageCreateInfosPtr = shaderStageCreateInfos) {
-				fixed (VkDynamicState* dynamicStatesPtr = dynamicStates) {
-					fixed (VkVertexInputAttributeDescription* attributeDescriptionsPtr = attributeDescriptions) {
-						VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = new() { dynamicStateCount = (uint)dynamicStates.Length, pDynamicStates = dynamicStatesPtr, };
-						VkVertexInputBindingDescription bindingDescription = TestVertex.GetBindingDescription();
-
-						VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = new() {
-								vertexBindingDescriptionCount = 1,
-								vertexAttributeDescriptionCount = (uint)attributeDescriptions.Length,
-								pVertexBindingDescriptions = &bindingDescription,
-								pVertexAttributeDescriptions = attributeDescriptionsPtr,
-						};
-
-						VkGraphicsPipelineCreateInfo pipelineCreateInfo = new() {
-								pNext = &renderingCreateInfo,
-								stageCount = (uint)shaderStageCreateInfos.Length,
-								pStages = shaderStageCreateInfosPtr,
-								pVertexInputState = &vertexInputStateCreateInfo,
-								pInputAssemblyState = &inputAssemblyStateCreateInfo,
-								pViewportState = &viewportStateCreateInfo,
-								pRasterizationState = &rasterizationStateCreateInfo,
-								pMultisampleState = &multisampleStateCreateInfo,
-								pDepthStencilState = null,
-								pColorBlendState = &colorBlendStateCreateInfo,
-								pDynamicState = &dynamicStateCreateInfo,
-								layout = pipelineLayout,
-								basePipelineHandle = VkPipeline.Zero,
-								basePipelineIndex = -1,
-						};
-
-						VkPipeline tempGraphicsPipeline;
-						if (Vk.CreateGraphicsPipelines(logicalDevice, VkPipelineCache.Zero, 1, &pipelineCreateInfo, null, &tempGraphicsPipeline) != VkResult.Success) {
-							throw new VulkanException("Failed to create graphics pipeline");
-						}
-
-						graphicsPipeline = tempGraphicsPipeline;
-					}
-				}
-			}
-		}
 
 		[MustUseReturnValue]
 		public static VkQueue GetDeviceQueue(VkDevice logicalDevice, uint queueFamilyIndex) {
@@ -487,14 +380,11 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public static VkShaderModule? CreateShaderModule(VkDevice logicalDevice, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {
+		public static VkShaderModule CreateShaderModule(VkDevice logicalDevice, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {
 			string fullFileName = $"{fileLocation}.{shaderType.FileExtension}.{shaderLang.FileExtension}";
 
 			using Stream? shaderStream = AssetH.GetAssetStream($"Shaders.{fullFileName}", assembly);
-			if (shaderStream == null) {
-				Logger.Error("Failed to create asset stream");
-				return null;
-			}
+			if (shaderStream == null) { throw new Engine3Exception("Failed to create asset stream"); }
 
 			switch (shaderLang) {
 				case ShaderLanguage.Glsl or ShaderLanguage.Hlsl: {
@@ -524,29 +414,24 @@ namespace Engine3.Graphics.Vulkan {
 							_ => throw new ArgumentOutOfRangeException(nameof(shaderType), shaderType, null),
 					};
 
-					CompilationResult* result = shaderc.CompileIntoSpv(compiler, sourcePtr, (nuint)source.Length, shaderKind, shaderNamePtr, "main", options);
+					CompilationResult* compilationResult = shaderc.CompileIntoSpv(compiler, sourcePtr, (nuint)source.Length, shaderKind, shaderNamePtr, "main", options);
 					shaderc.CompileOptionsRelease(options);
 
-					CompilationStatus status = shaderc.ResultGetCompilationStatus(result);
+					CompilationStatus status = shaderc.ResultGetCompilationStatus(compilationResult);
 					shaderc.CompilerRelease(compiler);
 
 					if (status != CompilationStatus.Success) {
-						Logger.Error($"Failed to compile {shaderType} shader: {fileLocation}. {shaderc.ResultGetErrorMessageS(result)}");
-						shaderc.ResultRelease(result);
-						return null;
+						shaderc.ResultRelease(compilationResult);
+						throw new Engine3Exception($"Failed to compile {shaderType} shader: {fileLocation}. {shaderc.ResultGetErrorMessageS(compilationResult)}");
 					}
 
-					VkShaderModuleCreateInfo shaderModuleCreateInfo = new() { codeSize = shaderc.ResultGetLength(result), pCode = (uint*)shaderc.ResultGetBytes(result), };
+					VkShaderModuleCreateInfo shaderModuleCreateInfo = new() { codeSize = shaderc.ResultGetLength(compilationResult), pCode = (uint*)shaderc.ResultGetBytes(compilationResult), };
 					VkShaderModule shaderModule;
+					VkResult result = Vk.CreateShaderModule(logicalDevice, &shaderModuleCreateInfo, null, &shaderModule);
 
-					if (Vk.CreateShaderModule(logicalDevice, &shaderModuleCreateInfo, null, &shaderModule) != VkResult.Success) {
-						shaderc.ResultRelease(result);
-						throw new VulkanException("Failed to create shader module");
-					}
+					shaderc.ResultRelease(compilationResult);
 
-					shaderc.ResultRelease(result);
-
-					return shaderModule;
+					return result != VkResult.Success ? throw new VulkanException($"Failed to create shader module. {result}") : shaderModule;
 				}
 				case ShaderLanguage.SpirV: {
 					using BinaryReader reader = new(shaderStream);
@@ -555,7 +440,8 @@ namespace Engine3.Graphics.Vulkan {
 					fixed (byte* shaderCodePtr = data) {
 						VkShaderModuleCreateInfo shaderModuleCreateInfo = new() { codeSize = (UIntPtr)data.Length, pCode = (uint*)shaderCodePtr, };
 						VkShaderModule shaderModule;
-						return Vk.CreateShaderModule(logicalDevice, &shaderModuleCreateInfo, null, &shaderModule) != VkResult.Success ? throw new VulkanException("Failed to create shader module") : shaderModule;
+						VkResult result = Vk.CreateShaderModule(logicalDevice, &shaderModuleCreateInfo, null, &shaderModule);
+						return result != VkResult.Success ? throw new VulkanException($"Failed to create shader module. {result}") : shaderModule;
 					}
 				}
 				default: throw new ArgumentOutOfRangeException(nameof(shaderLang), shaderLang, null);
@@ -566,7 +452,8 @@ namespace Engine3.Graphics.Vulkan {
 		public static VkCommandPool CreateCommandPool(VkDevice logicalDevice, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) {
 			VkCommandPoolCreateInfo commandPoolCreateInfo = new() { flags = commandPoolCreateFlags, queueFamilyIndex = queueFamilyIndex, };
 			VkCommandPool commandPool;
-			return Vk.CreateCommandPool(logicalDevice, &commandPoolCreateInfo, null, &commandPool) != VkResult.Success ? throw new VulkanException("Failed to create command pool") : commandPool;
+			VkResult result = Vk.CreateCommandPool(logicalDevice, &commandPoolCreateInfo, null, &commandPool);
+			return result != VkResult.Success ? throw new VulkanException($"Failed to create command pool. {result}") : commandPool;
 		}
 
 		[MustUseReturnValue]
@@ -574,7 +461,8 @@ namespace Engine3.Graphics.Vulkan {
 			VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = commandPool, level = level, commandBufferCount = count, };
 			VkCommandBuffer[] commandBuffers = new VkCommandBuffer[count];
 			fixed (VkCommandBuffer* commandBuffersPtr = commandBuffers) {
-				return Vk.AllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, commandBuffersPtr) != VkResult.Success ? throw new VulkanException("Failed to create command buffer") : commandBuffers;
+				VkResult result = Vk.AllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, commandBuffersPtr);
+				return result != VkResult.Success ? throw new VulkanException($"Failed to create command buffers. {result}") : commandBuffers;
 			}
 		}
 
@@ -582,17 +470,19 @@ namespace Engine3.Graphics.Vulkan {
 		public static VkCommandBuffer CreateCommandBuffer(VkDevice logicalDevice, VkCommandPool commandPool, uint count, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
 			VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = commandPool, level = level, commandBufferCount = count, };
 			VkCommandBuffer commandBuffers;
-			return Vk.AllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, &commandBuffers) != VkResult.Success ? throw new VulkanException("Failed to create command buffer") : commandBuffers;
+			VkResult result = Vk.AllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, &commandBuffers);
+			return result != VkResult.Success ? throw new VulkanException($"Failed to create command buffer. {result}") : commandBuffers;
 		}
 
 		[MustUseReturnValue]
 		public static VkSemaphore[] CreateSemaphores(VkDevice logicalDevice, uint count) {
-			VkSemaphore[] semaphores = new VkSemaphore[count];
 			VkSemaphoreCreateInfo semaphoreCreateInfo = new();
+			VkSemaphore[] semaphores = new VkSemaphore[count];
 
 			fixed (VkSemaphore* semaphoresPtr = semaphores) {
 				for (int i = 0; i < count; i++) {
-					if (Vk.CreateSemaphore(logicalDevice, &semaphoreCreateInfo, null, &semaphoresPtr[i]) != VkResult.Success) { throw new VulkanException("failed to create semaphore"); }
+					VkResult result = Vk.CreateSemaphore(logicalDevice, &semaphoreCreateInfo, null, &semaphoresPtr[i]);
+					if (result != VkResult.Success) { throw new VulkanException($"Failed to create semaphore. {result}"); }
 				}
 			}
 
@@ -601,19 +491,21 @@ namespace Engine3.Graphics.Vulkan {
 
 		[MustUseReturnValue]
 		public static VkSemaphore CreateSemaphore(VkDevice logicalDevice) {
-			VkSemaphore semaphore;
 			VkSemaphoreCreateInfo semaphoreCreateInfo = new();
-			return Vk.CreateSemaphore(logicalDevice, &semaphoreCreateInfo, null, &semaphore) != VkResult.Success ? throw new VulkanException("failed to create semaphore") : semaphore;
+			VkSemaphore semaphore;
+			VkResult result = Vk.CreateSemaphore(logicalDevice, &semaphoreCreateInfo, null, &semaphore);
+			return result != VkResult.Success ? throw new VulkanException($"Failed to create semaphore. {result}") : semaphore;
 		}
 
 		[MustUseReturnValue]
 		public static VkFence[] CreateFences(VkDevice logicalDevice, uint count) {
-			VkFence[] fences = new VkFence[count];
 			VkFenceCreateInfo fenceCreateInfo = new() { flags = VkFenceCreateFlagBits.FenceCreateSignaledBit, };
+			VkFence[] fences = new VkFence[count];
 
 			fixed (VkFence* fencesPtr = fences) {
 				for (int i = 0; i < count; i++) {
-					if (Vk.CreateFence(logicalDevice, &fenceCreateInfo, null, &fencesPtr[i]) != VkResult.Success) { throw new VulkanException("Failed to create fence"); }
+					VkResult result = Vk.CreateFence(logicalDevice, &fenceCreateInfo, null, &fencesPtr[i]);
+					if (result != VkResult.Success) { throw new VulkanException($"Failed to create fence. {result}"); }
 				}
 			}
 
@@ -622,12 +514,13 @@ namespace Engine3.Graphics.Vulkan {
 
 		[MustUseReturnValue]
 		public static VkFence CreateFence(VkDevice logicalDevice) {
-			VkFence fence;
 			VkFenceCreateInfo fenceCreateInfo = new() { flags = VkFenceCreateFlagBits.FenceCreateSignaledBit, };
-			return Vk.CreateFence(logicalDevice, &fenceCreateInfo, null, &fence) != VkResult.Success ? throw new VulkanException("Failed to create fence") : fence;
+			VkFence fence;
+			VkResult result = Vk.CreateFence(logicalDevice, &fenceCreateInfo, null, &fence);
+			return result != VkResult.Success ? throw new VulkanException($"Failed to create fence. {result}") : fence;
 		}
 
-		public static void SubmitCommandBuffersQueue(VkQueue queue, VkCommandBuffer[] commandBuffers, VkSemaphore waitSemaphore, VkSemaphore signalSemaphore, VkFence inFlight) {
+		public static void SubmitCommandBuffersQueue(VkQueue queue, VkCommandBuffer[] commandBuffers, VkSemaphore waitSemaphore, VkSemaphore signalSemaphore, VkFence? fence) {
 			VkPipelineStageFlagBits[] waitStages = [ VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, ];
 
 			fixed (VkPipelineStageFlagBits* waitStagesPtr = waitStages) {
@@ -642,12 +535,12 @@ namespace Engine3.Graphics.Vulkan {
 							pSignalSemaphores = &signalSemaphore,
 					};
 
-					SubmitQueue(queue, [ submitInfo, ], inFlight);
+					SubmitQueue(queue, [ submitInfo, ], fence);
 				}
 			}
 		}
 
-		public static void SubmitCommandBufferQueue(VkQueue queue, VkCommandBuffer commandBuffer, VkSemaphore waitSemaphore, VkSemaphore signalSemaphore, VkFence inFlight) {
+		public static void SubmitCommandBufferQueue(VkQueue queue, VkCommandBuffer commandBuffer, VkSemaphore waitSemaphore, VkSemaphore signalSemaphore, VkFence? fence) {
 			VkPipelineStageFlagBits[] waitStages = [ VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, ];
 
 			fixed (VkPipelineStageFlagBits* waitStagesPtr = waitStages) {
@@ -661,17 +554,19 @@ namespace Engine3.Graphics.Vulkan {
 						pSignalSemaphores = &signalSemaphore,
 				};
 
-				SubmitQueue(queue, submitInfo, inFlight);
+				SubmitQueue(queue, submitInfo, fence);
 			}
 		}
 
-		public static void SubmitQueue(VkQueue queue, VkSubmitInfo submitInfo, VkFence fence) {
-			if (Vk.QueueSubmit(queue, 1, &submitInfo, fence) != VkResult.Success) { throw new VulkanException("Failed to submit queue"); } // TODO 2
+		public static void SubmitQueue(VkQueue queue, VkSubmitInfo submitInfo, VkFence? fence) {
+			VkResult result = Vk.QueueSubmit(queue, 1, &submitInfo, fence ?? VkFence.Zero);
+			if (result != VkResult.Success) { throw new VulkanException($"Failed to submit queue. {result}"); } // TODO 2
 		}
 
-		public static void SubmitQueue(VkQueue queue, VkSubmitInfo[] submitInfos, VkFence fence) {
+		public static void SubmitQueue(VkQueue queue, VkSubmitInfo[] submitInfos, VkFence? fence) {
 			fixed (VkSubmitInfo* submitInfosPtr = submitInfos) {
-				if (Vk.QueueSubmit(queue, (uint)submitInfos.Length, submitInfosPtr, fence) != VkResult.Success) { throw new VulkanException("Failed to submit queue"); } // TODO 2
+				VkResult result = Vk.QueueSubmit(queue, (uint)submitInfos.Length, submitInfosPtr, fence ?? VkFence.Zero);
+				if (result != VkResult.Success) { throw new VulkanException($"Failed to submit queue. {result}"); } // TODO 2
 			}
 		}
 
@@ -714,6 +609,13 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
+		public static VkBuffer CreateBuffer(VkDevice logicalDevice, VkBufferCreateInfo bufferCreateInfo) {
+			VkBuffer buffer;
+			VkResult result = Vk.CreateBuffer(logicalDevice, &bufferCreateInfo, null, &buffer);
+			return result != VkResult.Success ? throw new VulkanException($"Failed to create buffer. {result}") : buffer;
+		}
+
+		[MustUseReturnValue]
 		public static VkDeviceMemory CreateDeviceMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkBuffer buffer, VkMemoryPropertyFlagBits memoryPropertyFlags) {
 			VkMemoryRequirements memoryRequirements = new(); // TODO 2
 			Vk.GetBufferMemoryRequirements(logicalDevice, buffer, &memoryRequirements);
@@ -723,14 +625,16 @@ namespace Engine3.Graphics.Vulkan {
 
 			// TODO "It should be noted that in a real world application, you're not supposed to actually call vkAllocateMemory for every individual buffer."
 			// "The right way to allocate memory for a large number of objects at the same time is to create a custom allocator that splits up a single allocation among many different objects by using the offset parameters that we've seen in many functions."
-			return Vk.AllocateMemory(logicalDevice, &memoryAllocateInfo, null, &deviceMemory) != VkResult.Success ? throw new VulkanException("Failed to allocate memory") : deviceMemory;
+			VkResult result = Vk.AllocateMemory(logicalDevice, &memoryAllocateInfo, null, &deviceMemory);
+			return result != VkResult.Success ? throw new VulkanException($"Failed to allocate memory. {result}") : deviceMemory;
 		}
 
 		public static void CreateBufferAndMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkBufferUsageFlagBits bufferUsage, VkMemoryPropertyFlagBits memoryPropertyFlags, ulong size, out VkBuffer buffer,
 			out VkDeviceMemory deviceMemory) {
 			buffer = CreateBuffer(logicalDevice, bufferUsage, size);
 			deviceMemory = CreateDeviceMemory(physicalDevice, logicalDevice, buffer, memoryPropertyFlags);
-			Vk.BindBufferMemory(logicalDevice, buffer, deviceMemory, 0);
+			VkResult result = Vk.BindBufferMemory(logicalDevice, buffer, deviceMemory, 0);
+			if (result != VkResult.Success) { throw new VulkanException($"Failed to bind buffer memory. {result}"); }
 		}
 
 		public static void MapMemory<T>(VkDevice logicalDevice, VkDeviceMemory deviceMemory, T[] inData) where T : unmanaged {
@@ -761,10 +665,13 @@ namespace Engine3.Graphics.Vulkan {
 			Vk.FreeCommandBuffers(logicalDevice, transferCommandPool, 1, &commandBuffer);
 		}
 
-		public static void CreateDescriptorSets(VkDevice logicalDevice, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet[] descriptorSets, uint maxFramesInFlight, uint uniformBufferSize,
+		[MustUseReturnValue]
+		public static VkDescriptorSet[] CreateDescriptorSets(VkDevice logicalDevice, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, uint maxFramesInFlight, uint uniformBufferSize,
 			VkBuffer[] uniformBuffers) {
 			VkDescriptorSetLayout[] layouts = new VkDescriptorSetLayout[maxFramesInFlight];
 			for (int i = 0; i < maxFramesInFlight; i++) { layouts[i] = descriptorSetLayout; }
+
+			VkDescriptorSet[] descriptorSets = new VkDescriptorSet[maxFramesInFlight];
 
 			fixed (VkDescriptorSetLayout* layoutsPtr = layouts) {
 				fixed (VkDescriptorSet* descriptorSetsPtr = descriptorSets) {
@@ -788,6 +695,8 @@ namespace Engine3.Graphics.Vulkan {
 
 				Vk.UpdateDescriptorSets(logicalDevice, 1, &writeDescriptorSet, 0, null);
 			}
+
+			return descriptorSets;
 		}
 
 		[MustUseReturnValue]
@@ -795,7 +704,8 @@ namespace Engine3.Graphics.Vulkan {
 			VkDescriptorSetLayoutBinding uboLayoutBinding = new() { binding = binding, descriptorType = VkDescriptorType.DescriptorTypeUniformBuffer, descriptorCount = 1, stageFlags = shaderStageFlags, };
 			VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = new() { bindingCount = 1, pBindings = &uboLayoutBinding, };
 			VkDescriptorSetLayout layout;
-			return Vk.CreateDescriptorSetLayout(logicalDevice, &descriptorSetLayoutCreateInfo, null, &layout) != VkResult.Success ? throw new VulkanException("Failed to create descriptor set layout") : layout;
+			VkResult result = Vk.CreateDescriptorSetLayout(logicalDevice, &descriptorSetLayoutCreateInfo, null, &layout);
+			return result != VkResult.Success ? throw new VulkanException($"Failed to create descriptor set layout. {result}") : layout;
 		}
 
 		[MustUseReturnValue]
@@ -803,13 +713,8 @@ namespace Engine3.Graphics.Vulkan {
 			VkDescriptorPoolSize descriptorPoolSize = new() { descriptorCount = maxFramesInFlight, };
 			VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = new() { poolSizeCount = 1, pPoolSizes = &descriptorPoolSize, maxSets = maxFramesInFlight, };
 			VkDescriptorPool descriptorPool;
-			return Vk.CreateDescriptorPool(logicalDevice, &descriptorPoolCreateInfo, null, &descriptorPool) != VkResult.Success ? throw new VulkanException("Failed to create descriptor pool") : descriptorPool;
-		}
-
-		[MustUseReturnValue]
-		public static VkBuffer CreateBuffer(VkDevice logicalDevice, VkBufferCreateInfo bufferCreateInfo) {
-			VkBuffer buffer;
-			return Vk.CreateBuffer(logicalDevice, &bufferCreateInfo, null, &buffer) != VkResult.Success ? throw new VulkanException("Failed to create buffer") : buffer;
+			VkResult result = Vk.CreateDescriptorPool(logicalDevice, &descriptorPoolCreateInfo, null, &descriptorPool);
+			return result != VkResult.Success ? throw new VulkanException($"Failed to create descriptor pool. {result}") : descriptorPool;
 		}
 
 		/// <summary> Creates a <see cref="VkBuffer"/> &amp; <see cref="VkDeviceMemory"/>. Then copies vertex data using into our new buffer using a staging buffer </summary>
@@ -836,7 +741,7 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		public static void CmdSetScissor(VkCommandBuffer graphicsCommandBuffer, VkExtent2D extent, VkOffset2D offset) {
-			VkRect2D scissor = new() { offset = new(0, 0), extent = extent, };
+			VkRect2D scissor = new() { offset = offset, extent = extent, };
 			Vk.CmdSetScissor(graphicsCommandBuffer, 0, 1, &scissor);
 		}
 

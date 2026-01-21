@@ -29,14 +29,14 @@ namespace Engine3.Graphics.Vulkan {
 
 			PhysicalGpu[] availableGpus = VkH.GetValidGpus(gameClient.PhysicalDevices, surface, gameClient.IsPhysicalDeviceSuitable, gameClient.GetAllRequiredDeviceExtensions());
 			if (availableGpus.Length == 0) { throw new VulkanException("Could not find any valid GPUs"); }
-			Logger.Debug("Obtained surface capable GPUs ");
+			Logger.Debug("Obtained surface capable GPUs");
 			VkH.PrintGpus(availableGpus, Engine3.Debug);
 
-			PhysicalGpu? selectedGpu = VkH.PickBestGpu(availableGpus, gameClient.RateGpuSuitability);
-			if (selectedGpu == null) { throw new VulkanException("Could not find any suitable GPUs"); }
+			PhysicalGpu selectedGpu = VkH.PickBestGpu(availableGpus, gameClient.RateGpuSuitability);
 			Logger.Debug($"- Selected Gpu: {selectedGpu.Name}");
 
 			VkDevice logicalDevice = VkH.CreateLogicalDevice(selectedGpu.PhysicalDevice, selectedGpu.QueueFamilyIndices, gameClient.GetAllRequiredDeviceExtensions(), gameClient.GetAllRequiredValidationLayers());
+
 			VkQueue graphicsQueue = VkH.GetDeviceQueue(logicalDevice, selectedGpu.QueueFamilyIndices.GraphicsFamily);
 			VkQueue presentQueue = VkH.GetDeviceQueue(logicalDevice, selectedGpu.QueueFamilyIndices.PresentFamily);
 			VkQueue transferQueue = VkH.GetDeviceQueue(logicalDevice, selectedGpu.QueueFamilyIndices.TransferFamily);
@@ -44,7 +44,10 @@ namespace Engine3.Graphics.Vulkan {
 			Logger.Debug("Created logical gpu");
 
 			Toolkit.Window.GetFramebufferSize(windowHandle, out Vector2i framebufferSize);
-			SwapChain swapChain = VkH.CreateSwapChain(selectedGpu, logicalDevice, surface, framebufferSize, VkPresentModeKHR.PresentModeImmediateKhr); // TODO allow this to be changed
+			VkH.CreateSwapChain(selectedGpu.PhysicalDevice, logicalDevice, surface, selectedGpu.QueueFamilyIndices, framebufferSize, out VkSwapchainKHR vkSwapChain, out VkExtent2D swapChainExtent,
+				out VkFormat swapChainImageFormat, gameClient.PresentMode);
+
+			SwapChain swapChain = new(logicalDevice, vkSwapChain, swapChainImageFormat, swapChainExtent, gameClient.PresentMode);
 			Logger.Debug("Created swap chain");
 
 			VkWindow window = new(windowHandle, surface, selectedGpu, logicalGpu, swapChain);
