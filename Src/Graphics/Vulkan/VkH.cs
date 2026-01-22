@@ -470,14 +470,6 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public static VkCommandBuffer CreateCommandBuffer(VkDevice logicalDevice, VkCommandPool commandPool, uint count, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
-			VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = commandPool, level = level, commandBufferCount = count, };
-			VkCommandBuffer commandBuffers;
-			VkResult result = Vk.AllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, &commandBuffers);
-			return result != VkResult.Success ? throw new VulkanException($"Failed to create command buffer. {result}") : commandBuffers;
-		}
-
-		[MustUseReturnValue]
 		public static VkSemaphore[] CreateSemaphores(VkDevice logicalDevice, uint count) {
 			VkSemaphoreCreateInfo semaphoreCreateInfo = new();
 			VkSemaphore[] semaphores = new VkSemaphore[count];
@@ -523,54 +515,16 @@ namespace Engine3.Graphics.Vulkan {
 			return result != VkResult.Success ? throw new VulkanException($"Failed to create fence. {result}") : fence;
 		}
 
-		public static void SubmitCommandBuffersQueue(VkQueue queue, VkCommandBuffer[] commandBuffers, VkSemaphore waitSemaphore, VkSemaphore signalSemaphore, VkFence? fence) {
-			VkPipelineStageFlagBits[] waitStages = [ VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, ];
-
-			fixed (VkPipelineStageFlagBits* waitStagesPtr = waitStages) {
-				fixed (VkCommandBuffer* commandBuffersPtr = commandBuffers) {
-					VkSubmitInfo submitInfo = new() {
-							waitSemaphoreCount = 1,
-							pWaitSemaphores = &waitSemaphore,
-							pWaitDstStageMask = waitStagesPtr,
-							commandBufferCount = (uint)commandBuffers.Length,
-							pCommandBuffers = commandBuffersPtr,
-							signalSemaphoreCount = 1,
-							pSignalSemaphores = &signalSemaphore,
-					};
-
-					SubmitQueue(queue, [ submitInfo, ], fence);
-				}
-			}
-		}
-
-		public static void SubmitCommandBufferQueue(VkQueue queue, VkCommandBuffer commandBuffer, VkSemaphore waitSemaphore, VkSemaphore signalSemaphore, VkFence? fence) {
-			VkPipelineStageFlagBits[] waitStages = [ VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, ];
-
-			fixed (VkPipelineStageFlagBits* waitStagesPtr = waitStages) {
-				VkSubmitInfo submitInfo = new() {
-						waitSemaphoreCount = 1,
-						pWaitSemaphores = &waitSemaphore,
-						pWaitDstStageMask = waitStagesPtr,
-						commandBufferCount = 1,
-						pCommandBuffers = &commandBuffer,
-						signalSemaphoreCount = 1,
-						pSignalSemaphores = &signalSemaphore,
-				};
-
-				SubmitQueue(queue, submitInfo, fence);
+		public static void SubmitQueues(VkQueue queue, VkSubmitInfo[] submitInfos, VkFence? fence) {
+			fixed (VkSubmitInfo* submitInfosPtr = submitInfos) {
+				VkResult result = Vk.QueueSubmit(queue, (uint)submitInfos.Length, submitInfosPtr, fence ?? VkFence.Zero);
+				if (result != VkResult.Success) { throw new VulkanException($"Failed to submit queue. {result}"); }
 			}
 		}
 
 		public static void SubmitQueue(VkQueue queue, VkSubmitInfo submitInfo, VkFence? fence) {
 			VkResult result = Vk.QueueSubmit(queue, 1, &submitInfo, fence ?? VkFence.Zero);
-			if (result != VkResult.Success) { throw new VulkanException($"Failed to submit queue. {result}"); }
-		}
-
-		public static void SubmitQueue(VkQueue queue, VkSubmitInfo[] submitInfos, VkFence? fence) {
-			fixed (VkSubmitInfo* submitInfosPtr = submitInfos) {
-				VkResult result = Vk.QueueSubmit(queue, (uint)submitInfos.Length, submitInfosPtr, fence ?? VkFence.Zero);
-				if (result != VkResult.Success) { throw new VulkanException($"Failed to submit queue. {result}"); }
-			}
+			if (result != VkResult.Success) { throw new VulkanException($"Failed to submit queue. {result}"); } // TODO device lost?
 		}
 
 		[MustUseReturnValue]
@@ -634,136 +588,16 @@ namespace Engine3.Graphics.Vulkan {
 			return result != VkResult.Success ? throw new VulkanException($"Failed to allocate memory. {result}") : deviceMemory;
 		}
 
-		public static void CreateBufferAndMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkBufferUsageFlagBits bufferUsage, VkMemoryPropertyFlagBits memoryPropertyFlags, ulong size, out VkBuffer buffer,
-			out VkDeviceMemory deviceMemory) {
-			buffer = CreateBuffer(logicalDevice, bufferUsage, size);
-			deviceMemory = CreateDeviceMemory(physicalDevice, logicalDevice, buffer, memoryPropertyFlags);
-			VkResult result = Vk.BindBufferMemory(logicalDevice, buffer, deviceMemory, 0);
-			if (result != VkResult.Success) { throw new VulkanException($"Failed to bind buffer memory. {result}"); }
-		}
-
-		public static void MapMemory<T>(VkDevice logicalDevice, VkDeviceMemory deviceMemory, T[] inData) where T : unmanaged {
-			ulong bufferSize = (ulong)(sizeof(T) * inData.Length);
-			fixed (T* inDataPtr = inData) {
-				void* data;
-				Vk.MapMemory(logicalDevice, deviceMemory, 0, bufferSize, 0, &data);
-				Buffer.MemoryCopy(inDataPtr, data, bufferSize, bufferSize);
-				Vk.UnmapMemory(logicalDevice, deviceMemory);
-			}
-		}
-
-		public static void CopyBuffer(VkDevice logicalDevice, VkQueue transferQueue, VkCommandPool transferCommandPool, VkBuffer srcBuffer, VkBuffer dstBuffer, ulong bufferSize) {
-			VkCommandBuffer commandBuffer = CreateCommandBuffer(logicalDevice, transferCommandPool, 1);
-
-			VkCommandBufferBeginInfo beginInfo = new() { flags = VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit, };
-			Vk.BeginCommandBuffer(commandBuffer, &beginInfo);
-
-			VkBufferCopy bufferCopy = new() { size = bufferSize, };
-			Vk.CmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &bufferCopy);
-
-			Vk.EndCommandBuffer(commandBuffer);
-
-			VkSubmitInfo submitInfo = new() { commandBufferCount = 1, pCommandBuffers = &commandBuffer, };
-			SubmitQueue(transferQueue, [ submitInfo, ], VkFence.Zero);
-			Vk.QueueWaitIdle(transferQueue);
-
-			Vk.FreeCommandBuffers(logicalDevice, transferCommandPool, 1, &commandBuffer);
-		}
-
-		[MustUseReturnValue]
-		public static VkDescriptorSet[] CreateDescriptorSets(VkDevice logicalDevice, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, uint maxFramesInFlight, uint uniformBufferSize,
-			VkBuffer[] uniformBuffers) {
-			VkDescriptorSetLayout[] layouts = new VkDescriptorSetLayout[maxFramesInFlight];
-			for (int i = 0; i < maxFramesInFlight; i++) { layouts[i] = descriptorSetLayout; }
-
-			VkDescriptorSet[] descriptorSets = new VkDescriptorSet[maxFramesInFlight];
-
-			fixed (VkDescriptorSetLayout* layoutsPtr = layouts) {
-				fixed (VkDescriptorSet* descriptorSetsPtr = descriptorSets) {
-					VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = new() { descriptorPool = descriptorPool, descriptorSetCount = maxFramesInFlight, pSetLayouts = layoutsPtr, };
-					if (Vk.AllocateDescriptorSets(logicalDevice, &descriptorSetAllocateInfo, descriptorSetsPtr) != VkResult.Success) { throw new VulkanException("Failed to allocation descriptor sets"); }
-				}
-			}
-
-			for (int i = 0; i < maxFramesInFlight; i++) {
-				VkDescriptorBufferInfo descriptorBufferInfo = new() { buffer = uniformBuffers[i], offset = 0, range = uniformBufferSize, };
-				VkWriteDescriptorSet writeDescriptorSet = new() {
-						dstSet = descriptorSets[i],
-						dstBinding = 0,
-						dstArrayElement = 0,
-						descriptorType = VkDescriptorType.DescriptorTypeUniformBuffer,
-						descriptorCount = 1,
-						pBufferInfo = &descriptorBufferInfo,
-						pImageInfo = null,
-						pTexelBufferView = null,
-				};
-
-				Vk.UpdateDescriptorSets(logicalDevice, 1, &writeDescriptorSet, 0, null);
-			}
-
-			return descriptorSets;
-		}
-
-		[MustUseReturnValue]
-		public static VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice logicalDevice, uint binding, VkShaderStageFlagBits shaderStageFlags) {
-			VkDescriptorSetLayoutBinding uboLayoutBinding = new() { binding = binding, descriptorType = VkDescriptorType.DescriptorTypeUniformBuffer, descriptorCount = 1, stageFlags = shaderStageFlags, };
-			VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = new() { bindingCount = 1, pBindings = &uboLayoutBinding, };
-			VkDescriptorSetLayout layout;
-			VkResult result = Vk.CreateDescriptorSetLayout(logicalDevice, &descriptorSetLayoutCreateInfo, null, &layout);
-			return result != VkResult.Success ? throw new VulkanException($"Failed to create descriptor set layout. {result}") : layout;
-		}
-
-		[MustUseReturnValue]
-		public static VkDescriptorPool CreateDescriptorPool(VkDevice logicalDevice, VkDescriptorType descriptorType, uint maxFramesInFlight) {
-			VkDescriptorPoolSize descriptorPoolSize = new() { descriptorCount = maxFramesInFlight, type = descriptorType, };
-			VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = new() { poolSizeCount = 1, pPoolSizes = &descriptorPoolSize, maxSets = maxFramesInFlight, };
-			VkDescriptorPool descriptorPool;
-			VkResult result = Vk.CreateDescriptorPool(logicalDevice, &descriptorPoolCreateInfo, null, &descriptorPool);
-			return result != VkResult.Success ? throw new VulkanException($"Failed to create descriptor pool. {result}") : descriptorPool;
-		}
-
-		/// <summary> Creates a <see cref="VkBuffer"/> &amp; <see cref="VkDeviceMemory"/>. Then copies vertex data using into our new buffer using a staging buffer </summary>
-		public static void CreateBufferUsingStagingBuffer<T>(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool transferPool, VkQueue transferQueue, T[] bufferData, VkBufferUsageFlagBits bufferUsage,
-			out VkBuffer buffer, out VkDeviceMemory bufferMemory) where T : unmanaged {
-			ulong bufferSize = (ulong)(sizeof(T) * bufferData.Length);
-
-			CreateBufferAndMemory(physicalDevice, logicalDevice, VkBufferUsageFlagBits.BufferUsageTransferSrcBit, VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit,
-				bufferSize, out VkBuffer stagingBuffer, out VkDeviceMemory stagingBufferMemory); // TODO should i make a persistent staging buffer?
-
-			MapMemory(logicalDevice, stagingBufferMemory, bufferData);
-
-			CreateBufferAndMemory(physicalDevice, logicalDevice, VkBufferUsageFlagBits.BufferUsageTransferDstBit | bufferUsage, VkMemoryPropertyFlagBits.MemoryPropertyDeviceLocalBit, bufferSize, out buffer, out bufferMemory);
-
-			CopyBuffer(logicalDevice, transferQueue, transferPool, stagingBuffer, buffer, bufferSize);
-
-			Vk.DestroyBuffer(logicalDevice, stagingBuffer, null);
-			Vk.FreeMemory(logicalDevice, stagingBufferMemory, null);
-		}
-
-		public static void CmdSetViewport(VkCommandBuffer graphicsCommandBuffer, uint x, uint y, uint width, uint height, float minDepth, float maxDepth) {
-			VkViewport viewport = new() { x = x, y = y, width = width, height = height, minDepth = minDepth, maxDepth = maxDepth, };
-			Vk.CmdSetViewport(graphicsCommandBuffer, 0, 1, &viewport);
-		}
-
-		public static void CmdSetScissor(VkCommandBuffer graphicsCommandBuffer, VkExtent2D extent, VkOffset2D offset) {
-			VkRect2D scissor = new() { offset = offset, extent = extent, };
-			Vk.CmdSetScissor(graphicsCommandBuffer, 0, 1, &scissor);
-		}
-
-		public static void CmdBindVertexBuffer(VkCommandBuffer graphicsCommandBuffer, VkBuffer vertexBuffer, ulong offset) => Vk.CmdBindVertexBuffers(graphicsCommandBuffer, 0, 1, &vertexBuffer, &offset);
-
-		public static void CmdBindVertexBuffers(VkCommandBuffer graphicsCommandBuffer, VkBuffer[] vertexBuffers, ulong[] offsets) {
-			if (vertexBuffers.Length != offsets.Length) { throw new VulkanException("Failed to bind vertex buffers"); } // maybe a bit dramatic. maybe return bool?
-
-			fixed (VkBuffer* vertexBuffersPtr = vertexBuffers) {
-				fixed (ulong* offsetsPtr = offsets) { Vk.CmdBindVertexBuffers(graphicsCommandBuffer, 0, (uint)vertexBuffers.Length, vertexBuffersPtr, offsetsPtr); }
-			}
+		public static VkResult BeginCommandBuffer(VkCommandBuffer commandBuffer, VkCommandBufferUsageFlagBits commandBufferUsageFlags = 0) {
+			VkCommandBufferBeginInfo commandBufferBeginInfo = new() { flags = commandBufferUsageFlags, };
+			return Vk.BeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
 		}
 
 		[MustUseReturnValue]
 		private static uint FindMemoryType(VkPhysicalDevice physicalDevice, uint typeFilter, VkMemoryPropertyFlagBits memoryPropertyFlag) {
-			VkPhysicalDeviceMemoryProperties memoryProperties = new();
-			Vk.GetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
+			VkPhysicalDeviceMemoryProperties2 memoryProperties2 = new();
+			Vk.GetPhysicalDeviceMemoryProperties2(physicalDevice, &memoryProperties2);
+			VkPhysicalDeviceMemoryProperties memoryProperties = memoryProperties2.memoryProperties;
 
 			for (uint i = 0; i < memoryProperties.memoryTypeCount; i++) {
 				if ((uint)(typeFilter & (1 << (int)i)) != 0 && (memoryProperties.memoryTypes[(int)i].propertyFlags & memoryPropertyFlag) == memoryPropertyFlag) { return i; }

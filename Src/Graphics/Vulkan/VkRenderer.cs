@@ -13,7 +13,7 @@ namespace Engine3.Graphics.Vulkan {
 		public VkSemaphore[] RenderFinishedSemaphores { get; }
 
 		protected FrameData CurrentFrameData => Frames[CurrentFrame];
-		protected VkCommandBuffer CurrentGraphicsCommandBuffer => CurrentFrameData.GraphicsCommandBuffer;
+		protected GraphicsCommandBuffer CurrentGraphicsCommandBuffer => CurrentFrameData.GraphicsCommandBuffer;
 		protected VkSemaphore CurrentImageAvailableSemaphore => CurrentFrameData.ImageAvailableSemaphore;
 		protected VkFence CurrentInFlightFence => CurrentFrameData.InFlightFence;
 
@@ -40,10 +40,27 @@ namespace Engine3.Graphics.Vulkan {
 			VkFence[] inFlightFences = VkH.CreateFences(LogicalDevice, MaxFramesInFlight);
 
 			Frames = new FrameData[MaxFramesInFlight];
-			for (int i = 0; i < MaxFramesInFlight; i++) { Frames[i] = new(LogicalDevice, graphicsCommandBuffers[i], imageAvailableSemaphores[i], inFlightFences[i]); }
+			for (int i = 0; i < MaxFramesInFlight; i++) { Frames[i] = new(LogicalDevice, new(LogicalDevice, GraphicsCommandPool, graphicsCommandBuffers[i]), imageAvailableSemaphores[i], inFlightFences[i]); }
 		}
 
-		protected virtual void UpdateUniformBuffer(float delta) { }
+		/// <summary>
+		/// Wait for the previous frame to finish
+		/// Acquire an image from the swap chain
+		/// Record a command buffer which draws the scene onto that image
+		/// Submit the recorded command buffer
+		/// Present the swap chain image
+		/// </summary>
+		protected override void DrawFrame(float delta) {
+			if (!CanRender) { return; }
+
+			if (AcquireNextImage(out uint swapChainImageIndex)) {
+				BeginFrame(CurrentGraphicsCommandBuffer, swapChainImageIndex);
+				RecordCommandBuffer(CurrentGraphicsCommandBuffer, delta);
+				UpdateUniformBuffer(delta);
+				EndFrame(CurrentGraphicsCommandBuffer, swapChainImageIndex);
+				PresentFrame(swapChainImageIndex);
+			}
+		}
 
 		protected bool AcquireNextImage(out uint swapChainImageIndex) {
 			VkFence currentFence = CurrentInFlightFence;
@@ -76,36 +93,17 @@ namespace Engine3.Graphics.Vulkan {
 		/// vkCmdBeginRendering
 		/// </code>
 		/// </summary>
-		protected void BeginFrame(VkCommandBuffer graphicsCommandBuffer, uint swapChainImageIndex) {
-			Vk.ResetCommandBuffer(graphicsCommandBuffer, 0);
+		protected void BeginFrame(GraphicsCommandBuffer graphicsCommandBuffer, uint swapChainImageIndex) {
+			graphicsCommandBuffer.ResetCommandBuffer();
 
-			VkCommandBufferBeginInfo commandBufferBeginInfo = new() { flags = 0, pInheritanceInfo = null, };
-			if (Vk.BeginCommandBuffer(graphicsCommandBuffer, &commandBufferBeginInfo) != VkResult.Success) { throw new VulkanException("Failed to begin recording command buffer"); }
+			if (graphicsCommandBuffer.BeginCommandBuffer() != VkResult.Success) { throw new VulkanException("Failed to begin recording command buffer"); }
 
-			CmdBeginPipelineBarrier(graphicsCommandBuffer, SwapChain.Images[swapChainImageIndex]);
-			CmdBeginRendering(graphicsCommandBuffer, SwapChain.Extent, SwapChain.ImageViews[swapChainImageIndex], Window.ClearColor.ToVkClearColorValue());
+			graphicsCommandBuffer.CmdBeginPipelineBarrier(SwapChain.Images[swapChainImageIndex]);
+			graphicsCommandBuffer.CmdBeginRendering(SwapChain.Extent, SwapChain.ImageViews[swapChainImageIndex], Window.ClearColor.ToVkClearColorValue());
 		}
 
-		/*
-		   Wait for the previous frame to finish
-		   Acquire an image from the swap chain
-		   Record a command buffer which draws the scene onto that image
-		   Submit the recorded command buffer
-		   Present the swap chain image
-		 */
-		protected override void DrawFrame(float delta) {
-			if (!CanRender) { return; }
-
-			if (AcquireNextImage(out uint swapChainImageIndex)) {
-				BeginFrame(CurrentGraphicsCommandBuffer, swapChainImageIndex);
-				RecordCommandBuffer(CurrentGraphicsCommandBuffer, delta);
-				UpdateUniformBuffer(delta);
-				EndFrame(CurrentGraphicsCommandBuffer, swapChainImageIndex);
-				PresentFrame(swapChainImageIndex);
-			}
-		}
-
-		protected abstract void RecordCommandBuffer(VkCommandBuffer graphicsCommandBuffer, float delta);
+		protected abstract void RecordCommandBuffer(GraphicsCommandBuffer graphicsCommandBuffer, float delta);
+		protected virtual void UpdateUniformBuffer(float delta) { }
 
 		/// <summary>
 		/// Order of what vulkan methods are called here
@@ -116,13 +114,13 @@ namespace Engine3.Graphics.Vulkan {
 		/// vkSubmitQueue
 		/// </code>
 		/// </summary>
-		protected void EndFrame(VkCommandBuffer graphicsCommandBuffer, uint swapChainImageIndex) {
-			Vk.CmdEndRendering(graphicsCommandBuffer);
-			CmdEndPipelineBarrier(graphicsCommandBuffer, SwapChain.Images[swapChainImageIndex]);
+		protected void EndFrame(GraphicsCommandBuffer graphicsCommandBuffer, uint swapChainImageIndex) {
+			graphicsCommandBuffer.CmdEndRendering();
+			graphicsCommandBuffer.CmdEndPipelineBarrier(SwapChain.Images[swapChainImageIndex]);
 
-			if (Vk.EndCommandBuffer(graphicsCommandBuffer) != VkResult.Success) { throw new VulkanException("Failed to end recording command buffer"); }
+			if (graphicsCommandBuffer.EndCommandBuffer() != VkResult.Success) { throw new VulkanException("Failed to end recording command buffer"); }
 
-			VkH.SubmitCommandBufferQueue(LogicalGpu.GraphicsQueue, graphicsCommandBuffer, CurrentImageAvailableSemaphore, RenderFinishedSemaphores[swapChainImageIndex], CurrentInFlightFence);
+			graphicsCommandBuffer.SubmitQueue(LogicalGpu.GraphicsQueue, CurrentImageAvailableSemaphore, RenderFinishedSemaphores[swapChainImageIndex], CurrentInFlightFence);
 		}
 
 		protected void PresentFrame(uint swapChainImageIndex) {
@@ -148,58 +146,14 @@ namespace Engine3.Graphics.Vulkan {
 			foreach (FrameData frame in Frames) { frame.Destroy(); }
 		}
 
-		protected static void CmdBeginPipelineBarrier(VkCommandBuffer graphicsCommandBuffer, VkImage image) {
-			VkImageMemoryBarrier2 imageMemoryBarrier2 = new() {
-					dstAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
-					dstStageMask = VkPipelineStageFlagBits2.PipelineStage2TopOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
-					oldLayout = VkImageLayout.ImageLayoutUndefined,
-					newLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
-					image = image,
-					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
-			};
-
-			VkDependencyInfo dependencyInfo = new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier2, };
-			Vk.CmdPipelineBarrier2(graphicsCommandBuffer, &dependencyInfo);
-		}
-
-		protected static void CmdEndPipelineBarrier(VkCommandBuffer graphicsCommandBuffer, VkImage image) {
-			VkImageMemoryBarrier2 imageMemoryBarrier2 = new() {
-					srcAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
-					srcStageMask = VkPipelineStageFlagBits2.PipelineStage2BottomOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
-					oldLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
-					newLayout = VkImageLayout.ImageLayoutPresentSrcKhr,
-					image = image,
-					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
-			};
-
-			VkDependencyInfo dependencyInfo = new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier2, };
-			Vk.CmdPipelineBarrier2(graphicsCommandBuffer, &dependencyInfo);
-		}
-
-		protected static void CmdBeginRendering(VkCommandBuffer graphicsCommandBuffer, VkExtent2D extent, VkImageView imageView, VkClearColorValue clearColor) {
-			VkRenderingAttachmentInfo vkRenderingAttachmentInfo = new() {
-					imageView = imageView,
-					imageLayout = VkImageLayout.ImageLayoutAttachmentOptimalKhr,
-					loadOp = VkAttachmentLoadOp.AttachmentLoadOpClear,
-					storeOp = VkAttachmentStoreOp.AttachmentStoreOpStore,
-					clearValue = new() {
-							color = clearColor,
-							// depthStencil =, TODO look into what this is/how it works/if i want this
-					},
-			};
-
-			VkRenderingInfo renderingInfo = new() { renderArea = new() { offset = new(0, 0), extent = extent, }, layerCount = 1, colorAttachmentCount = 1, pColorAttachments = &vkRenderingAttachmentInfo, };
-			Vk.CmdBeginRendering(graphicsCommandBuffer, &renderingInfo);
-		}
-
 		protected class FrameData {
-			public VkCommandBuffer GraphicsCommandBuffer { get; }
+			public GraphicsCommandBuffer GraphicsCommandBuffer { get; }
 			public VkSemaphore ImageAvailableSemaphore { get; }
 			public VkFence InFlightFence { get; }
 
 			private readonly VkDevice logicalDevice;
 
-			public FrameData(VkDevice logicalDevice, VkCommandBuffer graphicsCommandBuffer, VkSemaphore imageAvailableSemaphore, VkFence inFlightFence) {
+			public FrameData(VkDevice logicalDevice, GraphicsCommandBuffer graphicsCommandBuffer, VkSemaphore imageAvailableSemaphore, VkFence inFlightFence) {
 				GraphicsCommandBuffer = graphicsCommandBuffer;
 				ImageAvailableSemaphore = imageAvailableSemaphore;
 				InFlightFence = inFlightFence;

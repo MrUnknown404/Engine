@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Engine3.Exceptions;
+using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics.Vulkan;
 
@@ -11,23 +12,21 @@ namespace Engine3.Graphics.Vulkan {
 		public VkPipeline Pipeline { get; }
 		public VkPipelineLayout Layout { get; }
 
-		public VkDescriptorSetLayout? DescriptorSetLayout { get; }
 		public VkDescriptorPool? DescriptorPool { get; }
+		public VkDescriptorSetLayout? DescriptorSetLayout { get; }
 		public VkDescriptorSet[]? DescriptorSets { get; }
 
 		private readonly VkDevice logicalDevice;
 		private bool wasDestroyed;
 
-		private GraphicsPipeline(VkDevice logicalDevice, VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorSetLayout? descriptorSetLayout, VkDescriptorPool? descriptorPool, VkDescriptorSet[]? descriptorSets) {
+		private GraphicsPipeline(VkDevice logicalDevice, VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorPool? descriptorPool, VkDescriptorSetLayout? descriptorSetLayout, VkDescriptorSet[]? descriptorSets) {
 			this.logicalDevice = logicalDevice;
 			Pipeline = pipeline;
 			Layout = layout;
-			DescriptorSetLayout = descriptorSetLayout;
 			DescriptorPool = descriptorPool;
+			DescriptorSetLayout = descriptorSetLayout;
 			DescriptorSets = descriptorSets;
 		}
-
-		public void CmdBind(VkCommandBuffer graphicsCommandBuffer) => Vk.CmdBindPipeline(graphicsCommandBuffer, VkPipelineBindPoint.PipelineBindPointGraphics, Pipeline);
 
 		public unsafe void Destroy() {
 			if (wasDestroyed) {
@@ -44,7 +43,7 @@ namespace Engine3.Graphics.Vulkan {
 			wasDestroyed = true;
 		}
 
-		public class Builder {
+		public unsafe class Builder {
 			public VkPrimitiveTopology Topology { get; init; } = VkPrimitiveTopology.PrimitiveTopologyTriangleList;
 			public VkPolygonMode PolygonMode { get; init; } = VkPolygonMode.PolygonModeFill;
 			public VkCullModeFlagBits CullMode { get; init; } = VkCullModeFlagBits.CullModeBackBit;
@@ -55,10 +54,10 @@ namespace Engine3.Graphics.Vulkan {
 			public VkBlendFactor SrcAlphaBlendFactor { get; init; } = VkBlendFactor.BlendFactorOne;
 			public VkBlendFactor DstAlphaBlendFactor { get; init; } = VkBlendFactor.BlendFactorZero;
 			public VkBlendOp AlphaBlendOp { get; init; } = VkBlendOp.BlendOpAdd;
-			public VkDynamicState[] DynamicStates { get; init; } = [ VkDynamicState.DynamicStateViewport, VkDynamicState.DynamicStateScissor, ];
+			public List<VkDynamicState> DynamicStates { get; init; } = [ VkDynamicState.DynamicStateViewport, VkDynamicState.DynamicStateScissor, ];
 
-			private VkDescriptorSetLayout? descriptorSetLayout;
 			private VkDescriptorPool? descriptorPool;
+			private VkDescriptorSetLayout? descriptorSetLayout;
 			private VkDescriptorSet[]? descriptorSets;
 
 			private readonly VkDevice logicalDevice;
@@ -77,12 +76,66 @@ namespace Engine3.Graphics.Vulkan {
 			}
 
 			public void AddDescriptorSets(VkShaderStageFlagBits shaderStageFlags, uint bindingLocation, uint maxFramesInFlight, VkBuffer[] uniformBuffers, uint uniformBufferSize) {
-				descriptorPool = VkH.CreateDescriptorPool(logicalDevice, VkDescriptorType.DescriptorTypeUniformBuffer, maxFramesInFlight);
-				descriptorSetLayout = VkH.CreateDescriptorSetLayout(logicalDevice, bindingLocation, shaderStageFlags);
-				descriptorSets = VkH.CreateDescriptorSets(logicalDevice, descriptorPool.Value, descriptorSetLayout.Value, maxFramesInFlight, uniformBufferSize, uniformBuffers);
+				descriptorPool = CreateDescriptorPool(logicalDevice, VkDescriptorType.DescriptorTypeUniformBuffer, maxFramesInFlight);
+				descriptorSetLayout = CreateDescriptorSetLayout(logicalDevice, bindingLocation, shaderStageFlags);
+				descriptorSets = CreateDescriptorSets(logicalDevice, descriptorPool.Value, descriptorSetLayout.Value, maxFramesInFlight, uniformBufferSize, uniformBuffers);
+
+				return;
+
+				[MustUseReturnValue]
+				static VkDescriptorSet[] CreateDescriptorSets(VkDevice logicalDevice, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, uint maxFramesInFlight, uint uniformBufferSize,
+					VkBuffer[] uniformBuffers) {
+					VkDescriptorSetLayout[] layouts = new VkDescriptorSetLayout[maxFramesInFlight];
+					for (int i = 0; i < maxFramesInFlight; i++) { layouts[i] = descriptorSetLayout; }
+
+					VkDescriptorSet[] descriptorSets = new VkDescriptorSet[maxFramesInFlight];
+
+					fixed (VkDescriptorSetLayout* layoutsPtr = layouts) {
+						fixed (VkDescriptorSet* descriptorSetsPtr = descriptorSets) {
+							VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = new() { descriptorPool = descriptorPool, descriptorSetCount = maxFramesInFlight, pSetLayouts = layoutsPtr, };
+							if (Vk.AllocateDescriptorSets(logicalDevice, &descriptorSetAllocateInfo, descriptorSetsPtr) != VkResult.Success) { throw new VulkanException("Failed to allocation descriptor sets"); }
+						}
+					}
+
+					for (int i = 0; i < maxFramesInFlight; i++) {
+						VkDescriptorBufferInfo descriptorBufferInfo = new() { buffer = uniformBuffers[i], offset = 0, range = uniformBufferSize, };
+						VkWriteDescriptorSet writeDescriptorSet = new() {
+								dstSet = descriptorSets[i],
+								dstBinding = 0,
+								dstArrayElement = 0,
+								descriptorType = VkDescriptorType.DescriptorTypeUniformBuffer,
+								descriptorCount = 1,
+								pBufferInfo = &descriptorBufferInfo,
+								pImageInfo = null,
+								pTexelBufferView = null,
+						};
+
+						Vk.UpdateDescriptorSets(logicalDevice, 1, &writeDescriptorSet, 0, null);
+					}
+
+					return descriptorSets;
+				}
+
+				[MustUseReturnValue]
+				static VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice logicalDevice, uint binding, VkShaderStageFlagBits shaderStageFlags) {
+					VkDescriptorSetLayoutBinding uboLayoutBinding = new() { binding = binding, descriptorType = VkDescriptorType.DescriptorTypeUniformBuffer, descriptorCount = 1, stageFlags = shaderStageFlags, };
+					VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = new() { bindingCount = 1, pBindings = &uboLayoutBinding, };
+					VkDescriptorSetLayout layout;
+					VkResult result = Vk.CreateDescriptorSetLayout(logicalDevice, &descriptorSetLayoutCreateInfo, null, &layout);
+					return result != VkResult.Success ? throw new VulkanException($"Failed to create descriptor set layout. {result}") : layout;
+				}
+
+				[MustUseReturnValue]
+				static VkDescriptorPool CreateDescriptorPool(VkDevice logicalDevice, VkDescriptorType descriptorType, uint maxFramesInFlight) {
+					VkDescriptorPoolSize descriptorPoolSize = new() { descriptorCount = maxFramesInFlight, type = descriptorType, };
+					VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = new() { poolSizeCount = 1, pPoolSizes = &descriptorPoolSize, maxSets = maxFramesInFlight, };
+					VkDescriptorPool descriptorPool;
+					VkResult result = Vk.CreateDescriptorPool(logicalDevice, &descriptorPoolCreateInfo, null, &descriptorPool);
+					return result != VkResult.Success ? throw new VulkanException($"Failed to create descriptor pool. {result}") : descriptorPool;
+				}
 			}
 
-			public unsafe GraphicsPipeline MakePipeline() {
+			public GraphicsPipeline MakePipeline() {
 				byte* entryPointName = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference("main"u8));
 				VkPipelineShaderStageCreateInfo[] shaderStageCreateInfos = new VkPipelineShaderStageCreateInfo[shaderStageInfos.Length];
 				for (int i = 0; i < shaderStageInfos.Length; i++) {
@@ -145,10 +198,10 @@ namespace Engine3.Graphics.Vulkan {
 				if (Vk.CreatePipelineLayout(logicalDevice, &pipelineLayoutCreateInfo, null, &pipelineLayout) != VkResult.Success) { throw new VulkanException("Failed to create pipeline layout"); }
 
 				fixed (VkPipelineShaderStageCreateInfo* shaderStageCreateInfosPtr = shaderStageCreateInfos) {
-					fixed (VkDynamicState* dynamicStatesPtr = DynamicStates) {
+					fixed (VkDynamicState* dynamicStatesPtr = DynamicStates.ToArray()) {
 						fixed (VkVertexInputAttributeDescription* attributeDescriptionsPtr = vertexAttributeDescriptions) {
 							fixed (VkVertexInputBindingDescription* vertexBindingDescriptionPtr = vertexBindingDescriptions) {
-								VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = new() { dynamicStateCount = (uint)DynamicStates.Length, pDynamicStates = dynamicStatesPtr, };
+								VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = new() { dynamicStateCount = (uint)DynamicStates.Count, pDynamicStates = dynamicStatesPtr, };
 
 								VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = new() {
 										vertexBindingDescriptionCount = (uint)vertexBindingDescriptions.Length,
@@ -179,7 +232,7 @@ namespace Engine3.Graphics.Vulkan {
 
 								return result != VkResult.Success ?
 										throw new VulkanException($"Failed to create graphics pipeline. {result}") :
-										new(logicalDevice, graphicsPipeline, pipelineLayout, this.descriptorSetLayout, descriptorPool, descriptorSets);
+										new(logicalDevice, graphicsPipeline, pipelineLayout, descriptorPool, this.descriptorSetLayout, descriptorSets);
 							}
 						}
 					}
