@@ -215,7 +215,7 @@ namespace Engine3 {
 				default: throw new ArgumentOutOfRangeException();
 			}
 
-			Logger.Debug("Goodbye!");
+			Logger.Info("Goodbye!");
 			LogManager.Shutdown();
 		}
 

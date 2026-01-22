@@ -75,11 +75,6 @@
 			<argument>Use 'Vk.GetPhysicalDeviceMemoryProperties2()' for Vulkan 1.1+</argument>
 		</attribute>
 	</member>
-	<member name="M:OpenTK.Graphics.Vulkan.Vk.AcquireNextImageKHR(OpenTK.Graphics.Vulkan.VkDevice,OpenTK.Graphics.Vulkan.VkSwapchainKHR,System.UInt64,OpenTK.Graphics.Vulkan.VkSemaphore,OpenTK.Graphics.Vulkan.VkFence,System.UInt32*)">
-		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
-			<argument>Use 'Vk.AcquireNextImageKHR2()' for Vulkan 1.1+</argument>
-		</attribute>
-	</member>
 	<member name="M:OpenTK.Graphics.Vulkan.Vk.CmdPipelineBarrier(OpenTK.Graphics.Vulkan.VkCommandBuffer,OpenTK.Graphics.Vulkan.VkPipelineStageFlagBits,OpenTK.Graphics.Vulkan.VkPipelineStageFlagBits,OpenTK.Graphics.Vulkan.VkDependencyFlagBits,System.UInt32,OpenTK.Graphics.Vulkan.VkMemoryBarrier*,System.UInt32,OpenTK.Graphics.Vulkan.VkBufferMemoryBarrier*,System.UInt32,OpenTK.Graphics.Vulkan.VkImageMemoryBarrier*)">
 		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
 			<argument>Use 'Vk.CmdPipelineBarrier2()' for Vulkan 1.3+</argument>

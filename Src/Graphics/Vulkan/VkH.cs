@@ -620,8 +620,10 @@ namespace Engine3.Graphics.Vulkan {
 
 		[MustUseReturnValue]
 		public static VkDeviceMemory CreateDeviceMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkBuffer buffer, VkMemoryPropertyFlagBits memoryPropertyFlags) {
-			VkMemoryRequirements memoryRequirements = new();
-			Vk.GetBufferMemoryRequirements(logicalDevice, buffer, &memoryRequirements);
+			VkBufferMemoryRequirementsInfo2 bufferMemoryRequirementsInfo2 = new() { buffer = buffer, };
+			VkMemoryRequirements2 memoryRequirements2 = new();
+			Vk.GetBufferMemoryRequirements2(logicalDevice, &bufferMemoryRequirementsInfo2, &memoryRequirements2);
+			VkMemoryRequirements memoryRequirements = memoryRequirements2.memoryRequirements;
 
 			VkMemoryAllocateInfo memoryAllocateInfo = new() { allocationSize = memoryRequirements.size, memoryTypeIndex = FindMemoryType(physicalDevice, memoryRequirements.memoryTypeBits, memoryPropertyFlags), };
 			VkDeviceMemory deviceMemory;

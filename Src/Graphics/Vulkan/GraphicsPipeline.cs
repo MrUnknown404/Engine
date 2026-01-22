@@ -1,7 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Engine3.Exceptions;
-using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Graphics.Vulkan {
@@ -34,8 +33,7 @@ namespace Engine3.Graphics.Vulkan {
 			Vk.DestroyPipeline(logicalDevice, Pipeline, null);
 		}
 
-		[MustDisposeResource]
-		public class Builder : IDisposable {
+		public class Builder {
 			public VkPrimitiveTopology Topology { get; init; } = VkPrimitiveTopology.PrimitiveTopologyTriangleList;
 			public VkPolygonMode PolygonMode { get; init; } = VkPolygonMode.PolygonModeFill;
 			public VkCullModeFlagBits CullMode { get; init; } = VkCullModeFlagBits.CullModeBackBit;
@@ -54,17 +52,15 @@ namespace Engine3.Graphics.Vulkan {
 
 			private readonly VkDevice logicalDevice;
 			private readonly SwapChain swapChain;
-			private readonly ShaderCreateInfo[] shaderCreateInfos;
+			private readonly ShaderStageInfo[] shaderStageInfos;
 			private readonly VkVertexInputAttributeDescription[] vertexAttributeDescriptions;
 			private readonly VkVertexInputBindingDescription[] vertexBindingDescriptions;
 
-			private bool wasDisposed;
-
-			public Builder(VkDevice logicalDevice, SwapChain swapChain, ShaderCreateInfo[] shaderCreateInfos, VkVertexInputAttributeDescription[] vertexAttributeDescriptions,
+			public Builder(VkDevice logicalDevice, SwapChain swapChain, ShaderStageInfo[] shaderStageInfos, VkVertexInputAttributeDescription[] vertexAttributeDescriptions,
 				VkVertexInputBindingDescription[] vertexBindingDescriptions) {
 				this.logicalDevice = logicalDevice;
 				this.swapChain = swapChain;
-				this.shaderCreateInfos = shaderCreateInfos;
+				this.shaderStageInfos = shaderStageInfos;
 				this.vertexAttributeDescriptions = vertexAttributeDescriptions;
 				this.vertexBindingDescriptions = vertexBindingDescriptions;
 			}
@@ -76,13 +72,11 @@ namespace Engine3.Graphics.Vulkan {
 			}
 
 			public unsafe GraphicsPipeline MakePipeline() {
-				ObjectDisposedException.ThrowIf(wasDisposed, this);
-
 				byte* entryPointName = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference("main"u8));
-				VkPipelineShaderStageCreateInfo[] shaderStageCreateInfos = new VkPipelineShaderStageCreateInfo[shaderCreateInfos.Length];
-				for (int i = 0; i < shaderCreateInfos.Length; i++) {
-					ShaderCreateInfo shaderCreateInfo = shaderCreateInfos[i];
-					shaderStageCreateInfos[i] = new() { module = shaderCreateInfo.ShaderModule, stage = shaderCreateInfo.ShaderStageFlags, pName = entryPointName, };
+				VkPipelineShaderStageCreateInfo[] shaderStageCreateInfos = new VkPipelineShaderStageCreateInfo[shaderStageInfos.Length];
+				for (int i = 0; i < shaderStageInfos.Length; i++) {
+					ShaderStageInfo shaderStageInfo = shaderStageInfos[i];
+					shaderStageCreateInfos[i] = new() { module = shaderStageInfo.ShaderModule, stage = shaderStageInfo.ShaderStageFlags, pName = entryPointName, };
 				}
 
 				VkFormat swapChainImageFormat = swapChain.ImageFormat;
@@ -179,15 +173,6 @@ namespace Engine3.Graphics.Vulkan {
 						}
 					}
 				}
-			}
-
-			public void Dispose() {
-				ObjectDisposedException.ThrowIf(wasDisposed, this);
-
-				GC.SuppressFinalize(this);
-
-				foreach (ShaderCreateInfo shaderCreateInfo in shaderCreateInfos) { shaderCreateInfo.Cleanup(); }
-				wasDisposed = true;
 			}
 		}
 	}
