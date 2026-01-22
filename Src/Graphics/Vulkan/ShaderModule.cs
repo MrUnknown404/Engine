@@ -7,7 +7,6 @@ namespace Engine3.Graphics.Vulkan {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public VkShaderModule VkShaderModule { get; }
-
 		private readonly VkDevice logicalDevice;
 		private bool wasDestroyed;
 
@@ -16,13 +15,14 @@ namespace Engine3.Graphics.Vulkan {
 			this.logicalDevice = logicalDevice;
 		}
 
-		public unsafe void Cleanup() {
+		public unsafe void Destroy() {
 			if (wasDestroyed) {
-				Logger.Warn($"Attempted to cleanup destroyed {nameof(ShaderModule)}");
+				Logger.Warn($"{nameof(ShaderModule)} was already destroyed");
 				return;
 			}
 
 			Vk.DestroyShaderModule(logicalDevice, VkShaderModule, null);
+
 			wasDestroyed = true;
 		}
 	}

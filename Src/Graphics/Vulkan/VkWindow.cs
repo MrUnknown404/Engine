@@ -2,7 +2,6 @@ using System.Diagnostics;
 using Engine3.Exceptions;
 using NLog;
 using OpenTK.Graphics.Vulkan;
-using OpenTK.Mathematics;
 using OpenTK.Platform;
 
 namespace Engine3.Graphics.Vulkan {
@@ -36,23 +35,17 @@ namespace Engine3.Graphics.Vulkan {
 			Logger.Debug($"- Selected Gpu: {selectedGpu.Name}");
 
 			VkDevice logicalDevice = VkH.CreateLogicalDevice(selectedGpu.PhysicalDevice, selectedGpu.QueueFamilyIndices, gameClient.GetAllRequiredDeviceExtensions(), gameClient.GetAllRequiredValidationLayers());
-
 			VkQueue graphicsQueue = VkH.GetDeviceQueue(logicalDevice, selectedGpu.QueueFamilyIndices.GraphicsFamily);
 			VkQueue presentQueue = VkH.GetDeviceQueue(logicalDevice, selectedGpu.QueueFamilyIndices.PresentFamily);
 			VkQueue transferQueue = VkH.GetDeviceQueue(logicalDevice, selectedGpu.QueueFamilyIndices.TransferFamily);
 			LogicalGpu logicalGpu = new(logicalDevice, graphicsQueue, presentQueue, transferQueue);
 			Logger.Debug("Created logical gpu");
 
-			Toolkit.Window.GetFramebufferSize(windowHandle, out Vector2i framebufferSize);
-			VkH.CreateSwapChain(selectedGpu.PhysicalDevice, logicalDevice, surface, selectedGpu.QueueFamilyIndices, framebufferSize, out VkSwapchainKHR vkSwapChain, out VkExtent2D swapChainExtent,
-				out VkFormat swapChainImageFormat, gameClient.PresentMode);
-
-			SwapChain swapChain = new(logicalDevice, vkSwapChain, swapChainImageFormat, swapChainExtent, gameClient.PresentMode);
+			SwapChain swapChain = new(selectedGpu.PhysicalDevice, logicalDevice, selectedGpu.QueueFamilyIndices, windowHandle, surface, gameClient.PresentMode);
 			Logger.Debug("Created swap chain");
 
 			VkWindow window = new(windowHandle, surface, selectedGpu, logicalGpu, swapChain);
 			swapChain.Window = window;
-
 			return window;
 		}
 

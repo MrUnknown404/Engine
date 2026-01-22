@@ -8,6 +8,8 @@ namespace Engine3.Graphics.OpenGL {
 		protected GlRenderer(GlWindow window) => Window = window;
 
 		protected override void DrawFrame(float delta) {
+			if (!CanRender) { return; }
+
 			Toolkit.OpenGL.SetCurrentContext(Window.GLContextHandle);
 			GL.Clear(Window.ClearBufferMask);
 			Draw(delta);

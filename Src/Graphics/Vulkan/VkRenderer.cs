@@ -3,7 +3,7 @@ using Engine3.Utils.Extensions;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Graphics.Vulkan {
-	public abstract class VkRenderer : Renderer {
+	public abstract unsafe class VkRenderer : Renderer {
 		protected VkWindow Window { get; }
 
 		protected VkCommandPool GraphicsCommandPool { get; }
@@ -45,7 +45,7 @@ namespace Engine3.Graphics.Vulkan {
 
 		protected virtual void UpdateUniformBuffer(float delta) { }
 
-		protected unsafe bool AcquireNextImage(out uint swapChainImageIndex) {
+		protected bool AcquireNextImage(out uint swapChainImageIndex) {
 			VkFence currentFence = CurrentInFlightFence;
 
 			// not sure if i'm supposed to wait for all fences or just the current one. vulkan-tutorial.com & vkguide.dev differ. i should probably read the docs
@@ -67,7 +67,16 @@ namespace Engine3.Graphics.Vulkan {
 			return true;
 		}
 
-		protected unsafe void BeginFrame(VkCommandBuffer graphicsCommandBuffer, uint swapChainImageIndex) {
+		/// <summary>
+		/// Order of what vulkan methods are called here
+		/// <code>
+		/// vkResetCommandBuffer
+		/// vkBeginCommandBuffer
+		/// vkCmdPipelineBarrier (Begin)
+		/// vkCmdBeginRendering
+		/// </code>
+		/// </summary>
+		protected void BeginFrame(VkCommandBuffer graphicsCommandBuffer, uint swapChainImageIndex) {
 			Vk.ResetCommandBuffer(graphicsCommandBuffer, 0);
 
 			VkCommandBufferBeginInfo commandBufferBeginInfo = new() { flags = 0, pInheritanceInfo = null, };
@@ -89,15 +98,24 @@ namespace Engine3.Graphics.Vulkan {
 
 			if (AcquireNextImage(out uint swapChainImageIndex)) {
 				BeginFrame(CurrentGraphicsCommandBuffer, swapChainImageIndex);
-				DrawFrame(CurrentGraphicsCommandBuffer, delta);
+				RecordCommandBuffer(CurrentGraphicsCommandBuffer, delta);
 				UpdateUniformBuffer(delta);
 				EndFrame(CurrentGraphicsCommandBuffer, swapChainImageIndex);
 				PresentFrame(swapChainImageIndex);
 			}
 		}
 
-		protected abstract void DrawFrame(VkCommandBuffer graphicsCommandBuffer, float delta);
+		protected abstract void RecordCommandBuffer(VkCommandBuffer graphicsCommandBuffer, float delta);
 
+		/// <summary>
+		/// Order of what vulkan methods are called here
+		/// <code>
+		/// vkCmdEndRendering
+		/// vkCmdPipelineBarrier (End)
+		/// vkEndCommandBuffer
+		/// vkSubmitQueue
+		/// </code>
+		/// </summary>
 		protected void EndFrame(VkCommandBuffer graphicsCommandBuffer, uint swapChainImageIndex) {
 			Vk.CmdEndRendering(graphicsCommandBuffer);
 			CmdEndPipelineBarrier(graphicsCommandBuffer, SwapChain.Images[swapChainImageIndex]);
@@ -107,7 +125,7 @@ namespace Engine3.Graphics.Vulkan {
 			VkH.SubmitCommandBufferQueue(LogicalGpu.GraphicsQueue, graphicsCommandBuffer, CurrentImageAvailableSemaphore, RenderFinishedSemaphores[swapChainImageIndex], CurrentInFlightFence);
 		}
 
-		protected unsafe void PresentFrame(uint swapChainImageIndex) {
+		protected void PresentFrame(uint swapChainImageIndex) {
 			VkSwapchainKHR swapChain = SwapChain.VkSwapChain;
 			VkSemaphore renderFinishedSemaphore = RenderFinishedSemaphores[swapChainImageIndex];
 			VkPresentInfoKHR presentInfo = new() { waitSemaphoreCount = 1, pWaitSemaphores = &renderFinishedSemaphore, swapchainCount = 1, pSwapchains = &swapChain, pImageIndices = &swapChainImageIndex, };
@@ -121,7 +139,7 @@ namespace Engine3.Graphics.Vulkan {
 			CurrentFrame = (byte)((CurrentFrame + 1) % MaxFramesInFlight);
 		}
 
-		protected override unsafe void Cleanup() {
+		protected override void Destroy() {
 			Vk.DestroyCommandPool(LogicalDevice, TransferCommandPool, null);
 			Vk.DestroyCommandPool(LogicalDevice, GraphicsCommandPool, null);
 
@@ -130,7 +148,7 @@ namespace Engine3.Graphics.Vulkan {
 			foreach (FrameData frame in Frames) { frame.Destroy(); }
 		}
 
-		protected static unsafe void CmdBeginPipelineBarrier(VkCommandBuffer graphicsCommandBuffer, VkImage image) {
+		protected static void CmdBeginPipelineBarrier(VkCommandBuffer graphicsCommandBuffer, VkImage image) {
 			VkImageMemoryBarrier2 imageMemoryBarrier2 = new() {
 					dstAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
 					dstStageMask = VkPipelineStageFlagBits2.PipelineStage2TopOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
@@ -144,7 +162,7 @@ namespace Engine3.Graphics.Vulkan {
 			Vk.CmdPipelineBarrier2(graphicsCommandBuffer, &dependencyInfo);
 		}
 
-		protected static unsafe void CmdEndPipelineBarrier(VkCommandBuffer graphicsCommandBuffer, VkImage image) {
+		protected static void CmdEndPipelineBarrier(VkCommandBuffer graphicsCommandBuffer, VkImage image) {
 			VkImageMemoryBarrier2 imageMemoryBarrier2 = new() {
 					srcAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
 					srcStageMask = VkPipelineStageFlagBits2.PipelineStage2BottomOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
@@ -158,7 +176,7 @@ namespace Engine3.Graphics.Vulkan {
 			Vk.CmdPipelineBarrier2(graphicsCommandBuffer, &dependencyInfo);
 		}
 
-		protected static unsafe void CmdBeginRendering(VkCommandBuffer graphicsCommandBuffer, VkExtent2D extent, VkImageView imageView, VkClearColorValue clearColor) {
+		protected static void CmdBeginRendering(VkCommandBuffer graphicsCommandBuffer, VkExtent2D extent, VkImageView imageView, VkClearColorValue clearColor) {
 			VkRenderingAttachmentInfo vkRenderingAttachmentInfo = new() {
 					imageView = imageView,
 					imageLayout = VkImageLayout.ImageLayoutAttachmentOptimalKhr,
@@ -188,7 +206,7 @@ namespace Engine3.Graphics.Vulkan {
 				this.logicalDevice = logicalDevice;
 			}
 
-			public unsafe void Destroy() {
+			public void Destroy() {
 				Vk.DestroySemaphore(logicalDevice, ImageAvailableSemaphore, null);
 				Vk.DestroyFence(logicalDevice, InFlightFence, null);
 			}

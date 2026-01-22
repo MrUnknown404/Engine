@@ -84,8 +84,8 @@ namespace Engine3.Graphics {
 			Logger.Debug("Destroying window...");
 
 			if (Renderer is { WasDestroyed: false, }) {
-				Logger.Debug("Cleaning up window's renderer...");
-				Renderer.TryCleanup();
+				Logger.Debug("Destroying window's renderer...");
+				Renderer.TryDestroy();
 			}
 
 			Logger.Debug("Cleaning up window's graphics...");

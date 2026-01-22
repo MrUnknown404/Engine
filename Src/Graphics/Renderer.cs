@@ -15,13 +15,13 @@ namespace Engine3.Graphics {
 			FrameCount++;
 		}
 
-		public void TryCleanup() {
+		public void TryDestroy() {
 			if (!WasDestroyed) {
-				Cleanup();
+				Destroy();
 				WasDestroyed = true;
 			}
 		}
 
-		protected abstract void Cleanup();
+		protected abstract void Destroy();
 	}
 }

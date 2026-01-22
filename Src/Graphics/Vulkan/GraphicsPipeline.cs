@@ -1,10 +1,13 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Engine3.Exceptions;
+using NLog;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Graphics.Vulkan {
 	public class GraphicsPipeline {
+		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
 		public VkPipeline Pipeline { get; }
 		public VkPipelineLayout Layout { get; }
 
@@ -13,6 +16,7 @@ namespace Engine3.Graphics.Vulkan {
 		public VkDescriptorSet[]? DescriptorSets { get; }
 
 		private readonly VkDevice logicalDevice;
+		private bool wasDestroyed;
 
 		private GraphicsPipeline(VkDevice logicalDevice, VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorSetLayout? descriptorSetLayout, VkDescriptorPool? descriptorPool, VkDescriptorSet[]? descriptorSets) {
 			this.logicalDevice = logicalDevice;
@@ -25,12 +29,19 @@ namespace Engine3.Graphics.Vulkan {
 
 		public void CmdBind(VkCommandBuffer graphicsCommandBuffer) => Vk.CmdBindPipeline(graphicsCommandBuffer, VkPipelineBindPoint.PipelineBindPointGraphics, Pipeline);
 
-		public unsafe void Cleanup() {
+		public unsafe void Destroy() {
+			if (wasDestroyed) {
+				Logger.Warn($"{nameof(GraphicsPipeline)} was already destroyed");
+				return;
+			}
+
 			if (DescriptorPool is { } descriptorPool) { Vk.DestroyDescriptorPool(logicalDevice, descriptorPool, null); }
 			if (DescriptorSetLayout is { } descriptorSetLayout) { Vk.DestroyDescriptorSetLayout(logicalDevice, descriptorSetLayout, null); }
 
 			Vk.DestroyPipelineLayout(logicalDevice, Layout, null);
 			Vk.DestroyPipeline(logicalDevice, Pipeline, null);
+
+			wasDestroyed = true;
 		}
 
 		public class Builder {
