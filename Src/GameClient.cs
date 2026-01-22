@@ -1,9 +1,9 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using Engine3.Debug;
 using Engine3.Exceptions;
 using Engine3.Utils;
+using Engine3.Utils.Versions;
 using NLog;
 using OpenTK.Platform;
 using OpenTK.Windowing.GraphicsLibraryFramework;
@@ -13,13 +13,17 @@ using ZLinq;
 using GraphicsApi = Engine3.Graphics.GraphicsApi;
 using Window = Engine3.Graphics.Window;
 
+#if DEBUG
+using Engine3.Debug;
+#endif
+
 namespace Engine3 {
 	public abstract partial class GameClient {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		[field: MaybeNull] public Assembly Assembly { get => field ?? throw new Engine3Exception($"Attempted to get GameInstance Assembly too early. Must call {nameof(GameClient)}#{nameof(Start)} first"); private set; }
 
-		public Version4 Version { get; }
+		public IPackableVersion PackableVersion { get; }
 		public string Name { get; }
 		public GraphicsApi GraphicsApi { get; }
 		public GraphicsApiHints? GraphicsApiHints { get; }
@@ -40,13 +44,13 @@ namespace Engine3 {
 		public event Action? OnSetupToolkitEvent;
 		public event Action? OnShutdownEvent;
 
-		protected GameClient(string name, Version4 version, GraphicsApi graphicsApi) {
+		protected GameClient(string name, IPackableVersion version, GraphicsApi graphicsApi) {
 			Name = name;
-			Version = version;
+			PackableVersion = version;
 			GraphicsApi = graphicsApi;
 		}
 
-		protected GameClient(string name, Version4 version, OpenGLGraphicsApiHints graphicsApiHints) : this(name, version, GraphicsApi.OpenGL) {
+		protected GameClient(string name, IPackableVersion version, OpenGLGraphicsApiHints graphicsApiHints) : this(name, version, GraphicsApi.OpenGL) {
 			graphicsApiHints.Version = new(4, 6);
 			graphicsApiHints.Profile = OpenGLProfile.Core;
 #if DEBUG
@@ -56,7 +60,7 @@ namespace Engine3 {
 			GraphicsApiHints = graphicsApiHints;
 		}
 
-		protected GameClient(string name, Version4 version, VulkanGraphicsApiHints graphicsApiHints) : this(name, version, GraphicsApi.Vulkan) => GraphicsApiHints = graphicsApiHints;
+		protected GameClient(string name, IPackableVersion version, VulkanGraphicsApiHints graphicsApiHints) : this(name, version, GraphicsApi.Vulkan) => GraphicsApiHints = graphicsApiHints;
 
 		public void Start<T>(T gameClient, StartupSettings settings) where T : GameClient {
 			if (wasSetup) { throw new Engine3Exception("Attempted to call #Start twice"); }
@@ -74,7 +78,7 @@ namespace Engine3 {
 
 			Logger.Info("Setting up engine...");
 			Logger.Debug($"- Engine Version: {Engine3.Version}");
-			Logger.Debug($"- Game Version: {Version}");
+			Logger.Debug($"- Game Version: {PackableVersion}");
 			Logger.Debug($"- GLFW Version: {GLFW.GetVersionString()}"); // TODO i have no idea what window manager OpenTK uses. i see GLFW, & SDL. but it looks like PAL is just using Win32 API/X11 API directly. help
 			Logger.Debug($"- Graphics Api: {GraphicsApi}");
 

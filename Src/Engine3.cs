@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Engine3.Exceptions;
-using Engine3.Utils;
+using Engine3.Utils.Versions;
 
 namespace Engine3 {
 	public static partial class Engine3 {
@@ -13,7 +13,7 @@ namespace Engine3 {
 				false;
 #endif
 
-		public static Version4 Version { get; } = new(0, 0, 0);
+		public static Version4Interweaved Version { get; } = new(0, 0, 0);
 		public static Assembly Assembly => typeof(Engine3).Assembly;
 
 		[field: MaybeNull]

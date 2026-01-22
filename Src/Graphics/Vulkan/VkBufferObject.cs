@@ -19,8 +19,8 @@ namespace Engine3.Graphics.Vulkan {
 			this.physicalDevice = physicalDevice;
 			this.logicalDevice = logicalDevice;
 			BufferSize = bufferSize;
-			Buffer = VkH.CreateBuffer(logicalDevice, bufferUsageFlags, bufferSize);
-			BufferMemory = VkH.CreateDeviceMemory(physicalDevice, logicalDevice, Buffer, memoryPropertyFlags);
+			Buffer = CreateBuffer(logicalDevice, bufferUsageFlags, bufferSize);
+			BufferMemory = CreateDeviceMemory(physicalDevice, logicalDevice, Buffer, memoryPropertyFlags);
 			BindBufferMemory(logicalDevice, Buffer, BufferMemory);
 		}
 
@@ -29,15 +29,13 @@ namespace Engine3.Graphics.Vulkan {
 		public void Copy<T>(T[] data) where T : unmanaged => MapAndCopyMemory(logicalDevice, BufferMemory, data);
 
 		public void CopyUsingStaging<T>(VkCommandPool transferPool, VkQueue transferQueue, T[] data) where T : unmanaged {
-			VkBuffer stagingBuffer = VkH.CreateBuffer(logicalDevice, VkBufferUsageFlagBits.BufferUsageTransferSrcBit, BufferSize); // TODO should i make a persistent staging buffer?
-			VkDeviceMemory stagingBufferMemory = VkH.CreateDeviceMemory(physicalDevice, logicalDevice, stagingBuffer, VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit);
+			VkBufferObject stagingBuffer = new(physicalDevice, logicalDevice, VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
+				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, BufferSize); // TODO should i make a persistent staging buffer?
 
-			BindBufferMemory(logicalDevice, stagingBuffer, stagingBufferMemory);
-			MapAndCopyMemory(logicalDevice, stagingBufferMemory, data);
-			CopyBuffer(logicalDevice, transferQueue, transferPool, stagingBuffer, Buffer, BufferSize);
+			MapAndCopyMemory(logicalDevice, stagingBuffer.BufferMemory, data);
+			CopyBuffer(logicalDevice, transferQueue, transferPool, stagingBuffer.Buffer, Buffer, BufferSize);
 
-			Vk.DestroyBuffer(logicalDevice, stagingBuffer, null);
-			Vk.FreeMemory(logicalDevice, stagingBufferMemory, null);
+			stagingBuffer.Destroy();
 		}
 
 		public void Destroy() {
@@ -50,6 +48,52 @@ namespace Engine3.Graphics.Vulkan {
 			Vk.FreeMemory(logicalDevice, BufferMemory, null);
 
 			wasDestroyed = true;
+		}
+
+		[MustUseReturnValue]
+		private static VkBuffer CreateBuffer(VkDevice logicalDevice, VkBufferUsageFlagBits bufferUsage, ulong size, uint[]? queueFamilyIndices = null) {
+			if (queueFamilyIndices == null) { return CreateBuffer(logicalDevice, new() { size = size, usage = bufferUsage, sharingMode = VkSharingMode.SharingModeExclusive, }); }
+
+			fixed (uint* queueFamilyIndicesPtr = queueFamilyIndices) {
+				return CreateBuffer(logicalDevice,
+					new() { size = size, usage = bufferUsage, sharingMode = VkSharingMode.SharingModeConcurrent, queueFamilyIndexCount = (uint)queueFamilyIndices.Length, pQueueFamilyIndices = queueFamilyIndicesPtr, });
+			}
+
+			[MustUseReturnValue]
+			static VkBuffer CreateBuffer(VkDevice logicalDevice, VkBufferCreateInfo bufferCreateInfo) {
+				VkBuffer buffer;
+				VkResult result = Vk.CreateBuffer(logicalDevice, &bufferCreateInfo, null, &buffer);
+				return result != VkResult.Success ? throw new VulkanException($"Failed to create buffer. {result}") : buffer;
+			}
+		}
+
+		[MustUseReturnValue]
+		private static VkDeviceMemory CreateDeviceMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkBuffer buffer, VkMemoryPropertyFlagBits memoryPropertyFlags) {
+			VkBufferMemoryRequirementsInfo2 bufferMemoryRequirementsInfo2 = new() { buffer = buffer, };
+			VkMemoryRequirements2 memoryRequirements2 = new();
+			Vk.GetBufferMemoryRequirements2(logicalDevice, &bufferMemoryRequirementsInfo2, &memoryRequirements2);
+			VkMemoryRequirements memoryRequirements = memoryRequirements2.memoryRequirements;
+
+			VkMemoryAllocateInfo memoryAllocateInfo = new() { allocationSize = memoryRequirements.size, memoryTypeIndex = FindMemoryType(physicalDevice, memoryRequirements.memoryTypeBits, memoryPropertyFlags), };
+			VkDeviceMemory deviceMemory;
+
+			// TODO "It should be noted that in a real world application, you're not supposed to actually call vkAllocateMemory for every individual buffer."
+			// "The right way to allocate memory for a large number of objects at the same time is to create a custom allocator that splits up a single allocation among many different objects by using the offset parameters that we've seen in many functions."
+			VkResult result = Vk.AllocateMemory(logicalDevice, &memoryAllocateInfo, null, &deviceMemory);
+			return result != VkResult.Success ? throw new VulkanException($"Failed to allocate memory. {result}") : deviceMemory;
+
+			[MustUseReturnValue]
+			static uint FindMemoryType(VkPhysicalDevice physicalDevice, uint typeFilter, VkMemoryPropertyFlagBits memoryPropertyFlag) {
+				VkPhysicalDeviceMemoryProperties2 memoryProperties2 = new();
+				Vk.GetPhysicalDeviceMemoryProperties2(physicalDevice, &memoryProperties2);
+				VkPhysicalDeviceMemoryProperties memoryProperties = memoryProperties2.memoryProperties;
+
+				for (uint i = 0; i < memoryProperties.memoryTypeCount; i++) {
+					if ((uint)(typeFilter & (1 << (int)i)) != 0 && (memoryProperties.memoryTypes[(int)i].propertyFlags & memoryPropertyFlag) == memoryPropertyFlag) { return i; }
+				}
+
+				throw new VulkanException("Failed to find suitable memory type");
+			}
 		}
 
 		[MustUseReturnValue]

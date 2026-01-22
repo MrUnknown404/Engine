@@ -42,7 +42,7 @@ namespace Engine3.Graphics {
 			Toolkit.Window.SetSize(windowHandle, new((int)width, (int)height));
 
 			Window window = graphicsApi switch {
-					GraphicsApi.OpenGL => GlWindow.MakeGlWindow(windowHandle),
+					GraphicsApi.OpenGL => GlWindow.MakeGlWindow(gameClient, windowHandle),
 					GraphicsApi.Vulkan => VkWindow.MakeVkWindow(gameClient, windowHandle),
 					GraphicsApi.Console => throw new UnreachableException(),
 					_ => throw new ArgumentOutOfRangeException(),

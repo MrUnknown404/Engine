@@ -16,12 +16,29 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		public void ResetCommandBuffer() => Vk.ResetCommandBuffer(VkCommandBuffer, 0);
-		public VkResult BeginCommandBuffer(VkCommandBufferUsageFlagBits bufferUsageFlags = 0) => VkH.BeginCommandBuffer(VkCommandBuffer, bufferUsageFlags);
+
+		public VkResult BeginCommandBuffer(VkCommandBufferUsageFlagBits bufferUsageFlags = 0) {
+			VkCommandBufferBeginInfo commandBufferBeginInfo = new() { flags = bufferUsageFlags, };
+			return Vk.BeginCommandBuffer(VkCommandBuffer, &commandBufferBeginInfo);
+		}
+
 		public VkResult EndCommandBuffer() => Vk.EndCommandBuffer(VkCommandBuffer);
 
 		public void FreeCommandBuffers() {
 			VkCommandBuffer commandBuffers = VkCommandBuffer;
 			Vk.FreeCommandBuffers(logicalDevice, CommandPool, 1, &commandBuffers);
+		}
+
+		protected static void SubmitQueues(VkQueue queue, VkSubmitInfo[] submitInfos, VkFence? fence) {
+			fixed (VkSubmitInfo* submitInfosPtr = submitInfos) {
+				VkResult result = Vk.QueueSubmit(queue, (uint)submitInfos.Length, submitInfosPtr, fence ?? VkFence.Zero);
+				if (result != VkResult.Success) { throw new VulkanException($"Failed to submit queue. {result}"); }
+			}
+		}
+
+		protected static void SubmitQueue(VkQueue queue, VkSubmitInfo submitInfo, VkFence? fence) {
+			VkResult result = Vk.QueueSubmit(queue, 1, &submitInfo, fence ?? VkFence.Zero);
+			if (result != VkResult.Success) { throw new VulkanException($"Failed to submit queue. {result}"); } // TODO device lost?
 		}
 
 		[MustUseReturnValue]

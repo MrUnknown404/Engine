@@ -1,5 +1,5 @@
-using Engine3.Utils;
 using Engine3.Utils.Extensions;
+using Engine3.Utils.Versions;
 using JetBrains.Annotations;
 using NLog;
 using ObjectLayoutInspector;
@@ -54,10 +54,11 @@ namespace Engine3.Debug {
 		}
 
 		private static void AddDefaultStructs() {
-			AddStruct<Version3>();
-			AddStruct<Version3<ushort>>();
 			AddStruct<Version4>();
 			AddStruct<Version4<ushort>>();
+			AddStruct<Version4Char>();
+			AddStruct<Version4Char<ushort>>();
+			AddStruct<Version4Interweaved>();
 		}
 
 		public static void AddStruct<T>() where T : struct => TryAdd(typeof(T).ToReadableName(), $"{TypeLayout.GetLayout<T>()}");

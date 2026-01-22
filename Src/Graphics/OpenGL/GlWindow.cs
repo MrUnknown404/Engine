@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using NLog;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
@@ -17,7 +18,7 @@ namespace Engine3.Graphics.OpenGL {
 			EmptyVao = emptyVao;
 		}
 
-		internal static GlWindow MakeGlWindow(WindowHandle windowHandle) {
+		internal static GlWindow MakeGlWindow(GameClient gameClient, WindowHandle windowHandle) {
 			Logger.Debug("Creating and setting OpenGL context...");
 			OpenGLContextHandle openGLContextHandle = Toolkit.OpenGL.CreateFromWindow(windowHandle);
 			Toolkit.OpenGL.SetCurrentContext(openGLContextHandle);
@@ -26,7 +27,7 @@ namespace Engine3.Graphics.OpenGL {
 
 #if DEBUG
 			Logger.Debug("- Debug callbacks enabled");
-			GLH.CreateDebugMessageCallback(); // must be called after GLLoader.LoadBindings. otherwise i'd move this into Engine3
+			CreateDebugMessageCallback(gameClient.DisabledCallbackIds);
 #endif
 
 			VertexArrayHandle emptyVao = new(GL.CreateVertexArray());
@@ -45,5 +46,43 @@ namespace Engine3.Graphics.OpenGL {
 		}
 
 		protected override void CleanupGraphics() { }
+
+#if DEBUG
+		private static void CreateDebugMessageCallback(uint[] disabledCallbackIds) {
+			GL.Enable(EnableCap.DebugOutput);
+			GL.Enable(EnableCap.DebugOutputSynchronous);
+
+			GL.DebugMessageControl(DebugSource.DebugSourceApi, DebugType.DebugTypeOther, DebugSeverity.DontCare, disabledCallbackIds.Length, disabledCallbackIds.ToArray(), false);
+
+			GL.DebugMessageCallback(static (source, type, id, severity, length, message, _) => {
+				string sourceFormatted = string.Empty;
+				string typeFormatted = string.Empty;
+
+				if (source != DebugSource.DontCare) { sourceFormatted = source.ToString()[nameof(DebugSource).Length..]; } // can source/type be <Enum>.DontCare?
+				if (type != DebugType.DontCare) { typeFormatted = type.ToString()[nameof(DebugType).Length..]; }
+
+				switch (severity) {
+					case DebugSeverity.DontCare: return;
+					case DebugSeverity.DebugSeverityNotification:
+						Logger.Debug($"OpenGL Notification: {id}. Source: {sourceFormatted}, Type: {typeFormatted}");
+						Logger.Debug($"- {Marshal.PtrToStringAnsi(message, length)}");
+						break;
+					case DebugSeverity.DebugSeverityHigh:
+						Logger.Fatal($"OpenGL Fatal Error: {id}. Source: {sourceFormatted}, Type: {typeFormatted}");
+						Logger.Fatal($"- {Marshal.PtrToStringAnsi(message, length)}");
+						break;
+					case DebugSeverity.DebugSeverityMedium:
+						Logger.Error($"OpenGL Error: {id}. Source: {sourceFormatted}, Type: {typeFormatted}");
+						Logger.Error($"- {Marshal.PtrToStringAnsi(message, length)}");
+						break;
+					case DebugSeverity.DebugSeverityLow:
+						Logger.Warn($"OpenGL Warning: {id}. Source: {sourceFormatted}, Type: {typeFormatted}");
+						Logger.Warn($"- {Marshal.PtrToStringAnsi(message, length)}");
+						break;
+					default: throw new ArgumentOutOfRangeException(nameof(severity), severity, null);
+				}
+			}, IntPtr.Zero);
+		}
+#endif
 	}
 }

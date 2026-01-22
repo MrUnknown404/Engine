@@ -1,5 +1,6 @@
 using Engine3.Exceptions;
 using Engine3.Utils.Extensions;
+using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Graphics.Vulkan {
@@ -31,11 +32,11 @@ namespace Engine3.Graphics.Vulkan {
 		protected VkRenderer(VkWindow window, byte maxFramesInFlight) {
 			Window = window;
 			MaxFramesInFlight = maxFramesInFlight;
-			GraphicsCommandPool = VkH.CreateCommandPool(LogicalDevice, VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit, PhysicalGpu.QueueFamilyIndices.GraphicsFamily);
-			TransferCommandPool = VkH.CreateCommandPool(LogicalDevice, VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit, PhysicalGpu.QueueFamilyIndices.TransferFamily);
+			GraphicsCommandPool = CreateCommandPool(LogicalDevice, VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit, PhysicalGpu.QueueFamilyIndices.GraphicsFamily);
+			TransferCommandPool = CreateCommandPool(LogicalDevice, VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit, PhysicalGpu.QueueFamilyIndices.TransferFamily);
 			RenderFinishedSemaphores = VkH.CreateSemaphores(LogicalDevice, (uint)SwapChain.Images.Length);
 
-			VkCommandBuffer[] graphicsCommandBuffers = VkH.CreateCommandBuffers(LogicalDevice, GraphicsCommandPool, MaxFramesInFlight);
+			VkCommandBuffer[] graphicsCommandBuffers = CreateCommandBuffers(LogicalDevice, GraphicsCommandPool, MaxFramesInFlight);
 			VkSemaphore[] imageAvailableSemaphores = VkH.CreateSemaphores(LogicalDevice, MaxFramesInFlight);
 			VkFence[] inFlightFences = VkH.CreateFences(LogicalDevice, MaxFramesInFlight);
 
@@ -144,6 +145,25 @@ namespace Engine3.Graphics.Vulkan {
 			foreach (VkSemaphore renderFinishedSemaphore in RenderFinishedSemaphores) { Vk.DestroySemaphore(LogicalDevice, renderFinishedSemaphore, null); }
 
 			foreach (FrameData frame in Frames) { frame.Destroy(); }
+		}
+
+		[MustUseReturnValue]
+		private static VkCommandPool CreateCommandPool(VkDevice logicalDevice, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) {
+			VkCommandPoolCreateInfo commandPoolCreateInfo = new() { flags = commandPoolCreateFlags, queueFamilyIndex = queueFamilyIndex, };
+			VkCommandPool commandPool;
+			VkResult result = Vk.CreateCommandPool(logicalDevice, &commandPoolCreateInfo, null, &commandPool);
+			return result != VkResult.Success ? throw new VulkanException($"Failed to create command pool. {result}") : commandPool;
+		}
+
+		[Obsolete("Make VkBufferObject.CreateBuffers()")]
+		[MustUseReturnValue]
+		private static VkCommandBuffer[] CreateCommandBuffers(VkDevice logicalDevice, VkCommandPool commandPool, uint count, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
+			VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = commandPool, level = level, commandBufferCount = count, };
+			VkCommandBuffer[] commandBuffers = new VkCommandBuffer[count];
+			fixed (VkCommandBuffer* commandBuffersPtr = commandBuffers) {
+				VkResult result = Vk.AllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, commandBuffersPtr);
+				return result != VkResult.Success ? throw new VulkanException($"Failed to create command buffers. {result}") : commandBuffers;
+			}
 		}
 
 		protected class FrameData {

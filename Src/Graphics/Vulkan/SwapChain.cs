@@ -1,12 +1,14 @@
 using System.Diagnostics.CodeAnalysis;
 using Engine3.Exceptions;
+using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics.Vulkan;
 using OpenTK.Mathematics;
 using OpenTK.Platform;
+using ZLinq;
 
 namespace Engine3.Graphics.Vulkan {
-	public class SwapChain {
+	public unsafe class SwapChain {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public VkSwapchainKHR VkSwapChain { get; private set; }
@@ -23,14 +25,14 @@ namespace Engine3.Graphics.Vulkan {
 
 		public SwapChain(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, QueueFamilyIndices queueFamilyIndices, WindowHandle windowHandle, VkSurfaceKHR surface, VkPresentModeKHR presentMode) {
 			Toolkit.Window.GetFramebufferSize(windowHandle, out Vector2i framebufferSize);
-			VkH.CreateSwapChain(physicalDevice, logicalDevice, surface, queueFamilyIndices, framebufferSize, out VkSwapchainKHR vkSwapChain, out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat, presentMode);
+			CreateSwapChain(physicalDevice, logicalDevice, surface, queueFamilyIndices, framebufferSize, out VkSwapchainKHR vkSwapChain, out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat, presentMode);
 
 			this.logicalDevice = logicalDevice;
 			VkSwapChain = vkSwapChain;
 			ImageFormat = swapChainImageFormat;
 			Extent = swapChainExtent;
-			Images = VkH.GetSwapChainImages(logicalDevice, vkSwapChain);
-			ImageViews = VkH.CreateImageViews(logicalDevice, Images, ImageFormat);
+			Images = GetSwapChainImages(logicalDevice, vkSwapChain);
+			ImageViews = CreateImageViews(logicalDevice, Images, ImageFormat);
 			this.presentMode = presentMode;
 		}
 
@@ -38,7 +40,7 @@ namespace Engine3.Graphics.Vulkan {
 			Vk.DeviceWaitIdle(logicalDevice);
 
 			Toolkit.Window.GetFramebufferSize(Window.WindowHandle, out Vector2i framebufferSize);
-			VkH.CreateSwapChain(Window.SelectedGpu.PhysicalDevice, logicalDevice, Window.Surface, Window.SelectedGpu.QueueFamilyIndices, framebufferSize, out VkSwapchainKHR vkSwapChain, out VkExtent2D swapChainExtent,
+			CreateSwapChain(Window.SelectedGpu.PhysicalDevice, logicalDevice, Window.Surface, Window.SelectedGpu.QueueFamilyIndices, framebufferSize, out VkSwapchainKHR vkSwapChain, out VkExtent2D swapChainExtent,
 				out VkFormat swapChainImageFormat, presentMode, oldSwapChain: VkSwapChain);
 
 			Logger.Debug("Recreated swap chain");
@@ -48,12 +50,12 @@ namespace Engine3.Graphics.Vulkan {
 			VkSwapChain = vkSwapChain;
 			ImageFormat = swapChainImageFormat;
 			Extent = swapChainExtent;
-			Images = VkH.GetSwapChainImages(logicalDevice, vkSwapChain);
-			ImageViews = VkH.CreateImageViews(logicalDevice, Images, swapChainImageFormat);
+			Images = GetSwapChainImages(logicalDevice, vkSwapChain);
+			ImageViews = CreateImageViews(logicalDevice, Images, swapChainImageFormat);
 			wasDestroyed = false;
 		}
 
-		public unsafe void Destroy() {
+		public void Destroy() {
 			if (wasDestroyed) {
 				Logger.Warn($"{nameof(SwapChain)} was already destroyed");
 				return;
@@ -63,6 +65,171 @@ namespace Engine3.Graphics.Vulkan {
 			foreach (VkImageView imageView in ImageViews) { Vk.DestroyImageView(logicalDevice, imageView, null); }
 
 			wasDestroyed = true;
+		}
+
+		[MustUseReturnValue]
+		public static bool QuerySupport(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, out VkSurfaceCapabilities2KHR surfaceCapabilities2, [NotNullWhen(true)] out VkSurfaceFormat2KHR[]? surfaceFormats2,
+			[NotNullWhen(true)] out VkPresentModeKHR[]? presentModes) {
+			surfaceFormats2 = null;
+			presentModes = null;
+
+			VkPhysicalDeviceSurfaceInfo2KHR surfaceInfo = new() { surface = surface, };
+			VkSurfaceCapabilities2KHR tempSurfaceCapabilities2 = new();
+			Vk.GetPhysicalDeviceSurfaceCapabilities2KHR(physicalDevice, &surfaceInfo, &tempSurfaceCapabilities2);
+			surfaceCapabilities2 = tempSurfaceCapabilities2;
+
+			VkSurfaceFormat2KHR[] tempSurfaceFormats2 = GetPhysicalDeviceSurfaceFormats(physicalDevice, surfaceInfo);
+			if (tempSurfaceFormats2.Length == 0) { return false; }
+			surfaceFormats2 = tempSurfaceFormats2;
+
+			VkPresentModeKHR[] tempPresentModes = GetPhysicalDeviceSurfacePresentModes(physicalDevice, surface);
+			if (tempPresentModes.Length == 0) { return false; }
+			presentModes = tempPresentModes;
+
+			return true;
+
+			[MustUseReturnValue]
+			static VkSurfaceFormat2KHR[] GetPhysicalDeviceSurfaceFormats(VkPhysicalDevice physicalDevice, VkPhysicalDeviceSurfaceInfo2KHR surfaceInfo2) {
+				uint formatCount;
+				Vk.GetPhysicalDeviceSurfaceFormats2KHR(physicalDevice, &surfaceInfo2, &formatCount, null);
+				if (formatCount == 0) { return Array.Empty<VkSurfaceFormat2KHR>(); }
+
+				VkSurfaceFormat2KHR[] surfaceFormats = new VkSurfaceFormat2KHR[formatCount];
+				for (int i = 0; i < formatCount; i++) { surfaceFormats[i] = new(); }
+
+				fixed (VkSurfaceFormat2KHR* surfaceFormatsPtr = surfaceFormats) {
+					Vk.GetPhysicalDeviceSurfaceFormats2KHR(physicalDevice, &surfaceInfo2, &formatCount, surfaceFormatsPtr);
+					return surfaceFormats;
+				}
+			}
+
+			[MustUseReturnValue]
+			static VkPresentModeKHR[] GetPhysicalDeviceSurfacePresentModes(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface) {
+				uint presentModeCount;
+				Vk.GetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, null);
+				if (presentModeCount == 0) { return Array.Empty<VkPresentModeKHR>(); }
+
+				VkPresentModeKHR[] presentModes = new VkPresentModeKHR[presentModeCount];
+				fixed (VkPresentModeKHR* presentModesPtr = presentModes) {
+					Vk.GetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, presentModesPtr);
+					return presentModes;
+				}
+			}
+		}
+
+		private static void CreateSwapChain(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkSurfaceKHR surface, QueueFamilyIndices queueFamilyIndices, Vector2i framebufferSize, out VkSwapchainKHR swapChain,
+			out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat, VkPresentModeKHR presentMode = VkPresentModeKHR.PresentModeMailboxKhr, VkSurfaceTransformFlagBitsKHR? surfaceTransform = null,
+			VkSwapchainKHR? oldSwapChain = null) {
+			if (!QuerySupport(physicalDevice, surface, out VkSurfaceCapabilities2KHR surfaceCapabilities2, out VkSurfaceFormat2KHR[]? surfaceFormats2, out VkPresentModeKHR[]? supportedPresentModes)) {
+				throw new VulkanException("Failed to query swap chain support");
+			}
+
+			if (!supportedPresentModes.Contains(presentMode)) { throw new VulkanException("Surface does not support requested present mode"); }
+			if (ChooseSwapSurfaceFormat(surfaceFormats2) is not { } surfaceFormat2) { throw new VulkanException("Could not find any valid surface formats"); }
+
+			VkSurfaceCapabilitiesKHR surfaceCapabilities = surfaceCapabilities2.surfaceCapabilities;
+			swapChainImageFormat = surfaceFormat2.surfaceFormat.format;
+			swapChainExtent = ChooseSwapExtent(framebufferSize, surfaceCapabilities);
+
+			// https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Swap_chain#Creating_the_swap_chain - "Therefore it is recommended to request at least one more image than the minimum"
+			uint imageCount = surfaceCapabilities.minImageCount + 1;
+			if (surfaceCapabilities.maxImageCount > 0 && imageCount > surfaceCapabilities.maxImageCount) { imageCount = surfaceCapabilities.maxImageCount; }
+
+			VkSharingMode imageSharingMode;
+			uint queueFamilyIndexCount;
+			uint[] queueFamilyIndicesArray;
+
+			HashSet<uint> hashSet = [ queueFamilyIndices.GraphicsFamily, queueFamilyIndices.TransferFamily, queueFamilyIndices.PresentFamily, ];
+
+			if (hashSet.Count != 1) {
+				imageSharingMode = VkSharingMode.SharingModeConcurrent;
+				queueFamilyIndexCount = (uint)hashSet.Count;
+				queueFamilyIndicesArray = hashSet.ToArray();
+			} else {
+				imageSharingMode = VkSharingMode.SharingModeExclusive;
+				queueFamilyIndexCount = 0;
+				queueFamilyIndicesArray = Array.Empty<uint>();
+			}
+
+			fixed (uint* pQueueFamilyIndicesPtr = queueFamilyIndicesArray) {
+				VkSwapchainCreateInfoKHR createInfo = new() {
+						surface = surface,
+						imageFormat = swapChainImageFormat,
+						imageColorSpace = surfaceFormat2.surfaceFormat.colorSpace,
+						imageExtent = swapChainExtent,
+						minImageCount = imageCount,
+						imageArrayLayers = 1,
+						imageUsage = VkImageUsageFlagBits.ImageUsageColorAttachmentBit,
+						imageSharingMode = imageSharingMode,
+						queueFamilyIndexCount = queueFamilyIndexCount,
+						pQueueFamilyIndices = queueFamilyIndicesArray.Length == 0 ? null : pQueueFamilyIndicesPtr,
+						preTransform = surfaceTransform ?? surfaceCapabilities.currentTransform,
+						compositeAlpha = VkCompositeAlphaFlagBitsKHR.CompositeAlphaOpaqueBitKhr,
+						presentMode = presentMode,
+						clipped = (int)Vk.True,
+						oldSwapchain = oldSwapChain ?? VkSwapchainKHR.Zero,
+				};
+
+				VkSwapchainKHR tempSwapChain;
+				VkResult result = Vk.CreateSwapchainKHR(logicalDevice, &createInfo, null, &tempSwapChain);
+				if (result != VkResult.Success) { throw new VulkanException($"Failed to create swap chain. {result}"); }
+
+				swapChain = tempSwapChain;
+			}
+
+			return;
+
+			[MustUseReturnValue]
+			static VkSurfaceFormat2KHR? ChooseSwapSurfaceFormat(ReadOnlySpan<VkSurfaceFormat2KHR> availableFormats) =>
+					availableFormats.Where(static format => format.surfaceFormat is { format: VkFormat.FormatB8g8r8a8Srgb, colorSpace: VkColorSpaceKHR.ColorSpaceSrgbNonlinearKhr, }).Cast<VkSurfaceFormat2KHR?>().FirstOrDefault();
+
+			[MustUseReturnValue]
+			static VkExtent2D ChooseSwapExtent(Vector2i framebufferSize, VkSurfaceCapabilitiesKHR surfaceCapabilities) =>
+					surfaceCapabilities.currentExtent.width != uint.MaxValue ?
+							surfaceCapabilities.currentExtent :
+							new() {
+									width = Math.Clamp((uint)framebufferSize.X, surfaceCapabilities.minImageExtent.width, surfaceCapabilities.maxImageExtent.width),
+									height = Math.Clamp((uint)framebufferSize.Y, surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height),
+							};
+		}
+
+		[MustUseReturnValue]
+		public static VkImage[] GetSwapChainImages(VkDevice logicalDevice, VkSwapchainKHR swapChain) {
+			uint swapChainImageCount;
+			Vk.GetSwapchainImagesKHR(logicalDevice, swapChain, &swapChainImageCount, null);
+
+			VkImage[] swapChainImages = new VkImage[swapChainImageCount];
+			fixed (VkImage* swapChainImagesPtr = swapChainImages) {
+				VkResult result = Vk.GetSwapchainImagesKHR(logicalDevice, swapChain, &swapChainImageCount, swapChainImagesPtr);
+				return result != VkResult.Success ? throw new VulkanException($"Failed to get swap chain images. {result}") : swapChainImages;
+			}
+		}
+
+		[MustUseReturnValue]
+		public static VkImageView[] CreateImageViews(VkDevice logicalDevice, VkImage[] swapChainImages, VkFormat swapChainFormat) {
+			VkImageView[] imageViews = new VkImageView[swapChainImages.Length];
+
+			fixed (VkImageView* imageViewsPtr = imageViews) {
+				for (int i = 0; i < swapChainImages.Length; i++) {
+					VkImageViewCreateInfo createInfo = new() {
+							image = swapChainImages[i],
+							viewType = VkImageViewType.ImageViewType2d,
+							format = swapChainFormat,
+							components = new() {
+									r = VkComponentSwizzle.ComponentSwizzleIdentity,
+									g = VkComponentSwizzle.ComponentSwizzleIdentity,
+									b = VkComponentSwizzle.ComponentSwizzleIdentity,
+									a = VkComponentSwizzle.ComponentSwizzleIdentity,
+							},
+							subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+					};
+
+					VkResult result = Vk.CreateImageView(logicalDevice, &createInfo, null, &imageViewsPtr[i]);
+					if (result != VkResult.Success) { throw new VulkanException($"Failed to create swap chain image view {i}. {result}"); }
+				}
+			}
+
+			return imageViews;
 		}
 	}
 }
