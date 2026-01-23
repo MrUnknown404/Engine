@@ -6,40 +6,40 @@ using System.Text;
 using Engine3.Exceptions;
 using Engine3.Utils;
 using JetBrains.Annotations;
-using NLog;
 using OpenTK.Graphics.Vulkan;
 using Silk.NET.Shaderc;
 
-namespace Engine3.Graphics.Vulkan {
-	public unsafe class ShaderModule {
-		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+namespace Engine3.Graphics.Vulkan.Objects {
+	public unsafe class VkShaderObject : IGraphicsResource {
+		public VkShaderModule ShaderModule { get; }
+		public ShaderType ShaderType { get; }
 
-		public VkShaderModule VkShaderModule { get; }
+		public string DebugName { get; }
+		public bool WasDestroyed { get; private set; }
+
 		private readonly VkDevice logicalDevice;
-		private bool wasDestroyed;
 
-		public ShaderModule(VkDevice logicalDevice, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {
-			VkShaderModule = CreateShaderModule(logicalDevice, fileLocation, shaderLang, shaderType, assembly);
+		public VkShaderObject(string debugName, VkDevice logicalDevice, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {
+			DebugName = debugName;
 			this.logicalDevice = logicalDevice;
+			ShaderModule = CreateShaderModule(logicalDevice, fileLocation, shaderLang, shaderType, assembly);
+			ShaderType = shaderType;
 		}
 
 		public void Destroy() {
-			if (wasDestroyed) {
-				Logger.Warn($"{nameof(ShaderModule)} was already destroyed");
-				return;
-			}
+			if (IGraphicsResource.CheckIfDestroyed(this)) { return; }
 
-			Vk.DestroyShaderModule(logicalDevice, VkShaderModule, null);
+			Vk.DestroyShaderModule(logicalDevice, ShaderModule, null);
 
-			wasDestroyed = true;
+			WasDestroyed = true;
 		}
 
 		[MustUseReturnValue]
 		private static VkShaderModule CreateShaderModule(VkDevice logicalDevice, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {
-			string fullFileName = $"{fileLocation}.{shaderType.FileExtension}.{shaderLang.FileExtension}";
+			string fullFileName = $"{Engine3.GameInstance.GraphicsApi}.{fileLocation}.{shaderType.FileExtension}.{shaderLang.FileExtension}";
 
 			using Stream? shaderStream = AssetH.GetAssetStream($"Shaders.{fullFileName}", assembly);
-			if (shaderStream == null) { throw new Engine3Exception("Failed to create asset stream"); }
+			if (shaderStream == null) { throw new Engine3Exception($"Failed to create asset stream at Shaders.{fullFileName}"); }
 
 			switch (shaderLang) {
 				case ShaderLanguage.Glsl or ShaderLanguage.Hlsl: {

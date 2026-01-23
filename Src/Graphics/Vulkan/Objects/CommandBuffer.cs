@@ -2,7 +2,7 @@ using Engine3.Exceptions;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Graphics.Vulkan {
+namespace Engine3.Graphics.Vulkan.Objects {
 	public abstract unsafe class CommandBuffer {
 		public VkCommandPool CommandPool { get; }
 		public VkCommandBuffer VkCommandBuffer { get; }

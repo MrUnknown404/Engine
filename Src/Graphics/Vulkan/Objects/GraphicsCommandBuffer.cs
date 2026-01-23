@@ -1,6 +1,6 @@
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Graphics.Vulkan {
+namespace Engine3.Graphics.Vulkan.Objects {
 	public unsafe class GraphicsCommandBuffer : CommandBuffer {
 		public GraphicsCommandBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBuffer vkCommandBuffer) : base(logicalDevice, commandPool, vkCommandBuffer) { }
 

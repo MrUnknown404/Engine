@@ -1,4 +1,5 @@
 using Engine3.Exceptions;
+using Engine3.Graphics.Vulkan.Objects;
 using Engine3.Utils.Extensions;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
@@ -11,7 +12,7 @@ namespace Engine3.Graphics.Vulkan {
 		protected VkCommandPool TransferCommandPool { get; }
 
 		protected FrameData[] Frames { get; }
-		public VkSemaphore[] RenderFinishedSemaphores { get; }
+		protected VkSemaphore[] RenderFinishedSemaphores { get; }
 
 		protected FrameData CurrentFrameData => Frames[CurrentFrame];
 		protected GraphicsCommandBuffer CurrentGraphicsCommandBuffer => CurrentFrameData.GraphicsCommandBuffer;
@@ -174,10 +175,10 @@ namespace Engine3.Graphics.Vulkan {
 			private readonly VkDevice logicalDevice;
 
 			public FrameData(VkDevice logicalDevice, GraphicsCommandBuffer graphicsCommandBuffer, VkSemaphore imageAvailableSemaphore, VkFence inFlightFence) {
+				this.logicalDevice = logicalDevice;
 				GraphicsCommandBuffer = graphicsCommandBuffer;
 				ImageAvailableSemaphore = imageAvailableSemaphore;
 				InFlightFence = inFlightFence;
-				this.logicalDevice = logicalDevice;
 			}
 
 			public void Destroy() {

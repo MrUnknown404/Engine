@@ -9,20 +9,13 @@ namespace Engine3.Graphics.OpenGL {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public OpenGLContextHandle GLContextHandle { get; }
-		public VertexArrayHandle EmptyVao { get; }
 
 		public ClearBufferMask ClearBufferMask { get; set; } = ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit;
 
-		private GlWindow(WindowHandle windowHandle, OpenGLContextHandle glContextHandle, VertexArrayHandle emptyVao) : base(windowHandle) {
-			GLContextHandle = glContextHandle;
-			EmptyVao = emptyVao;
-		}
-
-		internal static GlWindow MakeGlWindow(GameClient gameClient, WindowHandle windowHandle) {
+		public GlWindow(GameClient gameClient, string title, uint width, uint height) : base(gameClient, title, width, height) {
 			Logger.Debug("Creating and setting OpenGL context...");
-			OpenGLContextHandle openGLContextHandle = Toolkit.OpenGL.CreateFromWindow(windowHandle);
-			Toolkit.OpenGL.SetCurrentContext(openGLContextHandle);
-			GLLoader.LoadBindings(Toolkit.OpenGL.GetBindingsContext(openGLContextHandle)); // do i call this per window?
+			GLContextHandle = Toolkit.OpenGL.CreateFromWindow(WindowHandle);
+			MakeContextCurrent();
 			Logger.Debug($"- Version: {GL.GetString(StringName.Version)}");
 
 #if DEBUG
@@ -30,19 +23,18 @@ namespace Engine3.Graphics.OpenGL {
 			CreateDebugMessageCallback(gameClient.DisabledCallbackIds);
 #endif
 
-			VertexArrayHandle emptyVao = new(GL.CreateVertexArray());
-			GL.BindVertexArray((int)emptyVao); // Some hardware requires vao to be bound even if it's not in use
-			Logger.Debug($"EmptyVao has Handle: {emptyVao.Handle}");
-
-			GlWindow window = new(windowHandle, openGLContextHandle, emptyVao);
-
-			GL.ClearColor(window.ClearColor);
 			GL.Enable(EnableCap.DepthTest);
 			GL.Enable(EnableCap.CullFace);
 			GL.Enable(EnableCap.Blend);
 			GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+			GL.ClearColor(ClearColor);
 
-			return window;
+			Toolkit.OpenGL.SetSwapInterval(gameClient.SwapInterval);
+		}
+
+		public void MakeContextCurrent() {
+			Toolkit.OpenGL.SetCurrentContext(GLContextHandle);
+			GLLoader.LoadBindings(Toolkit.OpenGL.GetBindingsContext(GLContextHandle));
 		}
 
 		protected override void CleanupGraphics() { }

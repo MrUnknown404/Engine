@@ -1,21 +1,21 @@
 using Engine3.Exceptions;
 using JetBrains.Annotations;
-using NLog;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Graphics.Vulkan {
-	public unsafe class VkBufferObject {
-		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-
+namespace Engine3.Graphics.Vulkan.Objects {
+	public unsafe class VkBufferObject : IBufferObject<ulong> {
 		public VkBuffer Buffer { get; }
 		public VkDeviceMemory BufferMemory { get; }
 		public ulong BufferSize { get; }
 
+		public string DebugName { get; }
+		public bool WasDestroyed { get; private set; }
+
 		private readonly VkPhysicalDevice physicalDevice;
 		private readonly VkDevice logicalDevice;
-		private bool wasDestroyed;
 
-		public VkBufferObject(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkBufferUsageFlagBits bufferUsageFlags, VkMemoryPropertyFlagBits memoryPropertyFlags, ulong bufferSize) {
+		public VkBufferObject(string debugName, VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkBufferUsageFlagBits bufferUsageFlags, VkMemoryPropertyFlagBits memoryPropertyFlags, ulong bufferSize) {
+			DebugName = debugName;
 			this.physicalDevice = physicalDevice;
 			this.logicalDevice = logicalDevice;
 			BufferSize = bufferSize;
@@ -24,30 +24,27 @@ namespace Engine3.Graphics.Vulkan {
 			BindBufferMemory(logicalDevice, Buffer, BufferMemory);
 		}
 
-		[MustUseReturnValue] public void* MapMemory(ulong bufferSize) => MapMemory(logicalDevice, BufferMemory, bufferSize);
+		[MustUseReturnValue] public void* MapMemory(ulong bufferSize, ulong offset = 0) => MapMemory(logicalDevice, BufferMemory, bufferSize, offset);
 
-		public void Copy<T>(T[] data) where T : unmanaged => MapAndCopyMemory(logicalDevice, BufferMemory, data);
+		public void Copy<T>(T[] data, ulong offset = 0) where T : unmanaged => MapAndCopyMemory(logicalDevice, BufferMemory, data, offset);
 
-		public void CopyUsingStaging<T>(VkCommandPool transferPool, VkQueue transferQueue, T[] data) where T : unmanaged {
-			VkBufferObject stagingBuffer = new(physicalDevice, logicalDevice, VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
+		public void CopyUsingStaging<T>(VkCommandPool transferPool, VkQueue transferQueue, T[] data, ulong offset = 0) where T : unmanaged {
+			VkBufferObject stagingBuffer = new("StagingBuffer", physicalDevice, logicalDevice, VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
 				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, BufferSize); // TODO should i make a persistent staging buffer?
 
-			MapAndCopyMemory(logicalDevice, stagingBuffer.BufferMemory, data);
+			MapAndCopyMemory(logicalDevice, stagingBuffer.BufferMemory, data, offset);
 			CopyBuffer(logicalDevice, transferQueue, transferPool, stagingBuffer.Buffer, Buffer, BufferSize);
 
 			stagingBuffer.Destroy();
 		}
 
 		public void Destroy() {
-			if (wasDestroyed) {
-				Logger.Warn($"{nameof(SwapChain)} was already destroyed");
-				return;
-			}
+			if (IGraphicsResource.CheckIfDestroyed(this)) { return; }
 
 			Vk.DestroyBuffer(logicalDevice, Buffer, null);
 			Vk.FreeMemory(logicalDevice, BufferMemory, null);
 
-			wasDestroyed = true;
+			WasDestroyed = true;
 		}
 
 		[MustUseReturnValue]
@@ -97,8 +94,8 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		private static void* MapMemory(VkDevice logicalDevice, VkDeviceMemory deviceMemory, ulong bufferSize) {
-			VkMemoryMapInfo memoryMapInfo = new() { memory = deviceMemory, size = bufferSize, };
+		private static void* MapMemory(VkDevice logicalDevice, VkDeviceMemory deviceMemory, ulong bufferSize, ulong offset) {
+			VkMemoryMapInfo memoryMapInfo = new() { memory = deviceMemory, size = bufferSize, offset = offset, };
 			void* dataPtr;
 			Vk.MapMemory2(logicalDevice, &memoryMapInfo, &dataPtr);
 			return dataPtr;
@@ -117,10 +114,10 @@ namespace Engine3.Graphics.Vulkan {
 			if (result != VkResult.Success) { throw new VulkanException($"Failed to bind buffer memory. {result}"); }
 		}
 
-		private static void MapAndCopyMemory<T>(VkDevice logicalDevice, VkDeviceMemory deviceMemory, T[] inData) where T : unmanaged {
+		private static void MapAndCopyMemory<T>(VkDevice logicalDevice, VkDeviceMemory deviceMemory, T[] inData, ulong offset) where T : unmanaged {
 			ulong bufferSize = (ulong)(sizeof(T) * inData.Length);
 			fixed (T* inDataPtr = inData) {
-				void* dataPtr = MapMemory(logicalDevice, deviceMemory, bufferSize);
+				void* dataPtr = MapMemory(logicalDevice, deviceMemory, bufferSize, offset);
 				CopyMemory(inDataPtr, dataPtr, bufferSize, bufferSize);
 				UnmapMemory(logicalDevice, deviceMemory);
 			}

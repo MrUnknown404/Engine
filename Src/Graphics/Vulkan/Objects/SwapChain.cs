@@ -7,8 +7,8 @@ using OpenTK.Mathematics;
 using OpenTK.Platform;
 using ZLinq;
 
-namespace Engine3.Graphics.Vulkan {
-	public unsafe class SwapChain {
+namespace Engine3.Graphics.Vulkan.Objects {
+	public unsafe class SwapChain : IGraphicsResource {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public VkSwapchainKHR VkSwapChain { get; private set; }
@@ -17,17 +17,18 @@ namespace Engine3.Graphics.Vulkan {
 		public VkImage[] Images { get; private set; }
 		public VkImageView[] ImageViews { get; private set; }
 
-		[field: MaybeNull] internal VkWindow Window { private get => field ?? throw new Engine3Exception("Forgot to set window?"); set; }
+		public string DebugName => nameof(SwapChain);
+		public bool WasDestroyed { get; private set; }
 
-		private readonly VkDevice logicalDevice;
+		private readonly VkWindow window;
 		private readonly VkPresentModeKHR presentMode;
-		private bool wasDestroyed;
 
-		public SwapChain(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, QueueFamilyIndices queueFamilyIndices, WindowHandle windowHandle, VkSurfaceKHR surface, VkPresentModeKHR presentMode) {
+		public SwapChain(VkWindow window, VkPhysicalDevice physicalDevice, VkDevice logicalDevice, QueueFamilyIndices queueFamilyIndices, WindowHandle windowHandle, VkSurfaceKHR surface, VkPresentModeKHR presentMode) {
+			this.window = window;
+
 			Toolkit.Window.GetFramebufferSize(windowHandle, out Vector2i framebufferSize);
 			CreateSwapChain(physicalDevice, logicalDevice, surface, queueFamilyIndices, framebufferSize, out VkSwapchainKHR vkSwapChain, out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat, presentMode);
 
-			this.logicalDevice = logicalDevice;
 			VkSwapChain = vkSwapChain;
 			ImageFormat = swapChainImageFormat;
 			Extent = swapChainExtent;
@@ -37,10 +38,12 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		public void Recreate() {
+			VkDevice logicalDevice = window.LogicalGpu.LogicalDevice;
+
 			Vk.DeviceWaitIdle(logicalDevice);
 
-			Toolkit.Window.GetFramebufferSize(Window.WindowHandle, out Vector2i framebufferSize);
-			CreateSwapChain(Window.SelectedGpu.PhysicalDevice, logicalDevice, Window.Surface, Window.SelectedGpu.QueueFamilyIndices, framebufferSize, out VkSwapchainKHR vkSwapChain, out VkExtent2D swapChainExtent,
+			Toolkit.Window.GetFramebufferSize(window.WindowHandle, out Vector2i framebufferSize);
+			CreateSwapChain(window.SelectedGpu.PhysicalDevice, logicalDevice, window.Surface, window.SelectedGpu.QueueFamilyIndices, framebufferSize, out VkSwapchainKHR vkSwapChain, out VkExtent2D swapChainExtent,
 				out VkFormat swapChainImageFormat, presentMode, oldSwapChain: VkSwapChain);
 
 			Logger.Debug("Recreated swap chain");
@@ -52,19 +55,18 @@ namespace Engine3.Graphics.Vulkan {
 			Extent = swapChainExtent;
 			Images = GetSwapChainImages(logicalDevice, vkSwapChain);
 			ImageViews = CreateImageViews(logicalDevice, Images, swapChainImageFormat);
-			wasDestroyed = false;
+			WasDestroyed = false;
 		}
 
 		public void Destroy() {
-			if (wasDestroyed) {
-				Logger.Warn($"{nameof(SwapChain)} was already destroyed");
-				return;
-			}
+			if (IGraphicsResource.CheckIfDestroyed(this)) { return; }
+
+			VkDevice logicalDevice = window.LogicalGpu.LogicalDevice;
 
 			Vk.DestroySwapchainKHR(logicalDevice, VkSwapChain, null);
 			foreach (VkImageView imageView in ImageViews) { Vk.DestroyImageView(logicalDevice, imageView, null); }
 
-			wasDestroyed = true;
+			WasDestroyed = true;
 		}
 
 		[MustUseReturnValue]

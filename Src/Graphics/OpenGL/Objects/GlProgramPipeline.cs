@@ -1,0 +1,47 @@
+using Engine3.Exceptions;
+using OpenTK.Graphics;
+using OpenTK.Graphics.OpenGL;
+
+namespace Engine3.Graphics.OpenGL.Objects {
+	public class GlProgramPipeline : IGraphicsResource {
+		public ProgramPipelineHandle Handle { get; }
+
+		public string DebugName { get; }
+		public bool WasDestroyed { get; private set; }
+
+		public GlProgramPipeline(string debugName, GlShaderObject? vert, GlShaderObject? frag, GlShaderObject? geom = null, GlShaderObject? tessEval = null, GlShaderObject? tessCtrl = null) {
+			DebugName = debugName;
+			Handle = new(GL.CreateProgramPipeline());
+
+			TryAddStage(vert);
+			TryAddStage(frag);
+			TryAddStage(geom);
+			TryAddStage(tessEval);
+			TryAddStage(tessCtrl);
+
+			return;
+
+			void TryAddStage(GlShaderObject? shader) {
+				if (shader == null) { return; }
+				if (shader.Handle.Handle == 0) { throw new OpenGLException($"Program Pipeline: {debugName}:{Handle} has an invalid shader program ({shader.DebugName}). No handle"); }
+				GL.UseProgramStages((int)Handle, shader.ShaderType switch {
+						ShaderType.Fragment => UseProgramStageMask.FragmentShaderBit,
+						ShaderType.Vertex => UseProgramStageMask.VertexShaderBit,
+						ShaderType.Geometry => UseProgramStageMask.GeometryShaderBit,
+						ShaderType.TessEvaluation => UseProgramStageMask.TessEvaluationShaderBit,
+						ShaderType.TessControl => UseProgramStageMask.TessControlShaderBit,
+						ShaderType.Compute => UseProgramStageMask.ComputeShaderBit,
+						_ => throw new ArgumentOutOfRangeException(nameof(shader.ShaderType), shader.ShaderType, null),
+				}, (int)shader.Handle);
+			}
+		}
+
+		public void Destroy() {
+			if (IGraphicsResource.CheckIfDestroyed(this)) { return; }
+
+			GL.DeleteProgramPipeline((int)Handle);
+
+			WasDestroyed = true;
+		}
+	}
+}

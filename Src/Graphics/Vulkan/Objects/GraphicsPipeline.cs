@@ -2,13 +2,10 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Engine3.Exceptions;
 using JetBrains.Annotations;
-using NLog;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Graphics.Vulkan {
-	public class GraphicsPipeline {
-		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-
+namespace Engine3.Graphics.Vulkan.Objects {
+	public class GraphicsPipeline : IGraphicsResource {
 		public VkPipeline Pipeline { get; }
 		public VkPipelineLayout Layout { get; }
 
@@ -16,10 +13,14 @@ namespace Engine3.Graphics.Vulkan {
 		public VkDescriptorSetLayout? DescriptorSetLayout { get; }
 		public VkDescriptorSet[]? DescriptorSets { get; }
 
-		private readonly VkDevice logicalDevice;
-		private bool wasDestroyed;
+		public string DebugName { get; }
+		public bool WasDestroyed { get; private set; }
 
-		private GraphicsPipeline(VkDevice logicalDevice, VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorPool? descriptorPool, VkDescriptorSetLayout? descriptorSetLayout, VkDescriptorSet[]? descriptorSets) {
+		private readonly VkDevice logicalDevice;
+
+		private GraphicsPipeline(string debugName, VkDevice logicalDevice, VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorPool? descriptorPool, VkDescriptorSetLayout? descriptorSetLayout,
+			VkDescriptorSet[]? descriptorSets) {
+			DebugName = debugName;
 			this.logicalDevice = logicalDevice;
 			Pipeline = pipeline;
 			Layout = layout;
@@ -29,10 +30,7 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		public unsafe void Destroy() {
-			if (wasDestroyed) {
-				Logger.Warn($"{nameof(GraphicsPipeline)} was already destroyed");
-				return;
-			}
+			if (IGraphicsResource.CheckIfDestroyed(this)) { return; }
 
 			if (DescriptorPool is { } descriptorPool) { Vk.DestroyDescriptorPool(logicalDevice, descriptorPool, null); }
 			if (DescriptorSetLayout is { } descriptorSetLayout) { Vk.DestroyDescriptorSetLayout(logicalDevice, descriptorSetLayout, null); }
@@ -40,7 +38,7 @@ namespace Engine3.Graphics.Vulkan {
 			Vk.DestroyPipelineLayout(logicalDevice, Layout, null);
 			Vk.DestroyPipeline(logicalDevice, Pipeline, null);
 
-			wasDestroyed = true;
+			WasDestroyed = true;
 		}
 
 		public unsafe class Builder {
@@ -60,17 +58,19 @@ namespace Engine3.Graphics.Vulkan {
 			private VkDescriptorSetLayout? descriptorSetLayout;
 			private VkDescriptorSet[]? descriptorSets;
 
+			private readonly string debugName;
 			private readonly VkDevice logicalDevice;
 			private readonly SwapChain swapChain;
-			private readonly ShaderStageInfo[] shaderStageInfos;
+			private readonly VkShaderObject[] shaders;
 			private readonly VkVertexInputAttributeDescription[] vertexAttributeDescriptions;
 			private readonly VkVertexInputBindingDescription[] vertexBindingDescriptions;
 
-			public Builder(VkDevice logicalDevice, SwapChain swapChain, ShaderStageInfo[] shaderStageInfos, VkVertexInputAttributeDescription[] vertexAttributeDescriptions,
+			public Builder(string debugName, VkDevice logicalDevice, SwapChain swapChain, VkShaderObject[] shaders, VkVertexInputAttributeDescription[] vertexAttributeDescriptions,
 				VkVertexInputBindingDescription[] vertexBindingDescriptions) {
+				this.debugName = debugName;
 				this.logicalDevice = logicalDevice;
 				this.swapChain = swapChain;
-				this.shaderStageInfos = shaderStageInfos;
+				this.shaders = shaders;
 				this.vertexAttributeDescriptions = vertexAttributeDescriptions;
 				this.vertexBindingDescriptions = vertexBindingDescriptions;
 			}
@@ -137,10 +137,22 @@ namespace Engine3.Graphics.Vulkan {
 
 			public GraphicsPipeline MakePipeline() {
 				byte* entryPointName = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference("main"u8));
-				VkPipelineShaderStageCreateInfo[] shaderStageCreateInfos = new VkPipelineShaderStageCreateInfo[shaderStageInfos.Length];
-				for (int i = 0; i < shaderStageInfos.Length; i++) {
-					ShaderStageInfo shaderStageInfo = shaderStageInfos[i];
-					shaderStageCreateInfos[i] = new() { module = shaderStageInfo.ShaderModule, stage = shaderStageInfo.ShaderStageFlags, pName = entryPointName, };
+				VkPipelineShaderStageCreateInfo[] shaderStageCreateInfos = new VkPipelineShaderStageCreateInfo[shaders.Length];
+				for (int i = 0; i < shaders.Length; i++) {
+					VkShaderObject shader = shaders[i];
+					shaderStageCreateInfos[i] = new() {
+							module = shader.ShaderModule,
+							stage = shader.ShaderType switch {
+									ShaderType.Fragment => VkShaderStageFlagBits.ShaderStageFragmentBit,
+									ShaderType.Vertex => VkShaderStageFlagBits.ShaderStageVertexBit,
+									ShaderType.Geometry => VkShaderStageFlagBits.ShaderStageGeometryBit,
+									ShaderType.TessEvaluation => VkShaderStageFlagBits.ShaderStageTessellationEvaluationBit,
+									ShaderType.TessControl => VkShaderStageFlagBits.ShaderStageTessellationControlBit,
+									ShaderType.Compute => VkShaderStageFlagBits.ShaderStageComputeBit,
+									_ => throw new ArgumentOutOfRangeException(),
+							},
+							pName = entryPointName,
+					};
 				}
 
 				VkFormat swapChainImageFormat = swapChain.ImageFormat;
@@ -232,7 +244,7 @@ namespace Engine3.Graphics.Vulkan {
 
 								return result != VkResult.Success ?
 										throw new VulkanException($"Failed to create graphics pipeline. {result}") :
-										new(logicalDevice, graphicsPipeline, pipelineLayout, descriptorPool, this.descriptorSetLayout, descriptorSets);
+										new(debugName, logicalDevice, graphicsPipeline, pipelineLayout, descriptorPool, this.descriptorSetLayout, descriptorSets);
 							}
 						}
 					}
