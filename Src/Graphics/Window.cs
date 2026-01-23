@@ -1,11 +1,10 @@
 using Engine3.Exceptions;
-using Engine3.Graphics.OpenGL;
 using NLog;
 using OpenTK.Mathematics;
 using OpenTK.Platform;
 
 namespace Engine3.Graphics {
-	public abstract class Window : IEquatable<Window> {
+	public abstract class Window : IDestroyable, IEquatable<Window> {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public WindowHandle WindowHandle { get; }
@@ -14,29 +13,17 @@ namespace Engine3.Graphics {
 		public bool WasResized { get; internal set; }
 		public bool WasDestroyed { get; private set; }
 
-		public Renderer? Renderer {
-			get;
-			set {
-				if (field is { WasDestroyed: false, }) { Logger.Warn("Window renderer was set without having destroyed the previous renderer. This will cause problems"); }
-				field = value;
-			}
-		}
-
 		public event AttemptCloseWindow? TryCloseWindowEvent;
 		public event Action? OnCloseWindowEvent;
-		public event Action? OnDestroyEvent;
+		public event Action? BeforeDestroyEvent;
 
 		protected Window(GameClient gameClient, string title, uint width, uint height) {
-			GraphicsApi graphicsApi = gameClient.GraphicsApi;
-			if (graphicsApi == GraphicsApi.Console) { throw new Engine3Exception("Cannot create window when graphics api is set to console"); }
+			if (gameClient.GraphicsApi == GraphicsApi.Console) { throw new Engine3Exception("Cannot create a window when graphics api is set to console"); }
 
 			Logger.Info("Making new window...");
 			WindowHandle = Toolkit.Window.Create(gameClient.GraphicsApiHints!); // if graphicsApi != GraphicsApi.Console then GraphicsApiHints shouldn't be null here
 			Toolkit.Window.SetTitle(WindowHandle, title);
 			Toolkit.Window.SetSize(WindowHandle, new((int)width, (int)height));
-
-			Logger.Info("Window setup complete");
-			gameClient.Windows.Add(this);
 		}
 
 		public void TryCloseWindow() {
@@ -60,37 +47,20 @@ namespace Engine3.Graphics {
 		public void Hide() => SetWindowMode(WindowMode.Hidden);
 		public void SetWindowMode(WindowMode windowMode) => Toolkit.Window.SetMode(WindowHandle, windowMode);
 
-		internal void DestroyWindow() {
-			if (WasDestroyed) {
-				Logger.Warn("Attempted to destroy a window that was already destroyed");
-				return;
-			}
+		public void Destroy() {
+			if (IDestroyable.WarnIfDestroyed(this)) { return; }
 
-			Logger.Debug("Destroying window...");
-
-			if (this is GlWindow glWindow) { glWindow.MakeContextCurrent(); }
-
-			if (Renderer is { WasDestroyed: false, }) {
-				Logger.Debug("Destroying window's renderer...");
-				Renderer.TryDestroy();
-			}
-
-			Logger.Debug("Cleaning up window's graphics...");
-			CleanupGraphics();
+			Cleanup();
 
 			if (!Toolkit.Window.IsWindowDestroyed(WindowHandle)) {
-				OnDestroyEvent?.Invoke();
-
-				bool successful = Engine3.GameInstance.Windows.Remove(this);
-				if (!successful) { Logger.Warn("Could not find to be destroyed window in game client window list"); }
-
+				BeforeDestroyEvent?.Invoke();
 				Toolkit.Window.Destroy(WindowHandle);
 			} else { Logger.Warn("Tried to destroy an already destroyed window"); }
 
 			WasDestroyed = true;
 		}
 
-		protected abstract void CleanupGraphics();
+		protected abstract void Cleanup();
 
 		public delegate void AttemptCloseWindow(ref bool shouldCloseWindow);
 

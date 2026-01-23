@@ -23,10 +23,10 @@ namespace Engine3.Graphics.Vulkan.Objects {
 		private readonly VkWindow window;
 		private readonly VkPresentModeKHR presentMode;
 
-		public SwapChain(VkWindow window, VkPhysicalDevice physicalDevice, VkDevice logicalDevice, QueueFamilyIndices queueFamilyIndices, WindowHandle windowHandle, VkSurfaceKHR surface, VkPresentModeKHR presentMode) {
+		public SwapChain(VkWindow window, VkPhysicalDevice physicalDevice, VkDevice logicalDevice, QueueFamilyIndices queueFamilyIndices, VkSurfaceKHR surface, VkPresentModeKHR presentMode) {
 			this.window = window;
 
-			Toolkit.Window.GetFramebufferSize(windowHandle, out Vector2i framebufferSize);
+			Toolkit.Window.GetFramebufferSize(window.WindowHandle, out Vector2i framebufferSize);
 			CreateSwapChain(physicalDevice, logicalDevice, surface, queueFamilyIndices, framebufferSize, out VkSwapchainKHR vkSwapChain, out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat, presentMode);
 
 			VkSwapChain = vkSwapChain;
@@ -59,7 +59,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 		}
 
 		public void Destroy() {
-			if (IGraphicsResource.CheckIfDestroyed(this)) { return; }
+			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
 
 			VkDevice logicalDevice = window.LogicalGpu.LogicalDevice;
 

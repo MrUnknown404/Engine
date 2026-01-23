@@ -27,7 +27,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 		}
 
 		public void Destroy() {
-			if (IGraphicsResource.CheckIfDestroyed(this)) { return; }
+			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
 
 			Vk.DestroyShaderModule(logicalDevice, ShaderModule, null);
 

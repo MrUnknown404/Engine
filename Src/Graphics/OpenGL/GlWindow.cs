@@ -37,7 +37,7 @@ namespace Engine3.Graphics.OpenGL {
 			GLLoader.LoadBindings(Toolkit.OpenGL.GetBindingsContext(GLContextHandle));
 		}
 
-		protected override void CleanupGraphics() { }
+		protected override void Cleanup() { }
 
 #if DEBUG
 		private static void CreateDebugMessageCallback(uint[] disabledCallbackIds) {

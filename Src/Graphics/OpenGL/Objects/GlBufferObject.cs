@@ -22,7 +22,7 @@ namespace Engine3.Graphics.OpenGL.Objects {
 		public void Copy<T>(T[] data, nint offset = 0) where T : unmanaged => GL.NamedBufferSubData((int)Handle, offset, sizeof(T) * data.Length, data);
 
 		public void Destroy() {
-			if (IGraphicsResource.CheckIfDestroyed(this)) { return; }
+			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
 
 			GL.DeleteBuffer((int)Handle);
 

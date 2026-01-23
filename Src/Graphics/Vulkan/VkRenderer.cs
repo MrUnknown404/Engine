@@ -2,11 +2,16 @@ using Engine3.Exceptions;
 using Engine3.Graphics.Vulkan.Objects;
 using Engine3.Utils.Extensions;
 using JetBrains.Annotations;
+using NLog;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Graphics.Vulkan {
-	public abstract unsafe class VkRenderer : Renderer {
+	public abstract unsafe class VkRenderer : IRenderer {
+		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+		public Window BoxedWindow => Window;
 		protected VkWindow Window { get; }
+		protected SwapChain SwapChain { get; }
 
 		protected VkCommandPool GraphicsCommandPool { get; }
 		protected VkCommandPool TransferCommandPool { get; }
@@ -14,25 +19,28 @@ namespace Engine3.Graphics.Vulkan {
 		protected FrameData[] Frames { get; }
 		protected VkSemaphore[] RenderFinishedSemaphores { get; }
 
-		protected FrameData CurrentFrameData => Frames[CurrentFrame];
-		protected GraphicsCommandBuffer CurrentGraphicsCommandBuffer => CurrentFrameData.GraphicsCommandBuffer;
-		protected VkSemaphore CurrentImageAvailableSemaphore => CurrentFrameData.ImageAvailableSemaphore;
-		protected VkFence CurrentInFlightFence => CurrentFrameData.InFlightFence;
+		protected byte MaxFramesInFlight { get; }
+		protected byte CurrentFrame { get; private set; }
+
+		public ulong FrameCount { get; private set; }
+		public bool CanRender { get; set; } = true;
+		public bool ShouldDestroy { get; set; }
+		public bool WasDestroyed { get; private set; }
+
+		public bool IsWindowValid => !Window.WasDestroyed;
 
 		protected PhysicalGpu PhysicalGpu => Window.SelectedGpu;
 		protected LogicalGpu LogicalGpu => Window.LogicalGpu;
-		protected SwapChain SwapChain => Window.SwapChain;
 		protected VkPhysicalDevice PhysicalDevice => PhysicalGpu.PhysicalDevice;
 		protected VkDevice LogicalDevice => LogicalGpu.LogicalDevice;
 
-		public override bool IsWindowValid => !Window.WasDestroyed;
-
-		protected byte CurrentFrame { get; private set; }
-		protected byte MaxFramesInFlight { get; }
-
-		protected VkRenderer(VkWindow window, byte maxFramesInFlight) {
+		protected VkRenderer(GameClient gameClient, VkWindow window) {
 			Window = window;
-			MaxFramesInFlight = maxFramesInFlight;
+			MaxFramesInFlight = gameClient.MaxFramesInFlight;
+
+			SwapChain = new(window, window.SelectedGpu.PhysicalDevice, window.LogicalGpu.LogicalDevice, window.SelectedGpu.QueueFamilyIndices, window.Surface, gameClient.PresentMode);
+			Logger.Debug("Created swap chain");
+
 			GraphicsCommandPool = CreateCommandPool(LogicalDevice, VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit, PhysicalGpu.QueueFamilyIndices.GraphicsFamily);
 			TransferCommandPool = CreateCommandPool(LogicalDevice, VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit, PhysicalGpu.QueueFamilyIndices.TransferFamily);
 			RenderFinishedSemaphores = VkH.CreateSemaphores(LogicalDevice, (uint)SwapChain.Images.Length);
@@ -45,6 +53,8 @@ namespace Engine3.Graphics.Vulkan {
 			for (int i = 0; i < MaxFramesInFlight; i++) { Frames[i] = new(LogicalDevice, new(LogicalDevice, GraphicsCommandPool, graphicsCommandBuffers[i]), imageAvailableSemaphores[i], inFlightFences[i]); }
 		}
 
+		public abstract void Setup();
+
 		/// <summary>
 		/// Wait for the previous frame to finish
 		/// Acquire an image from the swap chain
@@ -52,28 +62,30 @@ namespace Engine3.Graphics.Vulkan {
 		/// Submit the recorded command buffer
 		/// Present the swap chain image
 		/// </summary>
-		protected override void DrawFrame(float delta) {
-			if (!CanRender) { return; }
+		public virtual void Render(float delta) {
+			FrameData frameData = Frames[CurrentFrame];
 
-			if (AcquireNextImage(out uint swapChainImageIndex)) {
-				BeginFrame(CurrentGraphicsCommandBuffer, swapChainImageIndex);
-				RecordCommandBuffer(CurrentGraphicsCommandBuffer, delta);
+			if (AcquireNextImage(frameData, out uint swapChainImageIndex)) {
+				BeginFrame(frameData, swapChainImageIndex);
+				RecordCommandBuffer(frameData.GraphicsCommandBuffer, delta);
 				UpdateUniformBuffer(delta);
-				EndFrame(CurrentGraphicsCommandBuffer, swapChainImageIndex);
+				EndFrame(frameData, swapChainImageIndex);
 				PresentFrame(swapChainImageIndex);
 			}
+
+			FrameCount++;
 		}
 
-		protected bool AcquireNextImage(out uint swapChainImageIndex) {
-			VkFence currentFence = CurrentInFlightFence;
+		protected bool AcquireNextImage(FrameData frameData, out uint swapChainImageIndex) {
+			VkFence inFlightFence = frameData.InFlightFence;
 
 			// not sure if i'm supposed to wait for all fences or just the current one. vulkan-tutorial.com & vkguide.dev differ. i should probably read the docs
 			// vulkan-tutorial.com waits for all
 			// vkguide.dev waits for current
-			Vk.WaitForFences(LogicalDevice, 1, &currentFence, (int)Vk.True, ulong.MaxValue);
+			Vk.WaitForFences(LogicalDevice, 1, &inFlightFence, (int)Vk.True, ulong.MaxValue);
 
 			uint tempSwapChainImageIndex;
-			VkResult vkResult = Vk.AcquireNextImageKHR(LogicalDevice, SwapChain.VkSwapChain, ulong.MaxValue, CurrentImageAvailableSemaphore, VkFence.Zero, &tempSwapChainImageIndex);
+			VkResult vkResult = Vk.AcquireNextImageKHR(LogicalDevice, SwapChain.VkSwapChain, ulong.MaxValue, frameData.ImageAvailableSemaphore, VkFence.Zero, &tempSwapChainImageIndex);
 			swapChainImageIndex = tempSwapChainImageIndex;
 
 			if (vkResult == VkResult.ErrorOutOfDateKhr) {
@@ -81,7 +93,7 @@ namespace Engine3.Graphics.Vulkan {
 				return false;
 			} else if (vkResult is not VkResult.Success and not VkResult.SuboptimalKhr) { throw new VulkanException("Failed to acquire next swap chain image"); }
 
-			Vk.ResetFences(LogicalDevice, 1, &currentFence);
+			Vk.ResetFences(LogicalDevice, 1, &inFlightFence);
 
 			return true;
 		}
@@ -95,7 +107,9 @@ namespace Engine3.Graphics.Vulkan {
 		/// vkCmdBeginRendering
 		/// </code>
 		/// </summary>
-		protected void BeginFrame(GraphicsCommandBuffer graphicsCommandBuffer, uint swapChainImageIndex) {
+		protected void BeginFrame(FrameData frameData, uint swapChainImageIndex) {
+			GraphicsCommandBuffer graphicsCommandBuffer = frameData.GraphicsCommandBuffer;
+
 			graphicsCommandBuffer.ResetCommandBuffer();
 
 			if (graphicsCommandBuffer.BeginCommandBuffer() != VkResult.Success) { throw new VulkanException("Failed to begin recording command buffer"); }
@@ -116,21 +130,24 @@ namespace Engine3.Graphics.Vulkan {
 		/// vkSubmitQueue
 		/// </code>
 		/// </summary>
-		protected void EndFrame(GraphicsCommandBuffer graphicsCommandBuffer, uint swapChainImageIndex) {
+		protected void EndFrame(FrameData frameData, uint swapChainImageIndex) {
+			GraphicsCommandBuffer graphicsCommandBuffer = frameData.GraphicsCommandBuffer;
+
 			graphicsCommandBuffer.CmdEndRendering();
 			graphicsCommandBuffer.CmdEndPipelineBarrier(SwapChain.Images[swapChainImageIndex]);
 
 			if (graphicsCommandBuffer.EndCommandBuffer() != VkResult.Success) { throw new VulkanException("Failed to end recording command buffer"); }
 
-			graphicsCommandBuffer.SubmitQueue(LogicalGpu.GraphicsQueue, CurrentImageAvailableSemaphore, RenderFinishedSemaphores[swapChainImageIndex], CurrentInFlightFence);
+			graphicsCommandBuffer.SubmitQueue(LogicalGpu.GraphicsQueue, frameData.ImageAvailableSemaphore, RenderFinishedSemaphores[swapChainImageIndex], frameData.InFlightFence);
 		}
 
 		protected void PresentFrame(uint swapChainImageIndex) {
 			VkSwapchainKHR swapChain = SwapChain.VkSwapChain;
 			VkSemaphore renderFinishedSemaphore = RenderFinishedSemaphores[swapChainImageIndex];
-			VkPresentInfoKHR presentInfo = new() { waitSemaphoreCount = 1, pWaitSemaphores = &renderFinishedSemaphore, swapchainCount = 1, pSwapchains = &swapChain, pImageIndices = &swapChainImageIndex, };
 
+			VkPresentInfoKHR presentInfo = new() { waitSemaphoreCount = 1, pWaitSemaphores = &renderFinishedSemaphore, swapchainCount = 1, pSwapchains = &swapChain, pImageIndices = &swapChainImageIndex, };
 			VkResult vkResult = Vk.QueuePresentKHR(LogicalGpu.PresentQueue, &presentInfo);
+
 			if (vkResult is VkResult.ErrorOutOfDateKhr or VkResult.SuboptimalKhr || Window.WasResized) {
 				Window.WasResized = false;
 				SwapChain.Recreate();
@@ -139,13 +156,24 @@ namespace Engine3.Graphics.Vulkan {
 			CurrentFrame = (byte)((CurrentFrame + 1) % MaxFramesInFlight);
 		}
 
-		protected override void Destroy() {
+		protected abstract void Cleanup();
+
+		public void Destroy() {
+			if (IDestroyable.WarnIfDestroyed(this)) { return; }
+
+			Vk.DeviceWaitIdle(LogicalDevice);
+			Cleanup();
+
 			Vk.DestroyCommandPool(LogicalDevice, TransferCommandPool, null);
 			Vk.DestroyCommandPool(LogicalDevice, GraphicsCommandPool, null);
 
 			foreach (VkSemaphore renderFinishedSemaphore in RenderFinishedSemaphores) { Vk.DestroySemaphore(LogicalDevice, renderFinishedSemaphore, null); }
 
 			foreach (FrameData frame in Frames) { frame.Destroy(); }
+
+			SwapChain.Destroy();
+
+			WasDestroyed = true;
 		}
 
 		[MustUseReturnValue]

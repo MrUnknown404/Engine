@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Engine3.Exceptions;
+using Engine3.Graphics;
 using Engine3.Utils;
 using Engine3.Utils.Versions;
 using NLog;
@@ -27,14 +28,19 @@ namespace Engine3 {
 		public string Name { get; }
 		public GraphicsApi GraphicsApi { get; }
 		public GraphicsApiHints? GraphicsApiHints { get; }
-		public List<Window> Windows { get; } = new();
 		public Shaderc Shaderc { get; } = new(Shaderc.CreateDefaultContext(new ShadercSearchPathContainer().GetLibraryNames()));
+
+		public List<Window> Windows { get; } = new();
+		protected List<IRenderer> RenderingPipelines { get; } = new();
 
 		public ulong UpdateCount { get; private set; }
 		public uint UpdatesPerSecond { get; private set; }
 		public float UpdateTime { get; private set; }
 
 		public bool WasGraphicsSetup => WasOpenGLSetup | WasVulkanSetup;
+
+		private readonly Queue<Window> windowCloseQueue = new();
+		private readonly Queue<IRenderer> renderingPipelineCloseQueue = new();
 
 		private bool wasSetup;
 		private bool shouldRunGameLoop = true;
@@ -152,18 +158,57 @@ namespace Engine3 {
 				Update();
 				UpdateCount++;
 
+				// console end. VK/GL graphics below TODO impl graphics rendering
 				if (GraphicsApi == GraphicsApi.Console) { continue; }
 
 				float delta = 0; // TODO impl
 
-				foreach (Window window in Windows.Where(static w => w is { WasDestroyed: false, })) {
-					if (window.ShouldClose) {
-						window.DestroyWindow();
-						continue;
-					}
+				EnqueueToCloseWindows();
+				DestroyEnqueuedWindows();
 
-					if (window.Renderer is { } renderer) { renderer.InternalDrawFrame(delta); }
+				EnqueueInvalidRenderingPipelines();
+				DestroyEnqueuedRenderingPipelines();
+
+				foreach (IRenderer pipeline in RenderingPipelines.Where(static pipeline => pipeline.CanRender)) { pipeline.Render(delta); }
+			}
+
+			return;
+
+			void EnqueueToCloseWindows() {
+				foreach (Window window in Windows.Where(static window => window.ShouldClose)) {
+					Logger.Debug("Found window to destroy...");
+					windowCloseQueue.Enqueue(window);
 				}
+			}
+
+			void DestroyEnqueuedWindows() {
+				while (windowCloseQueue.TryDequeue(out Window? window)) {
+					if (Windows.Remove(window)) {
+						Window result = window;
+						foreach (IRenderer pipeline in RenderingPipelines.Where(pipeline => pipeline.BoxedWindow == result)) { DestroyRenderingPipeline(pipeline); }
+
+						Logger.Debug("Destroying window...");
+						window.Destroy();
+					} else { Logger.Error("Could not find to be destroyed window in game client window list"); }
+				}
+			}
+
+			void EnqueueInvalidRenderingPipelines() {
+				foreach (IRenderer pipeline in RenderingPipelines.Where(static pipeline => pipeline.ShouldDestroy)) {
+					Logger.Debug("Found rendering pipeline to destroy...");
+					renderingPipelineCloseQueue.Enqueue(pipeline);
+				}
+			}
+
+			void DestroyEnqueuedRenderingPipelines() {
+				while (renderingPipelineCloseQueue.TryDequeue(out IRenderer? pipeline)) { DestroyRenderingPipeline(pipeline); }
+			}
+
+			void DestroyRenderingPipeline(IRenderer pipeline) {
+				if (RenderingPipelines.Remove(pipeline)) {
+					Logger.Debug("Destroying rendering pipeline...");
+					pipeline.Destroy();
+				} else { Logger.Error("Could not find to be destroyed rendering pipeline in game client rendering pipeline list"); }
 			}
 		}
 
@@ -205,13 +250,15 @@ namespace Engine3 {
 			Logger.Debug("Cleaning up instance...");
 			Cleanup();
 
-			Window[] windowsToDestroy = Windows.Where(static w => !w.WasDestroyed).ToArray();
+			Logger.Debug($"Cleaning up {RenderingPipelines.Count} rendering pipelines...");
+			foreach (IRenderer pipeline in RenderingPipelines) {
+				pipeline.Destroy();
+			}
 
 			Logger.Debug($"Cleaning up {Windows.Count} windows...");
-			foreach (Window window in windowsToDestroy) { window.DestroyWindow(); }
+			foreach (Window window in Windows) { window.Destroy(); }
 
 			Logger.Debug("Cleaning up graphics api...");
-
 			switch (GraphicsApi) {
 				case GraphicsApi.Console: break;
 				case GraphicsApi.OpenGL: CleanupOpenGL(); break;

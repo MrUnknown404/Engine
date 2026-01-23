@@ -30,7 +30,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 		}
 
 		public unsafe void Destroy() {
-			if (IGraphicsResource.CheckIfDestroyed(this)) { return; }
+			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
 
 			if (DescriptorPool is { } descriptorPool) { Vk.DestroyDescriptorPool(logicalDevice, descriptorPool, null); }
 			if (DescriptorSetLayout is { } descriptorSetLayout) { Vk.DestroyDescriptorSetLayout(logicalDevice, descriptorSetLayout, null); }

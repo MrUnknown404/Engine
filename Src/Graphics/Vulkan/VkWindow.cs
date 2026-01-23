@@ -16,7 +16,6 @@ namespace Engine3.Graphics.Vulkan {
 		public VkSurfaceKHR Surface { get; }
 		public PhysicalGpu SelectedGpu { get; }
 		public LogicalGpu LogicalGpu { get; }
-		public SwapChain SwapChain { get; }
 
 		public VkWindow(GameClient gameClient, VkInstance vkInstance, string title, uint width, uint height) : base(gameClient, title, width, height) {
 			Surface = CreateSurface(vkInstance, WindowHandle);
@@ -36,15 +35,10 @@ namespace Engine3.Graphics.Vulkan {
 			VkQueue transferQueue = GetDeviceQueue(logicalDevice, SelectedGpu.QueueFamilyIndices.TransferFamily);
 			LogicalGpu = new(logicalDevice, graphicsQueue, presentQueue, transferQueue);
 			Logger.Debug("Created logical gpu");
-
-			SwapChain = new(this, SelectedGpu.PhysicalDevice, logicalDevice, SelectedGpu.QueueFamilyIndices, WindowHandle, Surface, gameClient.PresentMode);
-			Logger.Debug("Created swap chain");
 		}
 
-		protected override void CleanupGraphics() {
+		protected override void Cleanup() {
 			if (Engine3.GameInstance.VkInstance is not { } vkInstance) { return; }
-
-			SwapChain.Destroy();
 
 			Vk.DeviceWaitIdle(LogicalGpu.LogicalDevice);
 

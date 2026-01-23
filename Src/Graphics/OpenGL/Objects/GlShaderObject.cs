@@ -101,7 +101,7 @@ namespace Engine3.Graphics.OpenGL.Objects {
 		}
 
 		public void Destroy() {
-			if (IGraphicsResource.CheckIfDestroyed(this)) { return; }
+			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
 
 			GL.DeleteProgram((int)Handle);
 

@@ -5,15 +5,23 @@ using OpenTK.Mathematics;
 using OpenTK.Platform;
 
 namespace Engine3.Graphics.OpenGL {
-	public abstract class GlRenderer : Renderer {
+	public abstract class GlRenderer : IRenderer {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
+		public Window BoxedWindow => Window;
+		protected GlWindow Window { get; }
 		protected VertexArrayHandle? EmptyVao { get; private set; }
-		protected readonly GlWindow Window;
+
+		public ulong FrameCount { get; private set; }
+		public bool CanRender { get; set; } = true;
+		public bool ShouldDestroy { get; set; }
+		public bool WasDestroyed { get; private set; }
+
+		public bool IsWindowValid => !Window.WasDestroyed;
 
 		protected GlRenderer(GlWindow window) => Window = window;
 
-		public override void Setup() {
+		public virtual void Setup() {
 			Window.MakeContextCurrent();
 
 			EmptyVao = new(GL.CreateVertexArray());
@@ -21,9 +29,7 @@ namespace Engine3.Graphics.OpenGL {
 			Logger.Debug($"EmptyVao has Handle: {EmptyVao.Value.Handle}");
 		}
 
-		protected override void DrawFrame(float delta) {
-			if (!CanRender) { return; }
-
+		public virtual void Render(float delta) {
 			Window.MakeContextCurrent();
 			GL.ClearColor(Window.ClearColor);
 			GL.Clear(Window.ClearBufferMask);
@@ -34,10 +40,25 @@ namespace Engine3.Graphics.OpenGL {
 				Window.WasResized = false;
 			}
 
-			Draw(delta);
+			DrawFrame(delta);
+
 			Toolkit.OpenGL.SwapBuffers(Window.GLContextHandle);
+
+			FrameCount++;
 		}
 
-		protected abstract void Draw(float delta);
+		protected abstract void DrawFrame(float delta);
+
+		protected abstract void Cleanup();
+
+		[Obsolete($"Warning. Do not call. Set {nameof(ShouldDestroy)}")]
+		public void Destroy() {
+			if (IDestroyable.WarnIfDestroyed(this)) { return; }
+
+			Window.MakeContextCurrent();
+			Cleanup();
+
+			WasDestroyed = true;
+		}
 	}
 }
