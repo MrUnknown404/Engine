@@ -9,7 +9,6 @@ namespace Engine3.Graphics.Vulkan {
 	public abstract unsafe class VkRenderer : IRenderer {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-		public Window BoxedWindow => Window;
 		protected VkWindow Window { get; }
 		protected SwapChain SwapChain { get; }
 
@@ -26,8 +25,6 @@ namespace Engine3.Graphics.Vulkan {
 		public bool CanRender { get; set; } = true;
 		public bool ShouldDestroy { get; set; }
 		public bool WasDestroyed { get; private set; }
-
-		public bool IsWindowValid => !Window.WasDestroyed;
 
 		protected PhysicalGpu PhysicalGpu => Window.SelectedGpu;
 		protected LogicalGpu LogicalGpu => Window.LogicalGpu;
@@ -175,6 +172,8 @@ namespace Engine3.Graphics.Vulkan {
 
 			WasDestroyed = true;
 		}
+
+		public bool IsSameWindow(Window window) => Window == window;
 
 		[MustUseReturnValue]
 		private static VkCommandPool CreateCommandPool(VkDevice logicalDevice, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) {

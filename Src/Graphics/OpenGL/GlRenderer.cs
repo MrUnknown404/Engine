@@ -8,7 +8,6 @@ namespace Engine3.Graphics.OpenGL {
 	public abstract class GlRenderer : IRenderer {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-		public Window BoxedWindow => Window;
 		protected GlWindow Window { get; }
 		protected VertexArrayHandle? EmptyVao { get; private set; }
 
@@ -16,8 +15,6 @@ namespace Engine3.Graphics.OpenGL {
 		public bool CanRender { get; set; } = true;
 		public bool ShouldDestroy { get; set; }
 		public bool WasDestroyed { get; private set; }
-
-		public bool IsWindowValid => !Window.WasDestroyed;
 
 		protected GlRenderer(GlWindow window) => Window = window;
 
@@ -50,6 +47,8 @@ namespace Engine3.Graphics.OpenGL {
 		protected abstract void DrawFrame(float delta);
 
 		protected abstract void Cleanup();
+
+		public bool IsSameWindow(Window window) => Window == window;
 
 		[Obsolete($"Warning. Do not call. Set {nameof(ShouldDestroy)}")]
 		public void Destroy() {

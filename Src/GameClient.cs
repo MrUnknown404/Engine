@@ -185,7 +185,7 @@ namespace Engine3 {
 				while (windowCloseQueue.TryDequeue(out Window? window)) {
 					if (Windows.Remove(window)) {
 						Window result = window;
-						foreach (IRenderer pipeline in RenderingPipelines.Where(pipeline => pipeline.BoxedWindow == result)) { DestroyRenderingPipeline(pipeline); }
+						foreach (IRenderer pipeline in RenderingPipelines.Where(pipeline => pipeline.IsSameWindow(result))) { DestroyRenderingPipeline(pipeline); }
 
 						Logger.Debug("Destroying window...");
 						window.Destroy();
@@ -251,9 +251,7 @@ namespace Engine3 {
 			Cleanup();
 
 			Logger.Debug($"Cleaning up {RenderingPipelines.Count} rendering pipelines...");
-			foreach (IRenderer pipeline in RenderingPipelines) {
-				pipeline.Destroy();
-			}
+			foreach (IRenderer pipeline in RenderingPipelines) { pipeline.Destroy(); }
 
 			Logger.Debug($"Cleaning up {Windows.Count} windows...");
 			foreach (Window window in Windows) { window.Destroy(); }
