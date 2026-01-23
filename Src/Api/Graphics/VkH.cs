@@ -1,4 +1,5 @@
 using Engine3.Exceptions;
+using Engine3.Graphics.Vulkan.Objects;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
@@ -69,6 +70,110 @@ namespace Engine3.Api.Graphics {
 			VkFence fence;
 			VkResult result = Vk.CreateFence(logicalDevice, &fenceCreateInfo, null, &fence);
 			return result != VkResult.Success ? throw new VulkanException($"Failed to create fence. {result}") : fence;
+		}
+
+		[MustUseReturnValue]
+		public static VkBuffer CreateBuffer(VkDevice logicalDevice, VkBufferCreateInfo bufferCreateInfo) {
+			VkBuffer buffer;
+			VkResult result = Vk.CreateBuffer(logicalDevice, &bufferCreateInfo, null, &buffer);
+			return result != VkResult.Success ? throw new VulkanException($"Failed to create buffer. {result}") : buffer;
+		}
+
+		[MustUseReturnValue]
+		public static VkBuffer CreateBuffer(VkDevice logicalDevice, VkBufferUsageFlagBits bufferUsage, ulong size, uint[]? queueFamilyIndices = null) {
+			if (queueFamilyIndices == null) { return VkH.CreateBuffer(logicalDevice, new() { size = size, usage = bufferUsage, sharingMode = VkSharingMode.SharingModeExclusive, }); }
+
+			fixed (uint* queueFamilyIndicesPtr = queueFamilyIndices) {
+				return VkH.CreateBuffer(logicalDevice,
+					new() { size = size, usage = bufferUsage, sharingMode = VkSharingMode.SharingModeConcurrent, queueFamilyIndexCount = (uint)queueFamilyIndices.Length, pQueueFamilyIndices = queueFamilyIndicesPtr, });
+			}
+		}
+
+		[MustUseReturnValue]
+		public static VkDeviceMemory CreateDeviceMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkBuffer buffer, VkMemoryPropertyFlagBits memoryPropertyFlags) {
+			VkBufferMemoryRequirementsInfo2 bufferMemoryRequirementsInfo2 = new() { buffer = buffer, };
+			VkMemoryRequirements2 memoryRequirements2 = new();
+			Vk.GetBufferMemoryRequirements2(logicalDevice, &bufferMemoryRequirementsInfo2, &memoryRequirements2);
+			VkMemoryRequirements memoryRequirements = memoryRequirements2.memoryRequirements;
+
+			VkMemoryAllocateInfo memoryAllocateInfo = new() { allocationSize = memoryRequirements.size, memoryTypeIndex = FindMemoryType(physicalDevice, memoryRequirements.memoryTypeBits, memoryPropertyFlags), };
+			VkDeviceMemory deviceMemory;
+
+			// TODO "It should be noted that in a real world application, you're not supposed to actually call vkAllocateMemory for every individual buffer.
+			// The right way to allocate memory for a large number of objects at the same time is to create a custom allocator that splits up a single allocation
+			// among many different objects by using the offset parameters that we've seen in many functions."
+			VkResult result = Vk.AllocateMemory(logicalDevice, &memoryAllocateInfo, null, &deviceMemory);
+			return result != VkResult.Success ? throw new VulkanException($"Failed to allocate memory. {result}") : deviceMemory;
+
+			[MustUseReturnValue]
+			static uint FindMemoryType(VkPhysicalDevice physicalDevice, uint typeFilter, VkMemoryPropertyFlagBits memoryPropertyFlag) {
+				VkPhysicalDeviceMemoryProperties2 memoryProperties2 = new();
+				Vk.GetPhysicalDeviceMemoryProperties2(physicalDevice, &memoryProperties2);
+				VkPhysicalDeviceMemoryProperties memoryProperties = memoryProperties2.memoryProperties;
+
+				for (uint i = 0; i < memoryProperties.memoryTypeCount; i++) {
+					if ((uint)(typeFilter & (1 << (int)i)) != 0 && (memoryProperties.memoryTypes[(int)i].propertyFlags & memoryPropertyFlag) == memoryPropertyFlag) { return i; }
+				}
+
+				throw new VulkanException("Failed to find suitable memory type");
+			}
+		}
+
+		public static void CopyBuffer(VkDevice logicalDevice, VkQueue transferQueue, VkCommandPool transferCommandPool, VkBuffer srcBuffer, VkBuffer dstBuffer, ulong bufferSize) {
+			TransferCommandBuffer transferCommandBuffer = new(logicalDevice, transferCommandPool);
+
+			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
+			transferCommandBuffer.CmdCopyBuffer(srcBuffer, dstBuffer, bufferSize);
+			transferCommandBuffer.EndCommandBuffer();
+			transferCommandBuffer.SubmitQueue(transferQueue);
+
+			Vk.QueueWaitIdle(transferQueue);
+			transferCommandBuffer.FreeCommandBuffers();
+		}
+
+		public static void CopyBuffers(VkDevice logicalDevice, VkQueue transferQueue, VkCommandPool transferCommandPool, VkBuffer[] srcBuffers, VkBuffer[] dstBuffers, ulong[] bufferSizes) {
+			int size = srcBuffers.Length;
+			if (dstBuffers.Length != size || bufferSizes.Length != size) { throw new VulkanException("All srcBuffers/dstBuffers/bufferSizes must be the same length"); }
+
+			TransferCommandBuffer transferCommandBuffer = new(logicalDevice, transferCommandPool);
+
+			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
+			for (int i = 0; i < srcBuffers.Length; i++) { transferCommandBuffer.CmdCopyBuffer(srcBuffers[i], dstBuffers[i], bufferSizes[i]); }
+			transferCommandBuffer.EndCommandBuffer();
+			transferCommandBuffer.SubmitQueue(transferQueue);
+
+			Vk.QueueWaitIdle(transferQueue);
+			transferCommandBuffer.FreeCommandBuffers();
+		}
+
+		[MustUseReturnValue]
+		public static void* MapMemory(VkDevice logicalDevice, VkDeviceMemory deviceMemory, ulong bufferSize, ulong offset) {
+			VkMemoryMapInfo memoryMapInfo = new() { memory = deviceMemory, size = bufferSize, offset = offset, };
+			void* dataPtr;
+			Vk.MapMemory2(logicalDevice, &memoryMapInfo, &dataPtr);
+			return dataPtr;
+		}
+
+		public static void CopyMemory(void* srcDataPtr, void* dstDataPtr, ulong dstSize, ulong sourceBytesToCopy) => Buffer.MemoryCopy(srcDataPtr, dstDataPtr, dstSize, sourceBytesToCopy);
+
+		public static void UnmapMemory(VkDevice logicalDevice, VkDeviceMemory deviceMemory) {
+			VkMemoryUnmapInfo memoryUnmapInfo = new() { memory = deviceMemory, };
+			Vk.UnmapMemory2(logicalDevice, &memoryUnmapInfo);
+		}
+
+		public static void MapAndCopyMemory<T>(VkDevice logicalDevice, VkDeviceMemory deviceMemory, T[] inData, ulong offset) where T : unmanaged {
+			ulong bufferSize = (ulong)(sizeof(T) * inData.Length);
+			fixed (T* inDataPtr = inData) {
+				void* dataPtr = VkH.MapMemory(logicalDevice, deviceMemory, bufferSize, offset);
+				VkH.CopyMemory(inDataPtr, dataPtr, bufferSize, bufferSize);
+				VkH.UnmapMemory(logicalDevice, deviceMemory);
+			}
+		}
+
+		public static void BindBufferMemory(VkDevice logicalDevice, VkBuffer buffer, VkDeviceMemory deviceMemory) {
+			VkBindBufferMemoryInfo bindBufferMemoryInfo = new() { buffer = buffer, memory = deviceMemory, };
+			VkResult result = Vk.BindBufferMemory2(logicalDevice, 1, &bindBufferMemoryInfo);
+			if (result != VkResult.Success) { throw new VulkanException($"Failed to bind buffer memory. {result}"); }
 		}
 	}
 }
