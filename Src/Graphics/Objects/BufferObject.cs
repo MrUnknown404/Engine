@@ -2,12 +2,14 @@ using Engine3.Api.Graphics;
 using Engine3.Api.Graphics.Objects;
 using Engine3.Exceptions;
 using Engine3.Graphics.Vulkan.Objects;
+using JetBrains.Annotations;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Graphics.Objects {
-	public unsafe class BufferObject : IBufferObject<ulong>, IGlBufferObject, IVkBufferObject {
+	[PublicAPI]
+	public unsafe class BufferObject : IGlBufferObject, IVkBufferObject {
 		public string DebugName { get; }
 		public ulong BufferSize { get; }
 
@@ -15,7 +17,6 @@ namespace Engine3.Graphics.Objects {
 
 		public VkBuffer Buffer { get; }
 		public VkDeviceMemory BufferMemory { get; }
-
 		private readonly VkPhysicalDevice physicalDevice;
 		private readonly VkDevice logicalDevice;
 
@@ -51,24 +52,72 @@ namespace Engine3.Graphics.Objects {
 
 		public void Copy<T>(T[] data) where T : unmanaged {
 			switch (graphicsBackend) {
-				case GraphicsBackend.OpenGL: Copy(data, (nint)0); break;
-				case GraphicsBackend.Vulkan: Copy(data, (ulong)0); break;
+				case GraphicsBackend.OpenGL: GL.NamedBufferSubData((int)Handle, 0, sizeof(T) * data.Length, data); break;
+				case GraphicsBackend.Vulkan: VkH.MapAndCopyMemory(logicalDevice, BufferMemory, data, 0); break;
 				case GraphicsBackend.Console: throw new IllegalStateException();
 				default: throw new ArgumentOutOfRangeException();
 			}
 		}
 
-		public void Copy<T>(T[] data, IntPtr offset) where T : unmanaged => GL.NamedBufferSubData((int)Handle, offset, sizeof(T) * data.Length, data);
-		public void Copy<T>(T[] data, ulong offset) where T : unmanaged => VkH.MapAndCopyMemory(logicalDevice, BufferMemory, data, offset);
+		public void Copy<T>(T[] data, nint offset) where T : unmanaged {
+			switch (graphicsBackend) {
+				case GraphicsBackend.OpenGL: GL.NamedBufferSubData((int)Handle, offset, sizeof(T) * data.Length, data); break;
+				case GraphicsBackend.Vulkan:
+#if DEBUG
+					checked { VkH.MapAndCopyMemory(logicalDevice, BufferMemory, data, (ulong)offset); }
+#else
+					VkH.MapAndCopyMemory(logicalDevice, BufferMemory, data, (ulong)offset);
+#endif
+					break;
+				case GraphicsBackend.Console: throw new IllegalStateException();
+				default: throw new ArgumentOutOfRangeException();
+			}
+		}
 
-		public void CopyUsingStaging<T>(VkCommandPool transferPool, VkQueue transferQueue, T[] data, ulong offset = 0) where T : unmanaged =>
-				VkBufferObject.CopyUsingStaging(physicalDevice, logicalDevice, transferPool, transferQueue, Buffer, data, offset);
+		public void Copy<T>(T[] data, ulong offset) where T : unmanaged {
+			switch (graphicsBackend) {
+				case GraphicsBackend.OpenGL:
+#if DEBUG
+					checked { GL.NamedBufferSubData((int)Handle, (nint)offset, sizeof(T) * data.Length, data); }
+#else
+					GL.NamedBufferSubData((int)Handle, (nint)offset, sizeof(T) * data.Length, data);
+#endif
+					break;
+				case GraphicsBackend.Vulkan: VkH.MapAndCopyMemory(logicalDevice, BufferMemory, data, offset); break;
+				case GraphicsBackend.Console: throw new IllegalStateException();
+				default: throw new ArgumentOutOfRangeException();
+			}
+		}
+
+		public void CopyUsingStaging<T>(VkCommandPool transferPool, VkQueue transferQueue, T[] data, nint offset = 0) where T : unmanaged {
+			switch (graphicsBackend) {
+				case GraphicsBackend.OpenGL: throw new NotImplementedException();
+				case GraphicsBackend.Vulkan:
+#if DEBUG
+					checked { VkBufferObject.CopyUsingStaging(physicalDevice, logicalDevice, transferPool, transferQueue, Buffer, data, (ulong)offset); }
+#else
+					VkBufferObject.CopyUsingStaging(physicalDevice, logicalDevice, transferPool, transferQueue, Buffer, data, (ulong)offset);
+#endif
+					break;
+				case GraphicsBackend.Console: throw new IllegalStateException();
+				default: throw new ArgumentOutOfRangeException();
+			}
+		}
+
+		public void CopyUsingStaging<T>(VkCommandPool transferPool, VkQueue transferQueue, T[] data, ulong offset = 0) where T : unmanaged {
+			switch (graphicsBackend) {
+				case GraphicsBackend.OpenGL: throw new NotImplementedException();
+				case GraphicsBackend.Vulkan: VkBufferObject.CopyUsingStaging(physicalDevice, logicalDevice, transferPool, transferQueue, Buffer, data, offset); break;
+				case GraphicsBackend.Console: throw new IllegalStateException();
+				default: throw new ArgumentOutOfRangeException();
+			}
+		}
 
 		public void Destroy() {
 			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
 
 			switch (graphicsBackend) {
-				case GraphicsBackend.OpenGL: break;
+				case GraphicsBackend.OpenGL: GL.DeleteBuffer((int)Handle); break;
 				case GraphicsBackend.Vulkan:
 					Vk.DestroyBuffer(logicalDevice, Buffer, null);
 					Vk.FreeMemory(logicalDevice, BufferMemory, null);

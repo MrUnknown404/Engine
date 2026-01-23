@@ -1,10 +1,12 @@
 using Engine3.Api.Graphics;
 using Engine3.Api.Graphics.Objects;
+using JetBrains.Annotations;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 
 namespace Engine3.Graphics.OpenGL.Objects {
-	public unsafe class GlBufferObject : IGlBufferObject, IBufferObject<nint> { // Closest to GLsizeiptr is nint? - https://wikis.khronos.org/opengl/OpenGL_Type
+	[PublicAPI]
+	public unsafe class GlBufferObject : IGlBufferObject { // Closest to GLsizeiptr is nint? - https://wikis.khronos.org/opengl/OpenGL_Type
 		public BufferHandle Handle { get; }
 		public nint BufferSize { get; }
 

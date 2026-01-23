@@ -4,11 +4,13 @@ using Engine3.Api.Graphics;
 using Engine3.Api.Graphics.Objects;
 using Engine3.Exceptions;
 using Engine3.Utility;
+using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 
 namespace Engine3.Graphics.OpenGL.Objects {
+	[PublicAPI]
 	public class GlShaderObject : IShaderObject {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 

@@ -12,6 +12,7 @@ using OpenTK.Graphics.Vulkan;
 using Silk.NET.Shaderc;
 
 namespace Engine3.Graphics.Vulkan.Objects {
+	[PublicAPI]
 	public unsafe class VkShaderObject : IShaderObject {
 		public VkShaderModule ShaderModule { get; }
 		public ShaderType ShaderType { get; }

@@ -4,7 +4,8 @@ using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Graphics.Vulkan.Objects {
-	public unsafe class VkBufferObject : IVkBufferObject, IBufferObject<ulong> {
+	[PublicAPI]
+	public unsafe class VkBufferObject : IVkBufferObject {
 		public VkBuffer Buffer { get; }
 		public VkDeviceMemory BufferMemory { get; }
 		public ulong BufferSize { get; }
