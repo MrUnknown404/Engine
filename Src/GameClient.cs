@@ -1,17 +1,15 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using Engine3.Api;
+using Engine3.Api.Graphics;
 using Engine3.Exceptions;
-using Engine3.Graphics;
-using Engine3.Utils;
-using Engine3.Utils.Versions;
+using Engine3.Utility;
 using NLog;
 using OpenTK.Platform;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using Silk.NET.Core.Loader;
 using Silk.NET.Shaderc;
-using ZLinq;
-using GraphicsApi = Engine3.Graphics.GraphicsApi;
 using Window = Engine3.Graphics.Window;
 
 #if DEBUG
@@ -26,7 +24,7 @@ namespace Engine3 {
 
 		public IPackableVersion PackableVersion { get; }
 		public string Name { get; }
-		public GraphicsApi GraphicsApi { get; }
+		public GraphicsBackend GraphicsBackend { get; }
 		public GraphicsApiHints? GraphicsApiHints { get; }
 		public Shaderc Shaderc { get; } = new(Shaderc.CreateDefaultContext(new ShadercSearchPathContainer().GetLibraryNames()));
 
@@ -50,13 +48,13 @@ namespace Engine3 {
 		public event Action? OnSetupToolkitEvent;
 		public event Action? OnShutdownEvent;
 
-		protected GameClient(string name, IPackableVersion version, GraphicsApi graphicsApi) {
+		protected GameClient(string name, IPackableVersion version, GraphicsBackend graphicsBackend) {
 			Name = name;
 			PackableVersion = version;
-			GraphicsApi = graphicsApi;
+			GraphicsBackend = graphicsBackend;
 		}
 
-		protected GameClient(string name, IPackableVersion version, OpenGLGraphicsApiHints graphicsApiHints) : this(name, version, GraphicsApi.OpenGL) {
+		protected GameClient(string name, IPackableVersion version, OpenGLGraphicsApiHints graphicsApiHints) : this(name, version, GraphicsBackend.OpenGL) {
 			graphicsApiHints.Version = new(4, 6);
 			graphicsApiHints.Profile = OpenGLProfile.Core;
 #if DEBUG
@@ -66,7 +64,7 @@ namespace Engine3 {
 			GraphicsApiHints = graphicsApiHints;
 		}
 
-		protected GameClient(string name, IPackableVersion version, VulkanGraphicsApiHints graphicsApiHints) : this(name, version, GraphicsApi.Vulkan) => GraphicsApiHints = graphicsApiHints;
+		protected GameClient(string name, IPackableVersion version, VulkanGraphicsApiHints graphicsApiHints) : this(name, version, GraphicsBackend.Vulkan) => GraphicsApiHints = graphicsApiHints;
 
 		public void Start<T>(T gameClient, StartupSettings settings) where T : GameClient {
 			if (wasSetup) { throw new Engine3Exception("Attempted to call #Start twice"); }
@@ -80,13 +78,13 @@ namespace Engine3 {
 			Logger.Debug("Got instance assembly");
 
 			Engine3.GameInstance = gameClient;
-			if (GraphicsApi != GraphicsApi.Console && GraphicsApiHints == null) { throw new Engine3Exception($"GraphicsApiHints cannot be null with GraphicsApi: {GraphicsApi}"); }
+			if (GraphicsBackend != GraphicsBackend.Console && GraphicsApiHints == null) { throw new Engine3Exception($"GraphicsApiHints cannot be null with GraphicsApi: {GraphicsBackend}"); }
 
 			Logger.Info("Setting up engine...");
 			Logger.Debug($"- Engine Version: {Engine3.Version}");
 			Logger.Debug($"- Game Version: {PackableVersion}");
 			Logger.Debug($"- GLFW Version: {GLFW.GetVersionString()}"); // TODO i have no idea what window manager OpenTK uses. i see GLFW, & SDL. but it looks like PAL is just using Win32 API/X11 API directly. help
-			Logger.Debug($"- Graphics Api: {GraphicsApi}");
+			Logger.Debug($"- Graphics Api: {GraphicsBackend}");
 
 			uint spvVersion = 0, spvRevision = 0;
 			Shaderc.GetSpvVersion(ref spvVersion, ref spvRevision);
@@ -99,14 +97,14 @@ namespace Engine3 {
 			StructLayoutDumper.WriteDumpsToOutput();
 #endif
 
-			if (GraphicsApi != GraphicsApi.Console) {
+			if (GraphicsBackend != GraphicsBackend.Console) {
 				Logger.Info("Setting up Toolkit...");
 				SetupToolkit(new() {
 						Logger = new TkLogger(),
-						FeatureFlags = GraphicsApi switch {
-								GraphicsApi.OpenGL => ToolkitFlags.EnableOpenGL,
-								GraphicsApi.Vulkan => ToolkitFlags.EnableVulkan,
-								GraphicsApi.Console => throw new UnreachableException(),
+						FeatureFlags = GraphicsBackend switch {
+								GraphicsBackend.OpenGL => ToolkitFlags.EnableOpenGL,
+								GraphicsBackend.Vulkan => ToolkitFlags.EnableVulkan,
+								GraphicsBackend.Console => throw new UnreachableException(),
 								_ => throw new ArgumentOutOfRangeException(),
 						},
 				});
@@ -114,16 +112,16 @@ namespace Engine3 {
 				OnSetupToolkitEvent?.Invoke();
 			}
 
-			switch (GraphicsApi) {
-				case GraphicsApi.OpenGL:
+			switch (GraphicsBackend) {
+				case GraphicsBackend.OpenGL:
 					Logger.Info("Setting up OpenGL...");
 					SetupOpenGL();
 					break;
-				case GraphicsApi.Vulkan:
+				case GraphicsBackend.Vulkan:
 					Logger.Info("Setting up Vulkan...");
 					SetupVulkan();
 					break;
-				case GraphicsApi.Console: break;
+				case GraphicsBackend.Console: break;
 				default: throw new ArgumentOutOfRangeException();
 			}
 
@@ -150,7 +148,7 @@ namespace Engine3 {
 
 		private void GameLoop() {
 			while (shouldRunGameLoop) {
-				if (GraphicsApi != GraphicsApi.Console) { Toolkit.Window.ProcessEvents(false); }
+				if (GraphicsBackend != GraphicsBackend.Console) { Toolkit.Window.ProcessEvents(false); }
 				if (requestShutdown) { shouldRunGameLoop = false; } // TODO check more?
 				if (!shouldRunGameLoop) { break; } // Early exit
 
@@ -159,7 +157,7 @@ namespace Engine3 {
 				UpdateCount++;
 
 				// console end. VK/GL graphics below TODO impl graphics rendering
-				if (GraphicsApi == GraphicsApi.Console) { continue; }
+				if (GraphicsBackend == GraphicsBackend.Console) { continue; }
 
 				float delta = 0; // TODO impl
 
@@ -257,10 +255,10 @@ namespace Engine3 {
 			foreach (Window window in Windows) { window.Destroy(); }
 
 			Logger.Debug("Cleaning up graphics api...");
-			switch (GraphicsApi) {
-				case GraphicsApi.Console: break;
-				case GraphicsApi.OpenGL: CleanupOpenGL(); break;
-				case GraphicsApi.Vulkan: CleanupVulkan(); break;
+			switch (GraphicsBackend) {
+				case GraphicsBackend.Console: break;
+				case GraphicsBackend.OpenGL: CleanupOpenGL(); break;
+				case GraphicsBackend.Vulkan: CleanupVulkan(); break;
 				default: throw new ArgumentOutOfRangeException();
 			}
 

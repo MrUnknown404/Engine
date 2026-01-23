@@ -1,15 +1,15 @@
 using System.Numerics;
 using System.Reflection;
+using Engine3.Api.Graphics;
+using Engine3.Api.Graphics.Objects;
 using Engine3.Exceptions;
-using Engine3.Utils;
+using Engine3.Utility;
 using NLog;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
-using GlBool = OpenTK.Graphics.OpenGL.Boolean;
-using GlShaderType = OpenTK.Graphics.OpenGL.ShaderType;
 
 namespace Engine3.Graphics.OpenGL.Objects {
-	public class GlShaderObject : IGraphicsResource {
+	public class GlShaderObject : IShaderObject {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public ShaderHandle Handle { get; }
@@ -24,7 +24,7 @@ namespace Engine3.Graphics.OpenGL.Objects {
 			DebugName = debugName;
 			ShaderType = shaderType;
 
-			string fullFileName = $"{Engine3.GameInstance.GraphicsApi}.{fileLocation}.{shaderType.FileExtension}.{ShaderLanguage.Glsl.FileExtension}"; // TODO add spirv support https://wikis.khronos.org/opengl/SPIR-V
+			string fullFileName = $"{Engine3.GameInstance.GraphicsBackend}.{fileLocation}.{shaderType.FileExtension}.{ShaderLanguage.Glsl.FileExtension}"; // TODO add spirv support https://wikis.khronos.org/opengl/SPIR-V
 			using (Stream? shaderStream = AssetH.GetAssetStream($"Shaders.{fullFileName}", assembly)) {
 				if (shaderStream == null) { throw new Engine3Exception($"Failed to create asset stream at Shaders.{fullFileName}"); }
 

@@ -3,14 +3,16 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using Engine3.Api.Graphics;
+using Engine3.Api.Graphics.Objects;
 using Engine3.Exceptions;
-using Engine3.Utils;
+using Engine3.Utility;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 using Silk.NET.Shaderc;
 
 namespace Engine3.Graphics.Vulkan.Objects {
-	public unsafe class VkShaderObject : IGraphicsResource {
+	public unsafe class VkShaderObject : IShaderObject {
 		public VkShaderModule ShaderModule { get; }
 		public ShaderType ShaderType { get; }
 
@@ -36,7 +38,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 
 		[MustUseReturnValue]
 		private static VkShaderModule CreateShaderModule(VkDevice logicalDevice, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {
-			string fullFileName = $"{Engine3.GameInstance.GraphicsApi}.{fileLocation}.{shaderType.FileExtension}.{shaderLang.FileExtension}";
+			string fullFileName = $"{Engine3.GameInstance.GraphicsBackend}.{fileLocation}.{shaderType.FileExtension}.{shaderLang.FileExtension}";
 
 			using Stream? shaderStream = AssetH.GetAssetStream($"Shaders.{fullFileName}", assembly);
 			if (shaderStream == null) { throw new Engine3Exception($"Failed to create asset stream at Shaders.{fullFileName}"); }

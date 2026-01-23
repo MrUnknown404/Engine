@@ -2,7 +2,7 @@ using NLog;
 using ILogger = OpenTK.Core.Utility.ILogger;
 using LogLevel = OpenTK.Core.Utility.LogLevel;
 
-namespace Engine3.Utils {
+namespace Engine3.Utility {
 	public class TkLogger : ILogger {
 		public static LogLevel FilterStatic { get; set; } = LogLevel.Warning;
 

@@ -1,4 +1,6 @@
-namespace Engine3.Graphics {
+using Engine3.Graphics;
+
+namespace Engine3.Api.Graphics {
 	public interface IRenderer : IDestroyable {
 		public ulong FrameCount { get; }
 		public bool CanRender { get; set; }

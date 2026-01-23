@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Engine3.Utils.Extensions {
+namespace Engine3.Utility.Extensions {
 	public static class TypeExtensions {
 		extension(Type self) {
 			public string ToReadableName() {

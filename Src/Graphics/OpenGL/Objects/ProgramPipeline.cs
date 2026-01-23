@@ -1,15 +1,16 @@
+using Engine3.Api.Graphics;
 using Engine3.Exceptions;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 
 namespace Engine3.Graphics.OpenGL.Objects {
-	public class GlProgramPipeline : IGraphicsResource {
+	public class ProgramPipeline : IGraphicsResource {
 		public ProgramPipelineHandle Handle { get; }
 
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
 
-		public GlProgramPipeline(string debugName, GlShaderObject? vert, GlShaderObject? frag, GlShaderObject? geom = null, GlShaderObject? tessEval = null, GlShaderObject? tessCtrl = null) {
+		public ProgramPipeline(string debugName, GlShaderObject? vert, GlShaderObject? frag, GlShaderObject? geom = null, GlShaderObject? tessEval = null, GlShaderObject? tessCtrl = null) {
 			DebugName = debugName;
 			Handle = new(GL.CreateProgramPipeline());
 

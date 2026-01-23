@@ -1,3 +1,5 @@
+using Engine3.Api.Graphics;
+using Engine3.Api.Graphics.Objects;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 

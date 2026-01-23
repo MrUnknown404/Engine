@@ -1,3 +1,4 @@
+using Engine3.Api.Graphics;
 using Engine3.Exceptions;
 using NLog;
 using OpenTK.Mathematics;
@@ -18,7 +19,7 @@ namespace Engine3.Graphics {
 		public event Action? BeforeDestroyEvent;
 
 		protected Window(GameClient gameClient, string title, uint width, uint height) {
-			if (gameClient.GraphicsApi == GraphicsApi.Console) { throw new Engine3Exception("Cannot create a window when graphics api is set to console"); }
+			if (gameClient.GraphicsBackend == GraphicsBackend.Console) { throw new Engine3Exception("Cannot create a window when graphics api is set to console"); }
 
 			Logger.Info("Making new window...");
 			WindowHandle = Toolkit.Window.Create(gameClient.GraphicsApiHints!); // if graphicsApi != GraphicsApi.Console then GraphicsApiHints shouldn't be null here

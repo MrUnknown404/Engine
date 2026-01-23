@@ -1,3 +1,5 @@
+using Engine3.Api.Graphics;
+using Engine3.Api.Graphics.Objects;
 using Engine3.Exceptions;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;

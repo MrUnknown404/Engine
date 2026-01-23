@@ -2,7 +2,7 @@ using JetBrains.Annotations;
 using NLog;
 using NLog.Time;
 
-namespace Engine3.Utils {
+namespace Engine3.Utility {
 	[PublicAPI]
 	public static class LoggerH {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();

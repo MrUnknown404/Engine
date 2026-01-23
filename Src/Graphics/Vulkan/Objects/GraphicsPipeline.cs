@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Engine3.Api.Graphics;
 using Engine3.Exceptions;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
@@ -215,7 +216,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 							fixed (VkVertexInputBindingDescription* vertexBindingDescriptionPtr = vertexBindingDescriptions) {
 								VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = new() { dynamicStateCount = (uint)DynamicStates.Count, pDynamicStates = dynamicStatesPtr, };
 
-								VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = new() {
+								VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = new() { // TODO can we replace this with shader buffers? like OpenGL vertex pulling
 										vertexBindingDescriptionCount = (uint)vertexBindingDescriptions.Length,
 										pVertexBindingDescriptions = vertexBindingDescriptionPtr,
 										vertexAttributeDescriptionCount = (uint)vertexAttributeDescriptions.Length,

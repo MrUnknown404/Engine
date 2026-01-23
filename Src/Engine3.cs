@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Engine3.Exceptions;
-using Engine3.Utils.Versions;
+using Engine3.Utility.Versions;
 
 namespace Engine3 {
 	public static partial class Engine3 {

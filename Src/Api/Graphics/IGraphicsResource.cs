@@ -1,6 +1,6 @@
 using NLog;
 
-namespace Engine3.Graphics {
+namespace Engine3.Api.Graphics {
 	public interface IGraphicsResource : IDestroyable {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 

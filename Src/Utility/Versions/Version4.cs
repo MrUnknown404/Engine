@@ -1,9 +1,10 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using Engine3.Api;
 using JetBrains.Annotations;
 
-namespace Engine3.Utils.Versions {
+namespace Engine3.Utility.Versions {
 	[PublicAPI]
 	public readonly record struct Version4 : IPackableVersion {
 		public required uint Packed { get; init; }

@@ -1,11 +1,11 @@
 using System.Diagnostics.CodeAnalysis;
+using Engine3.Api.Graphics;
 using Engine3.Exceptions;
 using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics.Vulkan;
 using OpenTK.Mathematics;
 using OpenTK.Platform;
-using ZLinq;
 
 namespace Engine3.Graphics.Vulkan.Objects {
 	public unsafe class SwapChain : IGraphicsResource {

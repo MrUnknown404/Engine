@@ -2,7 +2,7 @@ using System.Reflection;
 using JetBrains.Annotations;
 using NLog;
 
-namespace Engine3.Utils {
+namespace Engine3.Utility {
 	[PublicAPI]
 	public static class AssetH {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();

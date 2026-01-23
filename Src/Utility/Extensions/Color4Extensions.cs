@@ -1,7 +1,7 @@
 using OpenTK.Graphics.Vulkan;
 using OpenTK.Mathematics;
 
-namespace Engine3.Utils.Extensions {
+namespace Engine3.Utility.Extensions {
 	public static class Color4Extensions {
 		extension(Color4<Rgba> self) {
 			public unsafe VkClearColorValue ToVkClearColorValue() {

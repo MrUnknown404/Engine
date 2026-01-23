@@ -2,7 +2,7 @@ using Engine3.Exceptions;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Graphics.Vulkan {
+namespace Engine3.Api.Graphics {
 	public static unsafe partial class VkH {
 		/// <summary>
 		/// Helper method for extracting version information out of a packed uint following Vulkan's Version Specification.<br/><br/>

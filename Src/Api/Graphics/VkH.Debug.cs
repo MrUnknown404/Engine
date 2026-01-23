@@ -1,6 +1,6 @@
 #if DEBUG
 
-namespace Engine3.Graphics.Vulkan {
+namespace Engine3.Api.Graphics {
 	public static partial class VkH;
 }
 
