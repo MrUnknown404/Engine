@@ -1,7 +1,7 @@
 using JetBrains.Annotations;
 using NLog;
 
-namespace Engine3.Api.Graphics {
+namespace Engine3.Utility {
 	[PublicAPI]
 	public interface IDestroyable {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();

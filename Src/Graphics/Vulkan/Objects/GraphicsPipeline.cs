@@ -1,6 +1,5 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Engine3.Api.Graphics;
 using Engine3.Exceptions;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
@@ -87,6 +86,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 				static VkDescriptorSet[] CreateDescriptorSets(VkDevice logicalDevice, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, uint maxFramesInFlight, uint uniformBufferSize,
 					VkBuffer[] uniformBuffers) {
 					VkDescriptorSetLayout[] layouts = new VkDescriptorSetLayout[maxFramesInFlight];
+
 					for (int i = 0; i < maxFramesInFlight; i++) { layouts[i] = descriptorSetLayout; }
 
 					VkDescriptorSet[] descriptorSets = new VkDescriptorSet[maxFramesInFlight];
@@ -94,7 +94,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 					fixed (VkDescriptorSetLayout* layoutsPtr = layouts) {
 						fixed (VkDescriptorSet* descriptorSetsPtr = descriptorSets) {
 							VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = new() { descriptorPool = descriptorPool, descriptorSetCount = maxFramesInFlight, pSetLayouts = layoutsPtr, };
-							if (Vk.AllocateDescriptorSets(logicalDevice, &descriptorSetAllocateInfo, descriptorSetsPtr) != VkResult.Success) { throw new VulkanException("Failed to allocation descriptor sets"); }
+							VkH.CheckForSuccess(Vk.AllocateDescriptorSets(logicalDevice, &descriptorSetAllocateInfo, descriptorSetsPtr), VulkanException.Reason.AllocateDescriptorSets);
 						}
 					}
 
@@ -122,8 +122,8 @@ namespace Engine3.Graphics.Vulkan.Objects {
 					VkDescriptorSetLayoutBinding uboLayoutBinding = new() { binding = binding, descriptorType = VkDescriptorType.DescriptorTypeUniformBuffer, descriptorCount = 1, stageFlags = shaderStageFlags, };
 					VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = new() { bindingCount = 1, pBindings = &uboLayoutBinding, };
 					VkDescriptorSetLayout layout;
-					VkResult result = Vk.CreateDescriptorSetLayout(logicalDevice, &descriptorSetLayoutCreateInfo, null, &layout);
-					return result != VkResult.Success ? throw new VulkanException($"Failed to create descriptor set layout. {result}") : layout;
+					VkH.CheckForSuccess(Vk.CreateDescriptorSetLayout(logicalDevice, &descriptorSetLayoutCreateInfo, null, &layout), VulkanException.Reason.CreateDescriptorSetLayout);
+					return layout;
 				}
 
 				[MustUseReturnValue]
@@ -131,8 +131,8 @@ namespace Engine3.Graphics.Vulkan.Objects {
 					VkDescriptorPoolSize descriptorPoolSize = new() { descriptorCount = maxFramesInFlight, type = descriptorType, };
 					VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = new() { poolSizeCount = 1, pPoolSizes = &descriptorPoolSize, maxSets = maxFramesInFlight, };
 					VkDescriptorPool descriptorPool;
-					VkResult result = Vk.CreateDescriptorPool(logicalDevice, &descriptorPoolCreateInfo, null, &descriptorPool);
-					return result != VkResult.Success ? throw new VulkanException($"Failed to create descriptor pool. {result}") : descriptorPool;
+					VkH.CheckForSuccess(Vk.CreateDescriptorPool(logicalDevice, &descriptorPoolCreateInfo, null, &descriptorPool), VulkanException.Reason.CreateDescriptorPool);
+					return descriptorPool;
 				}
 			}
 
@@ -208,7 +208,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 				}
 
 				VkPipelineLayout pipelineLayout;
-				if (Vk.CreatePipelineLayout(logicalDevice, &pipelineLayoutCreateInfo, null, &pipelineLayout) != VkResult.Success) { throw new VulkanException("Failed to create pipeline layout"); }
+				VkH.CheckForSuccess(Vk.CreatePipelineLayout(logicalDevice, &pipelineLayoutCreateInfo, null, &pipelineLayout), VulkanException.Reason.CreatePipelineLayout);
 
 				fixed (VkPipelineShaderStageCreateInfo* shaderStageCreateInfosPtr = shaderStageCreateInfos) {
 					fixed (VkDynamicState* dynamicStatesPtr = DynamicStates.ToArray()) {
@@ -241,11 +241,9 @@ namespace Engine3.Graphics.Vulkan.Objects {
 								};
 
 								VkPipeline graphicsPipeline;
-								VkResult result = Vk.CreateGraphicsPipelines(logicalDevice, VkPipelineCache.Zero, 1, &pipelineCreateInfo, null, &graphicsPipeline);
+								VkH.CheckForSuccess(Vk.CreateGraphicsPipelines(logicalDevice, VkPipelineCache.Zero, 1, &pipelineCreateInfo, null, &graphicsPipeline), VulkanException.Reason.CreateGraphicsPipeline);
 
-								return result != VkResult.Success ?
-										throw new VulkanException($"Failed to create graphics pipeline. {result}") :
-										new(debugName, logicalDevice, graphicsPipeline, pipelineLayout, descriptorPool, this.descriptorSetLayout, descriptorSets);
+								return new(debugName, logicalDevice, graphicsPipeline, pipelineLayout, descriptorPool, this.descriptorSetLayout, descriptorSets);
 							}
 						}
 					}

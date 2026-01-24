@@ -1,6 +1,6 @@
-using Engine3.Api.Graphics;
-using Engine3.Api.Graphics.Objects;
 using Engine3.Exceptions;
+using Engine3.Graphics.OpenGL.Objects;
+using Engine3.Graphics.Vulkan;
 using Engine3.Graphics.Vulkan.Objects;
 using JetBrains.Annotations;
 using OpenTK.Graphics;

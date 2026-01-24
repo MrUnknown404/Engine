@@ -1,7 +1,8 @@
+using Engine3.Utility;
 using JetBrains.Annotations;
 using NLog;
 
-namespace Engine3.Api.Graphics {
+namespace Engine3.Graphics {
 	[PublicAPI]
 	public interface IGraphicsResource : IDestroyable {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();

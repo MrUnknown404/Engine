@@ -112,7 +112,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 						pSignalSemaphores = &signalSemaphore,
 				};
 
-				SubmitQueue(queue, submitInfo, fence);
+				VkH.SubmitQueue(queue, submitInfo, fence);
 			}
 		}
 	}

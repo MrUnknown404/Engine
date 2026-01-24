@@ -1,7 +1,5 @@
 using System.Numerics;
 using System.Reflection;
-using Engine3.Api.Graphics;
-using Engine3.Api.Graphics.Objects;
 using Engine3.Exceptions;
 using Engine3.Utility;
 using JetBrains.Annotations;
@@ -11,7 +9,7 @@ using OpenTK.Graphics.OpenGL;
 
 namespace Engine3.Graphics.OpenGL.Objects {
 	[PublicAPI]
-	public class GlShaderObject : IShaderObject {
+	public class GlShaderObject : IGraphicsResource {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public ShaderHandle Handle { get; }
@@ -46,7 +44,7 @@ namespace Engine3.Graphics.OpenGL.Objects {
 			GL.GetProgrami((int)Handle, ProgramProperty.LinkStatus, out int status);
 			if ((GlBool)status != GlBool.True) {
 				GL.GetProgramInfoLog((int)Handle, out string info);
-				throw new OpenGLException($"Failed to compile shader: {fullFileName}. Reason: {info}");
+				throw new OpenGLException(OpenGLException.Reason.ShaderCompileFail, fullFileName, info);
 			}
 
 			GL.GetProgrami((int)Handle, ProgramProperty.ActiveUniforms, out int uniforms);

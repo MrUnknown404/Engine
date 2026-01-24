@@ -1,5 +1,5 @@
-using Engine3.Api.Graphics;
 using Engine3.Exceptions;
+using Engine3.Utility;
 using NLog;
 using OpenTK.Mathematics;
 using OpenTK.Platform;

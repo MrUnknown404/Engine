@@ -29,24 +29,12 @@ namespace Engine3.Graphics.Vulkan.Objects {
 			Vk.FreeCommandBuffers(logicalDevice, CommandPool, 1, &commandBuffers);
 		}
 
-		protected static void SubmitQueues(VkQueue queue, VkSubmitInfo[] submitInfos, VkFence? fence) {
-			fixed (VkSubmitInfo* submitInfosPtr = submitInfos) {
-				VkResult result = Vk.QueueSubmit(queue, (uint)submitInfos.Length, submitInfosPtr, fence ?? VkFence.Zero);
-				if (result != VkResult.Success) { throw new VulkanException($"Failed to submit queue. {result}"); }
-			}
-		}
-
-		protected static void SubmitQueue(VkQueue queue, VkSubmitInfo submitInfo, VkFence? fence) {
-			VkResult result = Vk.QueueSubmit(queue, 1, &submitInfo, fence ?? VkFence.Zero);
-			if (result != VkResult.Success) { throw new VulkanException($"Failed to submit queue. {result}"); } // TODO device lost?
-		}
-
 		[MustUseReturnValue]
 		protected static VkCommandBuffer CreateCommandBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
 			VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = commandPool, level = level, commandBufferCount = 1, };
 			VkCommandBuffer commandBuffers;
-			VkResult result = Vk.AllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, &commandBuffers);
-			return result != VkResult.Success ? throw new VulkanException($"Failed to create command buffer. {result}") : commandBuffers;
+			VkH.CheckForSuccess(Vk.AllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, &commandBuffers), VulkanException.Reason.AllocateCommandBuffer);
+			return commandBuffers;
 		}
 	}
 }

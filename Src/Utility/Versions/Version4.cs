@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using Engine3.Api;
 using JetBrains.Annotations;
 
 namespace Engine3.Utility.Versions {

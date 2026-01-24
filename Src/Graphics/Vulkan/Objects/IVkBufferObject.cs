@@ -1,7 +1,8 @@
+using Engine3.Graphics.Objects;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Api.Graphics.Objects {
+namespace Engine3.Graphics.Vulkan.Objects {
 	[PublicAPI]
 	public interface IVkBufferObject : IBufferObject {
 		public VkBuffer Buffer { get; }

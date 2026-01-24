@@ -3,8 +3,6 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
-using Engine3.Api.Graphics;
-using Engine3.Api.Graphics.Objects;
 using Engine3.Exceptions;
 using Engine3.Utility;
 using JetBrains.Annotations;
@@ -13,7 +11,7 @@ using Silk.NET.Shaderc;
 
 namespace Engine3.Graphics.Vulkan.Objects {
 	[PublicAPI]
-	public unsafe class VkShaderObject : IShaderObject {
+	public unsafe class VkShaderObject : IGraphicsResource {
 		public VkShaderModule ShaderModule { get; }
 		public ShaderType ShaderType { get; }
 
@@ -89,7 +87,8 @@ namespace Engine3.Graphics.Vulkan.Objects {
 
 					shaderc.ResultRelease(compilationResult);
 
-					return result != VkResult.Success ? throw new VulkanException($"Failed to create shader module. {result}") : shaderModule;
+					VkH.CheckForSuccess(result, VulkanException.Reason.CreateShaderModule);
+					return shaderModule;
 				}
 				case ShaderLanguage.SpirV: {
 					using BinaryReader reader = new(shaderStream);
@@ -98,8 +97,8 @@ namespace Engine3.Graphics.Vulkan.Objects {
 					fixed (byte* shaderCodePtr = data) {
 						VkShaderModuleCreateInfo shaderModuleCreateInfo = new() { codeSize = (UIntPtr)data.Length, pCode = (uint*)shaderCodePtr, };
 						VkShaderModule shaderModule;
-						VkResult result = Vk.CreateShaderModule(logicalDevice, &shaderModuleCreateInfo, null, &shaderModule);
-						return result != VkResult.Success ? throw new VulkanException($"Failed to create shader module. {result}") : shaderModule;
+						VkH.CheckForSuccess(Vk.CreateShaderModule(logicalDevice, &shaderModuleCreateInfo, null, &shaderModule), VulkanException.Reason.CreateShaderModule);
+						return shaderModule;
 					}
 				}
 				default: throw new ArgumentOutOfRangeException(nameof(shaderLang), shaderLang, null);

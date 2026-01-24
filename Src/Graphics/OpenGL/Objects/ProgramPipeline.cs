@@ -1,4 +1,3 @@
-using Engine3.Api.Graphics;
 using Engine3.Exceptions;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
@@ -24,7 +23,7 @@ namespace Engine3.Graphics.OpenGL.Objects {
 
 			void TryAddStage(GlShaderObject? shader) {
 				if (shader == null) { return; }
-				if (shader.Handle.Handle == 0) { throw new OpenGLException($"Program Pipeline: {debugName}:{Handle} has an invalid shader program ({shader.DebugName}). No handle"); }
+				if (shader.Handle.Handle == 0) { throw new Engine3OpenGLException($"Program Pipeline: {debugName}:{Handle} has an invalid shader program ({shader.DebugName}). No handle"); }
 				GL.UseProgramStages((int)Handle, shader.ShaderType switch {
 						ShaderType.Fragment => UseProgramStageMask.FragmentShaderBit,
 						ShaderType.Vertex => UseProgramStageMask.VertexShaderBit,

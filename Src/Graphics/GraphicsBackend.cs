@@ -1,4 +1,4 @@
-namespace Engine3.Api.Graphics {
+namespace Engine3.Graphics {
 	public enum GraphicsBackend : byte {
 		Console = 0,
 		OpenGL,
