@@ -1,6 +1,6 @@
-using Engine3.Api.Graphics;
 using Engine3.Exceptions;
 using Engine3.Graphics.Vulkan.Objects;
+using Engine3.Utility;
 using Engine3.Utility.Extensions;
 using JetBrains.Annotations;
 using NLog;
@@ -83,13 +83,13 @@ namespace Engine3.Graphics.Vulkan {
 			Vk.WaitForFences(LogicalDevice, 1, &inFlightFence, (int)Vk.True, ulong.MaxValue);
 
 			uint tempSwapChainImageIndex;
-			VkResult vkResult = Vk.AcquireNextImageKHR(LogicalDevice, SwapChain.VkSwapChain, ulong.MaxValue, frameData.ImageAvailableSemaphore, VkFence.Zero, &tempSwapChainImageIndex);
+			VkResult result = Vk.AcquireNextImageKHR(LogicalDevice, SwapChain.VkSwapChain, ulong.MaxValue, frameData.ImageAvailableSemaphore, VkFence.Zero, &tempSwapChainImageIndex); // todo 2
 			swapChainImageIndex = tempSwapChainImageIndex;
 
-			if (vkResult == VkResult.ErrorOutOfDateKhr) {
+			if (result == VkResult.ErrorOutOfDateKhr) {
 				SwapChain.Recreate();
 				return false;
-			} else if (vkResult is not VkResult.Success and not VkResult.SuboptimalKhr) { throw new VulkanException("Failed to acquire next swap chain image"); }
+			} else if (result != VkResult.SuboptimalKhr) { VkH.CheckForSuccess(result, VulkanException.Reason.AcquireNextImage); }
 
 			Vk.ResetFences(LogicalDevice, 1, &inFlightFence);
 
@@ -110,7 +110,7 @@ namespace Engine3.Graphics.Vulkan {
 
 			graphicsCommandBuffer.ResetCommandBuffer();
 
-			if (graphicsCommandBuffer.BeginCommandBuffer() != VkResult.Success) { throw new VulkanException("Failed to begin recording command buffer"); }
+			VkH.CheckForSuccess(graphicsCommandBuffer.BeginCommandBuffer(), VulkanException.Reason.BeginCommandBuffer);
 
 			graphicsCommandBuffer.CmdBeginPipelineBarrier(SwapChain.Images[swapChainImageIndex]);
 			graphicsCommandBuffer.CmdBeginRendering(SwapChain.Extent, SwapChain.ImageViews[swapChainImageIndex], Window.ClearColor.ToVkClearColorValue());
@@ -134,7 +134,7 @@ namespace Engine3.Graphics.Vulkan {
 			graphicsCommandBuffer.CmdEndRendering();
 			graphicsCommandBuffer.CmdEndPipelineBarrier(SwapChain.Images[swapChainImageIndex]);
 
-			if (graphicsCommandBuffer.EndCommandBuffer() != VkResult.Success) { throw new VulkanException("Failed to end recording command buffer"); }
+			VkH.CheckForSuccess(graphicsCommandBuffer.EndCommandBuffer(), VulkanException.Reason.EndCommandBuffer);
 
 			graphicsCommandBuffer.SubmitQueue(LogicalGpu.GraphicsQueue, frameData.ImageAvailableSemaphore, RenderFinishedSemaphores[swapChainImageIndex], frameData.InFlightFence);
 		}
@@ -144,12 +144,12 @@ namespace Engine3.Graphics.Vulkan {
 			VkSemaphore renderFinishedSemaphore = RenderFinishedSemaphores[swapChainImageIndex];
 
 			VkPresentInfoKHR presentInfo = new() { waitSemaphoreCount = 1, pWaitSemaphores = &renderFinishedSemaphore, swapchainCount = 1, pSwapchains = &swapChain, pImageIndices = &swapChainImageIndex, };
-			VkResult vkResult = Vk.QueuePresentKHR(LogicalGpu.PresentQueue, &presentInfo);
+			VkResult result = Vk.QueuePresentKHR(LogicalGpu.PresentQueue, &presentInfo);
 
-			if (vkResult is VkResult.ErrorOutOfDateKhr or VkResult.SuboptimalKhr || Window.WasResized) {
+			if (result is VkResult.ErrorOutOfDateKhr or VkResult.SuboptimalKhr || Window.WasResized) {
 				Window.WasResized = false;
 				SwapChain.Recreate();
-			} else if (vkResult != VkResult.Success) { throw new VulkanException("Failed to present swap chain image"); }
+			} else { VkH.CheckForSuccess(result, VulkanException.Reason.QueuePresent); }
 
 			CurrentFrame = (byte)((CurrentFrame + 1) % MaxFramesInFlight);
 		}
@@ -180,8 +180,8 @@ namespace Engine3.Graphics.Vulkan {
 		private static VkCommandPool CreateCommandPool(VkDevice logicalDevice, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) {
 			VkCommandPoolCreateInfo commandPoolCreateInfo = new() { flags = commandPoolCreateFlags, queueFamilyIndex = queueFamilyIndex, };
 			VkCommandPool commandPool;
-			VkResult result = Vk.CreateCommandPool(logicalDevice, &commandPoolCreateInfo, null, &commandPool);
-			return result != VkResult.Success ? throw new VulkanException($"Failed to create command pool. {result}") : commandPool;
+			VkH.CheckForSuccess(Vk.CreateCommandPool(logicalDevice, &commandPoolCreateInfo, null, &commandPool), VulkanException.Reason.CreateCommandPool);
+			return commandPool;
 		}
 
 		[Obsolete("Make VkBufferObject.CreateBuffers()")]
@@ -190,8 +190,8 @@ namespace Engine3.Graphics.Vulkan {
 			VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = commandPool, level = level, commandBufferCount = count, };
 			VkCommandBuffer[] commandBuffers = new VkCommandBuffer[count];
 			fixed (VkCommandBuffer* commandBuffersPtr = commandBuffers) {
-				VkResult result = Vk.AllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, commandBuffersPtr);
-				return result != VkResult.Success ? throw new VulkanException($"Failed to create command buffers. {result}") : commandBuffers;
+				VkH.CheckForSuccess(Vk.AllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, commandBuffersPtr), VulkanException.Reason.AllocateCommandBuffers);
+				return commandBuffers;
 			}
 		}
 

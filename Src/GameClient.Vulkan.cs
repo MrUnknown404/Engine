@@ -46,13 +46,13 @@ namespace Engine3 {
 
 #if DEBUG
 			VkLayerProperties[] availableLayerProperties = EnumerateInstanceLayerProperties();
-			if (availableLayerProperties.Length == 0) { throw new VulkanException("Could not find any instance layer properties"); }
-			if (!CheckSupportForRequiredValidationLayers(availableLayerProperties, GetAllRequiredValidationLayers())) { throw new VulkanException("Requested validation layers are not available"); }
+			if (availableLayerProperties.Length == 0) { throw new Engine3VulkanException("Could not find any instance layer properties"); }
+			if (!CheckSupportForRequiredValidationLayers(availableLayerProperties, GetAllRequiredValidationLayers())) { throw new Engine3VulkanException("Requested validation layers are not available"); }
 #endif
 
 			VkExtensionProperties[] instanceExtensionProperties = GetInstanceExtensionProperties();
-			if (instanceExtensionProperties.Length == 0) { throw new VulkanException("Could not find any instance extension properties"); }
-			if (!CheckSupportForRequiredInstanceExtensions(instanceExtensionProperties, GetAllRequiredInstanceExtensions())) { throw new VulkanException("Requested instance extensions are not available"); }
+			if (instanceExtensionProperties.Length == 0) { throw new Engine3VulkanException("Could not find any instance extension properties"); }
+			if (!CheckSupportForRequiredInstanceExtensions(instanceExtensionProperties, GetAllRequiredInstanceExtensions())) { throw new Engine3VulkanException("Requested instance extensions are not available"); }
 
 #if DEBUG
 			PrintInstanceExtensions(instanceExtensionProperties);
@@ -163,7 +163,8 @@ namespace Engine3 {
 			MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, requiredValidationLayers.Length);
 #endif
 
-			return result != VkResult.Success ? throw new VulkanException($"Failed to create Vulkan instance. {result}") : vkInstance;
+			VkH.CheckForSuccess(result, VulkanException.Reason.CreateInstance);
+			return vkInstance;
 		}
 
 		[MustUseReturnValue]
@@ -210,8 +211,8 @@ namespace Engine3 {
 		private static VkDebugUtilsMessengerEXT CreateDebugMessenger(VkInstance vkInstance, VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagBitsEXT messageType) {
 			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(messageSeverity, messageType);
 			VkDebugUtilsMessengerEXT debugMessenger;
-			VkResult result = Vk.CreateDebugUtilsMessengerEXT(vkInstance, &messengerCreateInfo, null, &debugMessenger);
-			return result != VkResult.Success ? throw new VulkanException($"Failed to create Vulkan Debug Messenger. {result}") : debugMessenger;
+			VkH.CheckForSuccess(Vk.CreateDebugUtilsMessengerEXT(vkInstance, &messengerCreateInfo, null, &debugMessenger), VulkanException.Reason.CreateDebugMessenger);
+			return debugMessenger;
 		}
 
 		[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl), })]

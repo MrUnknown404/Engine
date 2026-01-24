@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using Engine3.Api;
 
 namespace Engine3.Utility.Versions {
 	public readonly record struct BuildVersion : IPackableVersion {

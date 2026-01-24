@@ -14,7 +14,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 		public void SubmitQueue(VkQueue transferQueue) {
 			VkCommandBuffer commandBuffer = VkCommandBuffer;
 			VkSubmitInfo submitInfo = new() { commandBufferCount = 1, pCommandBuffers = &commandBuffer, };
-			SubmitQueue(transferQueue, submitInfo, VkFence.Zero);
+			VkH.SubmitQueue(transferQueue, submitInfo, VkFence.Zero);
 		}
 	}
 }

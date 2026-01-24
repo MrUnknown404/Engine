@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using Engine3.Api.Graphics;
 using Engine3.Exceptions;
 using JetBrains.Annotations;
 using NLog;
@@ -123,11 +122,11 @@ namespace Engine3.Graphics.Vulkan.Objects {
 			out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat, VkPresentModeKHR presentMode = VkPresentModeKHR.PresentModeMailboxKhr, VkSurfaceTransformFlagBitsKHR? surfaceTransform = null,
 			VkSwapchainKHR? oldSwapChain = null) {
 			if (!QuerySupport(physicalDevice, surface, out VkSurfaceCapabilities2KHR surfaceCapabilities2, out VkSurfaceFormat2KHR[]? surfaceFormats2, out VkPresentModeKHR[]? supportedPresentModes)) {
-				throw new VulkanException("Failed to query swap chain support");
+				throw new Engine3VulkanException("Failed to query swap chain support");
 			}
 
-			if (!supportedPresentModes.Contains(presentMode)) { throw new VulkanException("Surface does not support requested present mode"); }
-			if (ChooseSwapSurfaceFormat(surfaceFormats2) is not { } surfaceFormat2) { throw new VulkanException("Could not find any valid surface formats"); }
+			if (!supportedPresentModes.Contains(presentMode)) { throw new Engine3VulkanException("Surface does not support requested present mode"); }
+			if (ChooseSwapSurfaceFormat(surfaceFormats2) is not { } surfaceFormat2) { throw new Engine3VulkanException("Could not find any valid surface formats"); }
 
 			VkSurfaceCapabilitiesKHR surfaceCapabilities = surfaceCapabilities2.surfaceCapabilities;
 			swapChainImageFormat = surfaceFormat2.surfaceFormat.format;
@@ -173,9 +172,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 				};
 
 				VkSwapchainKHR tempSwapChain;
-				VkResult result = Vk.CreateSwapchainKHR(logicalDevice, &createInfo, null, &tempSwapChain);
-				if (result != VkResult.Success) { throw new VulkanException($"Failed to create swap chain. {result}"); }
-
+				VkH.CheckForSuccess(Vk.CreateSwapchainKHR(logicalDevice, &createInfo, null, &tempSwapChain), VulkanException.Reason.CreateSwapChain);
 				swapChain = tempSwapChain;
 			}
 
@@ -202,8 +199,8 @@ namespace Engine3.Graphics.Vulkan.Objects {
 
 			VkImage[] swapChainImages = new VkImage[swapChainImageCount];
 			fixed (VkImage* swapChainImagesPtr = swapChainImages) {
-				VkResult result = Vk.GetSwapchainImagesKHR(logicalDevice, swapChain, &swapChainImageCount, swapChainImagesPtr);
-				return result != VkResult.Success ? throw new VulkanException($"Failed to get swap chain images. {result}") : swapChainImages;
+				VkH.CheckForSuccess(Vk.GetSwapchainImagesKHR(logicalDevice, swapChain, &swapChainImageCount, swapChainImagesPtr), VulkanException.Reason.GetSwapChainImages);
+				return swapChainImages;
 			}
 		}
 
@@ -226,8 +223,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 							subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 					};
 
-					VkResult result = Vk.CreateImageView(logicalDevice, &createInfo, null, &imageViewsPtr[i]);
-					if (result != VkResult.Success) { throw new VulkanException($"Failed to create swap chain image view {i}. {result}"); }
+					VkH.CheckForSuccess(Vk.CreateImageView(logicalDevice, &createInfo, null, &imageViewsPtr[i]), VulkanException.Reason.CreateImageViewI, i);
 				}
 			}
 

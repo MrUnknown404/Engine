@@ -1,6 +1,6 @@
 #if DEBUG
 
-namespace Engine3.Api.Graphics {
+namespace Engine3.Graphics.OpenGL {
 	public static partial class GLH;
 }
 
