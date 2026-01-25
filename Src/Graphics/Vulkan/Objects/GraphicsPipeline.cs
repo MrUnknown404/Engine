@@ -16,7 +16,6 @@ namespace Engine3.Graphics.Vulkan.Objects {
 		private readonly VkDescriptorPool? descriptorPool;
 		private readonly VkDescriptorSetLayout? descriptorSetLayout;
 		private readonly VkDescriptorSet[]? descriptorSets;
-		private readonly DescriptorSetLayoutInfo[]? descriptorSetLayoutInfos;
 
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
@@ -25,7 +24,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 		private readonly uint maxFramesInFlight;
 
 		private GraphicsPipeline(string debugName, VkDevice logicalDevice, VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorPool? descriptorPool, VkDescriptorSetLayout? descriptorSetLayout,
-			VkDescriptorSet[]? descriptorSets, DescriptorSetLayoutInfo[]? descriptorSetLayoutInfos, uint maxFramesInFlight) {
+			VkDescriptorSet[]? descriptorSets, uint maxFramesInFlight) {
 			DebugName = debugName;
 			this.logicalDevice = logicalDevice;
 			Pipeline = pipeline;
@@ -33,38 +32,61 @@ namespace Engine3.Graphics.Vulkan.Objects {
 			this.descriptorPool = descriptorPool;
 			this.descriptorSetLayout = descriptorSetLayout;
 			this.descriptorSets = descriptorSets;
-			this.descriptorSetLayoutInfos = descriptorSetLayoutInfos;
 			this.maxFramesInFlight = maxFramesInFlight;
 		}
 
-		[SuppressMessage("ReSharper", "SwitchStatementHandlesSomeKnownEnumValuesWithDefault")]
-		public void UpdateDescriptorSets() {
-			if (descriptorSets == null || descriptorSetLayoutInfos == null) {
+		public void UpdateDescriptorSet(uint binding, VkBuffer[] buffer, ulong range, ulong offset = 0) {
+			if (descriptorSets == null) {
 				Logger.Warn("Attempted to update descriptor sets when this graphics pipeline does not have any descriptor sets setup");
 				return;
 			}
 
-			foreach (DescriptorSetLayoutInfo descriptorSetLayoutInfo in descriptorSetLayoutInfos) {
-				VkWriteDescriptorSet[] writeDescriptorSets = descriptorSetLayoutInfo.WriteDescriptorSets;
+			VkWriteDescriptorSet[] writeDescriptorSets = new VkWriteDescriptorSet[maxFramesInFlight];
+			VkDescriptorBufferInfo[] bufferInfos = new VkDescriptorBufferInfo[maxFramesInFlight];
 
-				fixed (VkWriteDescriptorSet* writeDescriptorSetsPtr = writeDescriptorSets) {
-					fixed (VkDescriptorBufferInfo* bufferInfoPtr = descriptorSetLayoutInfo.DescriptorBufferInfo) {
-						fixed (VkDescriptorImageInfo* imageInfoPtr = descriptorSetLayoutInfo.DescriptorImageInfo) {
-							for (int i = 0; i < maxFramesInFlight; i++) {
-								writeDescriptorSetsPtr[i].dstSet = descriptorSets[i];
-
-								switch (writeDescriptorSetsPtr[i].descriptorType) {
-									case VkDescriptorType.DescriptorTypeUniformBuffer: writeDescriptorSetsPtr[i].pBufferInfo = &bufferInfoPtr[i]; break;
-									case VkDescriptorType.DescriptorTypeCombinedImageSampler: writeDescriptorSetsPtr[i].pImageInfo = &imageInfoPtr[i]; break;
-									default: throw new NotImplementedException();
-								}
-							}
-
-							Vk.UpdateDescriptorSets(logicalDevice, (uint)writeDescriptorSets.Length, writeDescriptorSetsPtr, 0, null);
-						}
-					}
+			fixed (VkDescriptorBufferInfo* bufferInfosPtr = bufferInfos) {
+				for (int i = 0; i < maxFramesInFlight; i++) {
+					bufferInfosPtr[i] = new() { buffer = buffer[i], offset = offset, range = range, };
+					writeDescriptorSets[i] = new() { dstBinding = binding, dstSet = descriptorSets[i], descriptorType = VkDescriptorType.DescriptorTypeUniformBuffer, descriptorCount = 1, pBufferInfo = &bufferInfosPtr[i], };
 				}
+
+				fixed (VkWriteDescriptorSet* writeDescriptorSetsPtr = writeDescriptorSets) { Vk.UpdateDescriptorSets(logicalDevice, (uint)writeDescriptorSets.Length, writeDescriptorSetsPtr, 0, null); }
 			}
+		}
+
+		public void UpdateDescriptorSet<T>(uint binding, T[] buffer, ulong range, ulong offset = 0) where T : IVkBufferObject {
+			if (descriptorSets == null) {
+				Logger.Warn("Attempted to update descriptor sets when this graphics pipeline does not have any descriptor sets setup");
+				return;
+			}
+
+			VkWriteDescriptorSet[] writeDescriptorSets = new VkWriteDescriptorSet[maxFramesInFlight];
+			VkDescriptorBufferInfo[] bufferInfos = new VkDescriptorBufferInfo[maxFramesInFlight];
+
+			fixed (VkDescriptorBufferInfo* bufferInfosPtr = bufferInfos) {
+				for (int i = 0; i < maxFramesInFlight; i++) {
+					bufferInfosPtr[i] = new() { buffer = buffer[i].Buffer, offset = offset, range = range, };
+					writeDescriptorSets[i] = new() { dstBinding = binding, dstSet = descriptorSets[i], descriptorType = VkDescriptorType.DescriptorTypeUniformBuffer, descriptorCount = 1, pBufferInfo = &bufferInfosPtr[i], };
+				}
+
+				fixed (VkWriteDescriptorSet* writeDescriptorSetsPtr = writeDescriptorSets) { Vk.UpdateDescriptorSets(logicalDevice, (uint)writeDescriptorSets.Length, writeDescriptorSetsPtr, 0, null); }
+			}
+		}
+
+		public void UpdateDescriptorSet(uint binding, VkImageView imageView, VkSampler textureSampler) {
+			if (descriptorSets == null) {
+				Logger.Warn("Attempted to update descriptor sets when this graphics pipeline does not have any descriptor sets setup");
+				return;
+			}
+
+			VkWriteDescriptorSet[] writeDescriptorSets = new VkWriteDescriptorSet[maxFramesInFlight];
+			VkDescriptorImageInfo imageInfo = new() { imageView = imageView, imageLayout = VkImageLayout.ImageLayoutShaderReadOnlyOptimal, sampler = textureSampler, };
+
+			for (int i = 0; i < maxFramesInFlight; i++) {
+				writeDescriptorSets[i] = new() { dstBinding = binding, dstSet = descriptorSets[i], descriptorType = VkDescriptorType.DescriptorTypeCombinedImageSampler, descriptorCount = 1, pImageInfo = &imageInfo, };
+			}
+
+			fixed (VkWriteDescriptorSet* writeDescriptorSetsPtr = writeDescriptorSets) { Vk.UpdateDescriptorSets(logicalDevice, (uint)writeDescriptorSets.Length, writeDescriptorSetsPtr, 0, null); }
 		}
 
 		public VkDescriptorSet GetCurrentDescriptorSet(byte currentFrame) => descriptorSets?[currentFrame] ?? throw new Engine3VulkanException("Cannot get descriptor set because this pipeline has no descriptor sets");
@@ -102,6 +124,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 			private readonly VkShaderObject[] shaders;
 			private readonly VkVertexInputAttributeDescription[] vertexAttributeDescriptions;
 			private readonly VkVertexInputBindingDescription[] vertexBindingDescriptions;
+			private readonly List<DescriptorSetLayoutInfo> descriptorSetLayoutInfos = new();
 
 			public Builder(string debugName, VkDevice logicalDevice, SwapChain swapChain, VkShaderObject[] shaders, VkVertexInputAttributeDescription[] vertexAttributeDescriptions,
 				VkVertexInputBindingDescription[] vertexBindingDescriptions) {
@@ -113,38 +136,9 @@ namespace Engine3.Graphics.Vulkan.Objects {
 				this.vertexBindingDescriptions = vertexBindingDescriptions;
 			}
 
-			private readonly List<DescriptorSetLayoutInfo> descriptorSetLayoutInfos = new();
-
-			public void AddDescriptorSet<T>(VkShaderStageFlagBits stageFlags, uint bindingLocation, T[] uniformBuffers, uint uniformBufferSize) where T : IVkBufferObject {
+			public void AddDescriptorSet(VkDescriptorType descriptorType, VkShaderStageFlagBits stageFlags, uint bindingLocation) {
 				if (MaxFramesInFlight == 0) { throw new Engine3VulkanException($"{nameof(MaxFramesInFlight)} cannot be zero when using descriptor sets"); }
-
-				VkWriteDescriptorSet[] writeDescriptorSets = new VkWriteDescriptorSet[MaxFramesInFlight];
-				VkDescriptorBufferInfo[] descriptorBufferInfos = new VkDescriptorBufferInfo[MaxFramesInFlight];
-
-				fixed (VkDescriptorBufferInfo* descriptorBufferInfosPtr = descriptorBufferInfos) {
-					for (int i = 0; i < MaxFramesInFlight; i++) {
-						descriptorBufferInfosPtr[i] = new() { buffer = uniformBuffers[i].Buffer, offset = 0, range = uniformBufferSize, };
-						writeDescriptorSets[i] = new() { dstBinding = bindingLocation, dstArrayElement = 0, descriptorType = VkDescriptorType.DescriptorTypeUniformBuffer, descriptorCount = 1, };
-					}
-				}
-
-				descriptorSetLayoutInfos.Add(new(VkDescriptorType.DescriptorTypeUniformBuffer, stageFlags, bindingLocation, writeDescriptorSets) { DescriptorBufferInfo = descriptorBufferInfos, });
-			}
-
-			public void AddDescriptorSet(VkShaderStageFlagBits stageFlags, uint bindingLocation, VkImageView imageView, VkSampler textureSampler) {
-				if (MaxFramesInFlight == 0) { throw new Engine3VulkanException($"{nameof(MaxFramesInFlight)} cannot be zero when using descriptor sets"); }
-
-				VkWriteDescriptorSet[] writeDescriptorSets = new VkWriteDescriptorSet[MaxFramesInFlight];
-				VkDescriptorImageInfo[] descriptorImageInfos = new VkDescriptorImageInfo[MaxFramesInFlight];
-
-				fixed (VkDescriptorImageInfo* descriptorImageInfosPtr = descriptorImageInfos) {
-					for (int i = 0; i < MaxFramesInFlight; i++) {
-						descriptorImageInfosPtr[i] = new() { imageLayout = VkImageLayout.ImageLayoutShaderReadOnlyOptimal, imageView = imageView, sampler = textureSampler, };
-						writeDescriptorSets[i] = new() { dstBinding = bindingLocation, dstArrayElement = 0, descriptorType = VkDescriptorType.DescriptorTypeCombinedImageSampler, descriptorCount = 1, };
-					}
-				}
-
-				descriptorSetLayoutInfos.Add(new(VkDescriptorType.DescriptorTypeCombinedImageSampler, stageFlags, bindingLocation, writeDescriptorSets) { DescriptorImageInfo = descriptorImageInfos, });
+				descriptorSetLayoutInfos.Add(new(descriptorType, stageFlags, bindingLocation));
 			}
 
 			public GraphicsPipeline MakePipeline() {
@@ -220,7 +214,6 @@ namespace Engine3.Graphics.Vulkan.Objects {
 					descriptorPool = CreateDescriptorPool();
 					descriptorSetLayout = CreateDescriptorSetLayout();
 					descriptorSets = AllocateDescriptorSets(descriptorPool.Value, descriptorSetLayout.Value);
-					// UpdateDescriptorSets(descriptorSets);
 
 					if (descriptorSetLayout is { } layout) {
 						pipelineLayoutCreateInfo.setLayoutCount = 1;
@@ -263,8 +256,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 
 								VkPipeline graphicsPipeline;
 								VkH.CheckIfSuccess(Vk.CreateGraphicsPipelines(logicalDevice, VkPipelineCache.Zero, 1, &pipelineCreateInfo, null, &graphicsPipeline), VulkanException.Reason.CreateGraphicsPipeline);
-
-								return new(debugName, logicalDevice, graphicsPipeline, pipelineLayout, descriptorPool, descriptorSetLayout, descriptorSets, descriptorSetLayoutInfos.ToArray(), MaxFramesInFlight);
+								return new(debugName, logicalDevice, graphicsPipeline, pipelineLayout, descriptorPool, descriptorSetLayout, descriptorSets, MaxFramesInFlight);
 							}
 						}
 					}
@@ -315,23 +307,18 @@ namespace Engine3.Graphics.Vulkan.Objects {
 					return descriptorSets;
 				}
 			}
-		}
 
-		private readonly record struct DescriptorSetLayoutInfo {
-			public required VkDescriptorType DescriptorType { get; init; }
-			public required VkShaderStageFlagBits StageFlags { get; init; }
-			public required uint BindingLocation { get; init; }
-			public required VkWriteDescriptorSet[] WriteDescriptorSets { get; init; }
+			private readonly record struct DescriptorSetLayoutInfo {
+				public required VkDescriptorType DescriptorType { get; init; }
+				public required VkShaderStageFlagBits StageFlags { get; init; }
+				public required uint BindingLocation { get; init; }
 
-			public VkDescriptorBufferInfo[] DescriptorBufferInfo { get; init; } = Array.Empty<VkDescriptorBufferInfo>();
-			public VkDescriptorImageInfo[] DescriptorImageInfo { get; init; } = Array.Empty<VkDescriptorImageInfo>();
-
-			[SetsRequiredMembers]
-			public DescriptorSetLayoutInfo(VkDescriptorType descriptorType, VkShaderStageFlagBits stageFlags, uint bindingLocation, VkWriteDescriptorSet[] writeDescriptorSets) {
-				DescriptorType = descriptorType;
-				StageFlags = stageFlags;
-				BindingLocation = bindingLocation;
-				WriteDescriptorSets = writeDescriptorSets;
+				[SetsRequiredMembers]
+				public DescriptorSetLayoutInfo(VkDescriptorType descriptorType, VkShaderStageFlagBits stageFlags, uint bindingLocation) {
+					DescriptorType = descriptorType;
+					StageFlags = stageFlags;
+					BindingLocation = bindingLocation;
+				}
 			}
 		}
 	}

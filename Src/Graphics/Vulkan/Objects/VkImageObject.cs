@@ -10,7 +10,8 @@ namespace Engine3.Graphics.Vulkan.Objects {
 	public unsafe class VkImageObject : IGraphicsResource {
 		public VkImage Image { get; }
 		public VkDeviceMemory ImageMemory { get; }
-		public VkImageView ImageView { get; } // TODO should image view be here or elsewhere?
+		public VkImageView ImageView { get; }
+		public VkFormat ImageFormat { get; }
 
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
@@ -20,6 +21,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 		public VkImageObject(string debugName, VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool transferCommandPool, VkQueue transferQueue, QueueFamilyIndices queueFamilyIndices, string fileLocation,
 			string fileExtension, byte texChannels, VkFormat imageFormat, Assembly assembly) {
 			DebugName = debugName;
+			ImageFormat = imageFormat;
 			this.logicalDevice = logicalDevice;
 
 			using (StbiImage stbiImage = LoadImage(fileLocation, fileExtension, texChannels, assembly)) {
