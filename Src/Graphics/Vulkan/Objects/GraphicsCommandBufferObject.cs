@@ -24,8 +24,8 @@ namespace Engine3.Graphics.Vulkan.Objects {
 
 		public void CmdBindGraphicsPipeline(VkPipeline graphicsPipeline) => Vk.CmdBindPipeline(CommandBuffer, VkPipelineBindPoint.PipelineBindPointGraphics, graphicsPipeline);
 
-		public void CmdBindDescriptorSets(VkPipelineLayout graphicsLayout, VkDescriptorSet descriptorSet, VkShaderStageFlagBits shaderStageFlags) {
-			VkBindDescriptorSetsInfo bindDescriptorSetsInfo = new() { layout = graphicsLayout, descriptorSetCount = 1, pDescriptorSets = &descriptorSet, stageFlags = shaderStageFlags, };
+		public void CmdBindDescriptorSets(VkPipelineLayout pipelineLayout, VkDescriptorSet descriptorSet, VkShaderStageFlagBits shaderStageFlags) {
+			VkBindDescriptorSetsInfo bindDescriptorSetsInfo = new() { layout = pipelineLayout, descriptorSetCount = 1, pDescriptorSets = &descriptorSet, stageFlags = shaderStageFlags, };
 			Vk.CmdBindDescriptorSets2(CommandBuffer, &bindDescriptorSetsInfo);
 		}
 
