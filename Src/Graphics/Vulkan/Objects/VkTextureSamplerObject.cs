@@ -11,10 +11,10 @@ namespace Engine3.Graphics.Vulkan.Objects {
 
 		private readonly VkDevice logicalDevice;
 
-		private VkTextureSamplerObject(string debugName, VkDevice logicalDevice, VkSampler textureSampler) {
-			DebugName = debugName;
+		public VkTextureSamplerObject(VkDevice logicalDevice, Settings settings) {
+			DebugName = settings.DebugName;
+			TextureSampler = CreateTextureSampler(logicalDevice, settings);
 			this.logicalDevice = logicalDevice;
-			TextureSampler = textureSampler;
 		}
 
 		public void Destroy() {
@@ -25,8 +25,33 @@ namespace Engine3.Graphics.Vulkan.Objects {
 			WasDestroyed = true;
 		}
 
+		[MustUseReturnValue]
+		private static VkSampler CreateTextureSampler(VkDevice logicalDevice, Settings settings) {
+			VkSamplerCreateInfo samplerCreateInfo = new() {
+					minFilter = settings.MinFilter,
+					magFilter = settings.MagFilter,
+					addressModeU = settings.AddressMode.U,
+					addressModeV = settings.AddressMode.V,
+					addressModeW = settings.AddressMode.W,
+					anisotropyEnable = (int)(settings.AnisotropyEnable && Engine3.GameInstance.AllowEnableAnisotropy ? Vk.True : Vk.False),
+					maxAnisotropy = settings.MaxAnisotropy,
+					borderColor = settings.BorderColor,
+					unnormalizedCoordinates = (int)(settings.NormalizedCoordinates ? Vk.False : Vk.True),
+					compareEnable = (int)Vk.False,
+					compareOp = VkCompareOp.CompareOpAlways,
+					mipmapMode = settings.MipmapMode,
+					mipLodBias = settings.MipLodBias,
+					minLod = settings.MinLod,
+					maxLod = settings.MaxLod,
+			};
+
+			VkSampler textureSampler;
+			VkH.CheckIfSuccess(Vk.CreateSampler(logicalDevice, &samplerCreateInfo, null, &textureSampler), VulkanException.Reason.CreateTextureSampler);
+			return textureSampler;
+		}
+
 		[PublicAPI]
-		public class Builder {
+		public class Settings {
 			public string DebugName { get; }
 			public VkFilter MinFilter { get; }
 			public VkFilter MagFilter { get; }
@@ -42,49 +67,21 @@ namespace Engine3.Graphics.Vulkan.Objects {
 			public float MinLod { get; private set; }
 			public float MaxLod { get; private set; }
 
-			private readonly VkDevice logicalDevice;
-
-			public Builder(string debugName, VkDevice logicalDevice, VkFilter minFilter, VkFilter magFilter, float maxAnisotropy) {
+			public Settings(string debugName, VkFilter minFilter, VkFilter magFilter, float maxAnisotropy) {
 				DebugName = debugName;
-				this.logicalDevice = logicalDevice;
 				MinFilter = minFilter;
 				MagFilter = magFilter;
 				MaxAnisotropy = maxAnisotropy;
 			}
 
-			public Builder(string debugName, VkDevice logicalDevice, VkFilter minFilter, VkFilter magFilter, VkPhysicalDeviceLimits physicalDeviceLimits) : this(debugName, logicalDevice, minFilter, magFilter,
-				physicalDeviceLimits.maxSamplerAnisotropy) { }
+			public Settings(string debugName, VkFilter minFilter, VkFilter magFilter, VkPhysicalDeviceLimits physicalDeviceLimits) : this(debugName, minFilter, magFilter, physicalDeviceLimits.maxSamplerAnisotropy) { }
 
-			public void SetMipmapMode(VkSamplerMipmapMode mipmapMode, float mipLodBias, float minLod, float maxLod) {
+			public Settings SetMipmapMode(VkSamplerMipmapMode mipmapMode, float mipLodBias, float minLod, float maxLod) {
 				MipmapMode = mipmapMode;
 				MipLodBias = mipLodBias;
 				MinLod = minLod;
 				MaxLod = maxLod;
-			}
-
-			[MustUseReturnValue]
-			public VkTextureSamplerObject MakeTextureSampler() {
-				VkSamplerCreateInfo samplerCreateInfo = new() {
-						minFilter = MinFilter,
-						magFilter = MagFilter,
-						addressModeU = AddressMode.U,
-						addressModeV = AddressMode.V,
-						addressModeW = AddressMode.W,
-						anisotropyEnable = (int)(AnisotropyEnable && Engine3.GameInstance.AllowEnableAnisotropy ? Vk.True : Vk.False),
-						maxAnisotropy = MaxAnisotropy,
-						borderColor = BorderColor,
-						unnormalizedCoordinates = (int)(NormalizedCoordinates ? Vk.False : Vk.True),
-						compareEnable = (int)Vk.False,
-						compareOp = VkCompareOp.CompareOpAlways,
-						mipmapMode = MipmapMode,
-						mipLodBias = MipLodBias,
-						minLod = MinLod,
-						maxLod = MaxLod,
-				};
-
-				VkSampler textureSampler;
-				VkH.CheckIfSuccess(Vk.CreateSampler(logicalDevice, &samplerCreateInfo, null, &textureSampler), VulkanException.Reason.CreateTextureSampler);
-				return new(DebugName, logicalDevice, textureSampler);
+				return this;
 			}
 		}
 

@@ -26,7 +26,14 @@ namespace Engine3 {
 
 		public VkPresentModeKHR PresentMode { get; init; } = VkPresentModeKHR.PresentModeImmediateKhr;
 
-		public byte MaxFramesInFlight { get; init; } = 2;
+		public byte MaxFramesInFlight {
+			get;
+			init {
+				if (MaxFramesInFlight == 0) { throw new Engine3VulkanException($"{nameof(MaxFramesInFlight)} cannot be zero"); }
+				field = value;
+			}
+		} = 2;
+
 		public bool AllowEnableAnisotropy { get; init; } = true;
 
 		public VkInstance? VkInstance { get; private set; }
