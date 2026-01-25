@@ -114,7 +114,9 @@ namespace Engine3.Graphics.Vulkan {
 
 			VkH.CheckIfSuccess(graphicsCommandBuffer.BeginCommandBuffer(), VulkanException.Reason.BeginCommandBuffer);
 
-			CmdBeginPipelineBarrier(graphicsCommandBuffer, SwapChain.Images[swapChainImageIndex]);
+			VkImageMemoryBarrier2 imageMemoryBarrier2 = GetBeginPipelineBarrierImageMemoryBarrier(SwapChain.Images[swapChainImageIndex]);
+			graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier2, });
+
 			graphicsCommandBuffer.CmdBeginRendering(SwapChain.Extent, SwapChain.ImageViews[swapChainImageIndex], Window.ClearColor.ToVkClearColorValue());
 		}
 
@@ -134,7 +136,9 @@ namespace Engine3.Graphics.Vulkan {
 			GraphicsCommandBufferObject graphicsCommandBuffer = frameData.GraphicsCommandBufferObject;
 
 			graphicsCommandBuffer.CmdEndRendering();
-			CmdEndPipelineBarrier(graphicsCommandBuffer, SwapChain.Images[swapChainImageIndex]);
+
+			VkImageMemoryBarrier2 imageMemoryBarrier2 = GetEndPipelineBarrierImageMemoryBarrier(SwapChain.Images[swapChainImageIndex]);
+			graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier2, });
 
 			VkH.CheckIfSuccess(graphicsCommandBuffer.EndCommandBuffer(), VulkanException.Reason.EndCommandBuffer);
 
@@ -156,31 +160,25 @@ namespace Engine3.Graphics.Vulkan {
 			CurrentFrame = (byte)((CurrentFrame + 1) % MaxFramesInFlight);
 		}
 
-		protected static void CmdBeginPipelineBarrier(GraphicsCommandBufferObject graphicsCommandBuffer, VkImage image) {
-			VkImageMemoryBarrier2 imageMemoryBarrier2 = new() {
-					dstAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
-					dstStageMask = VkPipelineStageFlagBits2.PipelineStage2TopOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
-					oldLayout = VkImageLayout.ImageLayoutUndefined,
-					newLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
-					image = image,
-					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
-			};
+		protected static VkImageMemoryBarrier2 GetBeginPipelineBarrierImageMemoryBarrier(VkImage image) =>
+				new() {
+						dstAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
+						dstStageMask = VkPipelineStageFlagBits2.PipelineStage2TopOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
+						oldLayout = VkImageLayout.ImageLayoutUndefined,
+						newLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
+						image = image,
+						subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+				};
 
-			graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier2, });
-		}
-
-		protected static void CmdEndPipelineBarrier(GraphicsCommandBufferObject graphicsCommandBuffer, VkImage image) {
-			VkImageMemoryBarrier2 imageMemoryBarrier2 = new() {
-					srcAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
-					srcStageMask = VkPipelineStageFlagBits2.PipelineStage2BottomOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
-					oldLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
-					newLayout = VkImageLayout.ImageLayoutPresentSrcKhr,
-					image = image,
-					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
-			};
-
-			graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier2, });
-		}
+		protected static VkImageMemoryBarrier2 GetEndPipelineBarrierImageMemoryBarrier(VkImage image) =>
+				new() {
+						srcAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
+						srcStageMask = VkPipelineStageFlagBits2.PipelineStage2BottomOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
+						oldLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
+						newLayout = VkImageLayout.ImageLayoutPresentSrcKhr,
+						image = image,
+						subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+				};
 
 		protected abstract void Cleanup();
 
@@ -196,7 +194,6 @@ namespace Engine3.Graphics.Vulkan {
 			Vk.DestroyCommandPool(LogicalDevice, GraphicsCommandPool, null);
 
 			foreach (VkSemaphore renderFinishedSemaphore in RenderFinishedSemaphores) { Vk.DestroySemaphore(LogicalDevice, renderFinishedSemaphore, null); }
-
 			foreach (FrameData frame in Frames) { frame.Destroy(); }
 
 			SwapChain.Destroy();

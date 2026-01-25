@@ -77,8 +77,9 @@ namespace Engine3.Graphics.Vulkan.Objects {
 					shaderc.CompilerRelease(compiler);
 
 					if (status != CompilationStatus.Success) {
+						string errorMessage = shaderc.ResultGetErrorMessageS(compilationResult);
 						shaderc.ResultRelease(compilationResult);
-						throw new Engine3Exception($"Failed to compile {shaderType} shader: {fileLocation}. {shaderc.ResultGetErrorMessageS(compilationResult)}");
+						throw new Engine3Exception($"Failed to compile {shaderType} shader: {fileLocation}. {errorMessage}");
 					}
 
 					VkShaderModuleCreateInfo shaderModuleCreateInfo = new() { codeSize = shaderc.ResultGetLength(compilationResult), pCode = (uint*)shaderc.ResultGetBytes(compilationResult), };

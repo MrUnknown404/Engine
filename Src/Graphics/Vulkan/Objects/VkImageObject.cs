@@ -10,6 +10,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 	public unsafe class VkImageObject : IGraphicsResource {
 		public VkImage Image { get; }
 		public VkDeviceMemory ImageMemory { get; }
+		public VkImageView ImageView { get; }
 
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
@@ -25,12 +26,24 @@ namespace Engine3.Graphics.Vulkan.Objects {
 				CreateTexture(physicalDevice, logicalDevice, transferCommandPool, transferQueue, queueFamilyIndices, stbiImage, texChannels, imageFormat, out VkImage image, out VkDeviceMemory imageMemory);
 				Image = image;
 				ImageMemory = imageMemory;
+				ImageView = VkH.CreateImageView(logicalDevice, Image, imageFormat);
 			}
 		}
 
-		public static VkImageObject CreateFrom4ChannelPng(string debugName, VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool transferCommandPool, VkQueue transferQueue, QueueFamilyIndices queueFamilyIndices,
+		[MustUseReturnValue]
+		public static VkImageObject CreateFromRgbaPng(string debugName, VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool transferCommandPool, VkQueue transferQueue, QueueFamilyIndices queueFamilyIndices,
 			string fileLocation, Assembly assembly) =>
 				new(debugName, physicalDevice, logicalDevice, transferCommandPool, transferQueue, queueFamilyIndices, fileLocation, "png", 4, VkFormat.FormatR8g8b8a8Srgb, assembly);
+
+		public void Destroy() {
+			IGraphicsResource.WarnIfDestroyed(this);
+
+			Vk.DestroyImageView(logicalDevice, ImageView, null);
+			Vk.DestroyImage(logicalDevice, Image, null);
+			Vk.FreeMemory(logicalDevice, ImageMemory, null);
+
+			WasDestroyed = true;
+		}
 
 		[MustDisposeResource]
 		private static StbiImage LoadImage(string fileLocation, string fileExtension, byte texChannels, Assembly assembly) {
@@ -73,68 +86,79 @@ namespace Engine3.Graphics.Vulkan.Objects {
 			imageMemory = VkH.CreateDeviceMemory(physicalDevice, logicalDevice, image, VkMemoryPropertyFlagBits.MemoryPropertyDeviceLocalBit);
 			VkH.BindImageMemory(logicalDevice, image, imageMemory);
 
-			VkImageMemoryBarrier2 imageMemoryBarrier = CreateImageBarrier(queueFamilyIndices.GraphicsFamily, queueFamilyIndices.TransferFamily, image, imageFormat, VkImageLayout.ImageLayoutUndefined,
-				VkImageLayout.ImageLayoutTransferDstOptimal);
-
 			TransferCommandBufferObject transferCommandBuffer = new(logicalDevice, transferCommandPool, transferQueue);
 			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
+
+			VkImageMemoryBarrier2 imageMemoryBarrier = CreateBeginImageBarrier(queueFamilyIndices.GraphicsFamily, queueFamilyIndices.TransferFamily, image, VkImageLayout.ImageLayoutUndefined,
+				VkImageLayout.ImageLayoutTransferDstOptimal);
 
 			transferCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier, });
 
 			transferCommandBuffer.CmdCopyImage(stagingBuffer.Buffer, image, width, height);
+
+			imageMemoryBarrier = CreateEndImageBarrier(queueFamilyIndices.GraphicsFamily, queueFamilyIndices.TransferFamily, image, VkImageLayout.ImageLayoutTransferDstOptimal);
+			transferCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier, });
 
 			transferCommandBuffer.EndCommandBuffer();
 			transferCommandBuffer.SubmitQueue();
 
 			transferCommandBuffer.Destroy();
 			stagingBuffer.Destroy();
-		}
 
-		[SuppressMessage("ReSharper", "SwitchStatementHandlesSomeKnownEnumValuesWithDefault")]
-		[MustUseReturnValue]
-		private static VkImageMemoryBarrier2 CreateImageBarrier(uint graphicsFamily, uint transferFamily, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
-			VkPipelineStageFlagBits2 srcStageMask;
-			VkPipelineStageFlagBits2 dstStageMask;
-			VkAccessFlagBits2 srcAccessMask;
-			VkAccessFlagBits2 dstAccessMask;
+			return;
 
-			switch (oldLayout) {
-				case VkImageLayout.ImageLayoutUndefined when newLayout == VkImageLayout.ImageLayoutTransferDstOptimal:
-					srcAccessMask = 0;
-					dstAccessMask = VkAccessFlagBits2.Access2TransferWriteBit;
-					srcStageMask = VkPipelineStageFlagBits2.PipelineStage2TopOfPipeBit;
-					dstStageMask = VkPipelineStageFlagBits2.PipelineStage2TransferBit;
-					break;
-				case VkImageLayout.ImageLayoutTransferDstOptimal when newLayout == VkImageLayout.ImageLayoutShaderReadOnlyOptimal:
-					srcAccessMask = VkAccessFlagBits2.Access2TransferWriteBit;
-					dstAccessMask = VkAccessFlagBits2.Access2ShaderReadBit;
-					srcStageMask = VkPipelineStageFlagBits2.PipelineStage2TransferBit;
-					dstStageMask = VkPipelineStageFlagBits2.PipelineStage2FragmentShaderBit;
-					break;
-				default: throw new NotImplementedException();
+			[SuppressMessage("ReSharper", "SwitchStatementHandlesSomeKnownEnumValuesWithDefault")]
+			[MustUseReturnValue]
+			static VkImageMemoryBarrier2 CreateBeginImageBarrier(uint graphicsFamily, uint transferFamily, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout) {
+				VkAccessFlagBits2 srcAccessMask;
+				VkAccessFlagBits2 dstAccessMask;
+				VkPipelineStageFlagBits2 srcStageMask;
+				VkPipelineStageFlagBits2 dstStageMask;
+
+				switch (oldLayout) {
+					case VkImageLayout.ImageLayoutUndefined when newLayout == VkImageLayout.ImageLayoutTransferDstOptimal:
+						srcAccessMask = 0;
+						dstAccessMask = VkAccessFlagBits2.Access2TransferWriteBit;
+						srcStageMask = VkPipelineStageFlagBits2.PipelineStage2TopOfPipeBit;
+						dstStageMask = VkPipelineStageFlagBits2.PipelineStage2TransferBit;
+						break;
+					case VkImageLayout.ImageLayoutTransferDstOptimal when newLayout == VkImageLayout.ImageLayoutShaderReadOnlyOptimal:
+						srcAccessMask = VkAccessFlagBits2.Access2TransferWriteBit;
+						dstAccessMask = VkAccessFlagBits2.Access2ShaderReadBit;
+						srcStageMask = VkPipelineStageFlagBits2.PipelineStage2TransferBit;
+						dstStageMask = VkPipelineStageFlagBits2.PipelineStage2FragmentShaderBit;
+						break;
+					default: throw new NotImplementedException();
+				}
+
+				return new() {
+						oldLayout = oldLayout,
+						newLayout = newLayout,
+						srcQueueFamilyIndex = transferFamily, //Vk.QueueFamilyIgnored,
+						dstQueueFamilyIndex = graphicsFamily,
+						image = image,
+						subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+						srcAccessMask = srcAccessMask,
+						dstAccessMask = dstAccessMask,
+						srcStageMask = srcStageMask,
+						dstStageMask = dstStageMask,
+				};
 			}
 
-			return new() {
-					oldLayout = oldLayout,
-					newLayout = newLayout,
-					srcQueueFamilyIndex = transferFamily, //Vk.QueueFamilyIgnored,
-					dstQueueFamilyIndex = graphicsFamily,
-					image = image,
-					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
-					srcAccessMask = srcAccessMask,
-					dstAccessMask = dstAccessMask,
-					srcStageMask = srcStageMask,
-					dstStageMask = dstStageMask,
-			};
-		}
-
-		public void Destroy() {
-			IGraphicsResource.WarnIfDestroyed(this);
-
-			Vk.DestroyImage(logicalDevice, Image, null);
-			Vk.FreeMemory(logicalDevice, ImageMemory, null);
-
-			WasDestroyed = true;
+			[MustUseReturnValue]
+			static VkImageMemoryBarrier2 CreateEndImageBarrier(uint graphicsFamily, uint transferFamily, VkImage image, VkImageLayout newLayout) =>
+					new() {
+							oldLayout = newLayout,
+							newLayout = VkImageLayout.ImageLayoutShaderReadOnlyOptimal,
+							srcQueueFamilyIndex = transferFamily, //Vk.QueueFamilyIgnored,
+							dstQueueFamilyIndex = graphicsFamily,
+							image = image,
+							subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+							srcAccessMask = VkAccessFlagBits2.Access2TransferWriteBit,
+							dstAccessMask = VkAccessFlagBits2.Access2ShaderReadBit,
+							srcStageMask = VkPipelineStageFlagBits2.PipelineStage2TransferBit,
+							dstStageMask = VkPipelineStageFlagBits2.PipelineStage2FragmentShaderBit,
+					};
 		}
 	}
 }

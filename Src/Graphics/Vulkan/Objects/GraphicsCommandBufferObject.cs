@@ -22,7 +22,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 
 		public void CmdEndRendering() => Vk.CmdEndRendering(CommandBuffer);
 
-		public void CmdBindGraphicsPipeline(VkPipeline graphicsPipeline) { Vk.CmdBindPipeline(CommandBuffer, VkPipelineBindPoint.PipelineBindPointGraphics, graphicsPipeline); }
+		public void CmdBindGraphicsPipeline(VkPipeline graphicsPipeline) => Vk.CmdBindPipeline(CommandBuffer, VkPipelineBindPoint.PipelineBindPointGraphics, graphicsPipeline);
 
 		public void CmdBindDescriptorSets(VkPipelineLayout graphicsLayout, VkDescriptorSet descriptorSet, VkShaderStageFlagBits shaderStageFlags) {
 			VkBindDescriptorSetsInfo bindDescriptorSetsInfo = new() { layout = graphicsLayout, descriptorSetCount = 1, pDescriptorSets = &descriptorSet, stageFlags = shaderStageFlags, };

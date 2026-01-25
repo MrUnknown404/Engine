@@ -27,7 +27,7 @@ namespace Engine3.Exceptions {
 					Reason.CreateSwapChain => $"vkCreateSwapchainKHR() {DefaultMessage}",
 					Reason.GetSwapChainImages => $"vkGetSwapchainImagesKHR() {DefaultMessage}",
 					Reason.CreateImageView => $"vkCreateImageView() {DefaultMessage}",
-					Reason.CreateImageViewI => "vkCreateImageView() failed to create image view {1} with the follow result: {0}",
+					Reason.CreateImageViews => "vkCreateImageView() failed to create image view {1} with the follow result: {0}",
 					Reason.CreateSemaphore => $"vkCreateSemaphore() {DefaultMessage}",
 					Reason.CreateFence => $"vkCreateFence() {DefaultMessage}",
 					Reason.CreateBuffer => $"vkCreateBuffer() {DefaultMessage}",
@@ -43,6 +43,7 @@ namespace Engine3.Exceptions {
 					Reason.CreateLogicalDevice => $"vkCreateDevice {DefaultMessage}",
 					Reason.CreateImage => $"vkCreateImage {DefaultMessage}",
 					Reason.BindImageMemory => $"vkBindImageMemory2 {DefaultMessage}",
+					Reason.CreateTextureSampler => $"vkCreateSampler {DefaultMessage}",
 					_ => throw new ArgumentOutOfRangeException(nameof(reason), reason, null),
 			};
 		}
@@ -61,7 +62,7 @@ namespace Engine3.Exceptions {
 			CreateDescriptorPool,
 			CreateImage,
 			CreateImageView,
-			CreateImageViewI,
+			CreateImageViews,
 			CreateBuffer,
 			CreateInstance,
 			CreateDebugMessenger,
@@ -73,6 +74,7 @@ namespace Engine3.Exceptions {
 			CreateCommandPool,
 			CreateSurface,
 			CreateLogicalDevice,
+			CreateTextureSampler,
 
 			// Allocate
 			AllocateDescriptorSets,

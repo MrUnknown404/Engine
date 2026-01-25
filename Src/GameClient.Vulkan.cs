@@ -27,6 +27,7 @@ namespace Engine3 {
 		public VkPresentModeKHR PresentMode { get; init; } = VkPresentModeKHR.PresentModeImmediateKhr;
 
 		public byte MaxFramesInFlight { get; init; } = 2;
+		public bool AllowEnableAnisotropy { get; init; } = true;
 
 		public VkInstance? VkInstance { get; private set; }
 		public VkPhysicalDevice[] PhysicalDevices { get; private set; } = Array.Empty<VkPhysicalDevice>();
@@ -95,9 +96,12 @@ namespace Engine3 {
 			return allDeviceExtensions.ToArray();
 		}
 
-		protected internal virtual bool IsPhysicalDeviceSuitable(VkPhysicalDeviceProperties2 physicalDeviceProperties2, VkPhysicalDeviceFeatures2 physicalDeviceFeatures2) {
-			VkPhysicalDeviceProperties deviceProperties = physicalDeviceProperties2.properties;
-			return deviceProperties.deviceType is VkPhysicalDeviceType.PhysicalDeviceTypeIntegratedGpu or VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu or VkPhysicalDeviceType.PhysicalDeviceTypeVirtualGpu;
+		protected internal virtual bool IsPhysicalDeviceSuitable(VkPhysicalDeviceProperties physicalDeviceProperties, VkPhysicalDeviceFeatures physicalDeviceFeatures) {
+			bool isValid = physicalDeviceProperties.deviceType is VkPhysicalDeviceType.PhysicalDeviceTypeIntegratedGpu or VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu or VkPhysicalDeviceType.PhysicalDeviceTypeVirtualGpu;
+
+			if (AllowEnableAnisotropy) { isValid &= physicalDeviceFeatures.samplerAnisotropy == Vk.True; }
+
+			return isValid;
 		}
 
 		protected internal virtual int RateGpuSuitability(PhysicalGpu physicalGpu) {
@@ -266,7 +270,7 @@ namespace Engine3 {
 		}
 #endif
 
-		public delegate bool IsPhysicalDeviceSuitableDelegate(VkPhysicalDeviceProperties2 physicalDeviceProperties2, VkPhysicalDeviceFeatures2 physicalDeviceFeatures2);
+		public delegate bool IsPhysicalDeviceSuitableDelegate(VkPhysicalDeviceProperties physicalDeviceProperties, VkPhysicalDeviceFeatures physicalDeviceFeatures);
 		public delegate int RateGpuSuitabilityDelegate(PhysicalGpu physicalGpu);
 	}
 }

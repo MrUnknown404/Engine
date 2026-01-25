@@ -55,7 +55,7 @@ namespace Engine3.Graphics.Vulkan {
 			VkPhysicalDeviceVulkan12Features physicalDeviceVulkan12Features = new() { pNext = &physicalDeviceVulkan11Features, };
 			VkPhysicalDeviceVulkan13Features physicalDeviceVulkan13Features = new() { pNext = &physicalDeviceVulkan12Features, synchronization2 = (int)Vk.True, dynamicRendering = (int)Vk.True, };
 			VkPhysicalDeviceVulkan14Features physicalDeviceVulkan14Features = new() { pNext = &physicalDeviceVulkan13Features, };
-			VkPhysicalDeviceFeatures deviceFeatures = new(); // ???
+			VkPhysicalDeviceFeatures physicalDeviceFeatures = new() { samplerAnisotropy = (int)Vk.True, };
 
 			IntPtr requiredDeviceExtensionsPtr = MarshalTk.StringArrayToCoTaskMemAnsi(requiredDeviceExtensions);
 #if DEBUG
@@ -67,7 +67,7 @@ namespace Engine3.Graphics.Vulkan {
 						pNext = &physicalDeviceVulkan14Features,
 						pQueueCreateInfos = queueCreateInfosPtr,
 						queueCreateInfoCount = (uint)queueCreateInfos.Count,
-						pEnabledFeatures = &deviceFeatures,
+						pEnabledFeatures = &physicalDeviceFeatures,
 						ppEnabledExtensionNames = (byte**)requiredDeviceExtensionsPtr,
 						enabledExtensionCount = (uint)requiredDeviceExtensions.Length,
 #if DEBUG // https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-devicelayers
@@ -174,6 +174,19 @@ namespace Engine3.Graphics.Vulkan {
 			// among many different objects by using the offset parameters that we've seen in many functions."
 			CheckIfSuccess(Vk.AllocateMemory(logicalDevice, &memoryAllocateInfo, null, &deviceMemory), VulkanException.Reason.AllocateMemory);
 			return deviceMemory;
+
+			[MustUseReturnValue]
+			static uint FindMemoryType(VkPhysicalDevice physicalDevice, uint typeFilter, VkMemoryPropertyFlagBits memoryPropertyFlag) {
+				VkPhysicalDeviceMemoryProperties2 memoryProperties2 = new();
+				Vk.GetPhysicalDeviceMemoryProperties2(physicalDevice, &memoryProperties2);
+				VkPhysicalDeviceMemoryProperties memoryProperties = memoryProperties2.memoryProperties;
+
+				for (uint i = 0; i < memoryProperties.memoryTypeCount; i++) {
+					if ((uint)(typeFilter & (1 << (int)i)) != 0 && (memoryProperties.memoryTypes[(int)i].propertyFlags & memoryPropertyFlag) == memoryPropertyFlag) { return i; }
+				}
+
+				throw new Engine3VulkanException("Failed to find suitable memory type");
+			}
 		}
 
 		[MustUseReturnValue]
@@ -228,7 +241,7 @@ namespace Engine3.Graphics.Vulkan {
 				Vk.GetPhysicalDeviceProperties2(physicalDevice, &physicalDeviceProperties2);
 				Vk.GetPhysicalDeviceFeatures2(physicalDevice, &physicalDeviceFeatures2);
 
-				if (!isPhysicalDeviceSuitable(physicalDeviceProperties2, physicalDeviceFeatures2)) { continue; }
+				if (!isPhysicalDeviceSuitable(physicalDeviceProperties2.properties, physicalDeviceFeatures2.features)) { continue; }
 
 				VkExtensionProperties[] physicalDeviceExtensionProperties = GetPhysicalDeviceExtensionProperties(physicalDevice);
 				if (physicalDeviceExtensionProperties.Length == 0) { continue; }
@@ -311,16 +324,46 @@ namespace Engine3.Graphics.Vulkan {
 				CheckIfSuccess(Vk.QueueSubmit(queue, 1, &submitInfo, fence ?? VkFence.Zero), VulkanException.Reason.QueueSubmit); // TODO device lost?
 
 		[MustUseReturnValue]
-		private static uint FindMemoryType(VkPhysicalDevice physicalDevice, uint typeFilter, VkMemoryPropertyFlagBits memoryPropertyFlag) {
-			VkPhysicalDeviceMemoryProperties2 memoryProperties2 = new();
-			Vk.GetPhysicalDeviceMemoryProperties2(physicalDevice, &memoryProperties2);
-			VkPhysicalDeviceMemoryProperties memoryProperties = memoryProperties2.memoryProperties;
+		public static VkImageView CreateImageView(VkDevice logicalDevice, VkImage image, VkFormat imageFormat) {
+			VkImageViewCreateInfo createInfo = new() {
+					image = image,
+					viewType = VkImageViewType.ImageViewType2d,
+					format = imageFormat,
+					components = new() {
+							r = VkComponentSwizzle.ComponentSwizzleIdentity, g = VkComponentSwizzle.ComponentSwizzleIdentity, b = VkComponentSwizzle.ComponentSwizzleIdentity, a = VkComponentSwizzle.ComponentSwizzleIdentity,
+					},
+					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+			};
 
-			for (uint i = 0; i < memoryProperties.memoryTypeCount; i++) {
-				if ((uint)(typeFilter & (1 << (int)i)) != 0 && (memoryProperties.memoryTypes[(int)i].propertyFlags & memoryPropertyFlag) == memoryPropertyFlag) { return i; }
+			VkImageView imageView;
+			CheckIfSuccess(Vk.CreateImageView(logicalDevice, &createInfo, null, &imageView), VulkanException.Reason.CreateImageView);
+			return imageView;
+		}
+
+		[MustUseReturnValue]
+		public static VkImageView[] CreateImageViews(VkDevice logicalDevice, VkImage[] images, VkFormat imageFormat) {
+			VkImageView[] imageViews = new VkImageView[images.Length];
+
+			fixed (VkImageView* imageViewsPtr = imageViews) {
+				for (int i = 0; i < images.Length; i++) {
+					VkImageViewCreateInfo createInfo = new() {
+							image = images[i],
+							viewType = VkImageViewType.ImageViewType2d,
+							format = imageFormat,
+							components = new() {
+									r = VkComponentSwizzle.ComponentSwizzleIdentity,
+									g = VkComponentSwizzle.ComponentSwizzleIdentity,
+									b = VkComponentSwizzle.ComponentSwizzleIdentity,
+									a = VkComponentSwizzle.ComponentSwizzleIdentity,
+							},
+							subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+					};
+
+					CheckIfSuccess(Vk.CreateImageView(logicalDevice, &createInfo, null, &imageViewsPtr[i]), VulkanException.Reason.CreateImageViews, i);
+				}
 			}
 
-			throw new Engine3VulkanException("Failed to find suitable memory type");
+			return imageViews;
 		}
 	}
 }

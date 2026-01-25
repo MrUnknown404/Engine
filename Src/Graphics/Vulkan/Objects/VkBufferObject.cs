@@ -30,6 +30,18 @@ namespace Engine3.Graphics.Vulkan.Objects {
 		public void Copy<T>(ReadOnlySpan<T> data) where T : unmanaged => Copy(data, 0);
 		public void Copy<T>(ReadOnlySpan<T> data, ulong offset) where T : unmanaged => VkH.MapAndCopyMemory(logicalDevice, BufferMemory, data, offset);
 
+		public void CopyUsingStaging<T>(VkCommandPool transferPool, VkQueue transferQueue, ReadOnlySpan<T> data, ulong offset = 0) where T : unmanaged =>
+				CopyUsingStaging(physicalDevice, logicalDevice, transferPool, transferQueue, Buffer, data, offset);
+
+		public void Destroy() {
+			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
+
+			Vk.DestroyBuffer(logicalDevice, Buffer, null);
+			Vk.FreeMemory(logicalDevice, BufferMemory, null);
+
+			WasDestroyed = true;
+		}
+
 		public static void CopyUsingStaging<T>(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool transferPool, VkQueue transferQueue, VkBuffer dstBuffer, ReadOnlySpan<T> data, ulong offset = 0)
 				where T : unmanaged {
 			ulong bufferSize = (ulong)(sizeof(T) * data.Length);
@@ -49,18 +61,6 @@ namespace Engine3.Graphics.Vulkan.Objects {
 			transferCommandBuffer.Destroy();
 
 			stagingBuffer.Destroy();
-		}
-
-		public void CopyUsingStaging<T>(VkCommandPool transferPool, VkQueue transferQueue, ReadOnlySpan<T> data, ulong offset = 0) where T : unmanaged =>
-				CopyUsingStaging(physicalDevice, logicalDevice, transferPool, transferQueue, Buffer, data, offset);
-
-		public void Destroy() {
-			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
-
-			Vk.DestroyBuffer(logicalDevice, Buffer, null);
-			Vk.FreeMemory(logicalDevice, BufferMemory, null);
-
-			WasDestroyed = true;
 		}
 	}
 }

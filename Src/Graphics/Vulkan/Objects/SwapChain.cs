@@ -32,7 +32,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 			ImageFormat = swapChainImageFormat;
 			Extent = swapChainExtent;
 			Images = GetSwapChainImages(logicalDevice, vkSwapChain);
-			ImageViews = CreateImageViews(logicalDevice, Images, ImageFormat);
+			ImageViews = VkH.CreateImageViews(logicalDevice, Images, ImageFormat);
 			this.presentMode = presentMode;
 		}
 
@@ -53,7 +53,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 			ImageFormat = swapChainImageFormat;
 			Extent = swapChainExtent;
 			Images = GetSwapChainImages(logicalDevice, vkSwapChain);
-			ImageViews = CreateImageViews(logicalDevice, Images, swapChainImageFormat);
+			ImageViews = VkH.CreateImageViews(logicalDevice, Images, swapChainImageFormat);
 			WasDestroyed = false;
 		}
 
@@ -193,7 +193,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 		}
 
 		[MustUseReturnValue]
-		public static VkImage[] GetSwapChainImages(VkDevice logicalDevice, VkSwapchainKHR swapChain) {
+		private static VkImage[] GetSwapChainImages(VkDevice logicalDevice, VkSwapchainKHR swapChain) {
 			uint swapChainImageCount;
 			Vk.GetSwapchainImagesKHR(logicalDevice, swapChain, &swapChainImageCount, null);
 
@@ -202,32 +202,6 @@ namespace Engine3.Graphics.Vulkan.Objects {
 				VkH.CheckIfSuccess(Vk.GetSwapchainImagesKHR(logicalDevice, swapChain, &swapChainImageCount, swapChainImagesPtr), VulkanException.Reason.GetSwapChainImages);
 				return swapChainImages;
 			}
-		}
-
-		[MustUseReturnValue]
-		public static VkImageView[] CreateImageViews(VkDevice logicalDevice, VkImage[] swapChainImages, VkFormat swapChainFormat) {
-			VkImageView[] imageViews = new VkImageView[swapChainImages.Length];
-
-			fixed (VkImageView* imageViewsPtr = imageViews) {
-				for (int i = 0; i < swapChainImages.Length; i++) {
-					VkImageViewCreateInfo createInfo = new() {
-							image = swapChainImages[i],
-							viewType = VkImageViewType.ImageViewType2d,
-							format = swapChainFormat,
-							components = new() {
-									r = VkComponentSwizzle.ComponentSwizzleIdentity,
-									g = VkComponentSwizzle.ComponentSwizzleIdentity,
-									b = VkComponentSwizzle.ComponentSwizzleIdentity,
-									a = VkComponentSwizzle.ComponentSwizzleIdentity,
-							},
-							subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
-					};
-
-					VkH.CheckIfSuccess(Vk.CreateImageView(logicalDevice, &createInfo, null, &imageViewsPtr[i]), VulkanException.Reason.CreateImageViewI, i);
-				}
-			}
-
-			return imageViews;
 		}
 	}
 }
