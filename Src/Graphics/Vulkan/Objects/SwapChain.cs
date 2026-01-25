@@ -172,7 +172,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 				};
 
 				VkSwapchainKHR tempSwapChain;
-				VkH.CheckForSuccess(Vk.CreateSwapchainKHR(logicalDevice, &createInfo, null, &tempSwapChain), VulkanException.Reason.CreateSwapChain);
+				VkH.CheckIfSuccess(Vk.CreateSwapchainKHR(logicalDevice, &createInfo, null, &tempSwapChain), VulkanException.Reason.CreateSwapChain);
 				swapChain = tempSwapChain;
 			}
 
@@ -199,7 +199,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 
 			VkImage[] swapChainImages = new VkImage[swapChainImageCount];
 			fixed (VkImage* swapChainImagesPtr = swapChainImages) {
-				VkH.CheckForSuccess(Vk.GetSwapchainImagesKHR(logicalDevice, swapChain, &swapChainImageCount, swapChainImagesPtr), VulkanException.Reason.GetSwapChainImages);
+				VkH.CheckIfSuccess(Vk.GetSwapchainImagesKHR(logicalDevice, swapChain, &swapChainImageCount, swapChainImagesPtr), VulkanException.Reason.GetSwapChainImages);
 				return swapChainImages;
 			}
 		}
@@ -223,7 +223,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 							subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 					};
 
-					VkH.CheckForSuccess(Vk.CreateImageView(logicalDevice, &createInfo, null, &imageViewsPtr[i]), VulkanException.Reason.CreateImageViewI, i);
+					VkH.CheckIfSuccess(Vk.CreateImageView(logicalDevice, &createInfo, null, &imageViewsPtr[i]), VulkanException.Reason.CreateImageViewI, i);
 				}
 			}
 

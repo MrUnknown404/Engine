@@ -27,22 +27,31 @@ namespace Engine3.Graphics.Vulkan.Objects {
 
 		[MustUseReturnValue] public void* MapMemory(ulong bufferSize, ulong offset = 0) => VkH.MapMemory(logicalDevice, BufferMemory, bufferSize, offset);
 
-		public void Copy<T>(T[] data) where T : unmanaged => Copy(data, 0);
-		public void Copy<T>(T[] data, ulong offset) where T : unmanaged => VkH.MapAndCopyMemory(logicalDevice, BufferMemory, data, offset);
+		public void Copy<T>(ReadOnlySpan<T> data) where T : unmanaged => Copy(data, 0);
+		public void Copy<T>(ReadOnlySpan<T> data, ulong offset) where T : unmanaged => VkH.MapAndCopyMemory(logicalDevice, BufferMemory, data, offset);
 
-		public static void CopyUsingStaging<T>(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool transferPool, VkQueue transferQueue, VkBuffer dstBuffer, T[] data, ulong offset = 0) where T : unmanaged {
+		public static void CopyUsingStaging<T>(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool transferPool, VkQueue transferQueue, VkBuffer dstBuffer, ReadOnlySpan<T> data, ulong offset = 0)
+				where T : unmanaged {
 			ulong bufferSize = (ulong)(sizeof(T) * data.Length);
 
-			VkBufferObject stagingBuffer = new("StagingBuffer", bufferSize, physicalDevice, logicalDevice, VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
+			VkBufferObject stagingBuffer = new("Temporary Staging Buffer", bufferSize, physicalDevice, logicalDevice, VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
 				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit); // TODO should i make a persistent staging buffer?
 
 			VkH.MapAndCopyMemory(logicalDevice, stagingBuffer.BufferMemory, data, offset);
-			VkH.CopyBuffer(logicalDevice, transferQueue, transferPool, stagingBuffer.Buffer, dstBuffer, bufferSize);
+
+			TransferCommandBufferObject transferCommandBuffer = new(logicalDevice, transferPool, transferQueue);
+
+			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
+			transferCommandBuffer.CmdCopyBuffer(stagingBuffer.Buffer, dstBuffer, bufferSize);
+			transferCommandBuffer.EndCommandBuffer();
+			transferCommandBuffer.SubmitQueue();
+
+			transferCommandBuffer.Destroy();
 
 			stagingBuffer.Destroy();
 		}
 
-		public void CopyUsingStaging<T>(VkCommandPool transferPool, VkQueue transferQueue, T[] data, ulong offset = 0) where T : unmanaged =>
+		public void CopyUsingStaging<T>(VkCommandPool transferPool, VkQueue transferQueue, ReadOnlySpan<T> data, ulong offset = 0) where T : unmanaged =>
 				CopyUsingStaging(physicalDevice, logicalDevice, transferPool, transferQueue, Buffer, data, offset);
 
 		public void Destroy() {

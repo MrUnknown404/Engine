@@ -31,13 +31,13 @@ namespace Engine3.Graphics.Vulkan {
 			patch = (ushort)(version & 0xFFFU);
 		}
 
-		public static void CheckForSuccess(VkResult result, VulkanException.Reason reason, params object?[] args) {
+		public static void CheckIfSuccess(VkResult result, VulkanException.Reason reason, params object?[] args) {
 			if (result != VkResult.Success) { throw new VulkanException(reason, result, args); }
 		}
 
 		[MustUseReturnValue]
 		public static VkSurfaceKHR CreateSurface(VkInstance vkInstance, WindowHandle windowHandle) {
-			CheckForSuccess(Toolkit.Vulkan.CreateWindowSurface(vkInstance, windowHandle, null, out VkSurfaceKHR surface), VulkanException.Reason.CreateSurface);
+			CheckIfSuccess(Toolkit.Vulkan.CreateWindowSurface(vkInstance, windowHandle, null, out VkSurfaceKHR surface), VulkanException.Reason.CreateSurface);
 			return surface;
 		}
 
@@ -86,7 +86,7 @@ namespace Engine3.Graphics.Vulkan {
 				MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, requiredValidationLayers.Length);
 #endif
 
-				CheckForSuccess(result, VulkanException.Reason.CreateLogicalDevice);
+				CheckIfSuccess(result, VulkanException.Reason.CreateLogicalDevice);
 				return logicalDevice;
 			}
 		}
@@ -97,7 +97,7 @@ namespace Engine3.Graphics.Vulkan {
 			VkSemaphore[] semaphores = new VkSemaphore[count];
 
 			fixed (VkSemaphore* semaphoresPtr = semaphores) {
-				for (uint i = 0; i < count; i++) { CheckForSuccess(Vk.CreateSemaphore(logicalDevice, &semaphoreCreateInfo, null, &semaphoresPtr[i]), VulkanException.Reason.CreateSemaphore); }
+				for (uint i = 0; i < count; i++) { CheckIfSuccess(Vk.CreateSemaphore(logicalDevice, &semaphoreCreateInfo, null, &semaphoresPtr[i]), VulkanException.Reason.CreateSemaphore); }
 			}
 
 			return semaphores;
@@ -107,7 +107,7 @@ namespace Engine3.Graphics.Vulkan {
 		public static VkSemaphore CreateSemaphore(VkDevice logicalDevice) {
 			VkSemaphoreCreateInfo semaphoreCreateInfo = new();
 			VkSemaphore semaphore;
-			CheckForSuccess(Vk.CreateSemaphore(logicalDevice, &semaphoreCreateInfo, null, &semaphore), VulkanException.Reason.CreateSemaphore);
+			CheckIfSuccess(Vk.CreateSemaphore(logicalDevice, &semaphoreCreateInfo, null, &semaphore), VulkanException.Reason.CreateSemaphore);
 			return semaphore;
 		}
 
@@ -117,7 +117,7 @@ namespace Engine3.Graphics.Vulkan {
 			VkFence[] fences = new VkFence[count];
 
 			fixed (VkFence* fencesPtr = fences) {
-				for (uint i = 0; i < count; i++) { CheckForSuccess(Vk.CreateFence(logicalDevice, &fenceCreateInfo, null, &fencesPtr[i]), VulkanException.Reason.CreateFence); }
+				for (uint i = 0; i < count; i++) { CheckIfSuccess(Vk.CreateFence(logicalDevice, &fenceCreateInfo, null, &fencesPtr[i]), VulkanException.Reason.CreateFence); }
 			}
 
 			return fences;
@@ -127,14 +127,14 @@ namespace Engine3.Graphics.Vulkan {
 		public static VkFence CreateFence(VkDevice logicalDevice) {
 			VkFenceCreateInfo fenceCreateInfo = new() { flags = VkFenceCreateFlagBits.FenceCreateSignaledBit, };
 			VkFence fence;
-			CheckForSuccess(Vk.CreateFence(logicalDevice, &fenceCreateInfo, null, &fence), VulkanException.Reason.CreateFence);
+			CheckIfSuccess(Vk.CreateFence(logicalDevice, &fenceCreateInfo, null, &fence), VulkanException.Reason.CreateFence);
 			return fence;
 		}
 
 		[MustUseReturnValue]
 		public static VkBuffer CreateBuffer(VkDevice logicalDevice, VkBufferCreateInfo bufferCreateInfo) {
 			VkBuffer buffer;
-			CheckForSuccess(Vk.CreateBuffer(logicalDevice, &bufferCreateInfo, null, &buffer), VulkanException.Reason.CreateBuffer);
+			CheckIfSuccess(Vk.CreateBuffer(logicalDevice, &bufferCreateInfo, null, &buffer), VulkanException.Reason.CreateBuffer);
 			return buffer;
 		}
 
@@ -153,56 +153,27 @@ namespace Engine3.Graphics.Vulkan {
 			VkBufferMemoryRequirementsInfo2 bufferMemoryRequirementsInfo2 = new() { buffer = buffer, };
 			VkMemoryRequirements2 memoryRequirements2 = new();
 			Vk.GetBufferMemoryRequirements2(logicalDevice, &bufferMemoryRequirementsInfo2, &memoryRequirements2);
-			VkMemoryRequirements memoryRequirements = memoryRequirements2.memoryRequirements;
+			return CreateDeviceMemory(physicalDevice, logicalDevice, memoryRequirements2.memoryRequirements, memoryPropertyFlags);
+		}
 
+		[MustUseReturnValue]
+		public static VkDeviceMemory CreateDeviceMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkImage image, VkMemoryPropertyFlagBits memoryPropertyFlags) {
+			VkImageMemoryRequirementsInfo2 imageMemoryRequirementsInfo2 = new() { image = image, };
+			VkMemoryRequirements2 memoryRequirements2 = new();
+			Vk.GetImageMemoryRequirements2(logicalDevice, &imageMemoryRequirementsInfo2, &memoryRequirements2);
+			return CreateDeviceMemory(physicalDevice, logicalDevice, memoryRequirements2.memoryRequirements, memoryPropertyFlags);
+		}
+
+		[MustUseReturnValue]
+		private static VkDeviceMemory CreateDeviceMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkMemoryRequirements memoryRequirements, VkMemoryPropertyFlagBits memoryPropertyFlags) {
 			VkMemoryAllocateInfo memoryAllocateInfo = new() { allocationSize = memoryRequirements.size, memoryTypeIndex = FindMemoryType(physicalDevice, memoryRequirements.memoryTypeBits, memoryPropertyFlags), };
 			VkDeviceMemory deviceMemory;
 
 			// TODO "It should be noted that in a real world application, you're not supposed to actually call vkAllocateMemory for every individual buffer.
 			// The right way to allocate memory for a large number of objects at the same time is to create a custom allocator that splits up a single allocation
 			// among many different objects by using the offset parameters that we've seen in many functions."
-			CheckForSuccess(Vk.AllocateMemory(logicalDevice, &memoryAllocateInfo, null, &deviceMemory), VulkanException.Reason.AllocateMemory);
+			CheckIfSuccess(Vk.AllocateMemory(logicalDevice, &memoryAllocateInfo, null, &deviceMemory), VulkanException.Reason.AllocateMemory);
 			return deviceMemory;
-
-			[MustUseReturnValue]
-			static uint FindMemoryType(VkPhysicalDevice physicalDevice, uint typeFilter, VkMemoryPropertyFlagBits memoryPropertyFlag) {
-				VkPhysicalDeviceMemoryProperties2 memoryProperties2 = new();
-				Vk.GetPhysicalDeviceMemoryProperties2(physicalDevice, &memoryProperties2);
-				VkPhysicalDeviceMemoryProperties memoryProperties = memoryProperties2.memoryProperties;
-
-				for (uint i = 0; i < memoryProperties.memoryTypeCount; i++) {
-					if ((uint)(typeFilter & (1 << (int)i)) != 0 && (memoryProperties.memoryTypes[(int)i].propertyFlags & memoryPropertyFlag) == memoryPropertyFlag) { return i; }
-				}
-
-				throw new Engine3VulkanException("Failed to find suitable memory type");
-			}
-		}
-
-		public static void CopyBuffer(VkDevice logicalDevice, VkQueue transferQueue, VkCommandPool transferCommandPool, VkBuffer srcBuffer, VkBuffer dstBuffer, ulong bufferSize) {
-			TransferCommandBuffer transferCommandBuffer = new(logicalDevice, transferCommandPool);
-
-			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
-			transferCommandBuffer.CmdCopyBuffer(srcBuffer, dstBuffer, bufferSize);
-			transferCommandBuffer.EndCommandBuffer();
-			transferCommandBuffer.SubmitQueue(transferQueue);
-
-			Vk.QueueWaitIdle(transferQueue);
-			transferCommandBuffer.FreeCommandBuffers();
-		}
-
-		public static void CopyBuffers(VkDevice logicalDevice, VkQueue transferQueue, VkCommandPool transferCommandPool, VkBuffer[] srcBuffers, VkBuffer[] dstBuffers, ulong[] bufferSizes) {
-			int size = srcBuffers.Length;
-			if (dstBuffers.Length != size || bufferSizes.Length != size) { throw new ArgumentException("All srcBuffers/dstBuffers/bufferSizes must be the same length"); }
-
-			TransferCommandBuffer transferCommandBuffer = new(logicalDevice, transferCommandPool);
-
-			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
-			for (int i = 0; i < srcBuffers.Length; i++) { transferCommandBuffer.CmdCopyBuffer(srcBuffers[i], dstBuffers[i], bufferSizes[i]); }
-			transferCommandBuffer.EndCommandBuffer();
-			transferCommandBuffer.SubmitQueue(transferQueue);
-
-			Vk.QueueWaitIdle(transferQueue);
-			transferCommandBuffer.FreeCommandBuffers();
 		}
 
 		[MustUseReturnValue]
@@ -220,7 +191,7 @@ namespace Engine3.Graphics.Vulkan {
 			Vk.UnmapMemory2(logicalDevice, &memoryUnmapInfo);
 		}
 
-		public static void MapAndCopyMemory<T>(VkDevice logicalDevice, VkDeviceMemory deviceMemory, T[] inData, ulong offset) where T : unmanaged {
+		public static void MapAndCopyMemory<T>(VkDevice logicalDevice, VkDeviceMemory deviceMemory, ReadOnlySpan<T> inData, ulong offset) where T : unmanaged {
 			ulong bufferSize = (ulong)(sizeof(T) * inData.Length);
 			fixed (T* inDataPtr = inData) {
 				void* dataPtr = MapMemory(logicalDevice, deviceMemory, bufferSize, offset);
@@ -231,7 +202,12 @@ namespace Engine3.Graphics.Vulkan {
 
 		public static void BindBufferMemory(VkDevice logicalDevice, VkBuffer buffer, VkDeviceMemory deviceMemory) {
 			VkBindBufferMemoryInfo bindBufferMemoryInfo = new() { buffer = buffer, memory = deviceMemory, };
-			CheckForSuccess(Vk.BindBufferMemory2(logicalDevice, 1, &bindBufferMemoryInfo), VulkanException.Reason.BindBufferMemory);
+			CheckIfSuccess(Vk.BindBufferMemory2(logicalDevice, 1, &bindBufferMemoryInfo), VulkanException.Reason.BindBufferMemory);
+		}
+
+		public static void BindImageMemory(VkDevice logicalDevice, VkImage image, VkDeviceMemory deviceMemory) {
+			VkBindImageMemoryInfo bindImageMemoryInfo = new() { image = image, memory = deviceMemory, };
+			CheckIfSuccess(Vk.BindImageMemory2(logicalDevice, 1, &bindImageMemoryInfo), VulkanException.Reason.BindImageMemory);
 		}
 
 		[MustUseReturnValue]
@@ -328,10 +304,23 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		public static void SubmitQueues(VkQueue queue, VkSubmitInfo[] submitInfos, VkFence? fence) {
-			fixed (VkSubmitInfo* submitInfosPtr = submitInfos) { CheckForSuccess(Vk.QueueSubmit(queue, (uint)submitInfos.Length, submitInfosPtr, fence ?? VkFence.Zero), VulkanException.Reason.QueueSubmit); }
+			fixed (VkSubmitInfo* submitInfosPtr = submitInfos) { CheckIfSuccess(Vk.QueueSubmit(queue, (uint)submitInfos.Length, submitInfosPtr, fence ?? VkFence.Zero), VulkanException.Reason.QueueSubmit); }
 		}
 
 		public static void SubmitQueue(VkQueue queue, VkSubmitInfo submitInfo, VkFence? fence) =>
-				CheckForSuccess(Vk.QueueSubmit(queue, 1, &submitInfo, fence ?? VkFence.Zero), VulkanException.Reason.QueueSubmit); // TODO device lost?
+				CheckIfSuccess(Vk.QueueSubmit(queue, 1, &submitInfo, fence ?? VkFence.Zero), VulkanException.Reason.QueueSubmit); // TODO device lost?
+
+		[MustUseReturnValue]
+		private static uint FindMemoryType(VkPhysicalDevice physicalDevice, uint typeFilter, VkMemoryPropertyFlagBits memoryPropertyFlag) {
+			VkPhysicalDeviceMemoryProperties2 memoryProperties2 = new();
+			Vk.GetPhysicalDeviceMemoryProperties2(physicalDevice, &memoryProperties2);
+			VkPhysicalDeviceMemoryProperties memoryProperties = memoryProperties2.memoryProperties;
+
+			for (uint i = 0; i < memoryProperties.memoryTypeCount; i++) {
+				if ((uint)(typeFilter & (1 << (int)i)) != 0 && (memoryProperties.memoryTypes[(int)i].propertyFlags & memoryPropertyFlag) == memoryPropertyFlag) { return i; }
+			}
+
+			throw new Engine3VulkanException("Failed to find suitable memory type");
+		}
 	}
 }

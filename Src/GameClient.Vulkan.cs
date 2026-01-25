@@ -163,7 +163,7 @@ namespace Engine3 {
 			MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, requiredValidationLayers.Length);
 #endif
 
-			VkH.CheckForSuccess(result, VulkanException.Reason.CreateInstance);
+			VkH.CheckIfSuccess(result, VulkanException.Reason.CreateInstance);
 			return vkInstance;
 		}
 
@@ -211,7 +211,7 @@ namespace Engine3 {
 		private static VkDebugUtilsMessengerEXT CreateDebugMessenger(VkInstance vkInstance, VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagBitsEXT messageType) {
 			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(messageSeverity, messageType);
 			VkDebugUtilsMessengerEXT debugMessenger;
-			VkH.CheckForSuccess(Vk.CreateDebugUtilsMessengerEXT(vkInstance, &messengerCreateInfo, null, &debugMessenger), VulkanException.Reason.CreateDebugMessenger);
+			VkH.CheckIfSuccess(Vk.CreateDebugUtilsMessengerEXT(vkInstance, &messengerCreateInfo, null, &debugMessenger), VulkanException.Reason.CreateDebugMessenger);
 			return debugMessenger;
 		}
 

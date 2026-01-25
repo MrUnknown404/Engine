@@ -21,6 +21,7 @@
 		<PackageReference Include="ObjectLayoutInspector" Version="0.1.4"/>
 		<PackageReference Include="OpenTK" Version="5.0.0-pre.15"/>
 		<PackageReference Include="Silk.NET.Shaderc" Version="2.22.0"/>
+		<PackageReference Include="StbiSharp" Version="1.2.1"/>
 		<PackageReference Include="ZLinq" Version="1.5.4"/>
 		<PackageReference Include="ZLinq.DropInGenerator" Version="1.5.4">
 			<PrivateAssets>all</PrivateAssets>

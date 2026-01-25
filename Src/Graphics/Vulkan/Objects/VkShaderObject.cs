@@ -87,7 +87,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 
 					shaderc.ResultRelease(compilationResult);
 
-					VkH.CheckForSuccess(result, VulkanException.Reason.CreateShaderModule);
+					VkH.CheckIfSuccess(result, VulkanException.Reason.CreateShaderModule);
 					return shaderModule;
 				}
 				case ShaderLanguage.SpirV: {
@@ -97,7 +97,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 					fixed (byte* shaderCodePtr = data) {
 						VkShaderModuleCreateInfo shaderModuleCreateInfo = new() { codeSize = (UIntPtr)data.Length, pCode = (uint*)shaderCodePtr, };
 						VkShaderModule shaderModule;
-						VkH.CheckForSuccess(Vk.CreateShaderModule(logicalDevice, &shaderModuleCreateInfo, null, &shaderModule), VulkanException.Reason.CreateShaderModule);
+						VkH.CheckIfSuccess(Vk.CreateShaderModule(logicalDevice, &shaderModuleCreateInfo, null, &shaderModule), VulkanException.Reason.CreateShaderModule);
 						return shaderModule;
 					}
 				}

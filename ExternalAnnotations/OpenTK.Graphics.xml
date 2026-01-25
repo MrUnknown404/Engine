@@ -50,6 +50,11 @@
 			<argument>Use 'Vk.GetBufferMemoryRequirements2()' for Vulkan 1.1+</argument>
 		</attribute>
 	</member>
+	<member name="M:OpenTK.Graphics.Vulkan.Vk.GetImageMemoryRequirements(OpenTK.Graphics.Vulkan.VkDevice,OpenTK.Graphics.Vulkan.VkImage,OpenTK.Graphics.Vulkan.VkMemoryRequirements*)">
+		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
+			<argument>Use 'Vk.GetImageMemoryRequirements2()' for Vulkan 1.1+</argument>
+		</attribute>
+	</member>
 	<member name="M:OpenTK.Graphics.Vulkan.Vk.MapMemory(OpenTK.Graphics.Vulkan.VkDevice,OpenTK.Graphics.Vulkan.VkDeviceMemory,System.UInt64,System.UInt64,OpenTK.Graphics.Vulkan.VkMemoryMapFlagBits,System.Void**)">
 		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
 			<argument>Use 'Vk.MapMemory2()' for Vulkan 1.4+</argument>
@@ -83,6 +88,16 @@
 	<member name="M:OpenTK.Graphics.Vulkan.Vk.CmdBindIndexBuffer(OpenTK.Graphics.Vulkan.VkCommandBuffer,OpenTK.Graphics.Vulkan.VkBuffer,System.UInt64,OpenTK.Graphics.Vulkan.VkIndexType)">
 		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
 			<argument>Use 'Vk.CmdBindIndexBuffer2()' for Vulkan 1.4+</argument>
+		</attribute>
+	</member>
+	<member name="M:OpenTK.Graphics.Vulkan.Vk.BindBufferMemory(OpenTK.Graphics.Vulkan.VkDevice,OpenTK.Graphics.Vulkan.VkBuffer,OpenTK.Graphics.Vulkan.VkDeviceMemory,System.UInt64)">
+		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
+			<argument>Use 'Vk.BindBufferMemory2()' for Vulkan 1.1+</argument>
+		</attribute>
+	</member>
+	<member name="M:OpenTK.Graphics.Vulkan.Vk.BindImageMemory(OpenTK.Graphics.Vulkan.VkDevice,OpenTK.Graphics.Vulkan.VkImage,OpenTK.Graphics.Vulkan.VkDeviceMemory,System.UInt64)">
+		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
+			<argument>Use 'Vk.BindImageMemory2()' for Vulkan 1.1+</argument>
 		</attribute>
 	</member>
 </assembly>

@@ -94,7 +94,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 					fixed (VkDescriptorSetLayout* layoutsPtr = layouts) {
 						fixed (VkDescriptorSet* descriptorSetsPtr = descriptorSets) {
 							VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = new() { descriptorPool = descriptorPool, descriptorSetCount = maxFramesInFlight, pSetLayouts = layoutsPtr, };
-							VkH.CheckForSuccess(Vk.AllocateDescriptorSets(logicalDevice, &descriptorSetAllocateInfo, descriptorSetsPtr), VulkanException.Reason.AllocateDescriptorSets);
+							VkH.CheckIfSuccess(Vk.AllocateDescriptorSets(logicalDevice, &descriptorSetAllocateInfo, descriptorSetsPtr), VulkanException.Reason.AllocateDescriptorSets);
 						}
 					}
 
@@ -122,7 +122,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 					VkDescriptorSetLayoutBinding uboLayoutBinding = new() { binding = binding, descriptorType = VkDescriptorType.DescriptorTypeUniformBuffer, descriptorCount = 1, stageFlags = shaderStageFlags, };
 					VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = new() { bindingCount = 1, pBindings = &uboLayoutBinding, };
 					VkDescriptorSetLayout layout;
-					VkH.CheckForSuccess(Vk.CreateDescriptorSetLayout(logicalDevice, &descriptorSetLayoutCreateInfo, null, &layout), VulkanException.Reason.CreateDescriptorSetLayout);
+					VkH.CheckIfSuccess(Vk.CreateDescriptorSetLayout(logicalDevice, &descriptorSetLayoutCreateInfo, null, &layout), VulkanException.Reason.CreateDescriptorSetLayout);
 					return layout;
 				}
 
@@ -131,7 +131,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 					VkDescriptorPoolSize descriptorPoolSize = new() { descriptorCount = maxFramesInFlight, type = descriptorType, };
 					VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = new() { poolSizeCount = 1, pPoolSizes = &descriptorPoolSize, maxSets = maxFramesInFlight, };
 					VkDescriptorPool descriptorPool;
-					VkH.CheckForSuccess(Vk.CreateDescriptorPool(logicalDevice, &descriptorPoolCreateInfo, null, &descriptorPool), VulkanException.Reason.CreateDescriptorPool);
+					VkH.CheckIfSuccess(Vk.CreateDescriptorPool(logicalDevice, &descriptorPoolCreateInfo, null, &descriptorPool), VulkanException.Reason.CreateDescriptorPool);
 					return descriptorPool;
 				}
 			}
@@ -208,7 +208,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 				}
 
 				VkPipelineLayout pipelineLayout;
-				VkH.CheckForSuccess(Vk.CreatePipelineLayout(logicalDevice, &pipelineLayoutCreateInfo, null, &pipelineLayout), VulkanException.Reason.CreatePipelineLayout);
+				VkH.CheckIfSuccess(Vk.CreatePipelineLayout(logicalDevice, &pipelineLayoutCreateInfo, null, &pipelineLayout), VulkanException.Reason.CreatePipelineLayout);
 
 				fixed (VkPipelineShaderStageCreateInfo* shaderStageCreateInfosPtr = shaderStageCreateInfos) {
 					fixed (VkDynamicState* dynamicStatesPtr = DynamicStates.ToArray()) {
@@ -241,7 +241,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 								};
 
 								VkPipeline graphicsPipeline;
-								VkH.CheckForSuccess(Vk.CreateGraphicsPipelines(logicalDevice, VkPipelineCache.Zero, 1, &pipelineCreateInfo, null, &graphicsPipeline), VulkanException.Reason.CreateGraphicsPipeline);
+								VkH.CheckIfSuccess(Vk.CreateGraphicsPipelines(logicalDevice, VkPipelineCache.Zero, 1, &pipelineCreateInfo, null, &graphicsPipeline), VulkanException.Reason.CreateGraphicsPipeline);
 
 								return new(debugName, logicalDevice, graphicsPipeline, pipelineLayout, descriptorPool, this.descriptorSetLayout, descriptorSets);
 							}

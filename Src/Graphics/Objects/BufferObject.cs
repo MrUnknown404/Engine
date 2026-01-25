@@ -50,7 +50,7 @@ namespace Engine3.Graphics.Objects {
 			VkH.BindBufferMemory(logicalDevice, Buffer, BufferMemory);
 		}
 
-		public void Copy<T>(T[] data) where T : unmanaged {
+		public void Copy<T>(ReadOnlySpan<T> data) where T : unmanaged {
 			switch (graphicsBackend) {
 				case GraphicsBackend.OpenGL: GL.NamedBufferSubData((int)Handle, 0, sizeof(T) * data.Length, data); break;
 				case GraphicsBackend.Vulkan: VkH.MapAndCopyMemory(logicalDevice, BufferMemory, data, 0); break;
@@ -59,7 +59,7 @@ namespace Engine3.Graphics.Objects {
 			}
 		}
 
-		public void Copy<T>(T[] data, nint offset) where T : unmanaged {
+		public void Copy<T>(ReadOnlySpan<T> data, nint offset) where T : unmanaged {
 			switch (graphicsBackend) {
 				case GraphicsBackend.OpenGL: GL.NamedBufferSubData((int)Handle, offset, sizeof(T) * data.Length, data); break;
 				case GraphicsBackend.Vulkan:
@@ -74,7 +74,7 @@ namespace Engine3.Graphics.Objects {
 			}
 		}
 
-		public void Copy<T>(T[] data, ulong offset) where T : unmanaged {
+		public void Copy<T>(ReadOnlySpan<T> data, ulong offset) where T : unmanaged {
 			switch (graphicsBackend) {
 				case GraphicsBackend.OpenGL:
 #if DEBUG
@@ -89,7 +89,7 @@ namespace Engine3.Graphics.Objects {
 			}
 		}
 
-		public void CopyUsingStaging<T>(VkCommandPool transferPool, VkQueue transferQueue, T[] data, nint offset = 0) where T : unmanaged {
+		public void CopyUsingStaging<T>(VkCommandPool transferPool, VkQueue transferQueue, ReadOnlySpan<T> data, nint offset = 0) where T : unmanaged {
 			switch (graphicsBackend) {
 				case GraphicsBackend.OpenGL: throw new NotImplementedException();
 				case GraphicsBackend.Vulkan:
@@ -104,7 +104,7 @@ namespace Engine3.Graphics.Objects {
 			}
 		}
 
-		public void CopyUsingStaging<T>(VkCommandPool transferPool, VkQueue transferQueue, T[] data, ulong offset = 0) where T : unmanaged {
+		public void CopyUsingStaging<T>(VkCommandPool transferPool, VkQueue transferQueue, ReadOnlySpan<T> data, ulong offset = 0) where T : unmanaged {
 			switch (graphicsBackend) {
 				case GraphicsBackend.OpenGL: throw new NotImplementedException();
 				case GraphicsBackend.Vulkan: VkBufferObject.CopyUsingStaging(physicalDevice, logicalDevice, transferPool, transferQueue, Buffer, data, offset); break;

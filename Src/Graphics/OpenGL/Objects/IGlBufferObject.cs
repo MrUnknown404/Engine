@@ -7,6 +7,6 @@ namespace Engine3.Graphics.OpenGL.Objects {
 	public interface IGlBufferObject : IBufferObject {
 		public BufferHandle Handle { get; }
 
-		public void Copy<T>(T[] data, nint offset) where T : unmanaged;
+		public void Copy<T>(ReadOnlySpan<T> data, nint offset) where T : unmanaged;
 	}
 }

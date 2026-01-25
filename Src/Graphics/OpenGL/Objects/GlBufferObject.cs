@@ -19,8 +19,8 @@ namespace Engine3.Graphics.OpenGL.Objects {
 			GL.NamedBufferStorage((int)Handle, BufferSize, IntPtr.Zero, bufferStorageMask);
 		}
 
-		public void Copy<T>(T[] data) where T : unmanaged => Copy(data, 0);
-		public void Copy<T>(T[] data, nint offset) where T : unmanaged => GL.NamedBufferSubData((int)Handle, offset, sizeof(T) * data.Length, data);
+		public void Copy<T>(ReadOnlySpan<T> data) where T : unmanaged => Copy(data, 0);
+		public void Copy<T>(ReadOnlySpan<T> data, nint offset) where T : unmanaged => GL.NamedBufferSubData((int)Handle, offset, sizeof(T) * data.Length, data);
 
 		public void Destroy() {
 			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }

@@ -48,7 +48,9 @@ namespace Engine3.Graphics.Vulkan {
 			VkFence[] inFlightFences = VkH.CreateFences(LogicalDevice, MaxFramesInFlight);
 
 			Frames = new FrameData[MaxFramesInFlight];
-			for (int i = 0; i < MaxFramesInFlight; i++) { Frames[i] = new(LogicalDevice, new(LogicalDevice, GraphicsCommandPool, graphicsCommandBuffers[i]), imageAvailableSemaphores[i], inFlightFences[i]); }
+			for (int i = 0; i < MaxFramesInFlight; i++) {
+				Frames[i] = new(LogicalDevice, new(LogicalDevice, GraphicsCommandPool, graphicsCommandBuffers[i], window.LogicalGpu.GraphicsQueue), imageAvailableSemaphores[i], inFlightFences[i]);
+			}
 		}
 
 		public abstract void Setup();
@@ -65,7 +67,7 @@ namespace Engine3.Graphics.Vulkan {
 
 			if (AcquireNextImage(frameData, out uint swapChainImageIndex)) {
 				BeginFrame(frameData, swapChainImageIndex);
-				RecordCommandBuffer(frameData.GraphicsCommandBuffer, delta);
+				RecordCommandBuffer(frameData.GraphicsCommandBufferObject, delta);
 				UpdateUniformBuffer(delta);
 				EndFrame(frameData, swapChainImageIndex);
 				PresentFrame(swapChainImageIndex);
@@ -89,7 +91,7 @@ namespace Engine3.Graphics.Vulkan {
 			if (result == VkResult.ErrorOutOfDateKhr) {
 				SwapChain.Recreate();
 				return false;
-			} else if (result != VkResult.SuboptimalKhr) { VkH.CheckForSuccess(result, VulkanException.Reason.AcquireNextImage); }
+			} else if (result != VkResult.SuboptimalKhr) { VkH.CheckIfSuccess(result, VulkanException.Reason.AcquireNextImage); }
 
 			Vk.ResetFences(LogicalDevice, 1, &inFlightFence);
 
@@ -106,17 +108,17 @@ namespace Engine3.Graphics.Vulkan {
 		/// </code>
 		/// </summary>
 		protected void BeginFrame(FrameData frameData, uint swapChainImageIndex) {
-			GraphicsCommandBuffer graphicsCommandBuffer = frameData.GraphicsCommandBuffer;
+			GraphicsCommandBufferObject graphicsCommandBuffer = frameData.GraphicsCommandBufferObject;
 
 			graphicsCommandBuffer.ResetCommandBuffer();
 
-			VkH.CheckForSuccess(graphicsCommandBuffer.BeginCommandBuffer(), VulkanException.Reason.BeginCommandBuffer);
+			VkH.CheckIfSuccess(graphicsCommandBuffer.BeginCommandBuffer(), VulkanException.Reason.BeginCommandBuffer);
 
-			graphicsCommandBuffer.CmdBeginPipelineBarrier(SwapChain.Images[swapChainImageIndex]);
+			CmdBeginPipelineBarrier(graphicsCommandBuffer, SwapChain.Images[swapChainImageIndex]);
 			graphicsCommandBuffer.CmdBeginRendering(SwapChain.Extent, SwapChain.ImageViews[swapChainImageIndex], Window.ClearColor.ToVkClearColorValue());
 		}
 
-		protected abstract void RecordCommandBuffer(GraphicsCommandBuffer graphicsCommandBuffer, float delta);
+		protected abstract void RecordCommandBuffer(GraphicsCommandBufferObject graphicsCommandBuffer, float delta);
 		protected virtual void UpdateUniformBuffer(float delta) { }
 
 		/// <summary>
@@ -129,14 +131,14 @@ namespace Engine3.Graphics.Vulkan {
 		/// </code>
 		/// </summary>
 		protected void EndFrame(FrameData frameData, uint swapChainImageIndex) {
-			GraphicsCommandBuffer graphicsCommandBuffer = frameData.GraphicsCommandBuffer;
+			GraphicsCommandBufferObject graphicsCommandBuffer = frameData.GraphicsCommandBufferObject;
 
 			graphicsCommandBuffer.CmdEndRendering();
-			graphicsCommandBuffer.CmdEndPipelineBarrier(SwapChain.Images[swapChainImageIndex]);
+			CmdEndPipelineBarrier(graphicsCommandBuffer, SwapChain.Images[swapChainImageIndex]);
 
-			VkH.CheckForSuccess(graphicsCommandBuffer.EndCommandBuffer(), VulkanException.Reason.EndCommandBuffer);
+			VkH.CheckIfSuccess(graphicsCommandBuffer.EndCommandBuffer(), VulkanException.Reason.EndCommandBuffer);
 
-			graphicsCommandBuffer.SubmitQueue(LogicalGpu.GraphicsQueue, frameData.ImageAvailableSemaphore, RenderFinishedSemaphores[swapChainImageIndex], frameData.InFlightFence);
+			graphicsCommandBuffer.SubmitQueue(frameData.ImageAvailableSemaphore, RenderFinishedSemaphores[swapChainImageIndex], frameData.InFlightFence);
 		}
 
 		protected void PresentFrame(uint swapChainImageIndex) {
@@ -149,12 +151,40 @@ namespace Engine3.Graphics.Vulkan {
 			if (result is VkResult.ErrorOutOfDateKhr or VkResult.SuboptimalKhr || Window.WasResized) {
 				Window.WasResized = false;
 				SwapChain.Recreate();
-			} else { VkH.CheckForSuccess(result, VulkanException.Reason.QueuePresent); }
+			} else { VkH.CheckIfSuccess(result, VulkanException.Reason.QueuePresent); }
 
 			CurrentFrame = (byte)((CurrentFrame + 1) % MaxFramesInFlight);
 		}
 
+		protected static void CmdBeginPipelineBarrier(GraphicsCommandBufferObject graphicsCommandBuffer, VkImage image) {
+			VkImageMemoryBarrier2 imageMemoryBarrier2 = new() {
+					dstAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
+					dstStageMask = VkPipelineStageFlagBits2.PipelineStage2TopOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
+					oldLayout = VkImageLayout.ImageLayoutUndefined,
+					newLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
+					image = image,
+					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+			};
+
+			graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier2, });
+		}
+
+		protected static void CmdEndPipelineBarrier(GraphicsCommandBufferObject graphicsCommandBuffer, VkImage image) {
+			VkImageMemoryBarrier2 imageMemoryBarrier2 = new() {
+					srcAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
+					srcStageMask = VkPipelineStageFlagBits2.PipelineStage2BottomOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
+					oldLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
+					newLayout = VkImageLayout.ImageLayoutPresentSrcKhr,
+					image = image,
+					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+			};
+
+			graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier2, });
+		}
+
 		protected abstract void Cleanup();
+
+		public bool IsSameWindow(Window window) => Window == window;
 
 		public void Destroy() {
 			if (IDestroyable.WarnIfDestroyed(this)) { return; }
@@ -174,13 +204,11 @@ namespace Engine3.Graphics.Vulkan {
 			WasDestroyed = true;
 		}
 
-		public bool IsSameWindow(Window window) => Window == window;
-
 		[MustUseReturnValue]
 		private static VkCommandPool CreateCommandPool(VkDevice logicalDevice, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) {
 			VkCommandPoolCreateInfo commandPoolCreateInfo = new() { flags = commandPoolCreateFlags, queueFamilyIndex = queueFamilyIndex, };
 			VkCommandPool commandPool;
-			VkH.CheckForSuccess(Vk.CreateCommandPool(logicalDevice, &commandPoolCreateInfo, null, &commandPool), VulkanException.Reason.CreateCommandPool);
+			VkH.CheckIfSuccess(Vk.CreateCommandPool(logicalDevice, &commandPoolCreateInfo, null, &commandPool), VulkanException.Reason.CreateCommandPool);
 			return commandPool;
 		}
 
@@ -190,21 +218,21 @@ namespace Engine3.Graphics.Vulkan {
 			VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = commandPool, level = level, commandBufferCount = count, };
 			VkCommandBuffer[] commandBuffers = new VkCommandBuffer[count];
 			fixed (VkCommandBuffer* commandBuffersPtr = commandBuffers) {
-				VkH.CheckForSuccess(Vk.AllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, commandBuffersPtr), VulkanException.Reason.AllocateCommandBuffers);
+				VkH.CheckIfSuccess(Vk.AllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, commandBuffersPtr), VulkanException.Reason.AllocateCommandBuffers);
 				return commandBuffers;
 			}
 		}
 
 		protected class FrameData {
-			public GraphicsCommandBuffer GraphicsCommandBuffer { get; }
+			public GraphicsCommandBufferObject GraphicsCommandBufferObject { get; }
 			public VkSemaphore ImageAvailableSemaphore { get; }
 			public VkFence InFlightFence { get; }
 
 			private readonly VkDevice logicalDevice;
 
-			public FrameData(VkDevice logicalDevice, GraphicsCommandBuffer graphicsCommandBuffer, VkSemaphore imageAvailableSemaphore, VkFence inFlightFence) {
+			public FrameData(VkDevice logicalDevice, GraphicsCommandBufferObject graphicsCommandBuffer, VkSemaphore imageAvailableSemaphore, VkFence inFlightFence) {
 				this.logicalDevice = logicalDevice;
-				GraphicsCommandBuffer = graphicsCommandBuffer;
+				GraphicsCommandBufferObject = graphicsCommandBuffer;
 				ImageAvailableSemaphore = imageAvailableSemaphore;
 				InFlightFence = inFlightFence;
 			}

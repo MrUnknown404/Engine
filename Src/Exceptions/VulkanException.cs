@@ -41,6 +41,8 @@ namespace Engine3.Exceptions {
 					Reason.AllocateCommandBuffers => $"vkAllocateCommandBuffers() {DefaultMessage}",
 					Reason.CreateSurface => $"Toolkit.Vulkan.CreateWindowSurface() {DefaultMessage}",
 					Reason.CreateLogicalDevice => $"vkCreateDevice {DefaultMessage}",
+					Reason.CreateImage => $"vkCreateImage {DefaultMessage}",
+					Reason.BindImageMemory => $"vkBindImageMemory2 {DefaultMessage}",
 					_ => throw new ArgumentOutOfRangeException(nameof(reason), reason, null),
 			};
 		}
@@ -48,7 +50,7 @@ namespace Engine3.Exceptions {
 		public enum Reason : uint {
 			Unknown = 0,
 
-			BindBufferMemory,
+			GetSwapChainImages,
 			AcquireNextImage,
 			BeginCommandBuffer,
 			EndCommandBuffer,
@@ -57,6 +59,7 @@ namespace Engine3.Exceptions {
 			CreateSwapChain,
 			CreateDescriptorSetLayout,
 			CreateDescriptorPool,
+			CreateImage,
 			CreateImageView,
 			CreateImageViewI,
 			CreateBuffer,
@@ -71,10 +74,7 @@ namespace Engine3.Exceptions {
 			CreateSurface,
 			CreateLogicalDevice,
 
-			// Get?
-			GetSwapChainImages,
-
-			// Allocate?
+			// Allocate
 			AllocateDescriptorSets,
 			AllocateCommandBuffer,
 			AllocateCommandBuffers,
@@ -83,6 +83,10 @@ namespace Engine3.Exceptions {
 			// Queue
 			QueueSubmit,
 			QueuePresent,
+
+			// Bind
+			BindBufferMemory,
+			BindImageMemory,
 		}
 	}
 }
