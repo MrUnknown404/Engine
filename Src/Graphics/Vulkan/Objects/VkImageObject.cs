@@ -18,14 +18,14 @@ namespace Engine3.Graphics.Vulkan.Objects {
 
 		private readonly VkDevice logicalDevice;
 
-		public VkImageObject(string debugName, VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool transferCommandPool, VkQueue transferQueue, QueueFamilyIndices queueFamilyIndices, string fileLocation,
-			string fileExtension, byte texChannels, VkFormat imageFormat, Assembly assembly) {
+		public VkImageObject(string debugName, VkPhysicalDeviceMemoryProperties2 memoryProperties, VkDevice logicalDevice, VkCommandPool transferCommandPool, VkQueue transferQueue, QueueFamilyIndices queueFamilyIndices,
+			string fileLocation, string fileExtension, byte texChannels, VkFormat imageFormat, Assembly assembly) {
 			DebugName = debugName;
 			ImageFormat = imageFormat;
 			this.logicalDevice = logicalDevice;
 
-			using (StbiImage stbiImage = LoadImage(fileLocation, fileExtension, texChannels, assembly)) {
-				CreateTexture(physicalDevice, logicalDevice, transferCommandPool, transferQueue, queueFamilyIndices, stbiImage, texChannels, imageFormat, out VkImage image, out VkDeviceMemory imageMemory);
+			using (StbiImage stbiImage = AssetH.LoadImage(fileLocation, fileExtension, texChannels, assembly)) {
+				CreateTexture(memoryProperties, logicalDevice, transferCommandPool, transferQueue, queueFamilyIndices, stbiImage, texChannels, imageFormat, out VkImage image, out VkDeviceMemory imageMemory);
 				Image = image;
 				ImageMemory = imageMemory;
 				ImageView = VkH.CreateImageView(logicalDevice, Image, imageFormat);
@@ -33,9 +33,9 @@ namespace Engine3.Graphics.Vulkan.Objects {
 		}
 
 		[MustUseReturnValue]
-		public static VkImageObject CreateFromRgbaPng(string debugName, VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool transferCommandPool, VkQueue transferQueue, QueueFamilyIndices queueFamilyIndices,
-			string fileLocation, Assembly assembly) =>
-				new(debugName, physicalDevice, logicalDevice, transferCommandPool, transferQueue, queueFamilyIndices, fileLocation, "png", 4, VkFormat.FormatR8g8b8a8Srgb, assembly);
+		public static VkImageObject CreateFromRgbaPng(string debugName, VkPhysicalDeviceMemoryProperties2 memoryProperties, VkDevice logicalDevice, VkCommandPool transferCommandPool, VkQueue transferQueue,
+			QueueFamilyIndices queueFamilyIndices, string fileLocation, Assembly assembly) =>
+				new(debugName, memoryProperties, logicalDevice, transferCommandPool, transferQueue, queueFamilyIndices, fileLocation, "png", 4, VkFormat.FormatR8g8b8a8Srgb, assembly);
 
 		public void Destroy() {
 			IGraphicsResource.WarnIfDestroyed(this);
@@ -47,22 +47,12 @@ namespace Engine3.Graphics.Vulkan.Objects {
 			WasDestroyed = true;
 		}
 
-		[MustDisposeResource]
-		private static StbiImage LoadImage(string fileLocation, string fileExtension, byte texChannels, Assembly assembly) {
-			string fullFileName = $"{fileLocation}.{fileExtension}";
-			using Stream? textureStream = AssetH.GetAssetStream($"Textures.{fullFileName}", assembly);
-			if (textureStream == null) { throw new Engine3Exception($"Failed to create asset stream at Textures.{fullFileName}"); }
-
-			byte[] data = new byte[textureStream.Length];
-			return textureStream.Read(data, 0, data.Length) != data.Length ? throw new Engine3Exception("Texture stream size is not correct") : Stbi.LoadFromMemory(data, texChannels);
-		}
-
-		private static void CreateTexture(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool transferCommandPool, VkQueue transferQueue, QueueFamilyIndices queueFamilyIndices, StbiImage stbiImage,
-			byte texChannels, VkFormat imageFormat, out VkImage image, out VkDeviceMemory imageMemory) {
+		private static void CreateTexture(VkPhysicalDeviceMemoryProperties2 memoryProperties, VkDevice logicalDevice, VkCommandPool transferCommandPool, VkQueue transferQueue, QueueFamilyIndices queueFamilyIndices,
+			StbiImage stbiImage, byte texChannels, VkFormat imageFormat, out VkImage image, out VkDeviceMemory imageMemory) {
 			uint width = (uint)stbiImage.Width;
 			uint height = (uint)stbiImage.Height;
 
-			VkBufferObject stagingBuffer = new("Temporary Image Staging Buffer", width * height * texChannels, physicalDevice, logicalDevice, VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
+			VkBufferObject stagingBuffer = new("Temporary Image Staging Buffer", width * height * texChannels, memoryProperties, logicalDevice, VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
 				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit);
 
 			VkH.MapAndCopyMemory(logicalDevice, stagingBuffer.BufferMemory, stbiImage.Data, 0);
@@ -85,7 +75,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 			VkH.CheckIfSuccess(Vk.CreateImage(logicalDevice, &imageCreateInfo, null, &tempImage), VulkanException.Reason.CreateImage);
 
 			image = tempImage;
-			imageMemory = VkH.CreateDeviceMemory(physicalDevice, logicalDevice, image, VkMemoryPropertyFlagBits.MemoryPropertyDeviceLocalBit);
+			imageMemory = VkH.CreateDeviceMemory(memoryProperties, logicalDevice, image, VkMemoryPropertyFlagBits.MemoryPropertyDeviceLocalBit);
 			VkH.BindImageMemory(logicalDevice, image, imageMemory);
 
 			TransferCommandBufferObject transferCommandBuffer = new(logicalDevice, transferCommandPool, transferQueue);

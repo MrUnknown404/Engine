@@ -17,7 +17,7 @@ namespace Engine3.Graphics.Objects {
 
 		public VkBuffer Buffer { get; }
 		public VkDeviceMemory BufferMemory { get; }
-		private readonly VkPhysicalDevice physicalDevice;
+		private readonly VkPhysicalDeviceMemoryProperties2 memoryProperties;
 		private readonly VkDevice logicalDevice;
 
 		public bool WasDestroyed { get; private set; }
@@ -38,10 +38,10 @@ namespace Engine3.Graphics.Objects {
 			GL.NamedBufferStorage((int)Handle, bufferSize, IntPtr.Zero, bufferStorageMask);
 		}
 
-		public BufferObject(string debugName, ulong bufferSize, VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkBufferUsageFlagBits bufferUsageFlags, VkMemoryPropertyFlagBits memoryPropertyFlags) {
+		public BufferObject(string debugName, ulong bufferSize, VkPhysicalDeviceMemoryProperties2 physicalDevice, VkDevice logicalDevice, VkBufferUsageFlagBits bufferUsageFlags, VkMemoryPropertyFlagBits memoryPropertyFlags) {
 			graphicsBackend = GraphicsBackend.Vulkan;
 			DebugName = debugName;
-			this.physicalDevice = physicalDevice;
+			this.memoryProperties = memoryProperties;
 			this.logicalDevice = logicalDevice;
 			BufferSize = bufferSize;
 
@@ -94,7 +94,7 @@ namespace Engine3.Graphics.Objects {
 				case GraphicsBackend.OpenGL: throw new NotImplementedException();
 				case GraphicsBackend.Vulkan:
 #if DEBUG
-					checked { VkBufferObject.CopyUsingStaging(physicalDevice, logicalDevice, transferPool, transferQueue, Buffer, data, (ulong)offset); }
+					checked { VkBufferObject.CopyUsingStaging(memoryProperties, logicalDevice, transferPool, transferQueue, Buffer, data, (ulong)offset); }
 #else
 					VkBufferObject.CopyUsingStaging(physicalDevice, logicalDevice, transferPool, transferQueue, Buffer, data, (ulong)offset);
 #endif
@@ -107,7 +107,7 @@ namespace Engine3.Graphics.Objects {
 		public void CopyUsingStaging<T>(VkCommandPool transferPool, VkQueue transferQueue, ReadOnlySpan<T> data, ulong offset = 0) where T : unmanaged {
 			switch (graphicsBackend) {
 				case GraphicsBackend.OpenGL: throw new NotImplementedException();
-				case GraphicsBackend.Vulkan: VkBufferObject.CopyUsingStaging(physicalDevice, logicalDevice, transferPool, transferQueue, Buffer, data, offset); break;
+				case GraphicsBackend.Vulkan: VkBufferObject.CopyUsingStaging(memoryProperties, logicalDevice, transferPool, transferQueue, Buffer, data, offset); break;
 				case GraphicsBackend.Console: throw new IllegalStateException();
 				default: throw new ArgumentOutOfRangeException();
 			}

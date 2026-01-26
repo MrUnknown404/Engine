@@ -3,30 +3,30 @@ using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Graphics.Vulkan.Objects {
-	public unsafe class VkTextureSamplerObject : IGraphicsResource {
-		public VkSampler TextureSampler { get; }
+	public unsafe class TextureSampler : IGraphicsResource {
+		public VkSampler Sampler { get; }
 
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
 
 		private readonly VkDevice logicalDevice;
 
-		public VkTextureSamplerObject(VkDevice logicalDevice, Settings settings) {
+		public TextureSampler(VkDevice logicalDevice, Settings settings) {
 			DebugName = settings.DebugName;
-			TextureSampler = CreateTextureSampler(logicalDevice, settings);
+			Sampler = CreateSampler(logicalDevice, settings);
 			this.logicalDevice = logicalDevice;
 		}
 
 		public void Destroy() {
 			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
 
-			Vk.DestroySampler(logicalDevice, TextureSampler, null);
+			Vk.DestroySampler(logicalDevice, Sampler, null);
 
 			WasDestroyed = true;
 		}
 
 		[MustUseReturnValue]
-		private static VkSampler CreateTextureSampler(VkDevice logicalDevice, Settings settings) {
+		private static VkSampler CreateSampler(VkDevice logicalDevice, Settings settings) {
 			VkSamplerCreateInfo samplerCreateInfo = new() {
 					minFilter = settings.MinFilter,
 					magFilter = settings.MagFilter,

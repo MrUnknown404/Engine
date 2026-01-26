@@ -11,17 +11,17 @@ namespace Engine3.Graphics.Vulkan.Objects {
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
 
-		private readonly VkPhysicalDevice physicalDevice;
+		private readonly VkPhysicalDeviceMemoryProperties2 memoryProperties;
 		private readonly VkDevice logicalDevice;
 
-		public VkBufferObject(string debugName, ulong bufferSize, VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkBufferUsageFlagBits bufferUsageFlags, VkMemoryPropertyFlagBits memoryPropertyFlags) {
+		public VkBufferObject(string debugName, ulong bufferSize, VkPhysicalDeviceMemoryProperties2 memoryProperties, VkDevice logicalDevice, VkBufferUsageFlagBits bufferUsageFlags, VkMemoryPropertyFlagBits memoryPropertyFlags) {
 			DebugName = debugName;
-			this.physicalDevice = physicalDevice;
+			this.memoryProperties = memoryProperties;
 			this.logicalDevice = logicalDevice;
 			BufferSize = bufferSize;
 
 			Buffer = VkH.CreateBuffer(logicalDevice, bufferUsageFlags, bufferSize);
-			BufferMemory = VkH.CreateDeviceMemory(physicalDevice, logicalDevice, Buffer, memoryPropertyFlags);
+			BufferMemory = VkH.CreateDeviceMemory(memoryProperties, logicalDevice, Buffer, memoryPropertyFlags);
 			VkH.BindBufferMemory(logicalDevice, Buffer, BufferMemory);
 		}
 
@@ -31,7 +31,7 @@ namespace Engine3.Graphics.Vulkan.Objects {
 		public void Copy<T>(ReadOnlySpan<T> data, ulong offset) where T : unmanaged => VkH.MapAndCopyMemory(logicalDevice, BufferMemory, data, offset);
 
 		public void CopyUsingStaging<T>(VkCommandPool transferPool, VkQueue transferQueue, ReadOnlySpan<T> data, ulong offset = 0) where T : unmanaged =>
-				CopyUsingStaging(physicalDevice, logicalDevice, transferPool, transferQueue, Buffer, data, offset);
+				CopyUsingStaging(memoryProperties, logicalDevice, transferPool, transferQueue, Buffer, data, offset);
 
 		public void Destroy() {
 			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
@@ -42,11 +42,11 @@ namespace Engine3.Graphics.Vulkan.Objects {
 			WasDestroyed = true;
 		}
 
-		public static void CopyUsingStaging<T>(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool transferPool, VkQueue transferQueue, VkBuffer dstBuffer, ReadOnlySpan<T> data, ulong offset = 0)
-				where T : unmanaged {
+		public static void CopyUsingStaging<T>(VkPhysicalDeviceMemoryProperties2 memoryProperties, VkDevice logicalDevice, VkCommandPool transferPool, VkQueue transferQueue, VkBuffer dstBuffer, ReadOnlySpan<T> data,
+			ulong offset = 0) where T : unmanaged {
 			ulong bufferSize = (ulong)(sizeof(T) * data.Length);
 
-			VkBufferObject stagingBuffer = new("Temporary Staging Buffer", bufferSize, physicalDevice, logicalDevice, VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
+			VkBufferObject stagingBuffer = new("Temporary Staging Buffer", bufferSize, memoryProperties, logicalDevice, VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
 				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit); // TODO should i make a persistent staging buffer?
 
 			VkH.MapAndCopyMemory(logicalDevice, stagingBuffer.BufferMemory, data, offset);

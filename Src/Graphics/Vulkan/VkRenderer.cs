@@ -19,8 +19,8 @@ namespace Engine3.Graphics.Vulkan {
 		protected FrameData[] Frames { get; }
 		protected VkSemaphore[] RenderFinishedSemaphores { get; }
 
-		protected byte MaxFramesInFlight { get; }
-		protected byte CurrentFrame { get; private set; }
+		public byte MaxFramesInFlight { get; }
+		public byte CurrentFrame { get; private set; }
 
 		public ulong FrameCount { get; private set; }
 		public bool CanRender { get; set; } = true;
@@ -31,6 +31,8 @@ namespace Engine3.Graphics.Vulkan {
 		protected LogicalGpu LogicalGpu => Window.LogicalGpu;
 		protected VkPhysicalDevice PhysicalDevice => PhysicalGpu.PhysicalDevice;
 		protected VkDevice LogicalDevice => LogicalGpu.LogicalDevice;
+
+		protected VkPhysicalDeviceMemoryProperties2 PhysicalDeviceMemoryProperties => PhysicalGpu.PhysicalDeviceMemoryProperties2;
 
 		protected VkRenderer(GameClient gameClient, VkWindow window) {
 			Window = window;
@@ -68,7 +70,7 @@ namespace Engine3.Graphics.Vulkan {
 			if (AcquireNextImage(frameData, out uint swapChainImageIndex)) {
 				BeginFrame(frameData, swapChainImageIndex);
 				RecordCommandBuffer(frameData.GraphicsCommandBufferObject, delta);
-				UpdateUniformBuffer(delta);
+				CopyUniformBuffer(delta);
 				EndFrame(frameData, swapChainImageIndex);
 				PresentFrame(swapChainImageIndex);
 			}
@@ -121,7 +123,7 @@ namespace Engine3.Graphics.Vulkan {
 		}
 
 		protected abstract void RecordCommandBuffer(GraphicsCommandBufferObject graphicsCommandBuffer, float delta);
-		protected virtual void UpdateUniformBuffer(float delta) { }
+		protected virtual void CopyUniformBuffer(float delta) { }
 
 		/// <summary>
 		/// Order of what vulkan methods are called here

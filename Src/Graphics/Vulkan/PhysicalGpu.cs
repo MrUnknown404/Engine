@@ -6,6 +6,7 @@ namespace Engine3.Graphics.Vulkan {
 		public VkPhysicalDevice PhysicalDevice { get; }
 		public VkPhysicalDeviceProperties2 PhysicalDeviceProperties2 { get; }
 		public VkPhysicalDeviceFeatures2 PhysicalDeviceFeatures2 { get; }
+		public VkPhysicalDeviceMemoryProperties2 PhysicalDeviceMemoryProperties2 { get; }
 		public VkExtensionProperties[] ExtensionProperties { get; }
 		public QueueFamilyIndices QueueFamilyIndices { get; }
 
@@ -18,6 +19,12 @@ namespace Engine3.Graphics.Vulkan {
 			PhysicalDeviceFeatures2 = physicalDeviceFeatures2;
 			ExtensionProperties = extensionProperties;
 			QueueFamilyIndices = queueFamilyIndices;
+
+			unsafe {
+				VkPhysicalDeviceMemoryProperties2 physicalDeviceMemoryProperties2 = new();
+				Vk.GetPhysicalDeviceMemoryProperties2(physicalDevice, &physicalDeviceMemoryProperties2);
+				PhysicalDeviceMemoryProperties2 = physicalDeviceMemoryProperties2;
+			}
 
 			VkPhysicalDeviceProperties.deviceNameInlineArray1 deviceNameArray = PhysicalDeviceProperties2.properties.deviceName;
 			ReadOnlySpan<byte> deviceNameSpan = deviceNameArray;
@@ -35,23 +42,38 @@ namespace Engine3.Graphics.Vulkan {
 			const string VendorIdEnumName = "VendorId";
 
 			VkPhysicalDeviceProperties deviceProperties = PhysicalDeviceProperties2.properties;
-			int physicalDeviceTypeEnumNameLength = PhysicalDeviceTypeEnumName.Length;
-			int vendorIdEnumNameLength = VendorIdEnumName.Length;
-
 			VkH.GetApiVersion(deviceProperties.apiVersion, out _, out byte major, out ushort minor, out ushort patch);
+
+			uint vendorId = deviceProperties.vendorID;
+			string vendorIdName = (VkVendorId)vendorId is >= VkVendorId.VendorIdKhronos and <= VkVendorId.VendorIdMobileye ? $", ({((VkVendorId)vendorId).ToString()[VendorIdEnumName.Length..]})" : string.Empty;
+
+			VkPhysicalDeviceLimits limits = deviceProperties.limits;
+			VkPhysicalDeviceFeatures features = PhysicalDeviceFeatures2.features;
+
+			StringBuilder limitsStringBuilder = new();
+			limitsStringBuilder.Append($"MaxSamplerAnisotropy: {limits.maxSamplerAnisotropy}");
+
+			StringBuilder featuresStringBuilder = new();
+			featuresStringBuilder.Append($"SamplerAnisotropy: {features.samplerAnisotropy}");
+
+			// TODO PhysicalDeviceMemoryProperties2
+			// TODO ExtensionProperties
 
 			//@formatter:off
 			return [
-					"Gpu: [",
-					"- VkPhysicalDevice: [",
-					$"- - Device Type: {deviceProperties.deviceType.ToString()[physicalDeviceTypeEnumNameLength..]}",
-					$"- - Device Api Version: {deviceProperties.apiVersion.ToString()} ({major}.{minor}.{patch})",
-					$"- - Device Id: {deviceProperties.deviceID.ToString()}",
-					$"- - Device Name: {Name}",
-					$"- - Vendor Driver Version: {deviceProperties.driverVersion.ToString()}",
-					$"- - Vendor Id: {deviceProperties.vendorID}{(deviceProperties.vendorID is >= (uint)VkVendorId.VendorIdKhronos and <= (uint)VkVendorId.VendorIdMobileye ? $", ({((VkVendorId)deviceProperties.vendorID).ToString()[vendorIdEnumNameLength..]})" : string.Empty)}",
-					"- ]", // TODO add more
-					"]",
+				"VkPhysicalDevice: [",
+				"- Properties: [",
+				$"- - Type / Name: {deviceProperties.deviceType.ToString()[PhysicalDeviceTypeEnumName.Length..]} / {Name}",
+				$"- - Api / Driver Version: {deviceProperties.apiVersion} ({major}.{minor}.{patch}) / {deviceProperties.driverVersion}",
+				$"- - Device / Vendor Id: {deviceProperties.deviceID} / {vendorId}{vendorIdName}",
+				"- - Limits: [",
+				$"- - - {limitsStringBuilder}",
+				"- - ]",
+				"- ],",
+				"- Features: [",
+				$"- - - {featuresStringBuilder}",
+				"- ]",
+				"]",
 			];
 			//@formatter:on
 		}
