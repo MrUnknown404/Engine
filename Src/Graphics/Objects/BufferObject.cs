@@ -38,7 +38,7 @@ namespace Engine3.Graphics.Objects {
 			GL.NamedBufferStorage((int)Handle, bufferSize, IntPtr.Zero, bufferStorageMask);
 		}
 
-		public BufferObject(string debugName, ulong bufferSize, VkPhysicalDeviceMemoryProperties2 physicalDevice, VkDevice logicalDevice, VkBufferUsageFlagBits bufferUsageFlags, VkMemoryPropertyFlagBits memoryPropertyFlags) {
+		public BufferObject(string debugName, ulong bufferSize, VkPhysicalDeviceMemoryProperties2 memoryProperties, VkDevice logicalDevice, VkBufferUsageFlagBits bufferUsageFlags, VkMemoryPropertyFlagBits memoryPropertyFlags) {
 			graphicsBackend = GraphicsBackend.Vulkan;
 			DebugName = debugName;
 			this.memoryProperties = memoryProperties;
@@ -46,7 +46,7 @@ namespace Engine3.Graphics.Objects {
 			BufferSize = bufferSize;
 
 			Buffer = VkH.CreateBuffer(logicalDevice, bufferUsageFlags, bufferSize);
-			BufferMemory = VkH.CreateDeviceMemory(physicalDevice, logicalDevice, Buffer, memoryPropertyFlags);
+			BufferMemory = VkH.CreateDeviceMemory(memoryProperties, logicalDevice, Buffer, memoryPropertyFlags);
 			VkH.BindBufferMemory(logicalDevice, Buffer, BufferMemory);
 		}
 

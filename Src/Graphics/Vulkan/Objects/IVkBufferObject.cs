@@ -8,7 +8,6 @@ namespace Engine3.Graphics.Vulkan.Objects {
 		public VkBuffer Buffer { get; }
 		public VkDeviceMemory BufferMemory { get; }
 
-		public void Copy<T>(ReadOnlySpan<T> data, ulong offset) where T : unmanaged;
 		public void CopyUsingStaging<T>(VkCommandPool transferPool, VkQueue transferQueue, ReadOnlySpan<T> data, ulong offset) where T : unmanaged;
 	}
 }

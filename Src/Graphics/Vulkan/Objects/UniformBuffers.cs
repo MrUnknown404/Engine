@@ -29,6 +29,16 @@ namespace Engine3.Graphics.Vulkan.Objects {
 			fixed (void* dataPtr = data) { Buffer.MemoryCopy(dataPtr, uniformBuffersMapped[renderer.CurrentFrame], (ulong)data.Length, (ulong)data.Length); }
 		}
 
+		public void Copy<T>(ReadOnlySpan<T> data, ulong offset) where T : unmanaged {
+#if DEBUG
+			checked {
+				fixed (void* dataPtr = data[(int)offset..]) { Buffer.MemoryCopy(dataPtr, uniformBuffersMapped[renderer.CurrentFrame], (ulong)data.Length, (ulong)data.Length); }
+			}
+#else
+			fixed (void* dataPtr = data[(int)offset..]) { Buffer.MemoryCopy(dataPtr, uniformBuffersMapped[renderer.CurrentFrame], (ulong)data.Length, (ulong)data.Length); }
+#endif
+		}
+
 		public VkBuffer GetBuffer(byte index) => uniformBuffers[index].Buffer;
 
 		public void Destroy() {
