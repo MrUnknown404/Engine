@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using Engine3.Client.Graphics;
 using Engine3.Exceptions;
-using Engine3.Graphics;
 using Engine3.Utility;
 using Engine3.Utility.Versions;
 using NLog;
@@ -10,22 +10,22 @@ using OpenTK.Platform;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using Silk.NET.Core.Loader;
 using Silk.NET.Shaderc;
-using Window = Engine3.Graphics.Window;
+using Window = Engine3.Client.Window;
 
 #if DEBUG
 using Engine3.Debug;
 #endif
 
 namespace Engine3 {
-	public abstract partial class GameClient {
+	public abstract class GameClient {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		[field: MaybeNull] public Assembly Assembly { get => field ?? throw new Engine3Exception($"Attempted to get GameInstance Assembly too early. Must call {nameof(GameClient)}#{nameof(Start)} first"); private set; }
 
-		public IPackableVersion PackableVersion { get; }
+		public IPackableVersion Version { get; }
 		public string Name { get; }
-		public GraphicsBackend GraphicsBackend { get; }
-		public GraphicsApiHints? GraphicsApiHints { get; }
+
+		public EngineGraphicsBackend GraphicsBackend { get; }
 		public Shaderc Shaderc { get; } = new(Shaderc.CreateDefaultContext(new ShadercSearchPathContainer().GetLibraryNames()));
 
 		public List<Window> Windows { get; } = new();
@@ -35,7 +35,7 @@ namespace Engine3 {
 		public uint UpdatesPerSecond { get; private set; }
 		public float UpdateTime { get; private set; }
 
-		public bool WasGraphicsSetup => WasOpenGLSetup | WasVulkanSetup;
+		public bool WasGraphicsSetup { get; private set; }
 
 		private readonly Queue<Window> windowCloseQueue = new();
 		private readonly Queue<IRenderer> renderingPipelineCloseQueue = new();
@@ -48,23 +48,20 @@ namespace Engine3 {
 		public event Action? OnSetupToolkitEvent;
 		public event Action? OnShutdownEvent;
 
-		protected GameClient(string name, IPackableVersion version, GraphicsBackend graphicsBackend) {
+		protected GameClient(string name, IPackableVersion version, EngineGraphicsBackend graphicsBackend) {
 			Name = name;
-			PackableVersion = version;
+			Version = version;
 			GraphicsBackend = graphicsBackend;
-		}
 
-		protected GameClient(string name, IPackableVersion version, OpenGLGraphicsApiHints graphicsApiHints) : this(name, version, GraphicsBackend.OpenGL) {
-			graphicsApiHints.Version = new(4, 6);
-			graphicsApiHints.Profile = OpenGLProfile.Core;
+			if (GraphicsBackend is OpenGLGraphicsBackend glBackend) {
+				OpenGLGraphicsApiHints graphicsApiHints = glBackend.GraphicsApiHints as OpenGLGraphicsApiHints ?? throw new NullReferenceException();
+				graphicsApiHints.Version = new(4, 6);
+				graphicsApiHints.Profile = OpenGLProfile.Core;
 #if DEBUG
-			graphicsApiHints.DebugFlag = true;
+				graphicsApiHints.DebugFlag = true;
 #endif
-
-			GraphicsApiHints = graphicsApiHints;
+			}
 		}
-
-		protected GameClient(string name, IPackableVersion version, VulkanGraphicsApiHints graphicsApiHints) : this(name, version, GraphicsBackend.Vulkan) => GraphicsApiHints = graphicsApiHints;
 
 		public void Start<T>(T gameClient, StartupSettings settings) where T : GameClient {
 			if (wasSetup) { throw new Engine3Exception("Attempted to call #Start twice"); }
@@ -78,11 +75,12 @@ namespace Engine3 {
 			Logger.Debug("Got instance assembly");
 
 			Engine3.GameInstance = gameClient;
-			if (GraphicsBackend != GraphicsBackend.Console && GraphicsApiHints == null) { throw new Engine3Exception($"GraphicsApiHints cannot be null with GraphicsApi: {GraphicsBackend}"); }
+
+			if (GraphicsBackend is { GraphicsBackend: Client.Graphics.GraphicsBackend.Console, GraphicsApiHints: null, }) { throw new Engine3Exception($"GraphicsApiHints cannot be null with GraphicsApi: {GraphicsBackend}"); }
 
 			Logger.Info("Setting up engine...");
 			Logger.Debug($"- Engine Version: {Engine3.Version}");
-			Logger.Debug($"- Game Version: {PackableVersion}");
+			Logger.Debug($"- Game Version: {Version}");
 			Logger.Debug($"- GLFW Version: {GLFW.GetVersionString()}"); // TODO i have no idea what window manager OpenTK uses. i see GLFW, & SDL. but it looks like PAL is just using Win32 API/X11 API directly. help
 			Logger.Debug($"- Graphics Api: {GraphicsBackend}");
 
@@ -97,32 +95,21 @@ namespace Engine3 {
 			StructLayoutDumper.WriteDumpsToOutput();
 #endif
 
-			if (GraphicsBackend != GraphicsBackend.Console) {
+			if (GraphicsBackend.GraphicsBackend != Client.Graphics.GraphicsBackend.Console) {
 				Logger.Info("Setting up Toolkit...");
 				SetupToolkit(new() {
 						Logger = new TkLogger(),
-						FeatureFlags = GraphicsBackend switch {
-								GraphicsBackend.OpenGL => ToolkitFlags.EnableOpenGL,
-								GraphicsBackend.Vulkan => ToolkitFlags.EnableVulkan,
-								GraphicsBackend.Console => throw new UnreachableException(),
+						FeatureFlags = GraphicsBackend.GraphicsBackend switch {
+								Client.Graphics.GraphicsBackend.OpenGL => ToolkitFlags.EnableOpenGL,
+								Client.Graphics.GraphicsBackend.Vulkan => ToolkitFlags.EnableVulkan,
+								Client.Graphics.GraphicsBackend.Console => throw new UnreachableException(),
 								_ => throw new ArgumentOutOfRangeException(),
 						},
 				});
 
 				OnSetupToolkitEvent?.Invoke();
-			}
 
-			switch (GraphicsBackend) {
-				case GraphicsBackend.OpenGL:
-					Logger.Info("Setting up OpenGL...");
-					SetupOpenGL();
-					break;
-				case GraphicsBackend.Vulkan:
-					Logger.Info("Setting up Vulkan...");
-					SetupVulkan();
-					break;
-				case GraphicsBackend.Console: break;
-				default: throw new ArgumentOutOfRangeException();
+				SetupGraphicsBackend();
 			}
 
 			wasSetup = true;
@@ -142,13 +129,19 @@ namespace Engine3 {
 		protected abstract void Update();
 		protected abstract void Cleanup();
 
+		private void SetupGraphicsBackend() {
+			Logger.Debug($"Setting up {Enum.GetName(GraphicsBackend.GraphicsBackend)}...");
+			GraphicsBackend.Setup(this);
+			WasGraphicsSetup = true;
+		}
+
 		private void SetupEngine() { }
 
 		private void EngineUpdate() { }
 
 		private void GameLoop() {
 			while (shouldRunGameLoop) {
-				if (GraphicsBackend != GraphicsBackend.Console) { Toolkit.Window.ProcessEvents(false); }
+				if (GraphicsBackend.GraphicsBackend != Client.Graphics.GraphicsBackend.Console) { Toolkit.Window.ProcessEvents(false); }
 				if (requestShutdown) { shouldRunGameLoop = false; } // TODO check more?
 				if (!shouldRunGameLoop) { break; } // Early exit
 
@@ -157,7 +150,7 @@ namespace Engine3 {
 				UpdateCount++;
 
 				// console end. VK/GL graphics below TODO impl graphics rendering
-				if (GraphicsBackend == GraphicsBackend.Console) { continue; }
+				if (GraphicsBackend.GraphicsBackend == Client.Graphics.GraphicsBackend.Console) { continue; }
 
 				float delta = 0; // TODO impl
 
@@ -254,13 +247,8 @@ namespace Engine3 {
 			Logger.Debug($"Cleaning up {Windows.Count} windows...");
 			foreach (Window window in Windows) { window.Destroy(); }
 
-			Logger.Debug("Cleaning up graphics api...");
-			switch (GraphicsBackend) {
-				case GraphicsBackend.Console: break;
-				case GraphicsBackend.OpenGL: CleanupOpenGL(); break;
-				case GraphicsBackend.Vulkan: CleanupVulkan(); break;
-				default: throw new ArgumentOutOfRangeException();
-			}
+			Logger.Debug("Cleaning up graphics...");
+			GraphicsBackend.Cleanup();
 
 			Logger.Info("Goodbye!");
 			LogManager.Shutdown();
