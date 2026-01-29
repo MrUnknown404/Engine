@@ -7,10 +7,9 @@ using NLog;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan {
-	public abstract unsafe class VkRenderer : IRenderer {
+	public abstract unsafe class VkRenderer : Renderer<VkWindow, VulkanGraphicsBackend> {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-		protected VkWindow Window { get; }
 		protected SwapChain SwapChain { get; }
 
 		protected VkCommandPool GraphicsCommandPool { get; }
@@ -18,26 +17,20 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		protected FrameData[] Frames { get; }
 		protected VkSemaphore[] RenderFinishedSemaphores { get; }
+		protected DepthImage DepthImage { get; }
 
-		public byte MaxFramesInFlight { get; }
 		public byte CurrentFrame { get; private set; }
-
-		public ulong FrameCount { get; private set; }
-		public bool CanRender { get; set; } = true;
-		public bool ShouldDestroy { get; set; }
-		public bool WasDestroyed { get; private set; }
 
 		protected PhysicalGpu PhysicalGpu => Window.SelectedGpu;
 		protected LogicalGpu LogicalGpu => Window.LogicalGpu;
 		protected VkPhysicalDevice PhysicalDevice => PhysicalGpu.PhysicalDevice;
 		protected VkDevice LogicalDevice => LogicalGpu.LogicalDevice;
 
-		protected VkPhysicalDeviceMemoryProperties2 PhysicalDeviceMemoryProperties => PhysicalGpu.PhysicalDeviceMemoryProperties2;
+		public byte MaxFramesInFlight => GraphicsBackend.MaxFramesInFlight;
 
-		protected VkRenderer(VulkanGraphicsBackend graphicsBackend, VkWindow window) {
-			Window = window;
-			MaxFramesInFlight = graphicsBackend.MaxFramesInFlight;
+		protected VkPhysicalDeviceMemoryProperties PhysicalDeviceMemoryProperties => PhysicalGpu.PhysicalDeviceMemoryProperties2.memoryProperties;
 
+		protected VkRenderer(VulkanGraphicsBackend graphicsBackend, VkWindow window) : base(graphicsBackend, window) {
 			SwapChain = new(window, window.SelectedGpu.PhysicalDevice, window.LogicalGpu.LogicalDevice, window.SelectedGpu.QueueFamilyIndices, window.Surface, graphicsBackend.PresentMode);
 			Logger.Debug("Created swap chain");
 
@@ -53,9 +46,10 @@ namespace Engine3.Client.Graphics.Vulkan {
 			for (int i = 0; i < MaxFramesInFlight; i++) {
 				Frames[i] = new(LogicalDevice, new(LogicalDevice, GraphicsCommandPool, graphicsCommandBuffers[i], window.LogicalGpu.GraphicsQueue), imageAvailableSemaphores[i], inFlightFences[i]);
 			}
-		}
 
-		public abstract void Setup();
+			DepthImage = new($"{nameof(VkRenderer)} Depth Image", PhysicalDevice, LogicalDevice, window.SelectedGpu.QueueFamilyIndices, PhysicalDeviceMemoryProperties, TransferCommandPool, window.LogicalGpu.TransferQueue,
+				SwapChain.Extent);
+		}
 
 		/// <summary>
 		/// Wait for the previous frame to finish
@@ -64,7 +58,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		/// Submit the recorded command buffer
 		/// Present the swap chain image
 		/// </summary>
-		public virtual void Render(float delta) {
+		protected internal override void Render(float delta) {
 			FrameData frameData = Frames[CurrentFrame];
 
 			if (AcquireNextImage(frameData, out uint swapChainImageIndex)) {
@@ -91,7 +85,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			swapChainImageIndex = tempSwapChainImageIndex;
 
 			if (result == VkResult.ErrorOutOfDateKhr) {
-				SwapChain.Recreate();
+				OnSwapchainInvalid();
 				return false;
 			} else if (result != VkResult.SuboptimalKhr) { VkH.CheckIfSuccess(result, VulkanException.Reason.AcquireNextImage); }
 
@@ -119,7 +113,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			VkImageMemoryBarrier2 imageMemoryBarrier2 = GetBeginPipelineBarrierImageMemoryBarrier(SwapChain.Images[swapChainImageIndex]);
 			graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier2, });
 
-			graphicsCommandBuffer.CmdBeginRendering(SwapChain.Extent, SwapChain.ImageViews[swapChainImageIndex], Window.ClearColor.ToVkClearColorValue());
+			graphicsCommandBuffer.CmdBeginRendering(SwapChain.Extent, SwapChain.ImageViews[swapChainImageIndex], DepthImage.ImageView, Window.ClearColor.ToVkClearColorValue(), new(1, 0));
 		}
 
 		protected abstract void RecordCommandBuffer(GraphicsCommandBufferObject graphicsCommandBuffer, float delta);
@@ -156,7 +150,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 			if (result is VkResult.ErrorOutOfDateKhr or VkResult.SuboptimalKhr || Window.WasResized) {
 				Window.WasResized = false;
-				SwapChain.Recreate();
+				OnSwapchainInvalid();
 			} else { VkH.CheckIfSuccess(result, VulkanException.Reason.QueuePresent); }
 
 			CurrentFrame = (byte)((CurrentFrame + 1) % MaxFramesInFlight);
@@ -182,15 +176,33 @@ namespace Engine3.Client.Graphics.Vulkan {
 						subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 				};
 
-		protected abstract void Cleanup();
+		public override bool IsSameWindow(Window window) => Window == window;
 
-		public bool IsSameWindow(Window window) => Window == window;
+		protected virtual void OnSwapchainInvalid() {
+			SwapChain.Recreate();
+			DepthImage.Recreate(SwapChain.Extent);
+		}
 
-		public void Destroy() {
+		public override void Destroy() {
+			if (IDestroyable.WarnIfDestroyed(this)) { return; }
+
+			if (!ShouldDestroy) {
+				ShouldDestroy = true;
+				return;
+			}
+
+			ActuallyDestroy();
+
+			WasDestroyed = true;
+		}
+
+		internal override void ActuallyDestroy() {
 			if (IDestroyable.WarnIfDestroyed(this)) { return; }
 
 			Vk.DeviceWaitIdle(LogicalDevice);
 			Cleanup();
+
+			DepthImage.Destroy();
 
 			Vk.DestroyCommandPool(LogicalDevice, TransferCommandPool, null);
 			Vk.DestroyCommandPool(LogicalDevice, GraphicsCommandPool, null);

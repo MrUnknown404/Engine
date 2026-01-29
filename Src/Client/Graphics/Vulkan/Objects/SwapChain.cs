@@ -32,7 +32,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			ImageFormat = swapChainImageFormat;
 			Extent = swapChainExtent;
 			Images = GetSwapChainImages(logicalDevice, vkSwapChain);
-			ImageViews = VkH.CreateImageViews(logicalDevice, Images, ImageFormat);
+			ImageViews = VkH.CreateImageViews(logicalDevice, Images, ImageFormat, VkImageAspectFlagBits.ImageAspectColorBit);
 			this.presentMode = presentMode;
 		}
 
@@ -53,7 +53,8 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			ImageFormat = swapChainImageFormat;
 			Extent = swapChainExtent;
 			Images = GetSwapChainImages(logicalDevice, vkSwapChain);
-			ImageViews = VkH.CreateImageViews(logicalDevice, Images, swapChainImageFormat);
+			ImageViews = VkH.CreateImageViews(logicalDevice, Images, swapChainImageFormat, VkImageAspectFlagBits.ImageAspectColorBit);
+
 			WasDestroyed = false;
 		}
 

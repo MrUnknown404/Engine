@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Engine3.Exceptions;
 using Engine3.Utility.Versions;
 using JetBrains.Annotations;
@@ -101,7 +102,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public static VkDeviceMemory CreateDeviceMemory(VkPhysicalDeviceMemoryProperties2 memoryProperties, VkDevice logicalDevice, VkBuffer buffer, VkMemoryPropertyFlagBits memoryPropertyFlags) {
+		public static VkDeviceMemory CreateDeviceMemory(VkPhysicalDeviceMemoryProperties memoryProperties, VkDevice logicalDevice, VkBuffer buffer, VkMemoryPropertyFlagBits memoryPropertyFlags) {
 			VkBufferMemoryRequirementsInfo2 bufferMemoryRequirementsInfo2 = new() { buffer = buffer, };
 			VkMemoryRequirements2 memoryRequirements2 = new();
 			Vk.GetBufferMemoryRequirements2(logicalDevice, &bufferMemoryRequirementsInfo2, &memoryRequirements2);
@@ -109,7 +110,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public static VkDeviceMemory CreateDeviceMemory(VkPhysicalDeviceMemoryProperties2 memoryProperties, VkDevice logicalDevice, VkImage image, VkMemoryPropertyFlagBits memoryPropertyFlags) {
+		public static VkDeviceMemory CreateDeviceMemory(VkPhysicalDeviceMemoryProperties memoryProperties, VkDevice logicalDevice, VkImage image, VkMemoryPropertyFlagBits memoryPropertyFlags) {
 			VkImageMemoryRequirementsInfo2 imageMemoryRequirementsInfo2 = new() { image = image, };
 			VkMemoryRequirements2 memoryRequirements2 = new();
 			Vk.GetImageMemoryRequirements2(logicalDevice, &imageMemoryRequirementsInfo2, &memoryRequirements2);
@@ -117,10 +118,8 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		private static VkDeviceMemory CreateDeviceMemory(VkPhysicalDeviceMemoryProperties2 memoryProperties, VkDevice logicalDevice, VkMemoryRequirements memoryRequirements, VkMemoryPropertyFlagBits memoryPropertyFlags) {
-			VkMemoryAllocateInfo memoryAllocateInfo = new() {
-					allocationSize = memoryRequirements.size, memoryTypeIndex = FindMemoryType(memoryProperties.memoryProperties, memoryRequirements.memoryTypeBits, memoryPropertyFlags),
-			};
+		private static VkDeviceMemory CreateDeviceMemory(VkPhysicalDeviceMemoryProperties memoryProperties, VkDevice logicalDevice, VkMemoryRequirements memoryRequirements, VkMemoryPropertyFlagBits memoryPropertyFlags) {
+			VkMemoryAllocateInfo memoryAllocateInfo = new() { allocationSize = memoryRequirements.size, memoryTypeIndex = FindMemoryType(memoryProperties, memoryRequirements.memoryTypeBits, memoryPropertyFlags), };
 
 			VkDeviceMemory deviceMemory;
 
@@ -190,7 +189,28 @@ namespace Engine3.Client.Graphics.Vulkan {
 				CheckIfSuccess(Vk.QueueSubmit(queue, 1, &submitInfo, fence ?? VkFence.Zero), VulkanException.Reason.QueueSubmit); // TODO device lost?
 
 		[MustUseReturnValue]
-		public static VkImageView CreateImageView(VkDevice logicalDevice, VkImage image, VkFormat imageFormat) {
+		public static VkImage CreateImage(VkDevice logicalDevice, VkFormat imageFormat, VkImageTiling tiling, VkImageUsageFlagBits usage, uint width, uint height) {
+			VkImageCreateInfo imageCreateInfo = new() {
+					imageType = VkImageType.ImageType2d,
+					format = imageFormat,
+					tiling = tiling,
+					initialLayout = VkImageLayout.ImageLayoutUndefined,
+					usage = usage | VkImageUsageFlagBits.ImageUsageTransferDstBit,
+					sharingMode = VkSharingMode.SharingModeExclusive,
+					samples = VkSampleCountFlagBits.SampleCount1Bit,
+					flags = 0,
+					extent = new() { width = width, height = height, depth = 1, },
+					mipLevels = 1,
+					arrayLayers = 1,
+			};
+
+			VkImage tempImage;
+			CheckIfSuccess(Vk.CreateImage(logicalDevice, &imageCreateInfo, null, &tempImage), VulkanException.Reason.CreateImage);
+			return tempImage;
+		}
+
+		[MustUseReturnValue]
+		public static VkImageView CreateImageView(VkDevice logicalDevice, VkImage image, VkFormat imageFormat, VkImageAspectFlagBits aspectMask) {
 			VkImageViewCreateInfo createInfo = new() {
 					image = image,
 					viewType = VkImageViewType.ImageViewType2d,
@@ -198,7 +218,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 					components = new() {
 							r = VkComponentSwizzle.ComponentSwizzleIdentity, g = VkComponentSwizzle.ComponentSwizzleIdentity, b = VkComponentSwizzle.ComponentSwizzleIdentity, a = VkComponentSwizzle.ComponentSwizzleIdentity,
 					},
-					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+					subresourceRange = new() { aspectMask = aspectMask, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 			};
 
 			VkImageView imageView;
@@ -207,7 +227,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public static VkImageView[] CreateImageViews(VkDevice logicalDevice, VkImage[] images, VkFormat imageFormat) {
+		public static VkImageView[] CreateImageViews(VkDevice logicalDevice, VkImage[] images, VkFormat imageFormat, VkImageAspectFlagBits aspectMask) {
 			VkImageView[] imageViews = new VkImageView[images.Length];
 
 			fixed (VkImageView* imageViewsPtr = imageViews) {
@@ -222,7 +242,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 									b = VkComponentSwizzle.ComponentSwizzleIdentity,
 									a = VkComponentSwizzle.ComponentSwizzleIdentity,
 							},
-							subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+							subresourceRange = new() { aspectMask = aspectMask, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 					};
 
 					CheckIfSuccess(Vk.CreateImageView(logicalDevice, &createInfo, null, &imageViewsPtr[i]), VulkanException.Reason.CreateImageViews, i);
@@ -230,6 +250,96 @@ namespace Engine3.Client.Graphics.Vulkan {
 			}
 
 			return imageViews;
+		}
+
+		[SuppressMessage("ReSharper", "SwitchStatementHandlesSomeKnownEnumValuesWithDefault")]
+		[MustUseReturnValue]
+		public static VkImageMemoryBarrier2 CreateImageBarrier(uint graphicsFamily, uint transferFamily, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
+			VkAccessFlagBits2 srcAccessMask;
+			VkAccessFlagBits2 dstAccessMask;
+			VkPipelineStageFlagBits2 srcStageMask;
+			VkPipelineStageFlagBits2 dstStageMask;
+			VkImageAspectFlagBits aspectMask;
+
+			if (newLayout == VkImageLayout.ImageLayoutDepthStencilAttachmentOptimal) {
+				aspectMask = VkImageAspectFlagBits.ImageAspectDepthBit;
+
+				if (format is VkFormat.FormatD32SfloatS8Uint or VkFormat.FormatD24UnormS8Uint) { aspectMask |= VkImageAspectFlagBits.ImageAspectStencilBit; }
+			} else { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit; }
+
+			switch (oldLayout) {
+				case VkImageLayout.ImageLayoutUndefined when newLayout == VkImageLayout.ImageLayoutTransferDstOptimal:
+					srcAccessMask = 0;
+					dstAccessMask = VkAccessFlagBits2.Access2TransferWriteBit;
+					srcStageMask = VkPipelineStageFlagBits2.PipelineStage2TopOfPipeBit;
+					dstStageMask = VkPipelineStageFlagBits2.PipelineStage2TransferBit;
+					break;
+				case VkImageLayout.ImageLayoutUndefined when newLayout == VkImageLayout.ImageLayoutDepthStencilAttachmentOptimal:
+					srcAccessMask = 0;
+					dstAccessMask = VkAccessFlagBits2.Access2DepthStencilAttachmentReadBit | VkAccessFlagBits2.Access2DepthStencilAttachmentWriteBit;
+					srcStageMask = VkPipelineStageFlagBits2.PipelineStage2TopOfPipeBit;
+					dstStageMask = VkPipelineStageFlagBits2.PipelineStage2EarlyFragmentTestsBit;
+					break;
+				case VkImageLayout.ImageLayoutTransferDstOptimal when newLayout == VkImageLayout.ImageLayoutShaderReadOnlyOptimal:
+					srcAccessMask = VkAccessFlagBits2.Access2TransferWriteBit;
+					dstAccessMask = VkAccessFlagBits2.Access2ShaderReadBit;
+					srcStageMask = VkPipelineStageFlagBits2.PipelineStage2TransferBit;
+					dstStageMask = VkPipelineStageFlagBits2.PipelineStage2FragmentShaderBit;
+					break;
+
+				default: throw new NotImplementedException();
+			}
+
+			return new() {
+					oldLayout = oldLayout,
+					newLayout = newLayout,
+					srcQueueFamilyIndex = transferFamily, // Vk.QueueFamilyIgnored
+					dstQueueFamilyIndex = graphicsFamily,
+					image = image,
+					subresourceRange = new() { aspectMask = aspectMask, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+					srcAccessMask = srcAccessMask,
+					dstAccessMask = dstAccessMask,
+					srcStageMask = srcStageMask,
+					dstStageMask = dstStageMask,
+			};
+		}
+
+		[MustUseReturnValue]
+		public static VkFormat FindDepthFormat(VkPhysicalDevice physicalDevice) =>
+				FindSupportedFormat(physicalDevice, [ VkFormat.FormatD32Sfloat, VkFormat.FormatD32SfloatS8Uint, VkFormat.FormatD24UnormS8Uint, ], VkImageTiling.ImageTilingOptimal,
+					VkFormatFeatureFlagBits.FormatFeatureDepthStencilAttachmentBit);
+
+		[MustUseReturnValue]
+		public static VkFormat FindSupportedFormat(VkPhysicalDevice physicalDevice, VkFormat[] availableFormats, VkImageTiling tiling, VkFormatFeatureFlagBits featureFlags) {
+			foreach (VkFormat format in availableFormats) {
+				VkFormatProperties formatProperties = new();
+				Vk.GetPhysicalDeviceFormatProperties(physicalDevice, format, &formatProperties); // TODO 2
+
+				switch (tiling) {
+					case VkImageTiling.ImageTilingLinear when (formatProperties.linearTilingFeatures & featureFlags) == featureFlags:
+					case VkImageTiling.ImageTilingOptimal when (formatProperties.optimalTilingFeatures & featureFlags) == featureFlags: return format;
+					case VkImageTiling.ImageTilingDrmFormatModifierExt:
+					default: throw new ArgumentOutOfRangeException(nameof(tiling), tiling, null);
+				}
+			}
+
+			throw new Engine3VulkanException("Failed to find any supported formats");
+		}
+
+		[MustUseReturnValue]
+		public static VkDescriptorSet[] AllocateDescriptorSets(VkDevice logicalDevice, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, byte maxFramesInFlight) {
+			VkDescriptorSetLayout[] layouts = new VkDescriptorSetLayout[maxFramesInFlight];
+			for (int i = 0; i < layouts.Length; i++) { layouts[i] = descriptorSetLayout; }
+
+			VkDescriptorSet[] descriptorSets = new VkDescriptorSet[maxFramesInFlight];
+			fixed (VkDescriptorSetLayout* layoutsPtr = layouts) {
+				fixed (VkDescriptorSet* descriptorSetsPtr = descriptorSets) {
+					VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = new() { descriptorPool = descriptorPool, descriptorSetCount = (uint)descriptorSets.Length, pSetLayouts = layoutsPtr, };
+					VkH.CheckIfSuccess(Vk.AllocateDescriptorSets(logicalDevice, &descriptorSetAllocateInfo, descriptorSetsPtr), VulkanException.Reason.AllocateDescriptorSets);
+				}
+			}
+
+			return descriptorSets;
 		}
 	}
 }

@@ -24,5 +24,10 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			VkCopyBufferToImageInfo2 copyBufferToImageInfo2 = new() { srcBuffer = srcBuffer, dstImage = dstImage, dstImageLayout = VkImageLayout.ImageLayoutTransferDstOptimal, regionCount = 1, pRegions = &copyImageInfo2, };
 			Vk.CmdCopyBufferToImage2(CommandBuffer, &copyBufferToImageInfo2);
 		}
+
+		public void TransitionImageLayout(QueueFamilyIndices queueFamilyIndices, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
+			VkImageMemoryBarrier2 imageMemoryBarrier = VkH.CreateImageBarrier(queueFamilyIndices.GraphicsFamily, queueFamilyIndices.TransferFamily, image, format, oldLayout, newLayout);
+			CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier, });
+		}
 	}
 }

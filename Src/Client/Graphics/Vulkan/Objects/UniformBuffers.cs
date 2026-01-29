@@ -1,8 +1,7 @@
-using Engine3.Client.Graphics.Objects;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
-	public unsafe class UniformBuffers : IBufferObject {
+	public unsafe class UniformBuffers : IGraphicsResource {
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
 
@@ -10,9 +9,10 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		private readonly VkBufferObject[] uniformBuffers;
 		private readonly void*[] uniformBuffersMapped;
 
-		public UniformBuffers(string debugName, VkRenderer renderer, VkPhysicalDeviceMemoryProperties2 memoryProperties, VkDevice logicalDevice, ulong bufferSize) {
+		public UniformBuffers(string debugName, VkRenderer renderer, VkPhysicalDeviceMemoryProperties memoryProperties, VkDevice logicalDevice, ulong bufferSize) {
 			DebugName = debugName;
 			this.renderer = renderer;
+
 			uniformBuffers = new VkBufferObject[renderer.MaxFramesInFlight];
 			uniformBuffersMapped = new void*[renderer.MaxFramesInFlight];
 
@@ -42,7 +42,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		public VkBuffer GetBuffer(byte index) => uniformBuffers[index].Buffer;
 
 		public void Destroy() {
-			IGraphicsResource.WarnIfDestroyed(this);
+			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
 
 			foreach (VkBufferObject uniformBuffer in uniformBuffers) { uniformBuffer.Destroy(); }
 

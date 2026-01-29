@@ -10,7 +10,7 @@ namespace Engine3.GameObject {
 		public Vector2 Scale { get; set; }
 		public uint Rotation { get; set; }
 
-		public Matrix4x4 CreateMatrix() { // untested. i think this is right?
+		public Matrix4x4 CreateMatrix() {
 			Matrix4x4 matrix = Matrix4x4.Identity;
 			matrix *= Matrix4x4.CreateTranslation(Position);
 			matrix *= Matrix4x4.CreateRotationX(Rotation);

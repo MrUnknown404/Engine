@@ -1,8 +1,5 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using Engine3.Exceptions;
 using Engine3.Utility;
-using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 using StbiSharp;
 
@@ -18,27 +15,27 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		private readonly VkDevice logicalDevice;
 
-		public VkImageObject(string debugName, VkPhysicalDeviceMemoryProperties2 memoryProperties, VkDevice logicalDevice, VkCommandPool transferCommandPool, VkQueue transferQueue, QueueFamilyIndices queueFamilyIndices,
+		public VkImageObject(string debugName, VkPhysicalDeviceMemoryProperties memoryProperties, VkDevice logicalDevice, VkCommandPool transferCommandPool, VkQueue transferQueue, QueueFamilyIndices queueFamilyIndices,
 			string fileLocation, string fileExtension, byte texChannels, VkFormat imageFormat, Assembly assembly) {
 			DebugName = debugName;
 			ImageFormat = imageFormat;
 			this.logicalDevice = logicalDevice;
 
+			// TODO allow loading of data later
 			using (StbiImage stbiImage = AssetH.LoadImage(fileLocation, fileExtension, texChannels, assembly)) {
 				CreateTexture(memoryProperties, logicalDevice, transferCommandPool, transferQueue, queueFamilyIndices, stbiImage, texChannels, imageFormat, out VkImage image, out VkDeviceMemory imageMemory);
 				Image = image;
 				ImageMemory = imageMemory;
-				ImageView = VkH.CreateImageView(logicalDevice, Image, imageFormat);
+				ImageView = VkH.CreateImageView(logicalDevice, Image, imageFormat, VkImageAspectFlagBits.ImageAspectColorBit);
 			}
 		}
 
-		[MustUseReturnValue]
-		public static VkImageObject CreateFromRgbaPng(string debugName, VkPhysicalDeviceMemoryProperties2 memoryProperties, VkDevice logicalDevice, VkCommandPool transferCommandPool, VkQueue transferQueue,
+		public static VkImageObject CreateFromRgbaPng(string debugName, VkPhysicalDeviceMemoryProperties memoryProperties, VkDevice logicalDevice, VkCommandPool transferCommandPool, VkQueue transferQueue,
 			QueueFamilyIndices queueFamilyIndices, string fileLocation, Assembly assembly) =>
 				new(debugName, memoryProperties, logicalDevice, transferCommandPool, transferQueue, queueFamilyIndices, fileLocation, "png", 4, VkFormat.FormatR8g8b8a8Srgb, assembly);
 
 		public void Destroy() {
-			IGraphicsResource.WarnIfDestroyed(this);
+			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
 
 			Vk.DestroyImageView(logicalDevice, ImageView, null);
 			Vk.DestroyImage(logicalDevice, Image, null);
@@ -47,7 +44,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			WasDestroyed = true;
 		}
 
-		private static void CreateTexture(VkPhysicalDeviceMemoryProperties2 memoryProperties, VkDevice logicalDevice, VkCommandPool transferCommandPool, VkQueue transferQueue, QueueFamilyIndices queueFamilyIndices,
+		private static void CreateTexture(VkPhysicalDeviceMemoryProperties memoryProperties, VkDevice logicalDevice, VkCommandPool transferCommandPool, VkQueue transferQueue, QueueFamilyIndices queueFamilyIndices,
 			StbiImage stbiImage, byte texChannels, VkFormat imageFormat, out VkImage image, out VkDeviceMemory imageMemory) {
 			uint width = (uint)stbiImage.Width;
 			uint height = (uint)stbiImage.Height;
@@ -57,100 +54,23 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 			VkH.MapAndCopyMemory(logicalDevice, stagingBuffer.BufferMemory, stbiImage.Data, 0);
 
-			VkImageCreateInfo imageCreateInfo = new() {
-					imageType = VkImageType.ImageType2d,
-					format = imageFormat,
-					tiling = VkImageTiling.ImageTilingOptimal,
-					initialLayout = VkImageLayout.ImageLayoutUndefined,
-					usage = VkImageUsageFlagBits.ImageUsageTransferDstBit | VkImageUsageFlagBits.ImageUsageSampledBit,
-					sharingMode = VkSharingMode.SharingModeExclusive,
-					samples = VkSampleCountFlagBits.SampleCount1Bit,
-					flags = 0,
-					extent = new() { width = width, height = height, depth = 1, },
-					mipLevels = 1,
-					arrayLayers = 1,
-			};
-
-			VkImage tempImage;
-			VkH.CheckIfSuccess(Vk.CreateImage(logicalDevice, &imageCreateInfo, null, &tempImage), VulkanException.Reason.CreateImage);
-
-			image = tempImage;
+			image = VkH.CreateImage(logicalDevice, imageFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageSampledBit, width, height);
 			imageMemory = VkH.CreateDeviceMemory(memoryProperties, logicalDevice, image, VkMemoryPropertyFlagBits.MemoryPropertyDeviceLocalBit);
 			VkH.BindImageMemory(logicalDevice, image, imageMemory);
 
 			TransferCommandBufferObject transferCommandBuffer = new(logicalDevice, transferCommandPool, transferQueue);
 			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
 
-			VkImageMemoryBarrier2 imageMemoryBarrier = CreateBeginImageBarrier(queueFamilyIndices.GraphicsFamily, queueFamilyIndices.TransferFamily, image, VkImageLayout.ImageLayoutUndefined,
-				VkImageLayout.ImageLayoutTransferDstOptimal);
-
-			transferCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier, });
-
+			transferCommandBuffer.TransitionImageLayout(queueFamilyIndices, image, imageFormat, VkImageLayout.ImageLayoutUndefined, VkImageLayout.ImageLayoutTransferDstOptimal);
 			transferCommandBuffer.CmdCopyImage(stagingBuffer.Buffer, image, width, height);
-
-			imageMemoryBarrier = CreateEndImageBarrier(queueFamilyIndices.GraphicsFamily, queueFamilyIndices.TransferFamily, image, VkImageLayout.ImageLayoutTransferDstOptimal);
-			transferCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier, });
+			transferCommandBuffer.TransitionImageLayout(queueFamilyIndices, image, imageFormat, VkImageLayout.ImageLayoutTransferDstOptimal, VkImageLayout.ImageLayoutShaderReadOnlyOptimal);
 
 			transferCommandBuffer.EndCommandBuffer();
 			transferCommandBuffer.SubmitQueue();
+			Vk.QueueWaitIdle(transferQueue);
 
 			transferCommandBuffer.Destroy();
 			stagingBuffer.Destroy();
-
-			return;
-
-			[SuppressMessage("ReSharper", "SwitchStatementHandlesSomeKnownEnumValuesWithDefault")]
-			[MustUseReturnValue]
-			static VkImageMemoryBarrier2 CreateBeginImageBarrier(uint graphicsFamily, uint transferFamily, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout) {
-				VkAccessFlagBits2 srcAccessMask;
-				VkAccessFlagBits2 dstAccessMask;
-				VkPipelineStageFlagBits2 srcStageMask;
-				VkPipelineStageFlagBits2 dstStageMask;
-
-				switch (oldLayout) {
-					case VkImageLayout.ImageLayoutUndefined when newLayout == VkImageLayout.ImageLayoutTransferDstOptimal:
-						srcAccessMask = 0;
-						dstAccessMask = VkAccessFlagBits2.Access2TransferWriteBit;
-						srcStageMask = VkPipelineStageFlagBits2.PipelineStage2TopOfPipeBit;
-						dstStageMask = VkPipelineStageFlagBits2.PipelineStage2TransferBit;
-						break;
-					case VkImageLayout.ImageLayoutTransferDstOptimal when newLayout == VkImageLayout.ImageLayoutShaderReadOnlyOptimal:
-						srcAccessMask = VkAccessFlagBits2.Access2TransferWriteBit;
-						dstAccessMask = VkAccessFlagBits2.Access2ShaderReadBit;
-						srcStageMask = VkPipelineStageFlagBits2.PipelineStage2TransferBit;
-						dstStageMask = VkPipelineStageFlagBits2.PipelineStage2FragmentShaderBit;
-						break;
-					default: throw new NotImplementedException();
-				}
-
-				return new() {
-						oldLayout = oldLayout,
-						newLayout = newLayout,
-						srcQueueFamilyIndex = transferFamily, //Vk.QueueFamilyIgnored,
-						dstQueueFamilyIndex = graphicsFamily,
-						image = image,
-						subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
-						srcAccessMask = srcAccessMask,
-						dstAccessMask = dstAccessMask,
-						srcStageMask = srcStageMask,
-						dstStageMask = dstStageMask,
-				};
-			}
-
-			[MustUseReturnValue]
-			static VkImageMemoryBarrier2 CreateEndImageBarrier(uint graphicsFamily, uint transferFamily, VkImage image, VkImageLayout newLayout) =>
-					new() {
-							oldLayout = newLayout,
-							newLayout = VkImageLayout.ImageLayoutShaderReadOnlyOptimal,
-							srcQueueFamilyIndex = transferFamily, //Vk.QueueFamilyIgnored,
-							dstQueueFamilyIndex = graphicsFamily,
-							image = image,
-							subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
-							srcAccessMask = VkAccessFlagBits2.Access2TransferWriteBit,
-							dstAccessMask = VkAccessFlagBits2.Access2ShaderReadBit,
-							srcStageMask = VkPipelineStageFlagBits2.PipelineStage2TransferBit,
-							dstStageMask = VkPipelineStageFlagBits2.PipelineStage2FragmentShaderBit,
-					};
 		}
 	}
 }

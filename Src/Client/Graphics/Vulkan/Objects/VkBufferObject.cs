@@ -3,7 +3,7 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
 	[PublicAPI]
-	public unsafe class VkBufferObject : IVkBufferObject {
+	public unsafe class VkBufferObject : IBufferObject {
 		public VkBuffer Buffer { get; }
 		public VkDeviceMemory BufferMemory { get; }
 		public ulong BufferSize { get; }
@@ -11,10 +11,10 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
 
-		private readonly VkPhysicalDeviceMemoryProperties2 memoryProperties;
+		private readonly VkPhysicalDeviceMemoryProperties memoryProperties;
 		private readonly VkDevice logicalDevice;
 
-		public VkBufferObject(string debugName, ulong bufferSize, VkPhysicalDeviceMemoryProperties2 memoryProperties, VkDevice logicalDevice, VkBufferUsageFlagBits bufferUsageFlags, VkMemoryPropertyFlagBits memoryPropertyFlags) {
+		public VkBufferObject(string debugName, ulong bufferSize, VkPhysicalDeviceMemoryProperties memoryProperties, VkDevice logicalDevice, VkBufferUsageFlagBits bufferUsageFlags, VkMemoryPropertyFlagBits memoryPropertyFlags) {
 			DebugName = debugName;
 			this.memoryProperties = memoryProperties;
 			this.logicalDevice = logicalDevice;
@@ -42,7 +42,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			WasDestroyed = true;
 		}
 
-		public static void CopyUsingStaging<T>(VkPhysicalDeviceMemoryProperties2 memoryProperties, VkDevice logicalDevice, VkCommandPool transferPool, VkQueue transferQueue, VkBuffer dstBuffer, ReadOnlySpan<T> data,
+		public static void CopyUsingStaging<T>(VkPhysicalDeviceMemoryProperties memoryProperties, VkDevice logicalDevice, VkCommandPool transferPool, VkQueue transferQueue, VkBuffer dstBuffer, ReadOnlySpan<T> data,
 			ulong offset = 0) where T : unmanaged {
 			ulong bufferSize = (ulong)(sizeof(T) * data.Length);
 

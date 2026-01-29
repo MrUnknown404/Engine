@@ -10,6 +10,7 @@ using OpenTK.Platform;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using Silk.NET.Core.Loader;
 using Silk.NET.Shaderc;
+using StbiSharp;
 using Window = Engine3.Client.Window;
 
 #if DEBUG
@@ -28,8 +29,8 @@ namespace Engine3 {
 		public EngineGraphicsBackend GraphicsBackend { get; }
 		public Shaderc Shaderc { get; } = new(Shaderc.CreateDefaultContext(new ShadercSearchPathContainer().GetLibraryNames()));
 
-		public List<Window> Windows { get; } = new();
-		protected List<IRenderer> RenderingPipelines { get; } = new();
+		protected List<Window> Windows { get; } = new();
+		protected List<Renderer> Renderers { get; } = new();
 
 		public ulong UpdateCount { get; private set; }
 		public uint UpdatesPerSecond { get; private set; }
@@ -38,7 +39,7 @@ namespace Engine3 {
 		public bool WasGraphicsSetup { get; private set; }
 
 		private readonly Queue<Window> windowCloseQueue = new();
-		private readonly Queue<IRenderer> renderingPipelineCloseQueue = new();
+		private readonly Queue<Renderer> renderersCloseQueue = new();
 
 		private bool wasSetup;
 		private bool shouldRunGameLoop = true;
@@ -90,27 +91,7 @@ namespace Engine3 {
 
 			SetupEngine();
 
-#if DEBUG
-			Logger.Debug("Writing dumps to file outputs...");
-			StructLayoutDumper.WriteDumpsToOutput();
-#endif
-
-			if (GraphicsBackend.GraphicsBackend != Client.Graphics.GraphicsBackend.Console) {
-				Logger.Info("Setting up Toolkit...");
-				SetupToolkit(new() {
-						Logger = new TkLogger(),
-						FeatureFlags = GraphicsBackend.GraphicsBackend switch {
-								Client.Graphics.GraphicsBackend.OpenGL => ToolkitFlags.EnableOpenGL,
-								Client.Graphics.GraphicsBackend.Vulkan => ToolkitFlags.EnableVulkan,
-								Client.Graphics.GraphicsBackend.Console => throw new UnreachableException(),
-								_ => throw new ArgumentOutOfRangeException(),
-						},
-				});
-
-				OnSetupToolkitEvent?.Invoke();
-
-				SetupGraphicsBackend();
-			}
+			if (GraphicsBackend.GraphicsBackend != Client.Graphics.GraphicsBackend.Console) { SetupGraphics(); }
 
 			wasSetup = true;
 
@@ -129,13 +110,33 @@ namespace Engine3 {
 		protected abstract void Update();
 		protected abstract void Cleanup();
 
-		private void SetupGraphicsBackend() {
+		private void SetupGraphics() {
+			Logger.Info("Setting up Toolkit...");
+			SetupToolkit(new() {
+					Logger = new TkLogger(),
+					FeatureFlags = GraphicsBackend.GraphicsBackend switch {
+							Client.Graphics.GraphicsBackend.OpenGL => ToolkitFlags.EnableOpenGL,
+							Client.Graphics.GraphicsBackend.Vulkan => ToolkitFlags.EnableVulkan,
+							Client.Graphics.GraphicsBackend.Console => throw new UnreachableException(),
+							_ => throw new ArgumentOutOfRangeException(),
+					},
+			});
+
+			OnSetupToolkitEvent?.Invoke();
+
 			Logger.Debug($"Setting up {Enum.GetName(GraphicsBackend.GraphicsBackend)}...");
 			GraphicsBackend.Setup(this);
 			WasGraphicsSetup = true;
 		}
 
-		private void SetupEngine() { }
+		private void SetupEngine() {
+#if DEBUG
+			Logger.Debug("Writing dumps to file outputs...");
+			StructLayoutDumper.WriteDumpsToOutput();
+#endif
+
+			Stbi.SetFlipVerticallyOnLoad(true); // TODO move
+		}
 
 		private void EngineUpdate() { }
 
@@ -154,52 +155,46 @@ namespace Engine3 {
 
 				float delta = 0; // TODO impl
 
-				EnqueueToCloseWindows();
-				DestroyEnqueuedWindows();
+				TryCloseWindows();
 
-				EnqueueInvalidRenderingPipelines();
-				DestroyEnqueuedRenderingPipelines();
+				TryDestroyRenderers();
 
-				foreach (IRenderer pipeline in RenderingPipelines.Where(static pipeline => pipeline.CanRender)) { pipeline.Render(delta); }
+				foreach (Renderer pipeline in Renderers.Where(static pipeline => pipeline.CanRender)) { pipeline.Render(delta); }
 			}
 
 			return;
 
-			void EnqueueToCloseWindows() {
-				foreach (Window window in Windows.Where(static window => window.ShouldClose)) {
+			void TryCloseWindows() {
+				foreach (Window window2 in Windows.Where(static window => window.ShouldClose)) {
 					Logger.Debug("Found window to destroy...");
-					windowCloseQueue.Enqueue(window);
+					windowCloseQueue.Enqueue(window2);
 				}
-			}
 
-			void DestroyEnqueuedWindows() {
 				while (windowCloseQueue.TryDequeue(out Window? window)) {
 					if (Windows.Remove(window)) {
-						Window result = window;
-						foreach (IRenderer pipeline in RenderingPipelines.Where(pipeline => pipeline.IsSameWindow(result))) { DestroyRenderingPipeline(pipeline); }
+						Window tempWindow = window; // a
+						foreach (Renderer renderer in Renderers.Where(pipeline => pipeline.IsSameWindow(tempWindow))) { DestroyRenderingPipeline(renderer); }
 
-						Logger.Debug("Destroying window...");
+						Logger.Debug($"Destroying {nameof(Window)}...");
 						window.Destroy();
-					} else { Logger.Error("Could not find to be destroyed window in game client window list"); }
+					} else { Logger.Error($"Could not find to be destroyed {nameof(Window)} in {nameof(GameClient)}'s {nameof(Window)} list"); }
 				}
 			}
 
-			void EnqueueInvalidRenderingPipelines() {
-				foreach (IRenderer pipeline in RenderingPipelines.Where(static pipeline => pipeline.ShouldDestroy)) {
-					Logger.Debug("Found rendering pipeline to destroy...");
-					renderingPipelineCloseQueue.Enqueue(pipeline);
+			void TryDestroyRenderers() {
+				foreach (Renderer pipeline in Renderers.Where(static pipeline => pipeline.ShouldDestroy)) {
+					Logger.Debug($"Found {nameof(Renderer)} to destroy...");
+					renderersCloseQueue.Enqueue(pipeline);
 				}
+
+				while (renderersCloseQueue.TryDequeue(out Renderer? pipeline)) { DestroyRenderingPipeline(pipeline); }
 			}
 
-			void DestroyEnqueuedRenderingPipelines() {
-				while (renderingPipelineCloseQueue.TryDequeue(out IRenderer? pipeline)) { DestroyRenderingPipeline(pipeline); }
-			}
-
-			void DestroyRenderingPipeline(IRenderer pipeline) {
-				if (RenderingPipelines.Remove(pipeline)) {
-					Logger.Debug("Destroying rendering pipeline...");
-					pipeline.Destroy();
-				} else { Logger.Error("Could not find to be destroyed rendering pipeline in game client rendering pipeline list"); }
+			void DestroyRenderingPipeline(Renderer renderer) {
+				if (Renderers.Remove(renderer)) {
+					Logger.Debug($"Destroying {nameof(Renderer)}...");
+					renderer.ActuallyDestroy();
+				} else { Logger.Error($"Could not find to be destroyed {nameof(Renderer)} in {nameof(GameClient)}'s {nameof(Renderer)} list"); }
 			}
 		}
 
@@ -238,13 +233,16 @@ namespace Engine3 {
 		private void CleanupEverything() {
 			Logger.Debug("Cleaning up everything...");
 
+			Logger.Debug("Cleaning up engine...");
+			CleanupEngine();
+
 			Logger.Debug("Cleaning up instance...");
 			Cleanup();
 
-			Logger.Debug($"Cleaning up {RenderingPipelines.Count} rendering pipelines...");
-			foreach (IRenderer pipeline in RenderingPipelines) { pipeline.Destroy(); }
+			Logger.Debug($"Cleaning up {Renderers.Count} {nameof(Renderer)}s...");
+			foreach (Renderer pipeline in Renderers) { pipeline.ActuallyDestroy(); }
 
-			Logger.Debug($"Cleaning up {Windows.Count} windows...");
+			Logger.Debug($"Cleaning up {Windows.Count} {nameof(Window)}s...");
 			foreach (Window window in Windows) { window.Destroy(); }
 
 			Logger.Debug("Cleaning up graphics...");
@@ -253,6 +251,8 @@ namespace Engine3 {
 			Logger.Info("Goodbye!");
 			LogManager.Shutdown();
 		}
+
+		private void CleanupEngine() => Shaderc.Dispose();
 
 		public class StartupSettings {
 			public string MainThreadName { get; init; } = "Main";

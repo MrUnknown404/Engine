@@ -4,19 +4,27 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 	public unsafe class GraphicsCommandBufferObject : CommandBufferObject {
 		public GraphicsCommandBufferObject(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBuffer commandBuffer, VkQueue queue) : base(logicalDevice, commandPool, commandBuffer, queue) { }
 
-		public void CmdBeginRendering(VkExtent2D extent, VkImageView imageView, VkClearColorValue clearColor) {
-			VkRenderingAttachmentInfo renderingAttachmentInfo = new() {
-					imageView = imageView,
+		public void CmdBeginRendering(VkExtent2D extent, VkImageView swapChainImageView, VkImageView depthImageView, VkClearColorValue clearColorValue, VkClearDepthStencilValue depthStencilValue) {
+			VkRenderingAttachmentInfo colorAttachmentInfo = new() {
+					imageView = swapChainImageView,
 					imageLayout = VkImageLayout.ImageLayoutAttachmentOptimalKhr,
 					loadOp = VkAttachmentLoadOp.AttachmentLoadOpClear,
 					storeOp = VkAttachmentStoreOp.AttachmentStoreOpStore,
-					clearValue = new() {
-							color = clearColor,
-							// depthStencil =, TODO look into what this is/how it works/if i want this
-					},
+					clearValue = new() { color = clearColorValue, },
 			};
 
-			VkRenderingInfo renderingInfo = new() { renderArea = new() { offset = new(0, 0), extent = extent, }, layerCount = 1, colorAttachmentCount = 1, pColorAttachments = &renderingAttachmentInfo, };
+			VkRenderingAttachmentInfo depthAttachmentInfo = new() {
+					imageView = depthImageView,
+					imageLayout = VkImageLayout.ImageLayoutAttachmentOptimalKhr,
+					loadOp = VkAttachmentLoadOp.AttachmentLoadOpClear,
+					storeOp = VkAttachmentStoreOp.AttachmentStoreOpStore,
+					clearValue = new() { depthStencil = depthStencilValue, },
+			};
+
+			VkRenderingInfo renderingInfo = new() {
+					renderArea = new() { offset = new(0, 0), extent = extent, }, layerCount = 1, colorAttachmentCount = 1, pColorAttachments = &colorAttachmentInfo, pDepthAttachment = &depthAttachmentInfo,
+			};
+
 			Vk.CmdBeginRendering(CommandBuffer, &renderingInfo);
 		}
 
@@ -24,9 +32,16 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		public void CmdBindGraphicsPipeline(VkPipeline graphicsPipeline) => Vk.CmdBindPipeline(CommandBuffer, VkPipelineBindPoint.PipelineBindPointGraphics, graphicsPipeline);
 
-		public void CmdBindDescriptorSets(VkPipelineLayout pipelineLayout, VkDescriptorSet descriptorSet, VkShaderStageFlagBits shaderStageFlags) {
+		public void CmdBindDescriptorSet(VkPipelineLayout pipelineLayout, VkDescriptorSet descriptorSet, VkShaderStageFlagBits shaderStageFlags) {
 			VkBindDescriptorSetsInfo bindDescriptorSetsInfo = new() { layout = pipelineLayout, descriptorSetCount = 1, pDescriptorSets = &descriptorSet, stageFlags = shaderStageFlags, };
 			Vk.CmdBindDescriptorSets2(CommandBuffer, &bindDescriptorSetsInfo);
+		}
+
+		public void CmdBindDescriptorSets(VkPipelineLayout pipelineLayout, VkDescriptorSet[] descriptorSets, VkShaderStageFlagBits shaderStageFlags) {
+			fixed (VkDescriptorSet* descriptorSetsPtr = descriptorSets) {
+				VkBindDescriptorSetsInfo bindDescriptorSetsInfo = new() { layout = pipelineLayout, descriptorSetCount = (uint)descriptorSets.Length, pDescriptorSets = descriptorSetsPtr, stageFlags = shaderStageFlags, };
+				Vk.CmdBindDescriptorSets2(CommandBuffer, &bindDescriptorSetsInfo);
+			}
 		}
 
 		public void CmdSetViewport(uint x, uint y, uint width, uint height, float minDepth, float maxDepth) => CmdSetViewport(new() { x = x, y = y, width = width, height = height, minDepth = minDepth, maxDepth = maxDepth, });
@@ -37,7 +52,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			Vk.CmdSetScissor(CommandBuffer, 0, 1, &scissor);
 		}
 
-		public void CmdBindVertexBuffer<T>(T buffer, uint firstBinding, ulong offset = 0) where T : IVkBufferObject => CmdBindVertexBuffer(buffer.Buffer, firstBinding, offset);
+		public void CmdBindVertexBuffer<T>(T buffer, uint firstBinding, ulong offset = 0) where T : VkBufferObject => CmdBindVertexBuffer(buffer.Buffer, firstBinding, offset);
 		public void CmdBindVertexBuffer(VkBuffer buffer, uint firstBinding, ulong offset = 0) => Vk.CmdBindVertexBuffers(CommandBuffer, firstBinding, 1, &buffer, &offset);
 
 		public void CmdBindVertexBuffers(VkBuffer[] buffers, uint firstBinding, ulong[] offsets) {
@@ -46,7 +61,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			}
 		}
 
-		public void CmdBindVertexBuffer2<T>(T buffer, uint firstBinding, ulong vertexStride, ulong offset = 0) where T : IVkBufferObject => CmdBindVertexBuffer2(buffer.Buffer, firstBinding, vertexStride, offset);
+		public void CmdBindVertexBuffer2<T>(T buffer, uint firstBinding, ulong vertexStride, ulong offset = 0) where T : VkBufferObject => CmdBindVertexBuffer2(buffer.Buffer, firstBinding, vertexStride, offset);
 		public void CmdBindVertexBuffer2(VkBuffer buffer, uint firstBinding, ulong vertexStride, ulong offset = 0) => Vk.CmdBindVertexBuffers2(CommandBuffer, firstBinding, 1, &buffer, &offset, null, &vertexStride);
 
 		public void CmdBindVertexBuffers2(VkBuffer[] buffers, uint firstBinding, ulong[] offsets, ulong[] sizes, ulong[] strides) {
@@ -59,7 +74,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			}
 		}
 
-		public void CmdBindIndexBuffer<T>(T buffer, ulong bufferSize, VkIndexType indexType = VkIndexType.IndexTypeUint32, ulong offset = 0) where T : IVkBufferObject =>
+		public void CmdBindIndexBuffer<T>(T buffer, ulong bufferSize, VkIndexType indexType = VkIndexType.IndexTypeUint32, ulong offset = 0) where T : VkBufferObject =>
 				CmdBindIndexBuffer(buffer.Buffer, bufferSize, indexType, offset);
 
 		public void CmdBindIndexBuffer(VkBuffer buffer, ulong bufferSize, VkIndexType indexType = VkIndexType.IndexTypeUint32, ulong offset = 0) => Vk.CmdBindIndexBuffer2(CommandBuffer, buffer, offset, bufferSize, indexType);

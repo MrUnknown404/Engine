@@ -54,7 +54,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			limitsStringBuilder.Append($"MaxSamplerAnisotropy: {limits.maxSamplerAnisotropy}");
 
 			StringBuilder featuresStringBuilder = new();
-			featuresStringBuilder.Append($"SamplerAnisotropy: {features.samplerAnisotropy}");
+			featuresStringBuilder.Append($"SamplerAnisotropy: {VkBoolToBool(features.samplerAnisotropy)}");
 
 			// TODO PhysicalDeviceMemoryProperties2
 			// TODO ExtensionProperties
@@ -76,6 +76,8 @@ namespace Engine3.Client.Graphics.Vulkan {
 				"]",
 			];
 			//@formatter:on
+
+			static bool VkBoolToBool(int vkBool) => vkBool == Vk.True;
 		}
 
 		public static bool operator ==(PhysicalGpu? left, PhysicalGpu? right) => Equals(left, right);

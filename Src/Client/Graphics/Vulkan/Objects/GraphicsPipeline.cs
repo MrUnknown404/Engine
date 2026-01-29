@@ -23,9 +23,9 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		private readonly VkDevice logicalDevice;
 		private readonly byte maxFramesInFlight;
 
-		public GraphicsPipeline(VkDevice logicalDevice, Settings settings) {
+		public GraphicsPipeline(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, Settings settings) {
 			DebugName = settings.DebugName;
-			Pipeline = CreateGraphicsPipeline(logicalDevice, settings, out VkPipelineLayout layout, out VkDescriptorPool? descriptorPool, out VkDescriptorSetLayout? descriptorSetLayout);
+			Pipeline = CreateGraphicsPipeline(physicalDevice, logicalDevice, settings, out VkPipelineLayout layout, out VkDescriptorPool? descriptorPool, out VkDescriptorSetLayout? descriptorSetLayout);
 			Layout = layout;
 			this.logicalDevice = logicalDevice;
 			maxFramesInFlight = settings.MaxFramesInFlight;
@@ -91,8 +91,27 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		}
 
 		[MustUseReturnValue]
-		private static VkPipeline CreateGraphicsPipeline(VkDevice logicalDevice, Settings settings, out VkPipelineLayout pipelineLayout, out VkDescriptorPool? descriptorPool, out VkDescriptorSetLayout? descriptorSetLayout) {
+		private static VkPipeline CreateGraphicsPipeline(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, Settings settings, out VkPipelineLayout pipelineLayout, out VkDescriptorPool? descriptorPool,
+			out VkDescriptorSetLayout? descriptorSetLayout) {
 			byte* entryPointName = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference("main"u8));
+
+			VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = new() { pushConstantRangeCount = 0, pPushConstantRanges = null, };
+			if (settings.DescriptorSets != null) {
+				descriptorPool = CreateDescriptorPool(logicalDevice, settings.MaxFramesInFlight, settings.DescriptorSets);
+				descriptorSetLayout = CreateDescriptorSetLayout(logicalDevice, settings.DescriptorSets);
+				VkDescriptorSetLayout tempDescriptorSetLayout = descriptorSetLayout.Value;
+
+				pipelineLayoutCreateInfo.setLayoutCount = 1;
+				pipelineLayoutCreateInfo.pSetLayouts = &tempDescriptorSetLayout; // shouldn't this pointer be invalid before vkCreatePipelineLayout is called? why isn't it?
+			} else {
+				descriptorPool = null;
+				descriptorSetLayout = null;
+			}
+
+			VkPipelineLayout tempPipelineLayout;
+			VkH.CheckIfSuccess(Vk.CreatePipelineLayout(logicalDevice, &pipelineLayoutCreateInfo, null, &tempPipelineLayout), VulkanException.Reason.CreatePipelineLayout);
+			pipelineLayout = tempPipelineLayout;
+
 			VkPipelineShaderStageCreateInfo[] shaderStageCreateInfos = new VkPipelineShaderStageCreateInfo[settings.Shaders.Length];
 			for (int i = 0; i < settings.Shaders.Length; i++) {
 				VkShaderObject shader = settings.Shaders[i];
@@ -114,7 +133,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			VkFormat swapChainImageFormat = settings.SwapChainImageFormat;
 			VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo = new() { topology = settings.Topology, };
 			VkPipelineViewportStateCreateInfo viewportStateCreateInfo = new() { viewportCount = 1, scissorCount = 1, };
-			VkPipelineRenderingCreateInfo renderingCreateInfo = new() { colorAttachmentCount = 1, pColorAttachmentFormats = &swapChainImageFormat, };
+			VkPipelineRenderingCreateInfo renderingCreateInfo = new() { colorAttachmentCount = 1, pColorAttachmentFormats = &swapChainImageFormat, depthAttachmentFormat = VkH.FindDepthFormat(physicalDevice), };
 
 			VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = new() {
 					depthClampEnable = (int)Vk.False,
@@ -155,22 +174,15 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			// colorBlendStateCreateInfo.blendConstants[2] = 0;
 			// colorBlendStateCreateInfo.blendConstants[3] = 0;
 
-			VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = new() { pushConstantRangeCount = 0, pPushConstantRanges = null, };
-			if (settings.DescriptorSets != null) {
-				descriptorPool = CreateDescriptorPool(logicalDevice, settings.DescriptorSets);
-				descriptorSetLayout = CreateDescriptorSetLayout(logicalDevice, settings.DescriptorSets);
-				VkDescriptorSetLayout tempDescriptorSetLayout = descriptorSetLayout.Value;
-
-				pipelineLayoutCreateInfo.setLayoutCount = 1;
-				pipelineLayoutCreateInfo.pSetLayouts = &tempDescriptorSetLayout; // shouldn't this pointer be invalid before vkCreatePipelineLayout is called? why isn't it?
-			} else {
-				descriptorPool = null;
-				descriptorSetLayout = null;
-			}
-
-			VkPipelineLayout tempPipelineLayout;
-			VkH.CheckIfSuccess(Vk.CreatePipelineLayout(logicalDevice, &pipelineLayoutCreateInfo, null, &tempPipelineLayout), VulkanException.Reason.CreatePipelineLayout);
-			pipelineLayout = tempPipelineLayout;
+			VkPipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo = new() {
+					depthTestEnable = (int)Vk.True,
+					depthWriteEnable = (int)Vk.True,
+					depthCompareOp = VkCompareOp.CompareOpLess,
+					depthBoundsTestEnable = (int)Vk.False,
+					minDepthBounds = 0,
+					maxDepthBounds = 1,
+					stencilTestEnable = (int)Vk.False,
+			};
 
 			fixed (VkPipelineShaderStageCreateInfo* shaderStageCreateInfosPtr = shaderStageCreateInfos) {
 				fixed (VkDynamicState* dynamicStatesPtr = settings.DynamicStates) {
@@ -194,7 +206,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 									pViewportState = &viewportStateCreateInfo,
 									pRasterizationState = &rasterizationStateCreateInfo,
 									pMultisampleState = &multisampleStateCreateInfo,
-									pDepthStencilState = null,
+									pDepthStencilState = &depthStencilStateCreateInfo,
 									pColorBlendState = &colorBlendStateCreateInfo,
 									pDynamicState = &dynamicStateCreateInfo,
 									layout = pipelineLayout,
@@ -211,12 +223,12 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			}
 
 			[MustUseReturnValue]
-			static VkDescriptorPool CreateDescriptorPool(VkDevice logicalDevice, DescriptorSet[] descriptorSets) {
+			static VkDescriptorPool CreateDescriptorPool(VkDevice logicalDevice, byte maxFramesInFlight, DescriptorSet[] descriptorSets) {
 				VkDescriptorPoolSize[] poolSizes = new VkDescriptorPoolSize[descriptorSets.Length];
-				for (int i = 0; i < poolSizes.Length; i++) { poolSizes[i] = new() { type = descriptorSets[i].DescriptorType, descriptorCount = (uint)descriptorSets.Length, }; }
+				for (int i = 0; i < poolSizes.Length; i++) { poolSizes[i] = new() { type = descriptorSets[i].DescriptorType, descriptorCount = maxFramesInFlight, }; }
 
 				fixed (VkDescriptorPoolSize* poolSizesPtr = poolSizes) {
-					VkDescriptorPoolCreateInfo poolCreateInfo = new() { poolSizeCount = (uint)poolSizes.Length, pPoolSizes = poolSizesPtr, maxSets = (uint)descriptorSets.Length, };
+					VkDescriptorPoolCreateInfo poolCreateInfo = new() { poolSizeCount = (uint)poolSizes.Length, pPoolSizes = poolSizesPtr, maxSets = maxFramesInFlight, };
 					VkDescriptorPool descriptorPool;
 					VkH.CheckIfSuccess(Vk.CreateDescriptorPool(logicalDevice, &poolCreateInfo, null, &descriptorPool), VulkanException.Reason.CreateDescriptorPool);
 					return descriptorPool;
