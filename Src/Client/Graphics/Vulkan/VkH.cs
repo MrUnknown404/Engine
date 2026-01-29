@@ -334,12 +334,26 @@ namespace Engine3.Client.Graphics.Vulkan {
 			VkDescriptorSet[] descriptorSets = new VkDescriptorSet[maxFramesInFlight];
 			fixed (VkDescriptorSetLayout* layoutsPtr = layouts) {
 				fixed (VkDescriptorSet* descriptorSetsPtr = descriptorSets) {
-					VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = new() { descriptorPool = descriptorPool, descriptorSetCount = (uint)descriptorSets.Length, pSetLayouts = layoutsPtr, };
-					VkH.CheckIfSuccess(Vk.AllocateDescriptorSets(logicalDevice, &descriptorSetAllocateInfo, descriptorSetsPtr), VulkanException.Reason.AllocateDescriptorSets);
+					VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = new() { descriptorPool = descriptorPool, descriptorSetCount = maxFramesInFlight, pSetLayouts = layoutsPtr, };
+					CheckIfSuccess(Vk.AllocateDescriptorSets(logicalDevice, &descriptorSetAllocateInfo, descriptorSetsPtr), VulkanException.Reason.AllocateDescriptorSets);
 				}
 			}
 
 			return descriptorSets;
+		}
+
+		[MustUseReturnValue]
+		public static VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice logicalDevice, DescriptorSetInfo[] descriptorSets) {
+			VkDescriptorSetLayoutBinding[] bindings = descriptorSets.Select(static info => new VkDescriptorSetLayoutBinding {
+					binding = info.BindingLocation, descriptorType = info.DescriptorType, stageFlags = info.StageFlags, descriptorCount = 1,
+			}).ToArray();
+
+			fixed (VkDescriptorSetLayoutBinding* bindingsPtr = bindings) {
+				VkDescriptorSetLayoutCreateInfo layoutCreateInfo = new() { bindingCount = (uint)bindings.Length, pBindings = bindingsPtr, };
+				VkDescriptorSetLayout descriptorSetLayout;
+				CheckIfSuccess(Vk.CreateDescriptorSetLayout(logicalDevice, &layoutCreateInfo, null, &descriptorSetLayout), VulkanException.Reason.CreateDescriptorSetLayout);
+				return descriptorSetLayout;
+			}
 		}
 	}
 }

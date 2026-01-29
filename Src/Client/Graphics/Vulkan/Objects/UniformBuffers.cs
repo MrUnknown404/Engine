@@ -5,12 +5,15 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
 
+		public ulong BufferSize { get; }
+
 		private readonly VkRenderer renderer;
 		private readonly VkBufferObject[] uniformBuffers;
 		private readonly void*[] uniformBuffersMapped;
 
 		public UniformBuffers(string debugName, VkRenderer renderer, VkPhysicalDeviceMemoryProperties memoryProperties, VkDevice logicalDevice, ulong bufferSize) {
 			DebugName = debugName;
+			BufferSize = bufferSize;
 			this.renderer = renderer;
 
 			uniformBuffers = new VkBufferObject[renderer.MaxFramesInFlight];
