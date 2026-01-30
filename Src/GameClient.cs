@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Engine3.Client.Graphics;
+using Engine3.Client.Graphics.OpenGL;
 using Engine3.Exceptions;
 using Engine3.Utility;
 using Engine3.Utility.Versions;
