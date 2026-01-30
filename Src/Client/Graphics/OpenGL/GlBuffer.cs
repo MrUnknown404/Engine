@@ -2,16 +2,16 @@ using JetBrains.Annotations;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 
-namespace Engine3.Client.Graphics.OpenGL.Objects {
+namespace Engine3.Client.Graphics.OpenGL {
 	[PublicAPI]
-	public unsafe class GlBufferObject : IBufferObject {
+	public unsafe class GlBuffer : IBufferObject {
 		public BufferHandle Handle { get; }
 		public ulong BufferSize { get; } // Closest to GLsizeiptr is nint? - https://wikis.khronos.org/opengl/OpenGL_Type
 
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
 
-		public GlBufferObject(string debugName, ulong bufferSize, BufferStorageMask bufferStorageMask) {
+		public GlBuffer(string debugName, ulong bufferSize, BufferStorageMask bufferStorageMask) {
 			DebugName = debugName;
 			BufferSize = bufferSize;
 			Handle = new(GL.CreateBuffer());

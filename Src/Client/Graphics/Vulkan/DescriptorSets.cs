@@ -1,6 +1,6 @@
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Client.Graphics.Vulkan.Objects {
+namespace Engine3.Client.Graphics.Vulkan {
 	public unsafe class DescriptorSets {
 		private readonly VkDescriptorSet[] descriptorSets;
 		private readonly byte maxFramesInFlight;

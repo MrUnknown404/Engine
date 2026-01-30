@@ -1,6 +1,4 @@
-using OpenTK.Graphics.Vulkan;
-
-namespace Engine3.Client.Graphics.Vulkan.Objects {
+namespace Engine3.Client.Graphics.Vulkan {
 	public unsafe class UniformBuffers : IGraphicsResource {
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
@@ -8,10 +6,10 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		public ulong BufferSize { get; }
 
 		private readonly VkRenderer renderer;
-		private readonly VkBufferObject[] buffers;
+		private readonly VkBuffer[] buffers;
 		private readonly void*[] buffersMapped;
 
-		internal UniformBuffers(string debugName, ulong bufferSize, VkRenderer renderer, VkBufferObject[] buffers, void*[] buffersMapped) {
+		internal UniformBuffers(string debugName, ulong bufferSize, VkRenderer renderer, VkBuffer[] buffers, void*[] buffersMapped) {
 			DebugName = debugName;
 			BufferSize = bufferSize;
 			this.renderer = renderer;
@@ -33,12 +31,12 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 #endif
 		}
 
-		public VkBuffer GetBuffer(byte index) => buffers[index].Buffer;
+		public OpenTK.Graphics.Vulkan.VkBuffer GetBuffer(byte index) => buffers[index].Buffer;
 
 		public void Destroy() {
 			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
 
-			foreach (VkBufferObject uniformBuffer in buffers) { uniformBuffer.Destroy(); }
+			foreach (VkBuffer uniformBuffer in buffers) { uniformBuffer.Destroy(); }
 
 			WasDestroyed = true;
 		}

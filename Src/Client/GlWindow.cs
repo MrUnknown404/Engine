@@ -1,5 +1,5 @@
 using System.Runtime.InteropServices;
-using Engine3.Client.Graphics;
+using Engine3.Client.Graphics.OpenGL;
 using NLog;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;

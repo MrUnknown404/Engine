@@ -7,9 +7,9 @@ using NLog;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 
-namespace Engine3.Client.Graphics.OpenGL.Objects {
+namespace Engine3.Client.Graphics.OpenGL {
 	[PublicAPI]
-	public class GlShaderObject : IGraphicsResource {
+	public class GlShader : IGraphicsResource {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public ShaderHandle Handle { get; }
@@ -20,7 +20,7 @@ namespace Engine3.Client.Graphics.OpenGL.Objects {
 
 		private readonly Dictionary<string, int> uniformLocations = new();
 
-		public GlShaderObject(string debugName, string fileLocation, ShaderType shaderType, Assembly assembly) {
+		public GlShader(string debugName, string fileLocation, ShaderType shaderType, Assembly assembly) {
 			DebugName = debugName;
 			ShaderType = shaderType;
 

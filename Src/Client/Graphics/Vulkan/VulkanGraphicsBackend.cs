@@ -1,7 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
-using Engine3.Client.Graphics.Vulkan;
 using Engine3.Exceptions;
 using Engine3.Utility.Versions;
 using JetBrains.Annotations;
@@ -11,7 +10,7 @@ using OpenTK.Graphics;
 using OpenTK.Graphics.Vulkan;
 using OpenTK.Platform;
 
-namespace Engine3.Client.Graphics {
+namespace Engine3.Client.Graphics.Vulkan {
 	public unsafe class VulkanGraphicsBackend : EngineGraphicsBackend {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 

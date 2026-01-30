@@ -1,11 +1,11 @@
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Client.Graphics.Vulkan.Objects {
+namespace Engine3.Client.Graphics.Vulkan {
 	public class DepthImage : IGraphicsResource {
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
 
-		public VkImageObject Image { get; private set; }
+		public VkImage Image { get; private set; }
 
 		private readonly PhysicalGpu physicalGpu;
 		private readonly LogicalGpu logicalGpu;
@@ -31,7 +31,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			Image = logicalGpu.CreateImage(Image.DebugName, extent.width, extent.height, depthFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageDepthStencilAttachmentBit,
 				VkImageAspectFlagBits.ImageAspectDepthBit);
 
-			TransferCommandBufferObject transferCommandBuffer = logicalGpu.CreateTransferCommandBuffer(transferCommandPool, transferQueue);
+			TransferCommandBuffer transferCommandBuffer = logicalGpu.CreateTransferCommandBuffer(transferCommandPool, transferQueue);
 			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
 
 			transferCommandBuffer.TransitionImageLayout(physicalGpu.QueueFamilyIndices, Image.Image, depthFormat, VkImageLayout.ImageLayoutUndefined, VkImageLayout.ImageLayoutDepthStencilAttachmentOptimal);

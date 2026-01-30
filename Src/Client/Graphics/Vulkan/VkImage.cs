@@ -1,9 +1,9 @@
 using OpenTK.Graphics.Vulkan;
 using StbiSharp;
 
-namespace Engine3.Client.Graphics.Vulkan.Objects {
-	public unsafe class VkImageObject : IGraphicsResource {
-		public VkImage Image { get; }
+namespace Engine3.Client.Graphics.Vulkan {
+	public unsafe class VkImage : IGraphicsResource {
+		public OpenTK.Graphics.Vulkan.VkImage Image { get; }
 		public VkDeviceMemory ImageMemory { get; }
 		public VkImageView ImageView { get; }
 		public VkFormat ImageFormat { get; }
@@ -14,7 +14,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		private readonly PhysicalGpu physicalGpu;
 		private readonly LogicalGpu logicalGpu;
 
-		internal VkImageObject(string debugName, PhysicalGpu physicalGpu, LogicalGpu logicalGpu, VkImage image, VkDeviceMemory imageMemory, VkImageView imageView, VkFormat imageFormat) {
+		internal VkImage(string debugName, PhysicalGpu physicalGpu, LogicalGpu logicalGpu, OpenTK.Graphics.Vulkan.VkImage image, VkDeviceMemory imageMemory, VkImageView imageView, VkFormat imageFormat) {
 			DebugName = debugName;
 			this.physicalGpu = physicalGpu;
 			this.logicalGpu = logicalGpu;
@@ -40,12 +40,12 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			uint width = (uint)stbiImage.Width;
 			uint height = (uint)stbiImage.Height;
 
-			VkBufferObject stagingBuffer = logicalGpu.CreateBuffer("Temporary Image Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
+			VkBuffer stagingBuffer = logicalGpu.CreateBuffer("Temporary Image Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
 				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, width * height * texChannels);
 
 			stagingBuffer.Copy(stbiImage.Data);
 
-			TransferCommandBufferObject transferCommandBuffer = logicalGpu.CreateTransferCommandBuffer(transferCommandPool, transferQueue);
+			TransferCommandBuffer transferCommandBuffer = logicalGpu.CreateTransferCommandBuffer(transferCommandPool, transferQueue);
 			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
 
 			transferCommandBuffer.TransitionImageLayout(physicalGpu.QueueFamilyIndices, Image, ImageFormat, VkImageLayout.ImageLayoutUndefined, VkImageLayout.ImageLayoutTransferDstOptimal);

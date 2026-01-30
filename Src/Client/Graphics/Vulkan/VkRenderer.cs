@@ -1,4 +1,3 @@
-using Engine3.Client.Graphics.Vulkan.Objects;
 using Engine3.Exceptions;
 using Engine3.Utility;
 using Engine3.Utility.Extensions;
@@ -101,7 +100,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		/// </code>
 		/// </summary>
 		protected void BeginFrame(FrameData frameData, uint swapChainImageIndex) {
-			GraphicsCommandBufferObject graphicsCommandBuffer = frameData.GraphicsCommandBuffer;
+			GraphicsCommandBuffer graphicsCommandBuffer = frameData.GraphicsCommandBuffer;
 
 			graphicsCommandBuffer.ResetCommandBuffer();
 
@@ -113,7 +112,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			graphicsCommandBuffer.CmdBeginRendering(SwapChain.Extent, SwapChain.ImageViews[swapChainImageIndex], DepthImage.Image.ImageView, Window.ClearColor.ToVkClearColorValue(), new(1, 0));
 		}
 
-		protected abstract void RecordCommandBuffer(GraphicsCommandBufferObject graphicsCommandBuffer, float delta);
+		protected abstract void RecordCommandBuffer(GraphicsCommandBuffer graphicsCommandBuffer, float delta);
 		protected virtual void CopyUniformBuffer(float delta) { }
 
 		/// <summary>
@@ -126,7 +125,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		/// </code>
 		/// </summary>
 		protected void EndFrame(FrameData frameData, uint swapChainImageIndex) {
-			GraphicsCommandBufferObject graphicsCommandBuffer = frameData.GraphicsCommandBuffer;
+			GraphicsCommandBuffer graphicsCommandBuffer = frameData.GraphicsCommandBuffer;
 
 			graphicsCommandBuffer.CmdEndRendering();
 
@@ -153,7 +152,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			FrameIndex = (byte)((FrameIndex + 1) % MaxFramesInFlight);
 		}
 
-		protected static VkImageMemoryBarrier2 GetBeginPipelineBarrierImageMemoryBarrier(VkImage image) =>
+		protected static VkImageMemoryBarrier2 GetBeginPipelineBarrierImageMemoryBarrier(OpenTK.Graphics.Vulkan.VkImage image) =>
 				new() {
 						dstAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
 						dstStageMask = VkPipelineStageFlagBits2.PipelineStage2TopOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
@@ -163,7 +162,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 						subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 				};
 
-		protected static VkImageMemoryBarrier2 GetEndPipelineBarrierImageMemoryBarrier(VkImage image) =>
+		protected static VkImageMemoryBarrier2 GetEndPipelineBarrierImageMemoryBarrier(OpenTK.Graphics.Vulkan.VkImage image) =>
 				new() {
 						srcAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
 						srcStageMask = VkPipelineStageFlagBits2.PipelineStage2BottomOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
@@ -243,13 +242,13 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		protected class FrameData {
-			public GraphicsCommandBufferObject GraphicsCommandBuffer { get; }
+			public GraphicsCommandBuffer GraphicsCommandBuffer { get; }
 			public VkSemaphore ImageAvailableSemaphore { get; }
 			public VkFence InFlightFence { get; }
 
 			private readonly VkDevice logicalDevice;
 
-			public FrameData(VkDevice logicalDevice, GraphicsCommandBufferObject graphicsCommandBuffer, VkSemaphore imageAvailableSemaphore, VkFence inFlightFence) {
+			public FrameData(VkDevice logicalDevice, GraphicsCommandBuffer graphicsCommandBuffer, VkSemaphore imageAvailableSemaphore, VkFence inFlightFence) {
 				this.logicalDevice = logicalDevice;
 				GraphicsCommandBuffer = graphicsCommandBuffer;
 				ImageAvailableSemaphore = imageAvailableSemaphore;

@@ -6,14 +6,14 @@ using OpenTK.Graphics.Vulkan;
 using OpenTK.Mathematics;
 using OpenTK.Platform;
 
-namespace Engine3.Client.Graphics.Vulkan.Objects {
+namespace Engine3.Client.Graphics.Vulkan {
 	public unsafe class SwapChain : IGraphicsResource {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public VkSwapchainKHR VkSwapChain { get; private set; }
 		public VkFormat ImageFormat { get; private set; }
 		public VkExtent2D Extent { get; private set; }
-		public VkImage[] Images { get; private set; }
+		public OpenTK.Graphics.Vulkan.VkImage[] Images { get; private set; }
 		public VkImageView[] ImageViews { get; private set; }
 
 		public string DebugName => nameof(SwapChain);
@@ -194,19 +194,19 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		}
 
 		[MustUseReturnValue]
-		private static VkImage[] GetSwapChainImages(VkDevice logicalDevice, VkSwapchainKHR swapChain) {
+		private static OpenTK.Graphics.Vulkan.VkImage[] GetSwapChainImages(VkDevice logicalDevice, VkSwapchainKHR swapChain) {
 			uint swapChainImageCount;
 			Vk.GetSwapchainImagesKHR(logicalDevice, swapChain, &swapChainImageCount, null);
 
-			VkImage[] swapChainImages = new VkImage[swapChainImageCount];
-			fixed (VkImage* swapChainImagesPtr = swapChainImages) {
+			OpenTK.Graphics.Vulkan.VkImage[] swapChainImages = new OpenTK.Graphics.Vulkan.VkImage[swapChainImageCount];
+			fixed (OpenTK.Graphics.Vulkan.VkImage* swapChainImagesPtr = swapChainImages) {
 				VkH.CheckIfSuccess(Vk.GetSwapchainImagesKHR(logicalDevice, swapChain, &swapChainImageCount, swapChainImagesPtr), VulkanException.Reason.GetSwapChainImages);
 				return swapChainImages;
 			}
 		}
 
 		[MustUseReturnValue]
-		private static VkImageView[] CreateImageViews(VkDevice logicalDevice, VkImage[] images, VkFormat imageFormat, VkImageAspectFlagBits aspectMask) {
+		private static VkImageView[] CreateImageViews(VkDevice logicalDevice, OpenTK.Graphics.Vulkan.VkImage[] images, VkFormat imageFormat, VkImageAspectFlagBits aspectMask) {
 			VkImageView[] imageViews = new VkImageView[images.Length];
 
 			fixed (VkImageView* imageViewsPtr = imageViews) {

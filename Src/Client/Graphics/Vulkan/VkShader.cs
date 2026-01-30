@@ -9,9 +9,9 @@ using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 using Silk.NET.Shaderc;
 
-namespace Engine3.Client.Graphics.Vulkan.Objects {
+namespace Engine3.Client.Graphics.Vulkan {
 	[PublicAPI]
-	public unsafe class VkShaderObject : IGraphicsResource {
+	public unsafe class VkShader : IGraphicsResource {
 		public VkShaderModule ShaderModule { get; }
 		public ShaderType ShaderType { get; }
 
@@ -20,7 +20,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		private readonly VkDevice logicalDevice;
 
-		internal VkShaderObject(string debugName, VkDevice logicalDevice, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {
+		internal VkShader(string debugName, VkDevice logicalDevice, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {
 			DebugName = debugName;
 			ShaderModule = CreateShaderModule(logicalDevice, fileLocation, shaderLang, shaderType, assembly);
 			ShaderType = shaderType;

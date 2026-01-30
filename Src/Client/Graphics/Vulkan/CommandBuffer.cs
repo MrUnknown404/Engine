@@ -3,36 +3,36 @@ using Engine3.Utility;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Client.Graphics.Vulkan.Objects {
-	public abstract unsafe class CommandBufferObject : IDestroyable {
+namespace Engine3.Client.Graphics.Vulkan {
+	public abstract unsafe class CommandBuffer : IDestroyable {
 		public VkCommandPool CommandPool { get; }
-		public VkCommandBuffer CommandBuffer { get; }
+		public VkCommandBuffer VkCommandBuffer { get; }
 		public VkQueue Queue { get; }
 
 		public bool WasDestroyed { get; private set; }
 
 		private readonly VkDevice logicalDevice;
 
-		protected CommandBufferObject(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBuffer commandBuffer, VkQueue queue) {
+		protected CommandBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBuffer commandBuffer, VkQueue queue) {
 			this.logicalDevice = logicalDevice;
 			CommandPool = commandPool;
-			CommandBuffer = commandBuffer;
+			VkCommandBuffer = commandBuffer;
 			Queue = queue;
 		}
 
-		public void ResetCommandBuffer() => Vk.ResetCommandBuffer(CommandBuffer, 0);
+		public void ResetCommandBuffer() => Vk.ResetCommandBuffer(VkCommandBuffer, 0);
 
 		public VkResult BeginCommandBuffer(VkCommandBufferUsageFlagBits bufferUsageFlags = 0) {
 			VkCommandBufferBeginInfo commandBufferBeginInfo = new() { flags = bufferUsageFlags, };
-			return Vk.BeginCommandBuffer(CommandBuffer, &commandBufferBeginInfo);
+			return Vk.BeginCommandBuffer(VkCommandBuffer, &commandBufferBeginInfo);
 		}
 
-		public VkResult EndCommandBuffer() => Vk.EndCommandBuffer(CommandBuffer);
+		public VkResult EndCommandBuffer() => Vk.EndCommandBuffer(VkCommandBuffer);
 
-		public void CmdPipelineBarrier(VkDependencyInfo dependencyInfo) => Vk.CmdPipelineBarrier2(CommandBuffer, &dependencyInfo);
+		public void CmdPipelineBarrier(VkDependencyInfo dependencyInfo) => Vk.CmdPipelineBarrier2(VkCommandBuffer, &dependencyInfo);
 
 		public void SubmitQueue() {
-			VkCommandBuffer commandBuffer = CommandBuffer;
+			VkCommandBuffer commandBuffer = VkCommandBuffer;
 			SubmitQueue(new() { commandBufferCount = 1, pCommandBuffers = &commandBuffer, });
 		}
 
@@ -52,7 +52,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			if (IDestroyable.WarnIfDestroyed(this)) { return; }
 
 			Vk.QueueWaitIdle(Queue);
-			VkCommandBuffer commandBuffers = CommandBuffer;
+			VkCommandBuffer commandBuffers = VkCommandBuffer;
 			Vk.FreeCommandBuffers(logicalDevice, CommandPool, 1, &commandBuffers);
 
 			WasDestroyed = true;

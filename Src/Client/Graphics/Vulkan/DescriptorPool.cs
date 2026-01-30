@@ -3,7 +3,7 @@ using Engine3.Utility;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Client.Graphics.Vulkan.Objects {
+namespace Engine3.Client.Graphics.Vulkan {
 	public unsafe class DescriptorPool : IDestroyable {
 		private readonly VkDescriptorPool descriptorPool;
 		private readonly VkDevice logicalDevice;

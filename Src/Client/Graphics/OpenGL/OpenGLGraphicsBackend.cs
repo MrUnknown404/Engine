@@ -1,6 +1,6 @@
 using OpenTK.Platform;
 
-namespace Engine3.Client.Graphics {
+namespace Engine3.Client.Graphics.OpenGL {
 	public class OpenGLGraphicsBackend : EngineGraphicsBackend {
 		public uint[] DisabledCallbackIds { get; init; } = Array.Empty<uint>();
 		public int SwapInterval { get; init; }

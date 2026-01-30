@@ -2,14 +2,14 @@ using Engine3.Exceptions;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 
-namespace Engine3.Client.Graphics.OpenGL.Objects {
+namespace Engine3.Client.Graphics.OpenGL {
 	public class ProgramPipeline : IGraphicsResource {
 		public ProgramPipelineHandle Handle { get; }
 
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
 
-		public ProgramPipeline(string debugName, GlShaderObject? vert, GlShaderObject? frag, GlShaderObject? geom = null, GlShaderObject? tessEval = null, GlShaderObject? tessCtrl = null) {
+		public ProgramPipeline(string debugName, GlShader? vert, GlShader? frag, GlShader? geom = null, GlShader? tessEval = null, GlShader? tessCtrl = null) {
 			DebugName = debugName;
 			Handle = new(GL.CreateProgramPipeline());
 
@@ -21,7 +21,7 @@ namespace Engine3.Client.Graphics.OpenGL.Objects {
 
 			return;
 
-			void TryAddStage(GlShaderObject? shader) {
+			void TryAddStage(GlShader? shader) {
 				if (shader == null) { return; }
 				if (shader.Handle.Handle == 0) { throw new Engine3OpenGLException($"Program Pipeline: {debugName}:{Handle} has an invalid shader program ({shader.DebugName}). No handle"); }
 				GL.UseProgramStages((int)Handle, shader.ShaderType switch {
