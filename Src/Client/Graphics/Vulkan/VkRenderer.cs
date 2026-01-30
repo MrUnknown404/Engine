@@ -19,16 +19,16 @@ namespace Engine3.Client.Graphics.Vulkan {
 		protected VkSemaphore[] RenderFinishedSemaphores { get; }
 		protected DepthImage DepthImage { get; }
 
-		public byte CurrentFrame { get; private set; }
+		public byte FrameIndex { get; private set; }
 
 		protected PhysicalGpu PhysicalGpu => Window.SelectedGpu;
 		protected LogicalGpu LogicalGpu => Window.LogicalGpu;
 		protected VkPhysicalDevice PhysicalDevice => PhysicalGpu.PhysicalDevice;
 		protected VkDevice LogicalDevice => LogicalGpu.LogicalDevice;
-
+		protected VkPhysicalDeviceMemoryProperties PhysicalDeviceMemoryProperties => PhysicalGpu.PhysicalDeviceMemoryProperties2.memoryProperties;
 		public byte MaxFramesInFlight => GraphicsBackend.MaxFramesInFlight;
 
-		protected VkPhysicalDeviceMemoryProperties PhysicalDeviceMemoryProperties => PhysicalGpu.PhysicalDeviceMemoryProperties2.memoryProperties;
+		private readonly Queue<DescriptorPool> descriptorPools = new();
 
 		protected VkRenderer(VulkanGraphicsBackend graphicsBackend, VkWindow window) : base(graphicsBackend, window) {
 			SwapChain = new(window, window.SelectedGpu.PhysicalDevice, window.LogicalGpu.LogicalDevice, window.SelectedGpu.QueueFamilyIndices, window.Surface, graphicsBackend.PresentMode);
@@ -59,7 +59,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		/// Present the swap chain image
 		/// </summary>
 		protected internal override void Render(float delta) {
-			FrameData frameData = Frames[CurrentFrame];
+			FrameData frameData = Frames[FrameIndex];
 
 			if (AcquireNextImage(frameData, out uint swapChainImageIndex)) {
 				BeginFrame(frameData, swapChainImageIndex);
@@ -153,7 +153,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 				OnSwapchainInvalid();
 			} else { VkH.CheckIfSuccess(result, VulkanException.Reason.QueuePresent); }
 
-			CurrentFrame = (byte)((CurrentFrame + 1) % MaxFramesInFlight);
+			FrameIndex = (byte)((FrameIndex + 1) % MaxFramesInFlight);
 		}
 
 		protected static VkImageMemoryBarrier2 GetBeginPipelineBarrierImageMemoryBarrier(VkImage image) =>
@@ -176,12 +176,19 @@ namespace Engine3.Client.Graphics.Vulkan {
 						subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 				};
 
-		public override bool IsSameWindow(Window window) => Window == window;
+		[MustUseReturnValue]
+		protected DescriptorPool CreateDescriptorPool(VkDescriptorType[] descriptorSetTypes, uint count) {
+			DescriptorPool descriptorPool = new(LogicalDevice, count, descriptorSetTypes, MaxFramesInFlight);
+			descriptorPools.Enqueue(descriptorPool);
+			return descriptorPool;
+		}
 
 		protected virtual void OnSwapchainInvalid() {
 			SwapChain.Recreate();
 			DepthImage.Recreate(SwapChain.Extent);
 		}
+
+		public override bool IsSameWindow(Window window) => Window == window;
 
 		public override void Destroy() {
 			if (IDestroyable.WarnIfDestroyed(this)) { return; }
@@ -201,6 +208,8 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 			Vk.DeviceWaitIdle(LogicalDevice);
 			Cleanup();
+
+			while (descriptorPools.TryDequeue(out DescriptorPool? descriptorPool)) { descriptorPool.Destroy(); }
 
 			DepthImage.Destroy();
 

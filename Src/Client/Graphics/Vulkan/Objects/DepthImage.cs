@@ -1,7 +1,6 @@
-using Engine3.Client.Graphics.Vulkan.Objects;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Client.Graphics.Vulkan {
+namespace Engine3.Client.Graphics.Vulkan.Objects {
 	public unsafe class DepthImage : IGraphicsResource {
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
