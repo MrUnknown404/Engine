@@ -7,6 +7,7 @@ using Engine3.Exceptions;
 using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics.Vulkan;
+using OpenTK.Platform;
 
 namespace Engine3.Client {
 	public unsafe class VkWindow : Window {
@@ -21,7 +22,7 @@ namespace Engine3.Client {
 		public VkWindow(VulkanGraphicsBackend graphicsBackend, VkInstance vkInstance, string title, uint width, uint height) : base(graphicsBackend, title, width, height) {
 			this.vkInstance = vkInstance;
 
-			Surface = VkH.CreateSurface(vkInstance, WindowHandle);
+			Surface = CreateSurface(vkInstance, WindowHandle);
 			Logger.Debug("Created surface");
 
 			PhysicalGpu[] availableGpus = GetValidGpus(graphicsBackend.PhysicalDevices, Surface, graphicsBackend.IsPhysicalDeviceSuitable, graphicsBackend.GetAllRequiredDeviceExtensions());
@@ -32,7 +33,7 @@ namespace Engine3.Client {
 			SelectedGpu = PickBestGpu(availableGpus, graphicsBackend.RateGpuSuitability);
 			Logger.Debug($"- Selected Gpu: {SelectedGpu.Name}");
 
-			LogicalGpu = new(SelectedGpu, graphicsBackend.GetAllRequiredDeviceExtensions(), graphicsBackend.GetAllRequiredValidationLayers());
+			LogicalGpu = SelectedGpu.CreateLogicalDevice(graphicsBackend.GetAllRequiredDeviceExtensions(), graphicsBackend.GetAllRequiredValidationLayers());
 			Logger.Debug("Created logical gpu");
 		}
 
@@ -42,7 +43,13 @@ namespace Engine3.Client {
 		}
 
 		[MustUseReturnValue]
-		public static PhysicalGpu[] GetValidGpus(VkPhysicalDevice[] physicalDevices, VkSurfaceKHR surface, VulkanGraphicsBackend.IsPhysicalDeviceSuitableDelegate isPhysicalDeviceSuitable, string[] requiredDeviceExtensions) {
+		private static VkSurfaceKHR CreateSurface(VkInstance vkInstance, WindowHandle windowHandle) {
+			VkH.CheckIfSuccess(Toolkit.Vulkan.CreateWindowSurface(vkInstance, windowHandle, null, out VkSurfaceKHR surface), VulkanException.Reason.CreateSurface);
+			return surface;
+		}
+
+		[MustUseReturnValue]
+		private static PhysicalGpu[] GetValidGpus(VkPhysicalDevice[] physicalDevices, VkSurfaceKHR surface, VulkanGraphicsBackend.IsPhysicalDeviceSuitableDelegate isPhysicalDeviceSuitable, string[] requiredDeviceExtensions) {
 			List<PhysicalGpu> gpus = new();
 
 			foreach (VkPhysicalDevice physicalDevice in physicalDevices) {

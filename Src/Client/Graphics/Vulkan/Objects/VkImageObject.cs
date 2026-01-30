@@ -1,5 +1,3 @@
-using System.Reflection;
-using Engine3.Utility;
 using OpenTK.Graphics.Vulkan;
 using StbiSharp;
 
@@ -13,29 +11,23 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
 
-		private readonly VkDevice logicalDevice;
+		private readonly PhysicalGpu physicalGpu;
+		private readonly LogicalGpu logicalGpu;
 
-		public VkImageObject(string debugName, VkPhysicalDeviceMemoryProperties memoryProperties, VkDevice logicalDevice, VkCommandPool transferCommandPool, VkQueue transferQueue, QueueFamilyIndices queueFamilyIndices,
-			string fileLocation, string fileExtension, byte texChannels, VkFormat imageFormat, Assembly assembly) {
+		internal VkImageObject(string debugName, PhysicalGpu physicalGpu, LogicalGpu logicalGpu, VkImage image, VkDeviceMemory imageMemory, VkImageView imageView, VkFormat imageFormat) {
 			DebugName = debugName;
+			this.physicalGpu = physicalGpu;
+			this.logicalGpu = logicalGpu;
+			Image = image;
+			ImageMemory = imageMemory;
+			ImageView = imageView;
 			ImageFormat = imageFormat;
-			this.logicalDevice = logicalDevice;
-
-			// TODO allow loading of data later
-			using (StbiImage stbiImage = AssetH.LoadImage(fileLocation, fileExtension, texChannels, assembly)) {
-				CreateTexture(memoryProperties, logicalDevice, transferCommandPool, transferQueue, queueFamilyIndices, stbiImage, texChannels, imageFormat, out VkImage image, out VkDeviceMemory imageMemory);
-				Image = image;
-				ImageMemory = imageMemory;
-				ImageView = VkH.CreateImageView(logicalDevice, Image, imageFormat, VkImageAspectFlagBits.ImageAspectColorBit);
-			}
 		}
-
-		public static VkImageObject CreateFromRgbaPng(string debugName, VkPhysicalDeviceMemoryProperties memoryProperties, VkDevice logicalDevice, VkCommandPool transferCommandPool, VkQueue transferQueue,
-			QueueFamilyIndices queueFamilyIndices, string fileLocation, Assembly assembly) =>
-				new(debugName, memoryProperties, logicalDevice, transferCommandPool, transferQueue, queueFamilyIndices, fileLocation, "png", 4, VkFormat.FormatR8g8b8a8Srgb, assembly);
 
 		public void Destroy() {
 			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
+
+			VkDevice logicalDevice = logicalGpu.LogicalDevice;
 
 			Vk.DestroyImageView(logicalDevice, ImageView, null);
 			Vk.DestroyImage(logicalDevice, Image, null);
@@ -44,26 +36,21 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			WasDestroyed = true;
 		}
 
-		private static void CreateTexture(VkPhysicalDeviceMemoryProperties memoryProperties, VkDevice logicalDevice, VkCommandPool transferCommandPool, VkQueue transferQueue, QueueFamilyIndices queueFamilyIndices,
-			StbiImage stbiImage, byte texChannels, VkFormat imageFormat, out VkImage image, out VkDeviceMemory imageMemory) {
+		public void Copy(VkCommandPool transferCommandPool, VkQueue transferQueue, StbiImage stbiImage, byte texChannels) {
 			uint width = (uint)stbiImage.Width;
 			uint height = (uint)stbiImage.Height;
 
-			VkBufferObject stagingBuffer = new("Temporary Image Staging Buffer", width * height * texChannels, memoryProperties, logicalDevice, VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
-				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit);
+			VkBufferObject stagingBuffer = logicalGpu.CreateBuffer("Temporary Image Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
+				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, width * height * texChannels);
 
-			VkH.MapAndCopyMemory(logicalDevice, stagingBuffer.BufferMemory, stbiImage.Data, 0);
+			stagingBuffer.Copy(stbiImage.Data);
 
-			image = VkH.CreateImage(logicalDevice, imageFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageSampledBit, width, height);
-			imageMemory = VkH.CreateDeviceMemory(memoryProperties, logicalDevice, image, VkMemoryPropertyFlagBits.MemoryPropertyDeviceLocalBit);
-			VkH.BindImageMemory(logicalDevice, image, imageMemory);
-
-			TransferCommandBufferObject transferCommandBuffer = new(logicalDevice, transferCommandPool, transferQueue);
+			TransferCommandBufferObject transferCommandBuffer = logicalGpu.CreateTransferCommandBuffer(transferCommandPool, transferQueue);
 			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
 
-			transferCommandBuffer.TransitionImageLayout(queueFamilyIndices, image, imageFormat, VkImageLayout.ImageLayoutUndefined, VkImageLayout.ImageLayoutTransferDstOptimal);
-			transferCommandBuffer.CmdCopyImage(stagingBuffer.Buffer, image, width, height);
-			transferCommandBuffer.TransitionImageLayout(queueFamilyIndices, image, imageFormat, VkImageLayout.ImageLayoutTransferDstOptimal, VkImageLayout.ImageLayoutShaderReadOnlyOptimal);
+			transferCommandBuffer.TransitionImageLayout(physicalGpu.QueueFamilyIndices, Image, ImageFormat, VkImageLayout.ImageLayoutUndefined, VkImageLayout.ImageLayoutTransferDstOptimal);
+			transferCommandBuffer.CmdCopyImage(stagingBuffer.Buffer, Image, width, height);
+			transferCommandBuffer.TransitionImageLayout(physicalGpu.QueueFamilyIndices, Image, ImageFormat, VkImageLayout.ImageLayoutTransferDstOptimal, VkImageLayout.ImageLayoutShaderReadOnlyOptimal);
 
 			transferCommandBuffer.EndCommandBuffer();
 			transferCommandBuffer.SubmitQueue();

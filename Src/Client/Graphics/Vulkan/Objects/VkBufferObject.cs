@@ -12,55 +12,71 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		public bool WasDestroyed { get; private set; }
 
 		private readonly VkPhysicalDeviceMemoryProperties memoryProperties;
-		private readonly VkDevice logicalDevice;
+		private readonly LogicalGpu logicalGpu;
 
-		public VkBufferObject(string debugName, ulong bufferSize, VkPhysicalDeviceMemoryProperties memoryProperties, VkDevice logicalDevice, VkBufferUsageFlagBits bufferUsageFlags, VkMemoryPropertyFlagBits memoryPropertyFlags) {
+		internal VkBufferObject(string debugName, LogicalGpu logicalGpu, VkBuffer buffer, VkDeviceMemory bufferMemory, ulong bufferSize) {
 			DebugName = debugName;
-			this.memoryProperties = memoryProperties;
-			this.logicalDevice = logicalDevice;
+			this.logicalGpu = logicalGpu;
+			Buffer = buffer;
+			BufferMemory = bufferMemory;
 			BufferSize = bufferSize;
-
-			Buffer = VkH.CreateBuffer(logicalDevice, bufferUsageFlags, bufferSize);
-			BufferMemory = VkH.CreateDeviceMemory(memoryProperties, logicalDevice, Buffer, memoryPropertyFlags);
-			VkH.BindBufferMemory(logicalDevice, Buffer, BufferMemory);
 		}
 
-		[MustUseReturnValue] public void* MapMemory(ulong bufferSize, ulong offset = 0) => VkH.MapMemory(logicalDevice, BufferMemory, bufferSize, offset);
+		public static void CopyMemory(void* srcDataPtr, void* dstDataPtr, ulong dstSize, ulong sourceBytesToCopy) => System.Buffer.MemoryCopy(srcDataPtr, dstDataPtr, dstSize, sourceBytesToCopy);
+
+		public void UnmapMemory() {
+			VkMemoryUnmapInfo memoryUnmapInfo = new() { memory = BufferMemory, };
+			Vk.UnmapMemory2(logicalGpu.LogicalDevice, &memoryUnmapInfo);
+		}
+
+		[MustUseReturnValue]
+		public void* MapMemory(ulong bufferSize, ulong offset = 0) {
+			VkMemoryMapInfo memoryMapInfo = new() { memory = BufferMemory, size = bufferSize, offset = offset, };
+			void* dataPtr;
+			Vk.MapMemory2(logicalGpu.LogicalDevice, &memoryMapInfo, &dataPtr);
+			return dataPtr;
+		}
 
 		public void Copy<T>(ReadOnlySpan<T> data) where T : unmanaged => Copy(data, 0);
-		public void Copy<T>(ReadOnlySpan<T> data, ulong offset) where T : unmanaged => VkH.MapAndCopyMemory(logicalDevice, BufferMemory, data, offset);
 
-		public void CopyUsingStaging<T>(VkCommandPool transferPool, VkQueue transferQueue, ReadOnlySpan<T> data, ulong offset = 0) where T : unmanaged =>
-				CopyUsingStaging(memoryProperties, logicalDevice, transferPool, transferQueue, Buffer, data, offset);
-
-		public void Destroy() {
-			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
-
-			Vk.DestroyBuffer(logicalDevice, Buffer, null);
-			Vk.FreeMemory(logicalDevice, BufferMemory, null);
-
-			WasDestroyed = true;
+		public void Copy<T>(ReadOnlySpan<T> data, ulong offset) where T : unmanaged {
+			ulong bufferSize = (ulong)(sizeof(T) * data.Length);
+			fixed (T* inDataPtr = data) {
+				void* dataPtr = MapMemory(bufferSize, offset);
+				CopyMemory(inDataPtr, dataPtr, bufferSize, bufferSize);
+				UnmapMemory();
+			}
 		}
 
-		public static void CopyUsingStaging<T>(VkPhysicalDeviceMemoryProperties memoryProperties, VkDevice logicalDevice, VkCommandPool transferPool, VkQueue transferQueue, VkBuffer dstBuffer, ReadOnlySpan<T> data,
-			ulong offset = 0) where T : unmanaged {
+		public void CopyUsingStaging<T>(VkCommandPool transferCommandPool, VkQueue transferQueue, ReadOnlySpan<T> data, ulong offset = 0) where T : unmanaged {
 			ulong bufferSize = (ulong)(sizeof(T) * data.Length);
 
-			VkBufferObject stagingBuffer = new("Temporary Staging Buffer", bufferSize, memoryProperties, logicalDevice, VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
-				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit); // TODO should i make a persistent staging buffer?
+			VkBufferObject stagingBuffer = logicalGpu.CreateBuffer("Temporary Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
+				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, bufferSize); // TODO should i make a persistent staging buffer?
 
-			VkH.MapAndCopyMemory(logicalDevice, stagingBuffer.BufferMemory, data, offset);
+			stagingBuffer.Copy(data, offset);
 
-			TransferCommandBufferObject transferCommandBuffer = new(logicalDevice, transferPool, transferQueue);
+			TransferCommandBufferObject transferCommandBuffer = logicalGpu.CreateTransferCommandBuffer(transferCommandPool, transferQueue);
 
 			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
-			transferCommandBuffer.CmdCopyBuffer(stagingBuffer.Buffer, dstBuffer, bufferSize);
+			transferCommandBuffer.CmdCopyBuffer(stagingBuffer.Buffer, Buffer, bufferSize);
 			transferCommandBuffer.EndCommandBuffer();
 			transferCommandBuffer.SubmitQueue();
 
 			transferCommandBuffer.Destroy();
 
 			stagingBuffer.Destroy();
+		}
+
+		public void Destroy() {
+			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
+
+			VkDevice logicalDevice = logicalGpu.LogicalDevice;
+
+			Vk.DestroyBuffer(logicalDevice, Buffer, null);
+			Vk.FreeMemory(logicalDevice, BufferMemory, null);
+
+			WasDestroyed = true;
 		}
 	}
 }

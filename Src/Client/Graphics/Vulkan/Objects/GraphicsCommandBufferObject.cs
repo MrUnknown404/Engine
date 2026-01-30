@@ -92,7 +92,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			VkCommandBuffer commandBuffer = CommandBuffer;
 
 			fixed (VkPipelineStageFlagBits* waitStagesPtr = waitStages) {
-				VkH.SubmitQueue(Queue,
+				SubmitQueue(
 					new() {
 							waitSemaphoreCount = 1,
 							pWaitSemaphores = &waitSemaphore,

@@ -6,8 +6,8 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		private readonly byte maxFramesInFlight;
 		private readonly VkDevice logicalDevice;
 
-		internal DescriptorSets(VkDevice logicalDevice, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, byte maxFramesInFlight) {
-			descriptorSets = VkH.AllocateDescriptorSets(logicalDevice, descriptorPool, descriptorSetLayout, maxFramesInFlight);
+		internal DescriptorSets(VkDevice logicalDevice, VkDescriptorSet[] descriptorSets, byte maxFramesInFlight) {
+			this.descriptorSets = descriptorSets;
 			this.maxFramesInFlight = maxFramesInFlight;
 			this.logicalDevice = logicalDevice;
 		}

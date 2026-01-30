@@ -20,11 +20,11 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		private readonly VkDevice logicalDevice;
 
-		public VkShaderObject(string debugName, VkDevice logicalDevice, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {
+		internal VkShaderObject(string debugName, VkDevice logicalDevice, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {
 			DebugName = debugName;
-			this.logicalDevice = logicalDevice;
 			ShaderModule = CreateShaderModule(logicalDevice, fileLocation, shaderLang, shaderType, assembly);
 			ShaderType = shaderType;
+			this.logicalDevice = logicalDevice;
 		}
 
 		public void Destroy() {

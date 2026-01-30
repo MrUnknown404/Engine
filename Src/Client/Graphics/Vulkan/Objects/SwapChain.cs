@@ -32,7 +32,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			ImageFormat = swapChainImageFormat;
 			Extent = swapChainExtent;
 			Images = GetSwapChainImages(logicalDevice, vkSwapChain);
-			ImageViews = VkH.CreateImageViews(logicalDevice, Images, ImageFormat, VkImageAspectFlagBits.ImageAspectColorBit);
+			ImageViews = CreateImageViews(logicalDevice, Images, ImageFormat, VkImageAspectFlagBits.ImageAspectColorBit);
 			this.presentMode = presentMode;
 		}
 
@@ -53,7 +53,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			ImageFormat = swapChainImageFormat;
 			Extent = swapChainExtent;
 			Images = GetSwapChainImages(logicalDevice, vkSwapChain);
-			ImageViews = VkH.CreateImageViews(logicalDevice, Images, swapChainImageFormat, VkImageAspectFlagBits.ImageAspectColorBit);
+			ImageViews = CreateImageViews(logicalDevice, Images, swapChainImageFormat, VkImageAspectFlagBits.ImageAspectColorBit);
 
 			WasDestroyed = false;
 		}
@@ -203,6 +203,32 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 				VkH.CheckIfSuccess(Vk.GetSwapchainImagesKHR(logicalDevice, swapChain, &swapChainImageCount, swapChainImagesPtr), VulkanException.Reason.GetSwapChainImages);
 				return swapChainImages;
 			}
+		}
+
+		[MustUseReturnValue]
+		private static VkImageView[] CreateImageViews(VkDevice logicalDevice, VkImage[] images, VkFormat imageFormat, VkImageAspectFlagBits aspectMask) {
+			VkImageView[] imageViews = new VkImageView[images.Length];
+
+			fixed (VkImageView* imageViewsPtr = imageViews) {
+				for (int i = 0; i < images.Length; i++) {
+					VkImageViewCreateInfo createInfo = new() {
+							image = images[i],
+							viewType = VkImageViewType.ImageViewType2d,
+							format = imageFormat,
+							components = new() {
+									r = VkComponentSwizzle.ComponentSwizzleIdentity,
+									g = VkComponentSwizzle.ComponentSwizzleIdentity,
+									b = VkComponentSwizzle.ComponentSwizzleIdentity,
+									a = VkComponentSwizzle.ComponentSwizzleIdentity,
+							},
+							subresourceRange = new() { aspectMask = aspectMask, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+					};
+
+					VkH.CheckIfSuccess(Vk.CreateImageView(logicalDevice, &createInfo, null, &imageViewsPtr[i]), VulkanException.Reason.CreateImageViews, i);
+				}
+			}
+
+			return imageViews;
 		}
 	}
 }

@@ -15,16 +15,16 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		private readonly VkDevice logicalDevice;
 		private readonly VkDescriptorSetLayout[]? descriptorSetLayouts;
 
-		public GraphicsPipeline(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, Settings settings) {
+		internal GraphicsPipeline(PhysicalGpu physicalGpu, VkDevice logicalDevice, Settings settings) {
 			DebugName = settings.DebugName;
-			Pipeline = CreateGraphicsPipeline(physicalDevice, logicalDevice, settings, out VkPipelineLayout layout);
+			Pipeline = CreateGraphicsPipeline(physicalGpu, logicalDevice, settings, out VkPipelineLayout layout);
 			Layout = layout;
-			descriptorSetLayouts = settings.DescriptorSetLayouts;
 			this.logicalDevice = logicalDevice;
+			descriptorSetLayouts = settings.DescriptorSetLayouts;
 		}
 
 		[MustUseReturnValue]
-		private static VkPipeline CreateGraphicsPipeline(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, Settings settings, out VkPipelineLayout pipelineLayout) {
+		private static VkPipeline CreateGraphicsPipeline(PhysicalGpu physicalGpu, VkDevice logicalDevice, Settings settings, out VkPipelineLayout pipelineLayout) {
 			byte* entryPointName = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference("main"u8));
 
 			fixed (VkDescriptorSetLayout* descriptorSetLayoutsPtr = settings.DescriptorSetLayouts) {
@@ -60,7 +60,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			VkFormat swapChainImageFormat = settings.SwapChainImageFormat;
 			VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo = new() { topology = settings.Topology, };
 			VkPipelineViewportStateCreateInfo viewportStateCreateInfo = new() { viewportCount = 1, scissorCount = 1, };
-			VkPipelineRenderingCreateInfo renderingCreateInfo = new() { colorAttachmentCount = 1, pColorAttachmentFormats = &swapChainImageFormat, depthAttachmentFormat = VkH.FindDepthFormat(physicalDevice), };
+			VkPipelineRenderingCreateInfo renderingCreateInfo = new() { colorAttachmentCount = 1, pColorAttachmentFormats = &swapChainImageFormat, depthAttachmentFormat = physicalGpu.FindDepthFormat(), };
 
 			VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = new() {
 					depthClampEnable = (int)Vk.False,

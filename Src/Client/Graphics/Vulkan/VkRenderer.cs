@@ -23,9 +23,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		protected PhysicalGpu PhysicalGpu => Window.SelectedGpu;
 		protected LogicalGpu LogicalGpu => Window.LogicalGpu;
-		protected VkPhysicalDevice PhysicalDevice => PhysicalGpu.PhysicalDevice;
 		protected VkDevice LogicalDevice => LogicalGpu.LogicalDevice;
-		protected VkPhysicalDeviceMemoryProperties PhysicalDeviceMemoryProperties => PhysicalGpu.PhysicalDeviceMemoryProperties2.memoryProperties;
 		public byte MaxFramesInFlight => GraphicsBackend.MaxFramesInFlight;
 
 		private readonly Queue<DescriptorPool> descriptorPools = new();
@@ -47,8 +45,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 				Frames[i] = new(LogicalDevice, new(LogicalDevice, GraphicsCommandPool, graphicsCommandBuffers[i], window.LogicalGpu.GraphicsQueue), imageAvailableSemaphores[i], inFlightFences[i]);
 			}
 
-			DepthImage = new($"{nameof(VkRenderer)} Depth Image", PhysicalDevice, LogicalDevice, window.SelectedGpu.QueueFamilyIndices, PhysicalDeviceMemoryProperties, TransferCommandPool, window.LogicalGpu.TransferQueue,
-				SwapChain.Extent);
+			DepthImage = LogicalGpu.CreateDepthImage($"{nameof(VkRenderer)} Depth Image", TransferCommandPool, SwapChain.Extent);
 		}
 
 		/// <summary>
@@ -113,7 +110,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			VkImageMemoryBarrier2 imageMemoryBarrier2 = GetBeginPipelineBarrierImageMemoryBarrier(SwapChain.Images[swapChainImageIndex]);
 			graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier2, });
 
-			graphicsCommandBuffer.CmdBeginRendering(SwapChain.Extent, SwapChain.ImageViews[swapChainImageIndex], DepthImage.ImageView, Window.ClearColor.ToVkClearColorValue(), new(1, 0));
+			graphicsCommandBuffer.CmdBeginRendering(SwapChain.Extent, SwapChain.ImageViews[swapChainImageIndex], DepthImage.Image.ImageView, Window.ClearColor.ToVkClearColorValue(), new(1, 0));
 		}
 
 		protected abstract void RecordCommandBuffer(GraphicsCommandBufferObject graphicsCommandBuffer, float delta);
@@ -178,7 +175,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		[MustUseReturnValue]
 		protected DescriptorPool CreateDescriptorPool(VkDescriptorType[] descriptorSetTypes, uint count) {
-			DescriptorPool descriptorPool = new(LogicalDevice, count, descriptorSetTypes, MaxFramesInFlight);
+			DescriptorPool descriptorPool = new(LogicalGpu.LogicalDevice, count, descriptorSetTypes, MaxFramesInFlight);
 			descriptorPools.Enqueue(descriptorPool);
 			return descriptorPool;
 		}
@@ -206,17 +203,19 @@ namespace Engine3.Client.Graphics.Vulkan {
 		internal override void ActuallyDestroy() {
 			if (IDestroyable.WarnIfDestroyed(this)) { return; }
 
-			Vk.DeviceWaitIdle(LogicalDevice);
+			VkDevice logicalDevice = LogicalGpu.LogicalDevice;
+
+			Vk.DeviceWaitIdle(logicalDevice);
 			Cleanup();
 
 			while (descriptorPools.TryDequeue(out DescriptorPool? descriptorPool)) { descriptorPool.Destroy(); }
 
 			DepthImage.Destroy();
 
-			Vk.DestroyCommandPool(LogicalDevice, TransferCommandPool, null);
-			Vk.DestroyCommandPool(LogicalDevice, GraphicsCommandPool, null);
+			Vk.DestroyCommandPool(logicalDevice, TransferCommandPool, null);
+			Vk.DestroyCommandPool(logicalDevice, GraphicsCommandPool, null);
 
-			foreach (VkSemaphore renderFinishedSemaphore in RenderFinishedSemaphores) { Vk.DestroySemaphore(LogicalDevice, renderFinishedSemaphore, null); }
+			foreach (VkSemaphore renderFinishedSemaphore in RenderFinishedSemaphores) { Vk.DestroySemaphore(logicalDevice, renderFinishedSemaphore, null); }
 			foreach (FrameData frame in Frames) { frame.Destroy(); }
 
 			SwapChain.Destroy();

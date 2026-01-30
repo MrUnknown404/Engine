@@ -33,7 +33,11 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		public void SubmitQueue() {
 			VkCommandBuffer commandBuffer = CommandBuffer;
-			VkH.SubmitQueue(Queue, new() { commandBufferCount = 1, pCommandBuffers = &commandBuffer, }, VkFence.Zero);
+			SubmitQueue(new() { commandBufferCount = 1, pCommandBuffers = &commandBuffer, });
+		}
+
+		public void SubmitQueue(VkSubmitInfo submitInfo, VkFence? fence = null) {
+			VkH.CheckIfSuccess(Vk.QueueSubmit(Queue, 1, &submitInfo, fence ?? VkFence.Zero), VulkanException.Reason.QueueSubmit); // TODO device lost?
 		}
 
 		[MustUseReturnValue]

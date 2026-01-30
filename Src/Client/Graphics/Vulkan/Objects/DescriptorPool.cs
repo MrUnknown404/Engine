@@ -11,13 +11,25 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		public bool WasDestroyed { get; private set; }
 
-		public DescriptorPool(VkDevice logicalDevice, uint poolCount, VkDescriptorType[] descriptorTypes, byte maxFramesInFlight) {
+		internal DescriptorPool(VkDevice logicalDevice, uint poolCount, VkDescriptorType[] descriptorTypes, byte maxFramesInFlight) {
 			descriptorPool = CreateDescriptorPool(logicalDevice, poolCount, descriptorTypes, maxFramesInFlight);
 			this.logicalDevice = logicalDevice;
 			this.maxFramesInFlight = maxFramesInFlight;
 		}
 
-		public DescriptorSets AllocateDescriptorSet(VkDescriptorSetLayout descriptorSetLayout) => new(logicalDevice, descriptorPool, descriptorSetLayout, maxFramesInFlight);
+		public DescriptorSets AllocateDescriptorSet(VkDescriptorSetLayout descriptorSetLayout) {
+			VkDescriptorSetLayout[] layouts = new VkDescriptorSetLayout[maxFramesInFlight];
+			for (int i = 0; i < layouts.Length; i++) { layouts[i] = descriptorSetLayout; }
+
+			VkDescriptorSet[] descriptorSets = new VkDescriptorSet[maxFramesInFlight];
+			fixed (VkDescriptorSetLayout* layoutsPtr = layouts) {
+				fixed (VkDescriptorSet* descriptorSetsPtr = descriptorSets) {
+					VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = new() { descriptorPool = descriptorPool, descriptorSetCount = maxFramesInFlight, pSetLayouts = layoutsPtr, };
+					VkH.CheckIfSuccess(Vk.AllocateDescriptorSets(logicalDevice, &descriptorSetAllocateInfo, descriptorSetsPtr), VulkanException.Reason.AllocateDescriptorSets);
+					return new(logicalDevice, descriptorSets, maxFramesInFlight);
+				}
+			}
+		}
 
 		public void Destroy() {
 			if (IDestroyable.WarnIfDestroyed(this)) { return; }
