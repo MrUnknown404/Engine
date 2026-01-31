@@ -6,7 +6,7 @@ using NLog;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan {
-	public abstract unsafe class VkRenderer : Renderer<VkWindow, VulkanGraphicsBackend> {
+	public abstract unsafe class VulkanRenderer : Renderer<VulkanWindow, VulkanGraphicsBackend> {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		protected SwapChain SwapChain { get; }
@@ -22,29 +22,33 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		protected PhysicalGpu PhysicalGpu => Window.SelectedGpu;
 		protected LogicalGpu LogicalGpu => Window.LogicalGpu;
-		protected VkDevice LogicalDevice => LogicalGpu.LogicalDevice;
 		public byte MaxFramesInFlight => GraphicsBackend.MaxFramesInFlight;
 
-		private readonly Queue<DescriptorPool> descriptorPools = new();
+		private readonly List<GraphicsPipeline> graphicsPipelines = new();
 
-		protected VkRenderer(VulkanGraphicsBackend graphicsBackend, VkWindow window) : base(graphicsBackend, window) {
+		private readonly Queue<DescriptorPool> descriptorPoolDestroyQueue = new();
+		private readonly Queue<GraphicsPipeline> graphicsPipelineDestroyQueue = new();
+
+		protected VulkanRenderer(VulkanGraphicsBackend graphicsBackend, VulkanWindow window) : base(graphicsBackend, window) {
 			SwapChain = new(window, window.SelectedGpu.PhysicalDevice, window.LogicalGpu.LogicalDevice, window.SelectedGpu.QueueFamilyIndices, window.Surface, graphicsBackend.PresentMode);
 			Logger.Debug("Created swap chain");
 
-			GraphicsCommandPool = CreateCommandPool(LogicalDevice, VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit, PhysicalGpu.QueueFamilyIndices.GraphicsFamily);
-			TransferCommandPool = CreateCommandPool(LogicalDevice, VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit, PhysicalGpu.QueueFamilyIndices.TransferFamily);
-			RenderFinishedSemaphores = VkH.CreateSemaphores(LogicalDevice, (uint)SwapChain.Images.Length);
+			VkDevice logicalDevice = LogicalGpu.LogicalDevice;
 
-			VkCommandBuffer[] graphicsCommandBuffers = CreateCommandBuffers(LogicalDevice, GraphicsCommandPool, MaxFramesInFlight);
-			VkSemaphore[] imageAvailableSemaphores = VkH.CreateSemaphores(LogicalDevice, MaxFramesInFlight);
-			VkFence[] inFlightFences = VkH.CreateFences(LogicalDevice, MaxFramesInFlight);
+			GraphicsCommandPool = CreateCommandPool(logicalDevice, VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit, PhysicalGpu.QueueFamilyIndices.GraphicsFamily);
+			TransferCommandPool = CreateCommandPool(logicalDevice, VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit, PhysicalGpu.QueueFamilyIndices.TransferFamily);
+			RenderFinishedSemaphores = VkH.CreateSemaphores(logicalDevice, (uint)SwapChain.Images.Length);
+
+			VkCommandBuffer[] graphicsCommandBuffers = CreateCommandBuffers(logicalDevice, GraphicsCommandPool, MaxFramesInFlight);
+			VkSemaphore[] imageAvailableSemaphores = VkH.CreateSemaphores(logicalDevice, MaxFramesInFlight);
+			VkFence[] inFlightFences = VkH.CreateFences(logicalDevice, MaxFramesInFlight);
 
 			Frames = new FrameData[MaxFramesInFlight];
 			for (int i = 0; i < MaxFramesInFlight; i++) {
-				Frames[i] = new(LogicalDevice, new(LogicalDevice, GraphicsCommandPool, graphicsCommandBuffers[i], window.LogicalGpu.GraphicsQueue), imageAvailableSemaphores[i], inFlightFences[i]);
+				Frames[i] = new(logicalDevice, new(logicalDevice, GraphicsCommandPool, graphicsCommandBuffers[i], window.LogicalGpu.GraphicsQueue), imageAvailableSemaphores[i], inFlightFences[i]);
 			}
 
-			DepthImage = LogicalGpu.CreateDepthImage($"{nameof(VkRenderer)} Depth Image", TransferCommandPool, SwapChain.Extent);
+			DepthImage = LogicalGpu.CreateDepthImage($"{nameof(VulkanRenderer)} Depth Image", TransferCommandPool, SwapChain.Extent);
 		}
 
 		/// <summary>
@@ -55,29 +59,49 @@ namespace Engine3.Client.Graphics.Vulkan {
 		/// Present the swap chain image
 		/// </summary>
 		protected internal override void Render(float delta) {
-			FrameData frameData = Frames[FrameIndex];
+			TryDestroyGraphicsPipelines();
 
+			FrameData frameData = Frames[FrameIndex];
 			if (AcquireNextImage(frameData, out uint swapChainImageIndex)) {
 				BeginFrame(frameData, swapChainImageIndex);
 				RecordCommandBuffer(frameData.GraphicsCommandBuffer, delta);
-				CopyUniformBuffer(delta);
+				CopyUniformBuffers(delta);
 				EndFrame(frameData, swapChainImageIndex);
 				PresentFrame(swapChainImageIndex);
 			}
 
 			FrameCount++;
+
+			return;
+
+			void TryDestroyGraphicsPipelines() {
+				if (graphicsPipelineDestroyQueue.Count != 0) {
+					Vk.DeviceWaitIdle(LogicalGpu.LogicalDevice);
+
+					while (graphicsPipelineDestroyQueue.TryDequeue(out GraphicsPipeline? graphicsPipeline)) {
+						if (graphicsPipelines.Remove(graphicsPipeline)) {
+#pragma warning disable CS0618 // Type or member is obsolete
+							graphicsPipeline.Destroy();
+#pragma warning restore CS0618 // Type or member is obsolete
+
+							break;
+						} else { Logger.Error($"Could not find to be destroyed {nameof(GraphicsPipeline)}"); }
+					}
+				}
+			}
 		}
 
 		protected bool AcquireNextImage(FrameData frameData, out uint swapChainImageIndex) {
+			VkDevice logicalDevice = LogicalGpu.LogicalDevice;
 			VkFence inFlightFence = frameData.InFlightFence;
 
 			// not sure if i'm supposed to wait for all fences or just the current one. vulkan-tutorial.com & vkguide.dev differ. i should probably read the docs
 			// vulkan-tutorial.com waits for all
 			// vkguide.dev waits for current
-			Vk.WaitForFences(LogicalDevice, 1, &inFlightFence, (int)Vk.True, ulong.MaxValue);
+			Vk.WaitForFences(logicalDevice, 1, &inFlightFence, (int)Vk.True, ulong.MaxValue);
 
 			uint tempSwapChainImageIndex;
-			VkResult result = Vk.AcquireNextImageKHR(LogicalDevice, SwapChain.VkSwapChain, ulong.MaxValue, frameData.ImageAvailableSemaphore, VkFence.Zero, &tempSwapChainImageIndex); // todo 2
+			VkResult result = Vk.AcquireNextImageKHR(logicalDevice, SwapChain.VkSwapChain, ulong.MaxValue, frameData.ImageAvailableSemaphore, VkFence.Zero, &tempSwapChainImageIndex); // todo 2
 			swapChainImageIndex = tempSwapChainImageIndex;
 
 			if (result == VkResult.ErrorOutOfDateKhr) {
@@ -85,7 +109,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 				return false;
 			} else if (result != VkResult.SuboptimalKhr) { VkH.CheckIfSuccess(result, VulkanException.Reason.AcquireNextImage); }
 
-			Vk.ResetFences(LogicalDevice, 1, &inFlightFence);
+			Vk.ResetFences(logicalDevice, 1, &inFlightFence);
 
 			return true;
 		}
@@ -113,7 +137,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		protected abstract void RecordCommandBuffer(GraphicsCommandBuffer graphicsCommandBuffer, float delta);
-		protected virtual void CopyUniformBuffer(float delta) { }
+		protected virtual void CopyUniformBuffers(float delta) { }
 
 		/// <summary>
 		/// Order of what vulkan methods are called here
@@ -175,9 +199,18 @@ namespace Engine3.Client.Graphics.Vulkan {
 		[MustUseReturnValue]
 		protected DescriptorPool CreateDescriptorPool(VkDescriptorType[] descriptorSetTypes, uint count) {
 			DescriptorPool descriptorPool = new(LogicalGpu.LogicalDevice, count, descriptorSetTypes, MaxFramesInFlight);
-			descriptorPools.Enqueue(descriptorPool);
+			descriptorPoolDestroyQueue.Enqueue(descriptorPool);
 			return descriptorPool;
 		}
+
+		[MustUseReturnValue]
+		protected GraphicsPipeline CreateGraphicsPipeline(GraphicsPipeline.Settings settings) {
+			GraphicsPipeline graphicsPipeline = LogicalGpu.CreateGraphicsPipeline(settings);
+			graphicsPipelines.Add(graphicsPipeline);
+			return graphicsPipeline;
+		}
+
+		protected internal void DestroyGraphicsPipeline(GraphicsPipeline graphicsPipeline) => graphicsPipelineDestroyQueue.Enqueue(graphicsPipeline);
 
 		protected virtual void OnSwapchainInvalid() {
 			SwapChain.Recreate();
@@ -207,7 +240,11 @@ namespace Engine3.Client.Graphics.Vulkan {
 			Vk.DeviceWaitIdle(logicalDevice);
 			Cleanup();
 
-			while (descriptorPools.TryDequeue(out DescriptorPool? descriptorPool)) { descriptorPool.Destroy(); }
+#pragma warning disable CS0618 // Type or member is obsolete
+			foreach (GraphicsPipeline graphicsPipeline in graphicsPipelines) { graphicsPipeline.Destroy(); }
+#pragma warning restore CS0618 // Type or member is obsolete
+
+			while (descriptorPoolDestroyQueue.TryDequeue(out DescriptorPool? descriptorPool)) { descriptorPool.Destroy(); }
 
 			DepthImage.Destroy();
 
@@ -230,7 +267,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			return commandPool;
 		}
 
-		[Obsolete("Make VkBuffer.CreateBuffers()")]
+		[Obsolete("Make VulkanBuffer.CreateBuffers()")]
 		[MustUseReturnValue]
 		private static VkCommandBuffer[] CreateCommandBuffers(VkDevice logicalDevice, VkCommandPool commandPool, uint count, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
 			VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = commandPool, level = level, commandBufferCount = count, };

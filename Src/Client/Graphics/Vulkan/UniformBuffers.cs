@@ -5,11 +5,11 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		public ulong BufferSize { get; }
 
-		private readonly VkRenderer renderer;
+		private readonly VulkanRenderer renderer;
 		private readonly VkBuffer[] buffers;
 		private readonly void*[] buffersMapped;
 
-		internal UniformBuffers(string debugName, ulong bufferSize, VkRenderer renderer, VkBuffer[] buffers, void*[] buffersMapped) {
+		internal UniformBuffers(string debugName, ulong bufferSize, VulkanRenderer renderer, VkBuffer[] buffers, void*[] buffersMapped) {
 			DebugName = debugName;
 			BufferSize = bufferSize;
 			this.renderer = renderer;

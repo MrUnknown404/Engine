@@ -16,7 +16,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		public string Name { get; }
 
-		public PhysicalGpu(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2 physicalDeviceProperties2, VkPhysicalDeviceFeatures2 physicalDeviceFeatures2, VkExtensionProperties[] extensionProperties,
+		internal PhysicalGpu(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2 physicalDeviceProperties2, VkPhysicalDeviceFeatures2 physicalDeviceFeatures2, VkExtensionProperties[] extensionProperties,
 			QueueFamilyIndices queueFamilyIndices) {
 			PhysicalDevice = physicalDevice;
 			PhysicalDeviceProperties2 = physicalDeviceProperties2;

@@ -11,7 +11,6 @@ namespace Engine3.Client.Graphics.Vulkan {
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
 
-		private readonly VkPhysicalDeviceMemoryProperties memoryProperties;
 		private readonly LogicalGpu logicalGpu;
 
 		internal VkBuffer(string debugName, LogicalGpu logicalGpu, OpenTK.Graphics.Vulkan.VkBuffer buffer, VkDeviceMemory bufferMemory, ulong bufferSize) {

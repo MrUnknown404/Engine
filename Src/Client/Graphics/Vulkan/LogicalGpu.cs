@@ -26,7 +26,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		[MustUseReturnValue]
 		public VkShader CreateShader(string debugName, string fileName, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) => new(debugName, LogicalDevice, fileName, shaderLang, shaderType, assembly);
 
-		[MustUseReturnValue] public GraphicsPipeline CreateGraphicsPipeline(GraphicsPipeline.Settings settings) => new(physicalGpu, LogicalDevice, settings);
+		[MustUseReturnValue] internal GraphicsPipeline CreateGraphicsPipeline(GraphicsPipeline.Settings settings) => new(physicalGpu, LogicalDevice, settings);
 
 		[MustUseReturnValue]
 		public VkDeviceMemory CreateDeviceMemory(OpenTK.Graphics.Vulkan.VkBuffer buffer, VkMemoryPropertyFlagBits memoryPropertyFlags) {
@@ -80,7 +80,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public UniformBuffers CreateUniformBuffers(string debugName, VkRenderer renderer, ulong bufferSize) {
+		public UniformBuffers CreateUniformBuffers(string debugName, VulkanRenderer renderer, ulong bufferSize) {
 			VkBuffer[] buffers = new VkBuffer[renderer.MaxFramesInFlight];
 			void*[] buffersMapped = new void*[renderer.MaxFramesInFlight];
 

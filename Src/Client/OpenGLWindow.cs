@@ -6,12 +6,12 @@ using OpenTK.Graphics.OpenGL;
 using OpenTK.Platform;
 
 namespace Engine3.Client {
-	public class GlWindow : Window {
+	public class OpenGLWindow : Window {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public OpenGLContextHandle GLContextHandle { get; }
 
-		public GlWindow(OpenGLGraphicsBackend graphicsBackend, string title, uint width, uint height) : base(graphicsBackend, title, width, height) {
+		public OpenGLWindow(OpenGLGraphicsBackend graphicsBackend, string title, uint width, uint height) : base(graphicsBackend, title, width, height) {
 			Logger.Debug("Creating and setting OpenGL context...");
 			GLContextHandle = Toolkit.OpenGL.CreateFromWindow(WindowHandle);
 			MakeContextCurrent();

@@ -1,8 +1,8 @@
 namespace Engine3.Client.Graphics.OpenGL {
-	public class GlSceneRenderer : GlRenderer, ISceneRenderer {
+	public class OpenGLSceneRenderer : OpenGLRenderer, ISceneRenderer {
 		public Scene.Scene? Scene { get; set; }
 
-		protected GlSceneRenderer(OpenGLGraphicsBackend graphicsBackend, GlWindow window) : base(graphicsBackend, window) { }
+		protected OpenGLSceneRenderer(OpenGLGraphicsBackend graphicsBackend, OpenGLWindow window) : base(graphicsBackend, window) { }
 
 		public override void Setup() { base.Setup(); }
 

@@ -62,7 +62,9 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		public void CmdBindVertexBuffer2<T>(T buffer, uint firstBinding, ulong vertexStride, ulong offset = 0) where T : VkBuffer => CmdBindVertexBuffer2(buffer.Buffer, firstBinding, vertexStride, offset);
-		public void CmdBindVertexBuffer2(OpenTK.Graphics.Vulkan.VkBuffer buffer, uint firstBinding, ulong vertexStride, ulong offset = 0) => Vk.CmdBindVertexBuffers2(VkCommandBuffer, firstBinding, 1, &buffer, &offset, null, &vertexStride);
+
+		public void CmdBindVertexBuffer2(OpenTK.Graphics.Vulkan.VkBuffer buffer, uint firstBinding, ulong vertexStride, ulong offset = 0) =>
+				Vk.CmdBindVertexBuffers2(VkCommandBuffer, firstBinding, 1, &buffer, &offset, null, &vertexStride);
 
 		public void CmdBindVertexBuffers2(OpenTK.Graphics.Vulkan.VkBuffer[] buffers, uint firstBinding, ulong[] offsets, ulong[] sizes, ulong[] strides) {
 			fixed (OpenTK.Graphics.Vulkan.VkBuffer* buffersPtr = buffers) {
@@ -74,10 +76,10 @@ namespace Engine3.Client.Graphics.Vulkan {
 			}
 		}
 
-		public void CmdBindIndexBuffer<T>(T buffer, ulong bufferSize, VkIndexType indexType = VkIndexType.IndexTypeUint32, ulong offset = 0) where T : VkBuffer =>
-				CmdBindIndexBuffer(buffer.Buffer, bufferSize, indexType, offset);
+		public void CmdBindIndexBuffer<T>(T buffer, ulong bufferSize, VkIndexType indexType = VkIndexType.IndexTypeUint32, ulong offset = 0) where T : VkBuffer => CmdBindIndexBuffer(buffer.Buffer, bufferSize, indexType, offset);
 
-		public void CmdBindIndexBuffer(OpenTK.Graphics.Vulkan.VkBuffer buffer, ulong bufferSize, VkIndexType indexType = VkIndexType.IndexTypeUint32, ulong offset = 0) => Vk.CmdBindIndexBuffer2(VkCommandBuffer, buffer, offset, bufferSize, indexType);
+		public void CmdBindIndexBuffer(OpenTK.Graphics.Vulkan.VkBuffer buffer, ulong bufferSize, VkIndexType indexType = VkIndexType.IndexTypeUint32, ulong offset = 0) =>
+				Vk.CmdBindIndexBuffer2(VkCommandBuffer, buffer, offset, bufferSize, indexType);
 
 		public void CmdDraw(uint vertexCount, uint instanceCount, uint firstVertex, uint firstInstance) => Vk.CmdDraw(VkCommandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
 		public void CmdDraw(uint vertexCount) => Vk.CmdDraw(VkCommandBuffer, vertexCount, 1, 0, 0);

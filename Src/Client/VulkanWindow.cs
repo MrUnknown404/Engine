@@ -8,7 +8,7 @@ using OpenTK.Graphics.Vulkan;
 using OpenTK.Platform;
 
 namespace Engine3.Client {
-	public unsafe class VkWindow : Window {
+	public unsafe class VulkanWindow : Window {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public VkSurfaceKHR Surface { get; }
@@ -17,7 +17,7 @@ namespace Engine3.Client {
 
 		private readonly VkInstance vkInstance;
 
-		public VkWindow(VulkanGraphicsBackend graphicsBackend, VkInstance vkInstance, string title, uint width, uint height) : base(graphicsBackend, title, width, height) {
+		public VulkanWindow(VulkanGraphicsBackend graphicsBackend, VkInstance vkInstance, string title, uint width, uint height) : base(graphicsBackend, title, width, height) {
 			this.vkInstance = vkInstance;
 
 			Surface = CreateSurface(vkInstance, WindowHandle);

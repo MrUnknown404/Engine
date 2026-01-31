@@ -6,14 +6,14 @@ using OpenTK.Mathematics;
 using OpenTK.Platform;
 
 namespace Engine3.Client.Graphics.OpenGL {
-	public abstract class GlRenderer : Renderer<GlWindow, OpenGLGraphicsBackend> {
+	public abstract class OpenGLRenderer : Renderer<OpenGLWindow, OpenGLGraphicsBackend> {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		protected VertexArrayHandle? EmptyVao { get; private set; }
 
 		public ClearBufferMask ClearBufferMask { get; set; } = ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit;
 
-		protected GlRenderer(OpenGLGraphicsBackend graphicsBackend, GlWindow window) : base(graphicsBackend, window) { }
+		protected OpenGLRenderer(OpenGLGraphicsBackend graphicsBackend, OpenGLWindow window) : base(graphicsBackend, window) { }
 
 		public override void Setup() {
 			Window.MakeContextCurrent();

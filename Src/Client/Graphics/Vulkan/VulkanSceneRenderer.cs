@@ -1,8 +1,8 @@
 namespace Engine3.Client.Graphics.Vulkan {
-	public class VkSceneRenderer : VkRenderer, ISceneRenderer {
+	public class VulkanSceneRenderer : VulkanRenderer, ISceneRenderer {
 		public Scene.Scene? Scene { get; set; }
 
-		public VkSceneRenderer(VulkanGraphicsBackend graphicsBackend, VkWindow window) : base(graphicsBackend, window) { }
+		public VulkanSceneRenderer(VulkanGraphicsBackend graphicsBackend, VulkanWindow window) : base(graphicsBackend, window) { }
 
 		public override void Setup() { }
 

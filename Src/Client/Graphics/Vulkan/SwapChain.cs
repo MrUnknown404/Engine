@@ -19,10 +19,10 @@ namespace Engine3.Client.Graphics.Vulkan {
 		public string DebugName => nameof(SwapChain);
 		public bool WasDestroyed { get; private set; }
 
-		private readonly VkWindow window;
+		private readonly VulkanWindow window;
 		private readonly VkPresentModeKHR presentMode;
 
-		public SwapChain(VkWindow window, VkPhysicalDevice physicalDevice, VkDevice logicalDevice, QueueFamilyIndices queueFamilyIndices, VkSurfaceKHR surface, VkPresentModeKHR presentMode) {
+		public SwapChain(VulkanWindow window, VkPhysicalDevice physicalDevice, VkDevice logicalDevice, QueueFamilyIndices queueFamilyIndices, VkSurfaceKHR surface, VkPresentModeKHR presentMode) {
 			this.window = window;
 
 			Toolkit.Window.GetFramebufferSize(window.WindowHandle, out Vector2i framebufferSize);

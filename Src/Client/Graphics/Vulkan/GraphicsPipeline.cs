@@ -150,6 +150,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			}
 		}
 
+		[Obsolete($"Call {nameof(VulkanRenderer)}.{nameof(VulkanRenderer.DestroyGraphicsPipeline)} instead")]
 		public void Destroy() {
 			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
 

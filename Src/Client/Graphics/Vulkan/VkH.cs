@@ -36,8 +36,6 @@ namespace Engine3.Client.Graphics.Vulkan {
 			if (result != VkResult.Success) { throw new VulkanException(reason, result, args); }
 		}
 
-
-
 		[MustUseReturnValue]
 		public static VkSemaphore[] CreateSemaphores(VkDevice logicalDevice, uint count) {
 			VkSemaphoreCreateInfo semaphoreCreateInfo = new();
@@ -77,9 +75,5 @@ namespace Engine3.Client.Graphics.Vulkan {
 			CheckIfSuccess(Vk.CreateFence(logicalDevice, &fenceCreateInfo, null, &fence), VulkanException.Reason.CreateFence);
 			return fence;
 		}
-
-
-
-
 	}
 }

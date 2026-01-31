@@ -157,7 +157,6 @@ namespace Engine3 {
 				float delta = 0; // TODO impl
 
 				TryCloseWindows();
-
 				TryDestroyRenderers();
 
 				foreach (Renderer pipeline in Renderers.Where(static pipeline => pipeline.CanRender)) { pipeline.Render(delta); }
