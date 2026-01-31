@@ -4,7 +4,7 @@ using Engine3.Exceptions;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Client.Graphics.Vulkan {
+namespace Engine3.Client.Graphics.Vulkan.Objects {
 	public unsafe class GraphicsPipeline : IGraphicsResource {
 		public VkPipeline Pipeline { get; }
 		public VkPipelineLayout Layout { get; }
@@ -41,7 +41,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 			VkPipelineShaderStageCreateInfo[] shaderStageCreateInfos = new VkPipelineShaderStageCreateInfo[settings.Shaders.Length];
 			for (int i = 0; i < settings.Shaders.Length; i++) {
-				VkShader shader = settings.Shaders[i];
+				VulkanShader shader = settings.Shaders[i];
 				shaderStageCreateInfos[i] = new() {
 						module = shader.ShaderModule,
 						stage = shader.ShaderType switch {
@@ -167,7 +167,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		public class Settings {
 			public string DebugName { get; }
 			public VkFormat SwapChainImageFormat { get; }
-			public VkShader[] Shaders { get; }
+			public VulkanShader[] Shaders { get; }
 			public VkVertexInputAttributeDescription[] VertexAttributeDescriptions { get; }
 			public VkVertexInputBindingDescription[] VertexBindingDescriptions { get; }
 
@@ -185,7 +185,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 			public VkDescriptorSetLayout[]? DescriptorSetLayouts { get; init; }
 
-			public Settings(string debugName, VkFormat swapChainImageFormat, VkShader[] shaders, VkVertexInputAttributeDescription[] vertexAttributeDescriptions, VkVertexInputBindingDescription[] vertexBindingDescriptions) {
+			public Settings(string debugName, VkFormat swapChainImageFormat, VulkanShader[] shaders, VkVertexInputAttributeDescription[] vertexAttributeDescriptions, VkVertexInputBindingDescription[] vertexBindingDescriptions) {
 				DebugName = debugName;
 				SwapChainImageFormat = swapChainImageFormat;
 				Shaders = shaders;

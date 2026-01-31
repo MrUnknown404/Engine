@@ -1,19 +1,20 @@
 using System.Diagnostics.CodeAnalysis;
+using Engine3.Exceptions;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Client.Graphics.Vulkan {
+namespace Engine3.Client.Graphics.Vulkan.Objects {
 	public unsafe class TransferCommandBuffer : CommandBuffer {
-		internal TransferCommandBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue queue, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) : base(logicalDevice, commandPool,
-			CreateCommandBuffer(logicalDevice, commandPool, level), queue) { }
+		internal TransferCommandBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) : base(logicalDevice, commandPool,
+			CreateCommandBuffer(logicalDevice, commandPool, level)) { }
 
-		public void CmdCopyBuffer(OpenTK.Graphics.Vulkan.VkBuffer srcBuffer, OpenTK.Graphics.Vulkan.VkBuffer dstBuffer, ulong bufferSize) {
+		public void CmdCopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, ulong bufferSize) {
 			VkBufferCopy2 bufferCopy2 = new() { size = bufferSize, };
 			VkCopyBufferInfo2 copyBufferInfo2 = new() { srcBuffer = srcBuffer, dstBuffer = dstBuffer, regionCount = 1, pRegions = &bufferCopy2, };
 			Vk.CmdCopyBuffer2(VkCommandBuffer, &copyBufferInfo2);
 		}
 
-		public void CmdCopyImage(OpenTK.Graphics.Vulkan.VkBuffer srcBuffer, OpenTK.Graphics.Vulkan.VkImage dstImage, uint width, uint height) {
+		public void CmdCopyImage(VkBuffer srcBuffer, VkImage dstImage, uint width, uint height) {
 			VkBufferImageCopy2 copyImageInfo2 = new() {
 					bufferOffset = 0,
 					bufferRowLength = 0,
@@ -27,7 +28,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			Vk.CmdCopyBufferToImage2(VkCommandBuffer, &copyBufferToImageInfo2);
 		}
 
-		public void TransitionImageLayout(QueueFamilyIndices queueFamilyIndices, OpenTK.Graphics.Vulkan.VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
+		public void TransitionImageLayout(QueueFamilyIndices queueFamilyIndices, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
 			VkImageMemoryBarrier2 imageMemoryBarrier = CreateImageBarrier(queueFamilyIndices.GraphicsFamily, queueFamilyIndices.TransferFamily, image, format, oldLayout, newLayout);
 			CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier, });
 
@@ -35,7 +36,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 			[SuppressMessage("ReSharper", "SwitchStatementHandlesSomeKnownEnumValuesWithDefault")]
 			[MustUseReturnValue]
-			static VkImageMemoryBarrier2 CreateImageBarrier(uint graphicsFamily, uint transferFamily, OpenTK.Graphics.Vulkan.VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
+			static VkImageMemoryBarrier2 CreateImageBarrier(uint graphicsFamily, uint transferFamily, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
 				VkAccessFlagBits2 srcAccessMask;
 				VkAccessFlagBits2 dstAccessMask;
 				VkPipelineStageFlagBits2 srcStageMask;
@@ -84,6 +85,17 @@ namespace Engine3.Client.Graphics.Vulkan {
 						dstStageMask = dstStageMask,
 				};
 			}
+		}
+
+		[Obsolete("Make bulk methods later")] // TODO make bulk methods later
+		public void SubmitQueue(VkQueue queue) {
+			VkCommandBuffer commandBuffer = VkCommandBuffer;
+			SubmitQueue(queue, new() { commandBufferCount = 1, pCommandBuffers = &commandBuffer, });
+		}
+
+		[Obsolete("Make bulk methods later")]
+		public void SubmitQueue(VkQueue queue, VkSubmitInfo submitInfo, VkFence? fence = null) {
+			VkH.CheckIfSuccess(Vk.QueueSubmit(queue, 1, &submitInfo, fence ?? VkFence.Zero), VulkanException.Reason.QueueSubmit); // TODO device lost?
 		}
 	}
 }

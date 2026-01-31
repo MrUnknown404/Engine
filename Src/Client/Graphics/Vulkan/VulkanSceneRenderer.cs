@@ -1,3 +1,5 @@
+using Engine3.Client.Graphics.Vulkan.Objects;
+
 namespace Engine3.Client.Graphics.Vulkan {
 	public class VulkanSceneRenderer : VulkanRenderer, ISceneRenderer {
 		public Scene.Scene? Scene { get; set; }

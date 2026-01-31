@@ -1,4 +1,4 @@
-namespace Engine3.Client.Graphics.Vulkan {
+namespace Engine3.Client.Graphics.Vulkan.Objects {
 	public unsafe class UniformBuffers : IGraphicsResource {
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
@@ -6,10 +6,10 @@ namespace Engine3.Client.Graphics.Vulkan {
 		public ulong BufferSize { get; }
 
 		private readonly VulkanRenderer renderer;
-		private readonly VkBuffer[] buffers;
+		private readonly VulkanBuffer[] buffers;
 		private readonly void*[] buffersMapped;
 
-		internal UniformBuffers(string debugName, ulong bufferSize, VulkanRenderer renderer, VkBuffer[] buffers, void*[] buffersMapped) {
+		internal UniformBuffers(string debugName, ulong bufferSize, VulkanRenderer renderer, VulkanBuffer[] buffers, void*[] buffersMapped) {
 			DebugName = debugName;
 			BufferSize = bufferSize;
 			this.renderer = renderer;
@@ -36,7 +36,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		public void Destroy() {
 			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
 
-			foreach (VkBuffer uniformBuffer in buffers) { uniformBuffer.Destroy(); }
+			foreach (VulkanBuffer uniformBuffer in buffers) { uniformBuffer.Destroy(); }
 
 			WasDestroyed = true;
 		}

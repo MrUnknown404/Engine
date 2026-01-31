@@ -1,4 +1,3 @@
-using Engine3.Utility;
 using NLog;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
@@ -52,26 +51,6 @@ namespace Engine3.Client.Graphics.OpenGL {
 
 		protected abstract void DrawFrame(float delta);
 
-		public override bool IsSameWindow(Window window) => Window == window;
-
-		public override void Destroy() {
-			if (IDestroyable.WarnIfDestroyed(this)) { return; }
-
-			if (!ShouldDestroy) {
-				ShouldDestroy = true;
-				return;
-			}
-
-			ActuallyDestroy();
-		}
-
-		internal override void ActuallyDestroy() {
-			if (IDestroyable.WarnIfDestroyed(this)) { return; }
-
-			Window.MakeContextCurrent();
-			Cleanup();
-
-			WasDestroyed = true;
-		}
+		protected override void PrepareCleanup() => Window.MakeContextCurrent();
 	}
 }

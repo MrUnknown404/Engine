@@ -1,8 +1,11 @@
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Client.Graphics.Vulkan {
+namespace Engine3.Client.Graphics.Vulkan.Objects {
 	public unsafe class GraphicsCommandBuffer : CommandBuffer {
-		public GraphicsCommandBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBuffer commandBuffer, VkQueue queue) : base(logicalDevice, commandPool, commandBuffer, queue) { }
+		internal GraphicsCommandBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBuffer commandBuffer) : base(logicalDevice, commandPool, commandBuffer) { }
+
+		internal GraphicsCommandBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) : this(logicalDevice, commandPool,
+			CreateCommandBuffer(logicalDevice, commandPool, level)) { }
 
 		public void CmdBeginRendering(VkExtent2D extent, VkImageView swapChainImageView, VkImageView depthImageView, VkClearColorValue clearColorValue, VkClearDepthStencilValue depthStencilValue) {
 			VkRenderingAttachmentInfo colorAttachmentInfo = new() {
@@ -52,22 +55,21 @@ namespace Engine3.Client.Graphics.Vulkan {
 			Vk.CmdSetScissor(VkCommandBuffer, 0, 1, &scissor);
 		}
 
-		public void CmdBindVertexBuffer<T>(T buffer, uint firstBinding, ulong offset = 0) where T : VkBuffer => CmdBindVertexBuffer(buffer.Buffer, firstBinding, offset);
-		public void CmdBindVertexBuffer(OpenTK.Graphics.Vulkan.VkBuffer buffer, uint firstBinding, ulong offset = 0) => Vk.CmdBindVertexBuffers(VkCommandBuffer, firstBinding, 1, &buffer, &offset);
+		public void CmdBindVertexBuffer<T>(T buffer, uint firstBinding, ulong offset = 0) where T : VulkanBuffer => CmdBindVertexBuffer(buffer.Buffer, firstBinding, offset);
+		public void CmdBindVertexBuffer(VkBuffer buffer, uint firstBinding, ulong offset = 0) => Vk.CmdBindVertexBuffers(VkCommandBuffer, firstBinding, 1, &buffer, &offset);
 
-		public void CmdBindVertexBuffers(OpenTK.Graphics.Vulkan.VkBuffer[] buffers, uint firstBinding, ulong[] offsets) {
-			fixed (OpenTK.Graphics.Vulkan.VkBuffer* buffersPtr = buffers) {
+		public void CmdBindVertexBuffers(VkBuffer[] buffers, uint firstBinding, ulong[] offsets) {
+			fixed (VkBuffer* buffersPtr = buffers) {
 				fixed (ulong* offsetsPtr = offsets) { Vk.CmdBindVertexBuffers(VkCommandBuffer, firstBinding, (uint)buffers.Length, buffersPtr, offsetsPtr); }
 			}
 		}
 
-		public void CmdBindVertexBuffer2<T>(T buffer, uint firstBinding, ulong vertexStride, ulong offset = 0) where T : VkBuffer => CmdBindVertexBuffer2(buffer.Buffer, firstBinding, vertexStride, offset);
+		public void CmdBindVertexBuffer2<T>(T buffer, uint firstBinding, ulong vertexStride, ulong offset = 0) where T : VulkanBuffer => CmdBindVertexBuffer2(buffer.Buffer, firstBinding, vertexStride, offset);
 
-		public void CmdBindVertexBuffer2(OpenTK.Graphics.Vulkan.VkBuffer buffer, uint firstBinding, ulong vertexStride, ulong offset = 0) =>
-				Vk.CmdBindVertexBuffers2(VkCommandBuffer, firstBinding, 1, &buffer, &offset, null, &vertexStride);
+		public void CmdBindVertexBuffer2(VkBuffer buffer, uint firstBinding, ulong vertexStride, ulong offset = 0) => Vk.CmdBindVertexBuffers2(VkCommandBuffer, firstBinding, 1, &buffer, &offset, null, &vertexStride);
 
-		public void CmdBindVertexBuffers2(OpenTK.Graphics.Vulkan.VkBuffer[] buffers, uint firstBinding, ulong[] offsets, ulong[] sizes, ulong[] strides) {
-			fixed (OpenTK.Graphics.Vulkan.VkBuffer* buffersPtr = buffers) {
+		public void CmdBindVertexBuffers2(VkBuffer[] buffers, uint firstBinding, ulong[] offsets, ulong[] sizes, ulong[] strides) {
+			fixed (VkBuffer* buffersPtr = buffers) {
 				fixed (ulong* offsetsPtr = offsets) {
 					fixed (ulong* sizesPtr = sizes) {
 						fixed (ulong* stridesPtr = strides) { Vk.CmdBindVertexBuffers2(VkCommandBuffer, firstBinding, (uint)buffers.Length, buffersPtr, offsetsPtr, sizesPtr, stridesPtr); }
@@ -76,10 +78,10 @@ namespace Engine3.Client.Graphics.Vulkan {
 			}
 		}
 
-		public void CmdBindIndexBuffer<T>(T buffer, ulong bufferSize, VkIndexType indexType = VkIndexType.IndexTypeUint32, ulong offset = 0) where T : VkBuffer => CmdBindIndexBuffer(buffer.Buffer, bufferSize, indexType, offset);
+		public void CmdBindIndexBuffer<T>(T buffer, ulong bufferSize, VkIndexType indexType = VkIndexType.IndexTypeUint32, ulong offset = 0) where T : VulkanBuffer =>
+				CmdBindIndexBuffer(buffer.Buffer, bufferSize, indexType, offset);
 
-		public void CmdBindIndexBuffer(OpenTK.Graphics.Vulkan.VkBuffer buffer, ulong bufferSize, VkIndexType indexType = VkIndexType.IndexTypeUint32, ulong offset = 0) =>
-				Vk.CmdBindIndexBuffer2(VkCommandBuffer, buffer, offset, bufferSize, indexType);
+		public void CmdBindIndexBuffer(VkBuffer buffer, ulong bufferSize, VkIndexType indexType = VkIndexType.IndexTypeUint32, ulong offset = 0) => Vk.CmdBindIndexBuffer2(VkCommandBuffer, buffer, offset, bufferSize, indexType);
 
 		public void CmdDraw(uint vertexCount, uint instanceCount, uint firstVertex, uint firstInstance) => Vk.CmdDraw(VkCommandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
 		public void CmdDraw(uint vertexCount) => Vk.CmdDraw(VkCommandBuffer, vertexCount, 1, 0, 0);
@@ -88,23 +90,5 @@ namespace Engine3.Client.Graphics.Vulkan {
 				Vk.CmdDrawIndexed(VkCommandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 
 		public void CmdDrawIndexed(uint indexCount) => Vk.CmdDrawIndexed(VkCommandBuffer, indexCount, 1, 0, 0, 0);
-
-		public void SubmitQueue(VkSemaphore waitSemaphore, VkSemaphore signalSemaphore, VkFence? fence) {
-			VkPipelineStageFlagBits[] waitStages = [ VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, ];
-			VkCommandBuffer commandBuffer = VkCommandBuffer;
-
-			fixed (VkPipelineStageFlagBits* waitStagesPtr = waitStages) {
-				SubmitQueue(
-					new() {
-							waitSemaphoreCount = 1,
-							pWaitSemaphores = &waitSemaphore,
-							pWaitDstStageMask = waitStagesPtr,
-							commandBufferCount = 1,
-							pCommandBuffers = &commandBuffer,
-							signalSemaphoreCount = 1,
-							pSignalSemaphores = &signalSemaphore,
-					}, fence);
-			}
-		}
 	}
 }

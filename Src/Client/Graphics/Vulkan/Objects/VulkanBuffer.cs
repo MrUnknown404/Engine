@@ -1,10 +1,10 @@
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Client.Graphics.Vulkan {
+namespace Engine3.Client.Graphics.Vulkan.Objects {
 	[PublicAPI]
-	public unsafe class VkBuffer : IBufferObject {
-		public OpenTK.Graphics.Vulkan.VkBuffer Buffer { get; }
+	public unsafe class VulkanBuffer : IBufferObject {
+		public VkBuffer Buffer { get; }
 		public VkDeviceMemory BufferMemory { get; }
 		public ulong BufferSize { get; }
 
@@ -13,7 +13,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		private readonly LogicalGpu logicalGpu;
 
-		internal VkBuffer(string debugName, LogicalGpu logicalGpu, OpenTK.Graphics.Vulkan.VkBuffer buffer, VkDeviceMemory bufferMemory, ulong bufferSize) {
+		internal VulkanBuffer(string debugName, LogicalGpu logicalGpu, VkBuffer buffer, VkDeviceMemory bufferMemory, ulong bufferSize) {
 			DebugName = debugName;
 			this.logicalGpu = logicalGpu;
 			Buffer = buffer;
@@ -50,18 +50,19 @@ namespace Engine3.Client.Graphics.Vulkan {
 		public void CopyUsingStaging<T>(VkCommandPool transferCommandPool, VkQueue transferQueue, ReadOnlySpan<T> data, ulong offset = 0) where T : unmanaged {
 			ulong bufferSize = (ulong)(sizeof(T) * data.Length);
 
-			VkBuffer stagingBuffer = logicalGpu.CreateBuffer("Temporary Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
+			VulkanBuffer stagingBuffer = logicalGpu.CreateBuffer("Temporary Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
 				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, bufferSize); // TODO should i make a persistent staging buffer?
 
 			stagingBuffer.Copy(data, offset);
 
-			TransferCommandBuffer transferCommandBuffer = logicalGpu.CreateTransferCommandBuffer(transferCommandPool, transferQueue);
+			TransferCommandBuffer transferCommandBuffer = logicalGpu.CreateTransferCommandBuffer(transferCommandPool);
 
 			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
 			transferCommandBuffer.CmdCopyBuffer(stagingBuffer.Buffer, Buffer, bufferSize);
 			transferCommandBuffer.EndCommandBuffer();
-			transferCommandBuffer.SubmitQueue();
+			transferCommandBuffer.SubmitQueue(transferQueue);
 
+			Vk.QueueWaitIdle(transferQueue);
 			transferCommandBuffer.Destroy();
 
 			stagingBuffer.Destroy();

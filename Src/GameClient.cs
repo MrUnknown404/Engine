@@ -90,7 +90,7 @@ namespace Engine3 {
 			Shaderc.GetSpvVersion(ref spvVersion, ref spvRevision);
 			Logger.Debug($"- SpirV Version: {(spvVersion & 16711680U) >> 16}.{(spvVersion & 65280U) >> 8} - {spvRevision}");
 
-			SetupEngine();
+			SetupEngine(settings);
 
 			if (GraphicsBackend.GraphicsBackend != Client.Graphics.GraphicsBackend.Console) { SetupGraphics(); }
 
@@ -130,13 +130,13 @@ namespace Engine3 {
 			WasGraphicsSetup = true;
 		}
 
-		private void SetupEngine() {
+		private void SetupEngine(StartupSettings settings) {
 #if DEBUG
 			Logger.Debug("Writing dumps to file outputs...");
 			StructLayoutDumper.WriteDumpsToOutput();
 #endif
 
-			Stbi.SetFlipVerticallyOnLoad(true); // TODO move
+			Stbi.SetFlipVerticallyOnLoad(settings.StbiFlipOnLoad);
 		}
 
 		private void EngineUpdate() { }
@@ -145,6 +145,7 @@ namespace Engine3 {
 			while (shouldRunGameLoop) {
 				if (GraphicsBackend.GraphicsBackend != Client.Graphics.GraphicsBackend.Console) { Toolkit.Window.ProcessEvents(false); }
 				if (requestShutdown) { shouldRunGameLoop = false; } // TODO check more?
+
 				if (!shouldRunGameLoop) { break; } // Early exit
 
 				EngineUpdate();
@@ -193,7 +194,7 @@ namespace Engine3 {
 			void DestroyRenderingPipeline(Renderer renderer) {
 				if (Renderers.Remove(renderer)) {
 					Logger.Debug($"Destroying {nameof(Renderer)}...");
-					renderer.ActuallyDestroy();
+					renderer.Destroy();
 				} else { Logger.Error($"Could not find to be destroyed {nameof(Renderer)} in {nameof(GameClient)}'s {nameof(Renderer)} list"); }
 			}
 		}
@@ -240,7 +241,7 @@ namespace Engine3 {
 			Cleanup();
 
 			Logger.Debug($"Cleaning up {Renderers.Count} {nameof(Renderer)}s...");
-			foreach (Renderer pipeline in Renderers) { pipeline.ActuallyDestroy(); }
+			foreach (Renderer pipeline in Renderers) { pipeline.Destroy(); }
 
 			Logger.Debug($"Cleaning up {Windows.Count} {nameof(Window)}s...");
 			foreach (Window window in Windows) { window.Destroy(); }
@@ -256,6 +257,7 @@ namespace Engine3 {
 
 		public class StartupSettings {
 			public string MainThreadName { get; init; } = "Main";
+			public bool StbiFlipOnLoad { get; init; } = true;
 		}
 
 		private class ShadercSearchPathContainer : SearchPathContainer { // TODO rename

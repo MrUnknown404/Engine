@@ -1,4 +1,5 @@
 using System.Reflection;
+using Engine3.Client.Graphics.Vulkan.Objects;
 using Engine3.Exceptions;
 using Engine3.Utility;
 using JetBrains.Annotations;
@@ -24,12 +25,12 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public VkShader CreateShader(string debugName, string fileName, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) => new(debugName, LogicalDevice, fileName, shaderLang, shaderType, assembly);
+		public VulkanShader CreateShader(string debugName, string fileName, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) => new(debugName, LogicalDevice, fileName, shaderLang, shaderType, assembly);
 
 		[MustUseReturnValue] internal GraphicsPipeline CreateGraphicsPipeline(GraphicsPipeline.Settings settings) => new(physicalGpu, LogicalDevice, settings);
 
 		[MustUseReturnValue]
-		public VkDeviceMemory CreateDeviceMemory(OpenTK.Graphics.Vulkan.VkBuffer buffer, VkMemoryPropertyFlagBits memoryPropertyFlags) {
+		public VkDeviceMemory CreateDeviceMemory(VkBuffer buffer, VkMemoryPropertyFlagBits memoryPropertyFlags) {
 			VkBufferMemoryRequirementsInfo2 bufferMemoryRequirementsInfo2 = new() { buffer = buffer, };
 			VkMemoryRequirements2 memoryRequirements2 = new();
 			Vk.GetBufferMemoryRequirements2(LogicalDevice, &bufferMemoryRequirementsInfo2, &memoryRequirements2);
@@ -37,7 +38,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public VkDeviceMemory CreateDeviceMemory(OpenTK.Graphics.Vulkan.VkImage image, VkMemoryPropertyFlagBits memoryPropertyFlags) {
+		public VkDeviceMemory CreateDeviceMemory(VkImage image, VkMemoryPropertyFlagBits memoryPropertyFlags) {
 			VkImageMemoryRequirementsInfo2 imageMemoryRequirementsInfo2 = new() { image = image, };
 			VkMemoryRequirements2 memoryRequirements2 = new();
 			Vk.GetImageMemoryRequirements2(LogicalDevice, &imageMemoryRequirementsInfo2, &memoryRequirements2);
@@ -68,9 +69,9 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public VkBuffer CreateBuffer(string debugName, VkBufferUsageFlagBits bufferUsageFlags, VkMemoryPropertyFlagBits memoryPropertyFlags, ulong bufferSize) {
+		public VulkanBuffer CreateBuffer(string debugName, VkBufferUsageFlagBits bufferUsageFlags, VkMemoryPropertyFlagBits memoryPropertyFlags, ulong bufferSize) {
 			VkBufferCreateInfo bufferCreateInfo = new() { size = bufferSize, usage = bufferUsageFlags, sharingMode = VkSharingMode.SharingModeExclusive, };
-			OpenTK.Graphics.Vulkan.VkBuffer buffer;
+			VkBuffer buffer;
 			VkH.CheckIfSuccess(Vk.CreateBuffer(LogicalDevice, &bufferCreateInfo, null, &buffer), VulkanException.Reason.CreateBuffer);
 
 			VkDeviceMemory bufferMemory = CreateDeviceMemory(buffer, memoryPropertyFlags);
@@ -81,11 +82,11 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		[MustUseReturnValue]
 		public UniformBuffers CreateUniformBuffers(string debugName, VulkanRenderer renderer, ulong bufferSize) {
-			VkBuffer[] buffers = new VkBuffer[renderer.MaxFramesInFlight];
+			VulkanBuffer[] buffers = new VulkanBuffer[renderer.MaxFramesInFlight];
 			void*[] buffersMapped = new void*[renderer.MaxFramesInFlight];
 
 			for (int i = 0; i < renderer.MaxFramesInFlight; i++) {
-				VkBuffer buffer = CreateBuffer($"Test Uniform Buffer[{i}]", VkBufferUsageFlagBits.BufferUsageUniformBufferBit,
+				VulkanBuffer buffer = CreateBuffer($"Test Uniform Buffer[{i}]", VkBufferUsageFlagBits.BufferUsageUniformBufferBit,
 					VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, bufferSize);
 
 				buffers[i] = buffer;
@@ -125,12 +126,12 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public VkImage CreateImage(string debugName, uint width, uint height, VkFormat imageFormat) =>
+		public VulkanImage CreateImage(string debugName, uint width, uint height, VkFormat imageFormat) =>
 				CreateImage(debugName, width, height, imageFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits.ImageAspectColorBit);
 
 		[MustUseReturnValue]
-		public VkImage CreateImage(string debugName, uint width, uint height, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlagBits usageFlags, VkImageAspectFlagBits aspectMask) {
-			OpenTK.Graphics.Vulkan.VkImage image = CreateImage(LogicalDevice, imageFormat, imageTiling, usageFlags, width, height);
+		public VulkanImage CreateImage(string debugName, uint width, uint height, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlagBits usageFlags, VkImageAspectFlagBits aspectMask) {
+			VkImage image = CreateImage(LogicalDevice, imageFormat, imageTiling, usageFlags, width, height);
 			VkDeviceMemory imageMemory = CreateDeviceMemory(image, VkMemoryPropertyFlagBits.MemoryPropertyDeviceLocalBit);
 			BindImageMemory(LogicalDevice, image, imageMemory);
 			VkImageView imageView = CreateImageView(LogicalDevice, image, imageFormat, aspectMask);
@@ -138,7 +139,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			return new(debugName, physicalGpu, this, image, imageMemory, imageView, imageFormat);
 
 			[MustUseReturnValue]
-			static OpenTK.Graphics.Vulkan.VkImage CreateImage(VkDevice logicalDevice, VkFormat imageFormat, VkImageTiling tiling, VkImageUsageFlagBits usage, uint width, uint height) {
+			static VkImage CreateImage(VkDevice logicalDevice, VkFormat imageFormat, VkImageTiling tiling, VkImageUsageFlagBits usage, uint width, uint height) {
 				VkImageCreateInfo imageCreateInfo = new() {
 						imageType = VkImageType.ImageType2d,
 						format = imageFormat,
@@ -153,13 +154,13 @@ namespace Engine3.Client.Graphics.Vulkan {
 						arrayLayers = 1,
 				};
 
-				OpenTK.Graphics.Vulkan.VkImage tempImage;
+				VkImage tempImage;
 				VkH.CheckIfSuccess(Vk.CreateImage(logicalDevice, &imageCreateInfo, null, &tempImage), VulkanException.Reason.CreateImage);
 				return tempImage;
 			}
 
 			[MustUseReturnValue]
-			static VkImageView CreateImageView(VkDevice logicalDevice, OpenTK.Graphics.Vulkan.VkImage image, VkFormat imageFormat, VkImageAspectFlagBits aspectMask) {
+			static VkImageView CreateImageView(VkDevice logicalDevice, VkImage image, VkFormat imageFormat, VkImageAspectFlagBits aspectMask) {
 				VkImageViewCreateInfo createInfo = new() {
 						image = image,
 						viewType = VkImageViewType.ImageViewType2d,
@@ -177,20 +178,20 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public VkImage CreateImageAndCopyUsingStaging(string debugName, string fileLocation, string fileExtension, uint width, uint height, byte texChannels, VkFormat imageFormat, VkCommandPool transferCommandPool,
+		public VulkanImage CreateImageAndCopyUsingStaging(string debugName, string fileLocation, string fileExtension, uint width, uint height, byte texChannels, VkFormat imageFormat, VkCommandPool transferCommandPool,
 			Assembly assembly) {
 			using (StbiImage stbiImage = AssetH.LoadImage(fileLocation, fileExtension, texChannels, assembly)) {
-				VkImage image = CreateImage(debugName, width, height, imageFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits.ImageAspectColorBit);
+				VulkanImage image = CreateImage(debugName, width, height, imageFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits.ImageAspectColorBit);
 				image.Copy(transferCommandPool, TransferQueue, stbiImage, 4);
 				return image;
 			}
 		}
 
 		[MustUseReturnValue]
-		public VkImage CreateImageAndCopyUsingStaging(string debugName, string fileLocation, string fileExtension, uint width, uint height, byte texChannels, VkFormat imageFormat, VkImageTiling imageTiling,
+		public VulkanImage CreateImageAndCopyUsingStaging(string debugName, string fileLocation, string fileExtension, uint width, uint height, byte texChannels, VkFormat imageFormat, VkImageTiling imageTiling,
 			VkImageUsageFlagBits usageFlags, VkImageAspectFlagBits aspectMask, VkCommandPool transferCommandPool, Assembly assembly) {
 			using (StbiImage stbiImage = AssetH.LoadImage(fileLocation, fileExtension, texChannels, assembly)) {
-				VkImage image = CreateImage(debugName, width, height, imageFormat, imageTiling, usageFlags, aspectMask);
+				VulkanImage image = CreateImage(debugName, width, height, imageFormat, imageTiling, usageFlags, aspectMask);
 				image.Copy(transferCommandPool, TransferQueue, stbiImage, 4);
 				return image;
 			}
@@ -199,8 +200,10 @@ namespace Engine3.Client.Graphics.Vulkan {
 		[MustUseReturnValue] public DepthImage CreateDepthImage(string debugName, VkCommandPool transferCommandPool, VkExtent2D extent) => new(debugName, physicalGpu, this, transferCommandPool, TransferQueue, extent);
 
 		[MustUseReturnValue]
-		public TransferCommandBuffer CreateTransferCommandBuffer(VkCommandPool commandPool, VkQueue queue, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) =>
-				new(LogicalDevice, commandPool, queue, level);
+		public GraphicsCommandBuffer CreateGraphicsCommandBuffer(VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) => new(LogicalDevice, commandPool, level);
+
+		[MustUseReturnValue]
+		public TransferCommandBuffer CreateTransferCommandBuffer(VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) => new(LogicalDevice, commandPool, level);
 
 		[MustUseReturnValue]
 		public VkDescriptorSetLayout CreateDescriptorSetLayout(DescriptorSetInfo[] descriptorSets) {
@@ -225,12 +228,12 @@ namespace Engine3.Client.Graphics.Vulkan {
 			WasDestroyed = true;
 		}
 
-		private static void BindBufferMemory(VkDevice logicalDevice, OpenTK.Graphics.Vulkan.VkBuffer buffer, VkDeviceMemory deviceMemory) {
+		private static void BindBufferMemory(VkDevice logicalDevice, VkBuffer buffer, VkDeviceMemory deviceMemory) {
 			VkBindBufferMemoryInfo bindBufferMemoryInfo = new() { buffer = buffer, memory = deviceMemory, };
 			VkH.CheckIfSuccess(Vk.BindBufferMemory2(logicalDevice, 1, &bindBufferMemoryInfo), VulkanException.Reason.BindBufferMemory);
 		}
 
-		private static void BindImageMemory(VkDevice logicalDevice, OpenTK.Graphics.Vulkan.VkImage image, VkDeviceMemory deviceMemory) {
+		private static void BindImageMemory(VkDevice logicalDevice, VkImage image, VkDeviceMemory deviceMemory) {
 			VkBindImageMemoryInfo bindImageMemoryInfo = new() { image = image, memory = deviceMemory, };
 			VkH.CheckIfSuccess(Vk.BindImageMemory2(logicalDevice, 1, &bindImageMemoryInfo), VulkanException.Reason.BindImageMemory);
 		}
