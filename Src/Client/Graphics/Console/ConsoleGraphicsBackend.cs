@@ -1,4 +1,4 @@
-namespace Engine3.Client.Graphics {
+namespace Engine3.Client.Graphics.Console {
 	public class ConsoleGraphicsBackend : EngineGraphicsBackend {
 		public ConsoleGraphicsBackend() : base(GraphicsBackend.Console, null) { }
 

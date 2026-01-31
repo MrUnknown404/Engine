@@ -200,9 +200,6 @@ namespace Engine3.Client.Graphics.Vulkan {
 		[MustUseReturnValue] public DepthImage CreateDepthImage(string debugName, VkCommandPool transferCommandPool, VkExtent2D extent) => new(debugName, physicalGpu, this, transferCommandPool, TransferQueue, extent);
 
 		[MustUseReturnValue]
-		public GraphicsCommandBuffer CreateGraphicsCommandBuffer(VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) => new(LogicalDevice, commandPool, level);
-
-		[MustUseReturnValue]
 		public TransferCommandBuffer CreateTransferCommandBuffer(VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) => new(LogicalDevice, commandPool, level);
 
 		[MustUseReturnValue]

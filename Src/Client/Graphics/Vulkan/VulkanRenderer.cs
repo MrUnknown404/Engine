@@ -65,15 +65,11 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 				BeginFrame(frameData, swapChainImageIndex);
 
-				RecordCommandBuffer(frameData.GraphicsCommandBuffer, delta);
-				// VkCommandBuffer[] extraCommandBuffers = ProvideAdditionalCommandBuffers(delta);
-				// VkCommandBuffer[] commandBuffers = new VkCommandBuffer[extraCommandBuffers.Length + 1];
-				// commandBuffers[0] = frameData.GraphicsCommandBuffer.VkCommandBuffer;
-
-				// if (extraCommandBuffers.Length != 0) { Array.Copy(extraCommandBuffers, 0, commandBuffers, 1, extraCommandBuffers.Length); }
+				GraphicsCommandBuffer graphicsCommandBuffer = frameData.GraphicsCommandBuffer;
+				RecordCommandBuffer(graphicsCommandBuffer, delta);
 
 				EndFrame(frameData, swapChainImageIndex);
-				SubmitQueue(frameData.ImageAvailableSemaphore, [ frameData.GraphicsCommandBuffer.VkCommandBuffer, ], swapChainImageIndex, frameData.InFlightFence);
+				SubmitQueue(frameData.ImageAvailableSemaphore, [ graphicsCommandBuffer.VkCommandBuffer, ], swapChainImageIndex, frameData.InFlightFence);
 				PresentFrame(swapChainImageIndex);
 			}
 
@@ -204,8 +200,6 @@ namespace Engine3.Client.Graphics.Vulkan {
 			FrameIndex = (byte)((FrameIndex + 1) % MaxFramesInFlight);
 		}
 
-		public GraphicsCommandBuffer CreateGraphicsCommandBuffer() => LogicalGpu.CreateGraphicsCommandBuffer(GraphicsCommandPool);
-
 		protected override void PrepareCleanup() => Vk.DeviceWaitIdle(LogicalGpu.LogicalDevice);
 
 		protected override void Cleanup() {
@@ -228,7 +222,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			SwapChain.Destroy();
 		}
 
-		protected static VkImageMemoryBarrier2 GetBeginPipelineBarrierImageMemoryBarrier(VkImage image) =>
+		protected static VkImageMemoryBarrier2 GetBeginPipelineBarrierImageMemoryBarrier(VkImage image) => // TODO rename
 				new() {
 						dstAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
 						dstStageMask = VkPipelineStageFlagBits2.PipelineStage2TopOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
@@ -238,7 +232,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 						subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 				};
 
-		protected static VkImageMemoryBarrier2 GetEndPipelineBarrierImageMemoryBarrier(VkImage image) =>
+		protected static VkImageMemoryBarrier2 GetEndPipelineBarrierImageMemoryBarrier(VkImage image) => // TODO rename
 				new() {
 						srcAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
 						srcStageMask = VkPipelineStageFlagBits2.PipelineStage2BottomOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
