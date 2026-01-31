@@ -8,13 +8,13 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		public VulkanImage Image { get; private set; }
 
-		private readonly PhysicalGpu physicalGpu;
+		private readonly SurfaceCapablePhysicalGpu physicalGpu;
 		private readonly LogicalGpu logicalGpu;
 		private readonly VkCommandPool transferCommandPool;
 		private readonly VkQueue transferQueue;
 		private readonly VkFormat depthFormat;
 
-		internal DepthImage(string debugName, PhysicalGpu physicalGpu, LogicalGpu logicalGpu, VkCommandPool transferCommandPool, VkQueue transferQueue, VkExtent2D extent) {
+		internal DepthImage(string debugName, SurfaceCapablePhysicalGpu physicalGpu, LogicalGpu logicalGpu, VkCommandPool transferCommandPool, VkQueue transferQueue, VkExtent2D extent) {
 			DebugName = debugName;
 			this.physicalGpu = physicalGpu;
 			this.logicalGpu = logicalGpu;

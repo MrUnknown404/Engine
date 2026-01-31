@@ -88,7 +88,7 @@ namespace Engine3 {
 
 			uint spvVersion = 0, spvRevision = 0;
 			Shaderc.GetSpvVersion(ref spvVersion, ref spvRevision);
-			Logger.Debug($"- SpirV Version: {(spvVersion & 16711680U) >> 16}.{(spvVersion & 65280U) >> 8} - {spvRevision}");
+			Logger.Debug($"- SpirV Version: {(spvVersion & 16711680) >> 16}.{(spvVersion & 65280) >> 8} - {spvRevision}");
 
 			SetupEngine(settings);
 
@@ -131,6 +131,8 @@ namespace Engine3 {
 		}
 
 		private void SetupEngine(StartupSettings settings) {
+			settings.Print();
+
 #if DEBUG
 			Logger.Debug("Writing dumps to file outputs...");
 			StructLayoutDumper.WriteDumpsToOutput();
@@ -256,8 +258,17 @@ namespace Engine3 {
 		private void CleanupEngine() => Shaderc.Dispose();
 
 		public class StartupSettings {
+			[SuppressMessage("ReSharper", "MemberHidesStaticFromOuterClass")]
+			private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
 			public string MainThreadName { get; init; } = "Main";
 			public bool StbiFlipOnLoad { get; init; } = true;
+
+			internal void Print() {
+				Logger.Trace("Engine Startup Settings");
+				Logger.Trace($"- {nameof(MainThreadName)}: {MainThreadName}");
+				Logger.Trace($"- {nameof(StbiFlipOnLoad)}: {StbiFlipOnLoad}");
+			}
 		}
 
 		private class ShadercSearchPathContainer : SearchPathContainer { // TODO rename

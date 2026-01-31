@@ -14,9 +14,9 @@ namespace Engine3.Client.Graphics.Vulkan {
 		public VkQueue TransferQueue { get; }
 
 		public bool WasDestroyed { get; private set; }
-		private readonly PhysicalGpu physicalGpu;
+		private readonly SurfaceCapablePhysicalGpu physicalGpu;
 
-		internal LogicalGpu(PhysicalGpu physicalGpu, VkDevice logicalDevice, VkQueue graphicsQueue, VkQueue presentQueue, VkQueue transferQueue) {
+		internal LogicalGpu(SurfaceCapablePhysicalGpu physicalGpu, VkDevice logicalDevice, VkQueue graphicsQueue, VkQueue presentQueue, VkQueue transferQueue) {
 			this.physicalGpu = physicalGpu;
 			LogicalDevice = logicalDevice;
 			GraphicsQueue = graphicsQueue;

@@ -46,7 +46,7 @@ namespace Engine3.Debug {
 				using StreamWriter writer = new(stream);
 				writer.Write(content);
 
-				Logger.Debug($"- Wrote debug output file for {fileName}");
+				Logger.Trace($"- Wrote debug output file for {fileName}");
 			}
 
 			ToWrite.Clear();

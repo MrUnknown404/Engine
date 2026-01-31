@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
 using Engine3.Client.Graphics.Vulkan;
 using Engine3.Exceptions;
 using JetBrains.Annotations;
@@ -12,7 +11,7 @@ namespace Engine3.Client {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public VkSurfaceKHR Surface { get; }
-		public PhysicalGpu SelectedGpu { get; }
+		public SurfaceCapablePhysicalGpu SelectedGpu { get; }
 		public LogicalGpu LogicalGpu { get; }
 
 		private readonly VkInstance vkInstance;
@@ -23,16 +22,16 @@ namespace Engine3.Client {
 			Surface = CreateSurface(vkInstance, WindowHandle);
 			Logger.Debug("Created surface");
 
-			PhysicalGpu[] availableGpus = GetValidGpus(graphicsBackend.PhysicalDevices, Surface, graphicsBackend.IsPhysicalDeviceSuitable, graphicsBackend.GetAllRequiredDeviceExtensions());
+			SurfaceCapablePhysicalGpu[] availableGpus = GetValidGpus(graphicsBackend.PhysicalGpus, Surface);
 			if (availableGpus.Length == 0) { throw new Engine3VulkanException("Could not find any valid GPUs"); }
 			Logger.Debug("Obtained surface capable GPUs");
-			PrintGpus(availableGpus, Engine3.Debug);
 
 			SelectedGpu = PickBestGpu(availableGpus, graphicsBackend.RateGpuSuitability);
 			Logger.Debug($"- Selected Gpu: {SelectedGpu.Name}");
 
 			LogicalGpu = SelectedGpu.CreateLogicalDevice(graphicsBackend.GetAllRequiredDeviceExtensions(), graphicsBackend.GetAllRequiredValidationLayers());
 			Logger.Debug("Created logical gpu");
+			Logger.Trace($"- Handle: {LogicalGpu.LogicalDevice.Handle:X}");
 		}
 
 		protected override void Cleanup() {
@@ -47,41 +46,19 @@ namespace Engine3.Client {
 		}
 
 		[MustUseReturnValue]
-		private static PhysicalGpu[] GetValidGpus(VkPhysicalDevice[] physicalDevices, VkSurfaceKHR surface, VulkanGraphicsBackend.IsPhysicalDeviceSuitableDelegate isPhysicalDeviceSuitable, string[] requiredDeviceExtensions) {
-			List<PhysicalGpu> gpus = new();
+		private static SurfaceCapablePhysicalGpu[] GetValidGpus(PhysicalGpu[] physicalGpus, VkSurfaceKHR surface) {
+			List<SurfaceCapablePhysicalGpu> gpus = new();
 
-			foreach (VkPhysicalDevice physicalDevice in physicalDevices) {
-				VkPhysicalDeviceProperties2 physicalDeviceProperties2 = new();
-				VkPhysicalDeviceFeatures2 physicalDeviceFeatures2 = new();
-				Vk.GetPhysicalDeviceProperties2(physicalDevice, &physicalDeviceProperties2);
-				Vk.GetPhysicalDeviceFeatures2(physicalDevice, &physicalDeviceFeatures2);
+			foreach (PhysicalGpu physicalGpu in physicalGpus) {
+				VkPhysicalDevice physicalDevice = physicalGpu.PhysicalDevice;
 
-				if (!isPhysicalDeviceSuitable(physicalDeviceProperties2.properties, physicalDeviceFeatures2.features)) { continue; }
-
-				VkExtensionProperties[] physicalDeviceExtensionProperties = GetPhysicalDeviceExtensionProperties(physicalDevice);
-				if (physicalDeviceExtensionProperties.Length == 0) { continue; }
-				if (!CheckDeviceExtensionSupport(physicalDeviceExtensionProperties, requiredDeviceExtensions)) { continue; }
 				if (!FindQueueFamilies(physicalDevice, surface, out uint? graphicsFamily, out uint? presentFamily, out uint? transferFamily)) { continue; }
 				if (!SwapChain.QuerySupport(physicalDevice, surface, out _, out _, out _)) { continue; }
 
-				gpus.Add(new(physicalDevice, physicalDeviceProperties2, physicalDeviceFeatures2, physicalDeviceExtensionProperties, new(graphicsFamily.Value, presentFamily.Value, transferFamily.Value)));
+				gpus.Add(new(physicalGpu, new(graphicsFamily.Value, presentFamily.Value, transferFamily.Value)));
 			}
 
 			return gpus.ToArray();
-
-			[MustUseReturnValue]
-			static VkExtensionProperties[] GetPhysicalDeviceExtensionProperties(VkPhysicalDevice physicalDevice) {
-				uint extensionCount;
-				Vk.EnumerateDeviceExtensionProperties(physicalDevice, null, &extensionCount, null);
-
-				if (extensionCount == 0) { return Array.Empty<VkExtensionProperties>(); }
-
-				VkExtensionProperties[] physicalDeviceExtensionProperties = new VkExtensionProperties[extensionCount];
-				fixed (VkExtensionProperties* extensionPropertiesPtr = physicalDeviceExtensionProperties) {
-					Vk.EnumerateDeviceExtensionProperties(physicalDevice, null, &extensionCount, extensionPropertiesPtr);
-					return physicalDeviceExtensionProperties;
-				}
-			}
 
 			[MustUseReturnValue]
 			static VkQueueFamilyProperties2[] GetPhysicalDeviceQueueFamilyProperties(VkPhysicalDevice physicalDevice) {
@@ -98,13 +75,6 @@ namespace Engine3.Client {
 					return queueFamilyProperties2;
 				}
 			}
-
-			[MustUseReturnValue]
-			static bool CheckDeviceExtensionSupport(VkExtensionProperties[] physicalDeviceExtensionProperties, string[] requiredDeviceExtensions) =>
-					requiredDeviceExtensions.All(wantedExtension => physicalDeviceExtensionProperties.Any(extensionProperties => {
-						ReadOnlySpan<byte> extensionName = extensionProperties.extensionName;
-						return Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)]) == wantedExtension;
-					}));
 
 			[MustUseReturnValue]
 			static bool FindQueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, [NotNullWhen(true)] out uint? graphicsFamily, [NotNullWhen(true)] out uint? presentFamily,
@@ -131,23 +101,12 @@ namespace Engine3.Client {
 			}
 		}
 
-		private static void PrintGpus(PhysicalGpu[] physicalGpus, bool verbose) {
-			Logger.Debug("The following GPUs are available:");
-			foreach (PhysicalGpu gpu in physicalGpus) {
-				if (verbose) {
-					foreach (string str in gpu.GetVerboseDescription()) { Logger.Debug(str); }
-				} else {
-					Logger.Debug($"- {gpu.GetSimpleDescription()}"); //
-				}
-			}
-		}
-
 		[MustUseReturnValue]
-		private static PhysicalGpu PickBestGpu(PhysicalGpu[] physicalGpus, VulkanGraphicsBackend.RateGpuSuitabilityDelegate rateGpuSuitability) {
-			PhysicalGpu? bestDevice = null;
+		private static SurfaceCapablePhysicalGpu PickBestGpu(SurfaceCapablePhysicalGpu[] physicalGpus, VulkanGraphicsBackend.RateGpuSuitabilityDelegate rateGpuSuitability) {
+			SurfaceCapablePhysicalGpu? bestDevice = null;
 			int bestDeviceScore = int.MinValue;
 
-			foreach (PhysicalGpu device in physicalGpus) {
+			foreach (SurfaceCapablePhysicalGpu device in physicalGpus) {
 				int score = rateGpuSuitability(device);
 				if (score > bestDeviceScore) {
 					bestDevice = device;

@@ -11,10 +11,10 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
 
-		private readonly PhysicalGpu physicalGpu;
+		private readonly SurfaceCapablePhysicalGpu physicalGpu;
 		private readonly LogicalGpu logicalGpu;
 
-		internal VulkanImage(string debugName, PhysicalGpu physicalGpu, LogicalGpu logicalGpu, VkImage image, VkDeviceMemory imageMemory, VkImageView imageView, VkFormat imageFormat) {
+		internal VulkanImage(string debugName, SurfaceCapablePhysicalGpu physicalGpu, LogicalGpu logicalGpu, VkImage image, VkDeviceMemory imageMemory, VkImageView imageView, VkFormat imageFormat) {
 			DebugName = debugName;
 			this.physicalGpu = physicalGpu;
 			this.logicalGpu = logicalGpu;

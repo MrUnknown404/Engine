@@ -9,6 +9,7 @@ using OpenTK.Core.Native;
 using OpenTK.Graphics;
 using OpenTK.Graphics.Vulkan;
 using OpenTK.Platform;
+using USharpLibs.Common.Utils;
 
 namespace Engine3.Client.Graphics.Vulkan {
 	public unsafe class VulkanGraphicsBackend : EngineGraphicsBackend {
@@ -40,7 +41,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		public bool AllowEnableAnisotropy { get; init; } = true;
 
 		public VkInstance? VkInstance { get; private set; }
-		public VkPhysicalDevice[] PhysicalDevices { get; private set; } = Array.Empty<VkPhysicalDevice>();
+		public PhysicalGpu[] PhysicalGpus { get; private set; } = Array.Empty<PhysicalGpu>();
 
 #if DEBUG
 		private static VkDebugUtilsMessengerEXT? vkDebugMessenger;
@@ -49,6 +50,8 @@ namespace Engine3.Client.Graphics.Vulkan {
 		public VulkanGraphicsBackend(VulkanGraphicsApiHints graphicsApiHints) : base(GraphicsBackend.Vulkan, graphicsApiHints) { }
 
 		protected internal override void Setup(GameClient gameClient) {
+			PrintSettings();
+
 			Logger.Debug("Loading Vulkan library...");
 			VKLoader.Init();
 
@@ -66,9 +69,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			if (instanceExtensionProperties.Length == 0) { throw new Engine3VulkanException("Could not find any instance extension properties"); }
 			if (!CheckSupportForRequiredInstanceExtensions(instanceExtensionProperties, GetAllRequiredInstanceExtensions())) { throw new Engine3VulkanException("Requested instance extensions are not available"); }
 
-#if DEBUG
 			PrintInstanceExtensions(instanceExtensionProperties);
-#endif
 
 			VkInstance = CreateVulkanInstance(gameClient.Name, gameClient.Version);
 			VKLoader.SetInstance(VkInstance.Value);
@@ -79,8 +80,9 @@ namespace Engine3.Client.Graphics.Vulkan {
 			Logger.Debug("Created Vulkan Debug Messenger");
 #endif
 
-			PhysicalDevices = GetPhysicalDevices(VkInstance.Value);
-			Logger.Debug("Created Physical Devices");
+			PhysicalGpus = GetPhysicalGpus(VkInstance.Value, IsPhysicalDeviceSuitable, RequiredDeviceExtensions);
+			Logger.Debug("Created Physical Gpus");
+			PrintPhysicalGpus(Engine3.Debug);
 		}
 
 		public string[] GetAllRequiredValidationLayers() {
@@ -105,7 +107,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			return allDeviceExtensions.ToArray();
 		}
 
-		protected internal virtual bool IsPhysicalDeviceSuitable(VkPhysicalDeviceProperties physicalDeviceProperties, VkPhysicalDeviceFeatures physicalDeviceFeatures) {
+		protected virtual bool IsPhysicalDeviceSuitable(VkPhysicalDeviceProperties physicalDeviceProperties, VkPhysicalDeviceFeatures physicalDeviceFeatures) {
 			bool isValid = physicalDeviceProperties.deviceType is VkPhysicalDeviceType.PhysicalDeviceTypeIntegratedGpu or VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu or VkPhysicalDeviceType.PhysicalDeviceTypeVirtualGpu;
 
 			if (AllowEnableAnisotropy) { isValid &= physicalDeviceFeatures.samplerAnisotropy == Vk.True; }
@@ -135,6 +137,28 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 			Vk.DestroyInstance(vkInstance, null);
 			VkInstance = null;
+		}
+
+		private void PrintSettings() {
+			Logger.Trace("Vulkan Graphics Backend Settings");
+			Logger.Trace($"- {nameof(RequiredValidationLayers)}: {RequiredValidationLayers.ElementsAsString()}");
+			Logger.Trace($"- {nameof(RequiredInstanceExtensions)}: {RequiredInstanceExtensions.ElementsAsString()}");
+			Logger.Trace($"- {nameof(RequiredDeviceExtensions)}: {RequiredDeviceExtensions.ElementsAsString()}");
+			Logger.Trace($"- {nameof(EnabledDebugMessageSeverities)}: {EnabledDebugMessageSeverities}");
+			Logger.Trace($"- {nameof(EnabledDebugMessageTypes)}: {EnabledDebugMessageTypes}");
+			Logger.Trace($"- {nameof(PresentMode)}: {PresentMode}");
+			Logger.Trace($"- {nameof(MaxFramesInFlight)}: {MaxFramesInFlight}");
+			Logger.Trace($"- {nameof(AllowEnableAnisotropy)}: {AllowEnableAnisotropy}");
+		}
+
+		private void PrintPhysicalGpus(bool verbose) {
+			Logger.Debug("Found the following suitable gpus:");
+
+			foreach (PhysicalGpu physicalGpu in PhysicalGpus) {
+				if (verbose) {
+					foreach (string line in physicalGpu.GetVerboseDescription()) { Logger.Trace(line); }
+				} else { Logger.Debug(physicalGpu.GetSimpleDescription()); }
+			}
 		}
 
 		[MustUseReturnValue]
@@ -202,16 +226,60 @@ namespace Engine3.Client.Graphics.Vulkan {
 				}));
 
 		[MustUseReturnValue]
-		private static VkPhysicalDevice[] GetPhysicalDevices(VkInstance vkInstance) {
+		private static PhysicalGpu[] GetPhysicalGpus(VkInstance vkInstance, IsPhysicalDeviceSuitableDelegate isPhysicalDeviceSuitable, string[] requiredDeviceExtensions) {
 			uint deviceCount;
 			Vk.EnumeratePhysicalDevices(vkInstance, &deviceCount, null);
 
-			if (deviceCount == 0) { return Array.Empty<VkPhysicalDevice>(); }
+			if (deviceCount == 0) { return Array.Empty<PhysicalGpu>(); }
 
 			VkPhysicalDevice[] physicalDevices = new VkPhysicalDevice[deviceCount];
-			fixed (VkPhysicalDevice* physicalDevicesPtr = physicalDevices) {
-				Vk.EnumeratePhysicalDevices(vkInstance, &deviceCount, physicalDevicesPtr);
-				return physicalDevices;
+			fixed (VkPhysicalDevice* physicalDevicesPtr = physicalDevices) { Vk.EnumeratePhysicalDevices(vkInstance, &deviceCount, physicalDevicesPtr); }
+
+			List<PhysicalGpu> physicalGpus = new();
+			foreach (VkPhysicalDevice physicalDevice in physicalDevices) {
+				VkPhysicalDeviceProperties2 physicalDeviceProperties2 = new();
+				VkPhysicalDeviceFeatures2 physicalDeviceFeatures2 = new();
+				Vk.GetPhysicalDeviceProperties2(physicalDevice, &physicalDeviceProperties2);
+				Vk.GetPhysicalDeviceFeatures2(physicalDevice, &physicalDeviceFeatures2);
+
+				if (!isPhysicalDeviceSuitable(physicalDeviceProperties2.properties, physicalDeviceFeatures2.features)) { continue; }
+
+				VkExtensionProperties[] physicalDeviceExtensionProperties = GetPhysicalDeviceExtensionProperties(physicalDevice);
+				if (physicalDeviceExtensionProperties.Length == 0) { continue; }
+				if (!CheckDeviceExtensionSupport(physicalDeviceExtensionProperties, requiredDeviceExtensions)) { continue; }
+
+				physicalGpus.Add(new(physicalDevice, physicalDeviceProperties2, physicalDeviceFeatures2, physicalDeviceExtensionProperties));
+			}
+
+			return physicalGpus.ToArray();
+
+			[MustUseReturnValue]
+			static VkExtensionProperties[] GetPhysicalDeviceExtensionProperties(VkPhysicalDevice physicalDevice) {
+				uint extensionCount;
+				Vk.EnumerateDeviceExtensionProperties(physicalDevice, null, &extensionCount, null);
+
+				if (extensionCount == 0) { return Array.Empty<VkExtensionProperties>(); }
+
+				VkExtensionProperties[] physicalDeviceExtensionProperties = new VkExtensionProperties[extensionCount];
+				fixed (VkExtensionProperties* extensionPropertiesPtr = physicalDeviceExtensionProperties) {
+					Vk.EnumerateDeviceExtensionProperties(physicalDevice, null, &extensionCount, extensionPropertiesPtr);
+					return physicalDeviceExtensionProperties;
+				}
+			}
+
+			[MustUseReturnValue]
+			static bool CheckDeviceExtensionSupport(VkExtensionProperties[] physicalDeviceExtensionProperties, string[] requiredDeviceExtensions) =>
+					requiredDeviceExtensions.All(wantedExtension => physicalDeviceExtensionProperties.Any(extensionProperties => {
+						ReadOnlySpan<byte> extensionName = extensionProperties.extensionName;
+						return Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)]) == wantedExtension;
+					}));
+		}
+
+		private static void PrintInstanceExtensions(VkExtensionProperties[] instanceExtensionProperties) {
+			Logger.Trace("The following instance extensions are available:");
+			foreach (VkExtensionProperties extensionProperties in instanceExtensionProperties) {
+				ReadOnlySpan<byte> extensionName = extensionProperties.extensionName;
+				Logger.Trace($"- {Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)])}");
 			}
 		}
 
@@ -270,13 +338,6 @@ namespace Engine3.Client.Graphics.Vulkan {
 			}
 		}
 
-		private static void PrintInstanceExtensions(VkExtensionProperties[] instanceExtensionProperties) {
-			Logger.Debug("The following instance extensions are available:");
-			foreach (VkExtensionProperties extensionProperties in instanceExtensionProperties) {
-				ReadOnlySpan<byte> extensionName = extensionProperties.extensionName;
-				Logger.Debug($"- {Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)])}");
-			}
-		}
 #endif
 
 		public delegate bool IsPhysicalDeviceSuitableDelegate(VkPhysicalDeviceProperties physicalDeviceProperties, VkPhysicalDeviceFeatures physicalDeviceFeatures);

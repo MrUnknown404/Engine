@@ -15,7 +15,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		private readonly VkDevice logicalDevice;
 		private readonly VkDescriptorSetLayout[]? descriptorSetLayouts;
 
-		internal GraphicsPipeline(PhysicalGpu physicalGpu, VkDevice logicalDevice, Settings settings) {
+		internal GraphicsPipeline(SurfaceCapablePhysicalGpu physicalGpu, VkDevice logicalDevice, Settings settings) {
 			DebugName = settings.DebugName;
 			Pipeline = CreateGraphicsPipeline(physicalGpu, logicalDevice, settings, out VkPipelineLayout layout);
 			Layout = layout;
@@ -24,7 +24,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		}
 
 		[MustUseReturnValue]
-		private static VkPipeline CreateGraphicsPipeline(PhysicalGpu physicalGpu, VkDevice logicalDevice, Settings settings, out VkPipelineLayout pipelineLayout) {
+		private static VkPipeline CreateGraphicsPipeline(SurfaceCapablePhysicalGpu physicalGpu, VkDevice logicalDevice, Settings settings, out VkPipelineLayout pipelineLayout) {
 			byte* entryPointName = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference("main"u8));
 
 			fixed (VkDescriptorSetLayout* descriptorSetLayoutsPtr = settings.DescriptorSetLayouts) {

@@ -23,7 +23,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		public byte FrameIndex { get; private set; }
 
-		protected PhysicalGpu PhysicalGpu => Window.SelectedGpu;
+		protected SurfaceCapablePhysicalGpu PhysicalGpu => Window.SelectedGpu;
 		protected LogicalGpu LogicalGpu => Window.LogicalGpu;
 		public byte MaxFramesInFlight => GraphicsBackend.MaxFramesInFlight;
 
