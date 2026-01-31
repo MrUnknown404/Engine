@@ -81,7 +81,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public UniformBuffers CreateUniformBuffers(string debugName, VulkanRenderer renderer, ulong bufferSize) {
+		internal UniformBuffers CreateUniformBuffers(string debugName, VulkanRenderer renderer, ulong bufferSize) {
 			VulkanBuffer[] buffers = new VulkanBuffer[renderer.MaxFramesInFlight];
 			void*[] buffersMapped = new void*[renderer.MaxFramesInFlight];
 
@@ -97,7 +97,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public TextureSampler CreateSampler(TextureSampler.Settings settings) {
+		internal TextureSampler CreateSampler(TextureSampler.Settings settings) {
 			VkSamplerCreateInfo samplerCreateInfo = new() {
 					minFilter = settings.MinFilter,
 					magFilter = settings.MagFilter,
@@ -126,11 +126,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public VulkanImage CreateImage(string debugName, uint width, uint height, VkFormat imageFormat) =>
-				CreateImage(debugName, width, height, imageFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits.ImageAspectColorBit);
-
-		[MustUseReturnValue]
-		public VulkanImage CreateImage(string debugName, uint width, uint height, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlagBits usageFlags, VkImageAspectFlagBits aspectMask) {
+		internal VulkanImage CreateImage(string debugName, uint width, uint height, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlagBits usageFlags, VkImageAspectFlagBits aspectMask) {
 			VkImage image = CreateImage(LogicalDevice, imageFormat, imageTiling, usageFlags, width, height);
 			VkDeviceMemory imageMemory = CreateDeviceMemory(image, VkMemoryPropertyFlagBits.MemoryPropertyDeviceLocalBit);
 			BindImageMemory(LogicalDevice, image, imageMemory);
@@ -174,16 +170,6 @@ namespace Engine3.Client.Graphics.Vulkan {
 				VkImageView imageView;
 				VkH.CheckIfSuccess(Vk.CreateImageView(logicalDevice, &createInfo, null, &imageView), VulkanException.Reason.CreateImageView);
 				return imageView;
-			}
-		}
-
-		[MustUseReturnValue]
-		public VulkanImage CreateImageAndCopyUsingStaging(string debugName, string fileLocation, string fileExtension, uint width, uint height, byte texChannels, VkFormat imageFormat, VkCommandPool transferCommandPool,
-			Assembly assembly) {
-			using (StbiImage stbiImage = AssetH.LoadImage(fileLocation, fileExtension, texChannels, assembly)) {
-				VulkanImage image = CreateImage(debugName, width, height, imageFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits.ImageAspectColorBit);
-				image.Copy(transferCommandPool, TransferQueue, stbiImage, 4);
-				return image;
 			}
 		}
 

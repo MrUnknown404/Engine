@@ -69,7 +69,9 @@ namespace Engine3.Utility {
 			Directory.CreateDirectory(LogFolder);
 
 			TimeSource.Current = new AccurateUtcTimeSource();
-			LogManager.Setup().LoadConfiguration(static b => {
+			LogManager.Setup().SetupLogFactory(static s => {
+				s.AddCallSiteHiddenClassType(typeof(LoggerH)); //
+			}).LoadConfiguration(static b => {
 				b.ForLogger().FilterMinLevel(ConsoleLogLevel).WriteToColoredConsole(layout: LogLayout);
 				b.ForLogger().FilterMinLevel(FileLogLevel).WriteToFile(fileName: $"{LogFolder}/{DateTime.Now.ToString(LogDateFormat)}.{LogFileType}", layout: LogLayout, maxArchiveFiles: MaxFiles - 1);
 			});

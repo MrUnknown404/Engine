@@ -2,7 +2,7 @@ using OpenTK.Graphics.Vulkan;
 using StbiSharp;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
-	public unsafe class VulkanImage : IGraphicsResource {
+	public unsafe class VulkanImage : INamedGraphicsResource, IEquatable<VulkanImage> {
 		public VkImage Image { get; }
 		public VkDeviceMemory ImageMemory { get; }
 		public VkImageView ImageView { get; }
@@ -22,18 +22,6 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			ImageMemory = imageMemory;
 			ImageView = imageView;
 			ImageFormat = imageFormat;
-		}
-
-		public void Destroy() {
-			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
-
-			VkDevice logicalDevice = logicalGpu.LogicalDevice;
-
-			Vk.DestroyImageView(logicalDevice, ImageView, null);
-			Vk.DestroyImage(logicalDevice, Image, null);
-			Vk.FreeMemory(logicalDevice, ImageMemory, null);
-
-			WasDestroyed = true;
 		}
 
 		public void Copy(VkCommandPool transferCommandPool, VkQueue transferQueue, StbiImage stbiImage, byte texChannels) {
@@ -60,5 +48,25 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 			stagingBuffer.Destroy();
 		}
+
+		public void Destroy() {
+			if (INamedGraphicsResource.WarnIfDestroyed(this)) { return; }
+
+			VkDevice logicalDevice = logicalGpu.LogicalDevice;
+
+			Vk.DestroyImageView(logicalDevice, ImageView, null);
+			Vk.DestroyImage(logicalDevice, Image, null);
+			Vk.FreeMemory(logicalDevice, ImageMemory, null);
+
+			WasDestroyed = true;
+		}
+
+		public bool Equals(VulkanImage? other) => other != null && Image == other.Image;
+		public override bool Equals(object? obj) => obj is VulkanImage buffer && Equals(buffer);
+
+		public override int GetHashCode() => Image.GetHashCode();
+
+		public static bool operator ==(VulkanImage? left, VulkanImage? right) => Equals(left, right);
+		public static bool operator !=(VulkanImage? left, VulkanImage? right) => !Equals(left, right);
 	}
 }

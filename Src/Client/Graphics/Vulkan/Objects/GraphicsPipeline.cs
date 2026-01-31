@@ -5,7 +5,7 @@ using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
-	public unsafe class GraphicsPipeline : IGraphicsResource {
+	public unsafe class GraphicsPipeline : INamedGraphicsResource, IEquatable<GraphicsPipeline> {
 		public VkPipeline Pipeline { get; }
 		public VkPipelineLayout Layout { get; }
 
@@ -150,9 +150,9 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			}
 		}
 
-		[Obsolete($"Call {nameof(VulkanRenderer)}.{nameof(VulkanRenderer.DestroyGraphicsPipeline)} instead")]
+		[Obsolete($"Call {nameof(VulkanRenderer)}.{nameof(VulkanRenderer.DestroyResource)} instead")] // TODO fix this
 		public void Destroy() {
-			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
+			if (INamedGraphicsResource.WarnIfDestroyed(this)) { return; }
 
 			if (descriptorSetLayouts != null) {
 				foreach (VkDescriptorSetLayout descriptorSetLayout in descriptorSetLayouts) { Vk.DestroyDescriptorSetLayout(logicalDevice, descriptorSetLayout, null); }
@@ -163,6 +163,14 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 			WasDestroyed = true;
 		}
+
+		public bool Equals(GraphicsPipeline? other) => other != null && Pipeline == other.Pipeline;
+		public override bool Equals(object? obj) => obj is GraphicsPipeline pipeline && Equals(pipeline);
+
+		public override int GetHashCode() => Pipeline.GetHashCode();
+
+		public static bool operator ==(GraphicsPipeline? left, GraphicsPipeline? right) => Equals(left, right);
+		public static bool operator !=(GraphicsPipeline? left, GraphicsPipeline? right) => !Equals(left, right);
 
 		public class Settings {
 			public string DebugName { get; }

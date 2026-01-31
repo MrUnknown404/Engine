@@ -1,9 +1,8 @@
-using Engine3.Utility;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
-	public unsafe class TextureSampler : IDestroyable {
+	public unsafe class TextureSampler : IGraphicsResource, IEquatable<TextureSampler> {
 		public VkSampler Sampler { get; }
 
 		public bool WasDestroyed { get; private set; }
@@ -22,6 +21,14 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 			WasDestroyed = true;
 		}
+
+		public bool Equals(TextureSampler? other) => other != null && Sampler == other.Sampler;
+		public override bool Equals(object? obj) => obj is TextureSampler buffer && Equals(buffer);
+
+		public override int GetHashCode() => Sampler.GetHashCode();
+
+		public static bool operator ==(TextureSampler? left, TextureSampler? right) => Equals(left, right);
+		public static bool operator !=(TextureSampler? left, TextureSampler? right) => !Equals(left, right);
 
 		[PublicAPI]
 		public class Settings {

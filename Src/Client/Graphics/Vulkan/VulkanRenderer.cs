@@ -1,9 +1,12 @@
+using System.Reflection;
 using Engine3.Client.Graphics.Vulkan.Objects;
 using Engine3.Exceptions;
+using Engine3.Utility;
 using Engine3.Utility.Extensions;
 using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics.Vulkan;
+using StbiSharp;
 
 namespace Engine3.Client.Graphics.Vulkan {
 	public abstract unsafe class VulkanRenderer : Renderer<VulkanWindow, VulkanGraphicsBackend> {
@@ -24,10 +27,14 @@ namespace Engine3.Client.Graphics.Vulkan {
 		protected LogicalGpu LogicalGpu => Window.LogicalGpu;
 		public byte MaxFramesInFlight => GraphicsBackend.MaxFramesInFlight;
 
-		private readonly List<GraphicsPipeline> graphicsPipelines = new();
+		// TODO do i want these per renderer or application wide?
+		private readonly ResourceManager<DescriptorPool> descriptorPoolManager = new();
+		private readonly ResourceManager<TextureSampler> samplerManager = new();
 
-		private readonly Queue<DescriptorPool> descriptorPoolDestroyQueue = new();
-		private readonly Queue<GraphicsPipeline> graphicsPipelineDestroyQueue = new();
+		private readonly NamedResourceManager<GraphicsPipeline> graphicsPipelineManager = new();
+		private readonly NamedResourceManager<VulkanBuffer> bufferManager = new();
+		private readonly NamedResourceManager<UniformBuffers> uniformBufferManager = new();
+		private readonly NamedResourceManager<VulkanImage> imageManager = new();
 
 		protected VulkanRenderer(VulkanGraphicsBackend graphicsBackend, VulkanWindow window) : base(graphicsBackend, window) {
 			SwapChain = new(window, window.SelectedGpu.PhysicalDevice, window.LogicalGpu.LogicalDevice, window.SelectedGpu.QueueFamilyIndices, window.Surface, graphicsBackend.PresentMode);
@@ -57,7 +64,11 @@ namespace Engine3.Client.Graphics.Vulkan {
 		/// Present the swap chain image
 		/// </summary>
 		protected internal override void Render(float delta) {
-			TryDestroyGraphicsPipelines();
+			graphicsPipelineManager.TryCleanup();
+			bufferManager.TryCleanup();
+			uniformBufferManager.TryCleanup();
+			imageManager.TryCleanup();
+			samplerManager.TryCleanup();
 
 			FrameData frameData = Frames[FrameIndex];
 			if (AcquireNextImage(frameData, out uint swapChainImageIndex)) {
@@ -74,24 +85,6 @@ namespace Engine3.Client.Graphics.Vulkan {
 			}
 
 			FrameCount++;
-
-			return;
-
-			void TryDestroyGraphicsPipelines() {
-				if (graphicsPipelineDestroyQueue.Count != 0) {
-					Vk.DeviceWaitIdle(LogicalGpu.LogicalDevice);
-
-					while (graphicsPipelineDestroyQueue.TryDequeue(out GraphicsPipeline? graphicsPipeline)) {
-						if (graphicsPipelines.Remove(graphicsPipeline)) {
-#pragma warning disable CS0618 // Type or member is obsolete
-							graphicsPipeline.Destroy();
-#pragma warning restore CS0618 // Type or member is obsolete
-
-							break;
-						} else { Logger.Error($"Could not find to be destroyed {nameof(GraphicsPipeline)}"); }
-					}
-				}
-			}
 		}
 
 		protected bool AcquireNextImage(FrameData frameData, out uint swapChainImageIndex) {
@@ -200,16 +193,87 @@ namespace Engine3.Client.Graphics.Vulkan {
 			FrameIndex = (byte)((FrameIndex + 1) % MaxFramesInFlight);
 		}
 
+		[MustUseReturnValue]
+		protected DescriptorPool CreateDescriptorPool(VkDescriptorType[] descriptorSetTypes, uint count) {
+			DescriptorPool descriptorPool = new(LogicalGpu.LogicalDevice, count, descriptorSetTypes, MaxFramesInFlight);
+			descriptorPoolManager.Add(descriptorPool);
+			return descriptorPool;
+		}
+
+		[MustUseReturnValue]
+		protected GraphicsPipeline CreateGraphicsPipeline(GraphicsPipeline.Settings settings) {
+			GraphicsPipeline graphicsPipeline = LogicalGpu.CreateGraphicsPipeline(settings);
+			graphicsPipelineManager.Add(graphicsPipeline);
+			return graphicsPipeline;
+		}
+
+		[MustUseReturnValue]
+		protected VulkanBuffer CreateBuffer(string debugName, VkBufferUsageFlagBits bufferUsageFlags, VkMemoryPropertyFlagBits memoryPropertyFlags, ulong bufferSize) {
+			VulkanBuffer buffer = LogicalGpu.CreateBuffer(debugName, bufferUsageFlags, memoryPropertyFlags, bufferSize);
+			bufferManager.Add(buffer);
+			return buffer;
+		}
+
+		[MustUseReturnValue]
+		protected UniformBuffers CreateUniformBuffers(string debugName, ulong bufferSize) {
+			UniformBuffers buffer = LogicalGpu.CreateUniformBuffers(debugName, this, bufferSize);
+			uniformBufferManager.Add(buffer);
+			return buffer;
+		}
+
+		[MustUseReturnValue]
+		protected VulkanImage CreateImage(string debugName, uint width, uint height, VkFormat imageFormat) =>
+				CreateImage(debugName, width, height, imageFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits.ImageAspectColorBit);
+
+		[MustUseReturnValue]
+		protected VulkanImage CreateImage(string debugName, uint width, uint height, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlagBits usageFlags, VkImageAspectFlagBits aspectMask) {
+			VulkanImage image = LogicalGpu.CreateImage(debugName, width, height, imageFormat, imageTiling, usageFlags, aspectMask);
+			imageManager.Add(image);
+			return image;
+		}
+
+		[MustUseReturnValue]
+		protected VulkanImage CreateImageAndCopyUsingStaging(string debugName, string fileLocation, string fileExtension, uint width, uint height, byte texChannels, VkFormat imageFormat, Assembly assembly) {
+			using (StbiImage stbiImage = AssetH.LoadImage(fileLocation, fileExtension, texChannels, assembly)) {
+				VulkanImage image = CreateImage(debugName, width, height, imageFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits.ImageAspectColorBit);
+				image.Copy(TransferCommandPool, LogicalGpu.TransferQueue, stbiImage, 4);
+				return image;
+			}
+		}
+
+		[MustUseReturnValue]
+		protected TextureSampler CreateSampler(TextureSampler.Settings settings) {
+			TextureSampler sampler = LogicalGpu.CreateSampler(settings);
+			samplerManager.Add(sampler);
+			return sampler;
+		}
+
+		protected internal void DestroyResource(GraphicsPipeline graphicsPipeline) => graphicsPipelineManager.Destroy(graphicsPipeline);
+		protected internal void DestroyResource(VulkanBuffer buffer) => bufferManager.Destroy(buffer);
+		protected internal void DestroyResource(UniformBuffers buffer) => uniformBufferManager.Destroy(buffer);
+		protected internal void DestroyResource(VulkanImage image) => imageManager.Destroy(image);
+		protected internal void DestroyResource(TextureSampler sampler) => samplerManager.Destroy(sampler);
+
+		protected virtual void OnSwapchainInvalid() {
+			SwapChain.Recreate();
+			DepthImage.Recreate(SwapChain.Extent);
+		}
+
 		protected override void PrepareCleanup() => Vk.DeviceWaitIdle(LogicalGpu.LogicalDevice);
 
 		protected override void Cleanup() {
 			VkDevice logicalDevice = LogicalGpu.LogicalDevice;
 
-#pragma warning disable CS0618 // Type or member is obsolete
-			foreach (GraphicsPipeline graphicsPipeline in graphicsPipelines) { graphicsPipeline.Destroy(); }
-#pragma warning restore CS0618 // Type or member is obsolete
+			Vk.DeviceWaitIdle(logicalDevice);
 
-			while (descriptorPoolDestroyQueue.TryDequeue(out DescriptorPool? descriptorPool)) { descriptorPool.Destroy(); }
+			bufferManager.CleanupAll();
+			uniformBufferManager.CleanupAll();
+			imageManager.CleanupAll();
+			samplerManager.CleanupAll();
+
+			graphicsPipelineManager.CleanupAll();
+
+			descriptorPoolManager.CleanupAll();
 
 			DepthImage.Destroy();
 
@@ -241,27 +305,6 @@ namespace Engine3.Client.Graphics.Vulkan {
 						image = image,
 						subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 				};
-
-		[MustUseReturnValue]
-		protected DescriptorPool CreateDescriptorPool(VkDescriptorType[] descriptorSetTypes, uint count) {
-			DescriptorPool descriptorPool = new(LogicalGpu.LogicalDevice, count, descriptorSetTypes, MaxFramesInFlight);
-			descriptorPoolDestroyQueue.Enqueue(descriptorPool);
-			return descriptorPool;
-		}
-
-		[MustUseReturnValue]
-		protected GraphicsPipeline CreateGraphicsPipeline(GraphicsPipeline.Settings settings) {
-			GraphicsPipeline graphicsPipeline = LogicalGpu.CreateGraphicsPipeline(settings);
-			graphicsPipelines.Add(graphicsPipeline);
-			return graphicsPipeline;
-		}
-
-		protected internal void DestroyGraphicsPipeline(GraphicsPipeline graphicsPipeline) => graphicsPipelineDestroyQueue.Enqueue(graphicsPipeline);
-
-		protected virtual void OnSwapchainInvalid() {
-			SwapChain.Recreate();
-			DepthImage.Recreate(SwapChain.Extent);
-		}
 
 		[MustUseReturnValue]
 		private static VkCommandPool CreateCommandPool(VkDevice logicalDevice, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) {

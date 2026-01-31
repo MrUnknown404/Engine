@@ -1,5 +1,5 @@
 namespace Engine3.Client.Graphics.Vulkan.Objects {
-	public unsafe class UniformBuffers : IGraphicsResource {
+	public unsafe class UniformBuffers : INamedGraphicsResource, IEquatable<UniformBuffers> {
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
 
@@ -34,11 +34,19 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		public OpenTK.Graphics.Vulkan.VkBuffer GetBuffer(byte index) => buffers[index].Buffer;
 
 		public void Destroy() {
-			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
+			if (INamedGraphicsResource.WarnIfDestroyed(this)) { return; }
 
 			foreach (VulkanBuffer uniformBuffer in buffers) { uniformBuffer.Destroy(); }
 
 			WasDestroyed = true;
 		}
+
+		public bool Equals(UniformBuffers? other) => other != null && buffers[0] == other.buffers[0];
+		public override bool Equals(object? obj) => obj is UniformBuffers buffer && Equals(buffer);
+
+		public override int GetHashCode() => buffers[0].GetHashCode();
+
+		public static bool operator ==(UniformBuffers? left, UniformBuffers? right) => Equals(left, right);
+		public static bool operator !=(UniformBuffers? left, UniformBuffers? right) => !Equals(left, right);
 	}
 }

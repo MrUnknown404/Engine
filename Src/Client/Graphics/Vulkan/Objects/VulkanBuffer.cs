@@ -3,7 +3,7 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
 	[PublicAPI]
-	public unsafe class VulkanBuffer : IBufferObject {
+	public unsafe class VulkanBuffer : IBufferObject, IEquatable<VulkanBuffer> {
 		public VkBuffer Buffer { get; }
 		public VkDeviceMemory BufferMemory { get; }
 		public ulong BufferSize { get; }
@@ -69,7 +69,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		}
 
 		public void Destroy() {
-			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
+			if (INamedGraphicsResource.WarnIfDestroyed(this)) { return; }
 
 			VkDevice logicalDevice = logicalGpu.LogicalDevice;
 
@@ -78,5 +78,13 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 			WasDestroyed = true;
 		}
+
+		public bool Equals(VulkanBuffer? other) => other != null && Buffer == other.Buffer;
+		public override bool Equals(object? obj) => obj is VulkanBuffer buffer && Equals(buffer);
+
+		public override int GetHashCode() => Buffer.GetHashCode();
+
+		public static bool operator ==(VulkanBuffer? left, VulkanBuffer? right) => Equals(left, right);
+		public static bool operator !=(VulkanBuffer? left, VulkanBuffer? right) => !Equals(left, right);
 	}
 }

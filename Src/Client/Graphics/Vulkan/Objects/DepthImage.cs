@@ -1,3 +1,4 @@
+using Engine3.Utility;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
@@ -46,7 +47,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		}
 
 		public void Destroy() {
-			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
+			if (IDestroyable.WarnIfDestroyed(this)) { return; }
 
 			Image.Destroy();
 

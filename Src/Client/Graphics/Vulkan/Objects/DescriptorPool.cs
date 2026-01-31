@@ -4,7 +4,7 @@ using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
-	public unsafe class DescriptorPool : IDestroyable {
+	public unsafe class DescriptorPool : IGraphicsResource, IEquatable<DescriptorPool> {
 		private readonly VkDescriptorPool descriptorPool;
 		private readonly VkDevice logicalDevice;
 		private readonly byte maxFramesInFlight;
@@ -38,6 +38,14 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 			WasDestroyed = true;
 		}
+
+		public bool Equals(DescriptorPool? other) => other != null && descriptorPool == other.descriptorPool;
+		public override bool Equals(object? obj) => obj is DescriptorPool buffer && Equals(buffer);
+
+		public override int GetHashCode() => descriptorPool.GetHashCode();
+
+		public static bool operator ==(DescriptorPool? left, DescriptorPool? right) => Equals(left, right);
+		public static bool operator !=(DescriptorPool? left, DescriptorPool? right) => !Equals(left, right);
 
 		[MustUseReturnValue]
 		private static VkDescriptorPool CreateDescriptorPool(VkDevice logicalDevice, uint poolCount, VkDescriptorType[] descriptorSetTypes, byte maxFramesInFlight) {

@@ -84,7 +84,7 @@ namespace Engine3 {
 			Logger.Debug($"- Engine Version: {Engine3.Version}");
 			Logger.Debug($"- Game Version: {Version}");
 			Logger.Debug($"- GLFW Version: {GLFW.GetVersionString()}"); // TODO i have no idea what window manager OpenTK uses. i see GLFW, & SDL. but it looks like PAL is just using Win32 API/X11 API directly. help
-			Logger.Debug($"- Graphics Api: {GraphicsBackend}");
+			Logger.Debug($"- Graphics Api: {GraphicsBackend.GraphicsBackend}");
 
 			uint spvVersion = 0, spvRevision = 0;
 			Shaderc.GetSpvVersion(ref spvVersion, ref spvRevision);
