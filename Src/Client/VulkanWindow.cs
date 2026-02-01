@@ -16,8 +16,8 @@ namespace Engine3.Client {
 
 		private readonly VkInstance vkInstance;
 
-		public VulkanWindow(VulkanGraphicsBackend graphicsBackend, VkInstance vkInstance, string title, uint width, uint height) : base(graphicsBackend, title, width, height) {
-			this.vkInstance = vkInstance;
+		public VulkanWindow(VulkanGraphicsBackend graphicsBackend, string title, uint width, uint height) : base(graphicsBackend, title, width, height) {
+			vkInstance = graphicsBackend.VkInstance ?? throw new NullReferenceException();
 
 			Surface = CreateSurface(vkInstance, WindowHandle);
 			Logger.Debug("Created surface");

@@ -14,13 +14,13 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		public VkDescriptorSet GetCurrent(byte frameIndex) => descriptorSets[frameIndex];
 
-		public void UpdateDescriptorSet(uint binding, UniformBuffers uniformBuffers, ulong range, ulong offset = 0) {
+		public void UpdateDescriptorSet(uint binding, UniformBuffers uniformBuffers) {
 			VkWriteDescriptorSet[] writeDescriptorSets = new VkWriteDescriptorSet[maxFramesInFlight];
 			VkDescriptorBufferInfo[] bufferInfos = new VkDescriptorBufferInfo[maxFramesInFlight];
 
 			fixed (VkDescriptorBufferInfo* bufferInfosPtr = bufferInfos) {
 				for (byte i = 0; i < maxFramesInFlight; i++) {
-					bufferInfosPtr[i] = new() { buffer = uniformBuffers.GetBuffer(i), offset = offset, range = range, };
+					bufferInfosPtr[i] = new() { buffer = uniformBuffers.GetBuffer(i), range = uniformBuffers.BufferSize, };
 					writeDescriptorSets[i] = new() { dstBinding = binding, dstSet = descriptorSets[i], descriptorType = VkDescriptorType.DescriptorTypeUniformBuffer, descriptorCount = 1, pBufferInfo = &bufferInfosPtr[i], };
 				}
 

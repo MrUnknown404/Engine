@@ -87,7 +87,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			FrameCount++;
 		}
 
-		protected bool AcquireNextImage(FrameData frameData, out uint swapChainImageIndex) {
+		protected virtual bool AcquireNextImage(FrameData frameData, out uint swapChainImageIndex) {
 			VkDevice logicalDevice = LogicalGpu.LogicalDevice;
 			VkFence inFlightFence = frameData.InFlightFence;
 
@@ -119,7 +119,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		/// vkCmdBeginRendering
 		/// </code>
 		/// </summary>
-		protected void BeginFrame(FrameData frameData, uint swapChainImageIndex) {
+		protected virtual void BeginFrame(FrameData frameData, uint swapChainImageIndex) {
 			GraphicsCommandBuffer graphicsCommandBuffer = frameData.GraphicsCommandBuffer;
 
 			graphicsCommandBuffer.ResetCommandBuffer();
@@ -145,7 +145,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		/// vkEndCommandBuffer
 		/// </code>
 		/// </summary>
-		protected void EndFrame(FrameData frameData, uint swapChainImageIndex) {
+		protected virtual void EndFrame(FrameData frameData, uint swapChainImageIndex) {
 			GraphicsCommandBuffer graphicsCommandBuffer = frameData.GraphicsCommandBuffer;
 
 			graphicsCommandBuffer.CmdEndRendering();
@@ -156,7 +156,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			VkH.CheckIfSuccess(graphicsCommandBuffer.EndCommandBuffer(), VulkanException.Reason.EndCommandBuffer);
 		}
 
-		protected void SubmitQueue(VkSemaphore waitSemaphore, VkCommandBuffer[] commandBuffers, uint swapChainImageIndex, VkFence fence) {
+		protected virtual void SubmitQueue(VkSemaphore waitSemaphore, VkCommandBuffer[] commandBuffers, uint swapChainImageIndex, VkFence fence) {
 			VkPipelineStageFlagBits[] waitStages = [ VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, ];
 
 			VkSemaphore signalSemaphore = RenderFinishedSemaphores[swapChainImageIndex];
@@ -178,7 +178,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			}
 		}
 
-		protected void PresentFrame(uint swapChainImageIndex) {
+		protected virtual void PresentFrame(uint swapChainImageIndex) {
 			VkSwapchainKHR swapChain = SwapChain.VkSwapChain;
 			VkSemaphore renderFinishedSemaphore = RenderFinishedSemaphores[swapChainImageIndex];
 

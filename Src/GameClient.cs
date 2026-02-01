@@ -33,6 +33,7 @@ namespace Engine3 {
 		protected List<Window> Windows { get; } = new();
 		protected List<Renderer> Renderers { get; } = new();
 
+		public uint TargetUpdateCount { get; init; } = 60;
 		public ulong UpdateCount { get; private set; }
 		public uint UpdatesPerSecond { get; private set; }
 		public float UpdateTime { get; private set; }
@@ -220,6 +221,24 @@ namespace Engine3 {
 						}
 
 						Logger.Warn("Attempted to resize an unknown window");
+						break;
+					}
+					case KeyDownEventArgs downArgs: {
+						if (Windows.Find(w => w.WindowHandle == downArgs.Window) is { } window) {
+							window.InputManager.SetKey(downArgs.Key, true);
+							return;
+						}
+
+						Logger.Warn("Attempted to provide input to an unknown window");
+						break;
+					}
+					case KeyUpEventArgs upArgs: {
+						if (Windows.Find(w => w.WindowHandle == upArgs.Window) is { } window) {
+							window.InputManager.SetKey(upArgs.Key, false);
+							return;
+						}
+
+						Logger.Warn("Attempted to provide input to an unknown window");
 						break;
 					}
 				}

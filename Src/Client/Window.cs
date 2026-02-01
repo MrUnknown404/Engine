@@ -12,6 +12,8 @@ namespace Engine3.Client {
 		public WindowHandle WindowHandle { get; }
 		public Color4<Rgba> ClearColor { get; set; } = new(0, 0, 0, 1);
 
+		public InputManager InputManager { get; } = new();
+
 		public bool ShouldClose { get; private set; }
 		public bool WasResized { get; internal set; }
 		public bool WasDestroyed { get; private set; }

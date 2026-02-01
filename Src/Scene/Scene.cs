@@ -7,7 +7,7 @@ namespace Engine3.Scene {
 
 		private readonly List<IGameObject> gameObjects = new();
 
-		public IReadOnlyList<IGameObject> GameObjects => gameObjects;
+		public IEnumerable<IGameObject> GameObjects => gameObjects;
 
 		public void AddGameObject<T>(T gameObject) where T : IGameObject {
 			gameObjects.Add(gameObject);
