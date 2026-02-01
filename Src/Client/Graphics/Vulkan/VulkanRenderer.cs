@@ -236,7 +236,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		protected VulkanImage CreateImageAndCopyUsingStaging(string debugName, string fileLocation, string fileExtension, uint width, uint height, byte texChannels, VkFormat imageFormat, Assembly assembly) {
 			using (StbiImage stbiImage = AssetH.LoadImage(fileLocation, fileExtension, texChannels, assembly)) {
 				VulkanImage image = CreateImage(debugName, width, height, imageFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits.ImageAspectColorBit);
-				image.Copy(TransferCommandPool, LogicalGpu.TransferQueue, stbiImage, 4);
+				image.Copy(TransferCommandPool, LogicalGpu.TransferQueue, stbiImage);
 				return image;
 			}
 		}

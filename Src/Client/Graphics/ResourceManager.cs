@@ -9,7 +9,6 @@ namespace Engine3.Client.Graphics {
 		public ResourceManager() {
 			bool isNamedResourceManager = (GetType().BaseType ?? throw new NullReferenceException()).Name[..^2] == nameof(ResourceManager<>);
 			bool isTypeNamed = typeof(T).GetInterfaces().Contains(typeof(INamedGraphicsResource));
-
 			if (!isNamedResourceManager && isTypeNamed) { Logger.Warn($"{typeof(T).Name} is of type {nameof(INamedGraphicsResource)} and should be in {nameof(NamedResourceManager<>)}"); }
 		}
 #endif

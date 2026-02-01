@@ -9,7 +9,7 @@ using OpenTK.Graphics.OpenGL;
 
 namespace Engine3.Client.Graphics.OpenGL.Objects {
 	[PublicAPI]
-	public class OpenGLShader : IGraphicsResource {
+	public class OpenGLShader : INamedGraphicsResource {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public ShaderHandle Handle { get; }
@@ -56,6 +56,8 @@ namespace Engine3.Client.Graphics.OpenGL.Objects {
 				string name = GL.GetActiveUniform((int)Handle, i, uniformMaxLength, out int _, out int _, out UniformType _);
 				uniformLocations.Add(name, GL.GetUniformLocation((int)Handle, name));
 			}
+
+			INamedGraphicsResource.PrintNameWithHandle(this, Handle.Handle);
 		}
 
 		private bool CheckForUniform(string name, out int uniformLocation) {

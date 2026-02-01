@@ -21,6 +21,8 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			Layout = layout;
 			this.logicalDevice = logicalDevice;
 			descriptorSetLayouts = settings.DescriptorSetLayouts;
+
+			INamedGraphicsResource.PrintNameWithHandle(this, Pipeline.Handle);
 		}
 
 		[MustUseReturnValue]

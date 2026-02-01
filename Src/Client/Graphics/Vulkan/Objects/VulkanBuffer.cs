@@ -15,10 +15,12 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		internal VulkanBuffer(string debugName, LogicalGpu logicalGpu, VkBuffer buffer, VkDeviceMemory bufferMemory, ulong bufferSize) {
 			DebugName = debugName;
-			this.logicalGpu = logicalGpu;
 			Buffer = buffer;
 			BufferMemory = bufferMemory;
 			BufferSize = bufferSize;
+			this.logicalGpu = logicalGpu;
+
+			INamedGraphicsResource.PrintNameWithHandle(this, Buffer.Handle);
 		}
 
 		public static void CopyMemory(void* srcDataPtr, void* dstDataPtr, ulong dstSize, ulong sourceBytesToCopy) => System.Buffer.MemoryCopy(srcDataPtr, dstDataPtr, dstSize, sourceBytesToCopy);

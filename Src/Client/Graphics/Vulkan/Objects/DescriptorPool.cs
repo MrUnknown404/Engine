@@ -15,6 +15,8 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			descriptorPool = CreateDescriptorPool(logicalDevice, poolCount, descriptorTypes, maxFramesInFlight);
 			this.logicalDevice = logicalDevice;
 			this.maxFramesInFlight = maxFramesInFlight;
+
+			IGraphicsResource.PrintNameWithHandle<DescriptorPool>(descriptorPool.Handle);
 		}
 
 		public DescriptorSets AllocateDescriptorSet(VkDescriptorSetLayout descriptorSetLayout) {
@@ -40,7 +42,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		}
 
 		public bool Equals(DescriptorPool? other) => other != null && descriptorPool == other.descriptorPool;
-		public override bool Equals(object? obj) => obj is DescriptorPool buffer && Equals(buffer);
+		public override bool Equals(object? obj) => obj is DescriptorPool descriptorPool && Equals(descriptorPool);
 
 		public override int GetHashCode() => descriptorPool.GetHashCode();
 

@@ -7,6 +7,7 @@ using OpenTK.Graphics.Vulkan;
 using StbiSharp;
 
 namespace Engine3.Client.Graphics.Vulkan {
+	[PublicAPI]
 	public unsafe class LogicalGpu : IDestroyable {
 		public VkDevice LogicalDevice { get; }
 		public VkQueue GraphicsQueue { get; }
@@ -86,7 +87,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			void*[] buffersMapped = new void*[renderer.MaxFramesInFlight];
 
 			for (int i = 0; i < renderer.MaxFramesInFlight; i++) {
-				VulkanBuffer buffer = CreateBuffer($"Test Uniform Buffer[{i}]", VkBufferUsageFlagBits.BufferUsageUniformBufferBit,
+				VulkanBuffer buffer = CreateBuffer($"{debugName}[{i}]", VkBufferUsageFlagBits.BufferUsageUniformBufferBit,
 					VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, bufferSize);
 
 				buffers[i] = buffer;
@@ -178,7 +179,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			VkImageUsageFlagBits usageFlags, VkImageAspectFlagBits aspectMask, VkCommandPool transferCommandPool, Assembly assembly) {
 			using (StbiImage stbiImage = AssetH.LoadImage(fileLocation, fileExtension, texChannels, assembly)) {
 				VulkanImage image = CreateImage(debugName, width, height, imageFormat, imageTiling, usageFlags, aspectMask);
-				image.Copy(transferCommandPool, TransferQueue, stbiImage, 4);
+				image.Copy(transferCommandPool, TransferQueue, stbiImage);
 				return image;
 			}
 		}

@@ -38,7 +38,12 @@ namespace Engine3.Utility {
 				if (wasSetup) { Logger.Warn($"{nameof(LogLayout)} must be set before #{nameof(Setup)} is called"); }
 				field = value;
 			}
-		} = "[${processtime}] [${level}] [${callsite:includeNamespace=False}#${callsite-linenumber}] ${message:exceptionSeparator=:withexception=true}";
+		} =
+#if DEBUG
+			"[${processtime}] [${level}] [${callsite:includeNamespace=False}#${callsite-linenumber}] ${message:exceptionSeparator=:withexception=true}";
+#else
+			"[${processtime}] [${level}] ${message:exceptionSeparator=:withexception=true}";
+#endif
 
 		public static LogLevel ConsoleLogLevel {
 			get;

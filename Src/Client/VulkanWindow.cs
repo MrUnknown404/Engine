@@ -29,7 +29,7 @@ namespace Engine3.Client {
 			SelectedGpu = PickBestGpu(availableGpus, graphicsBackend.RateGpuSuitability);
 			Logger.Debug($"- Selected Gpu: {SelectedGpu.Name}");
 
-			LogicalGpu = SelectedGpu.CreateLogicalDevice(graphicsBackend.GetAllRequiredDeviceExtensions(), graphicsBackend.GetAllRequiredValidationLayers());
+			LogicalGpu = SelectedGpu.CreateLogicalGpu(graphicsBackend.GetAllRequiredDeviceExtensions(), graphicsBackend.GetAllRequiredValidationLayers());
 			Logger.Debug("Created logical gpu");
 			Logger.Trace($"- Handle: {LogicalGpu.LogicalDevice.Handle:X}");
 		}

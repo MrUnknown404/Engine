@@ -22,14 +22,16 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			ImageMemory = imageMemory;
 			ImageView = imageView;
 			ImageFormat = imageFormat;
+
+			INamedGraphicsResource.PrintNameWithHandle(this, Image.Handle);
 		}
 
-		public void Copy(VkCommandPool transferCommandPool, VkQueue transferQueue, StbiImage stbiImage, byte texChannels) {
+		public void Copy(VkCommandPool transferCommandPool, VkQueue transferQueue, StbiImage stbiImage) {
 			uint width = (uint)stbiImage.Width;
 			uint height = (uint)stbiImage.Height;
 
 			VulkanBuffer stagingBuffer = logicalGpu.CreateBuffer("Temporary Image Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
-				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, width * height * texChannels);
+				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, (ulong)(width * height * stbiImage.NumChannels));
 
 			stagingBuffer.Copy(stbiImage.Data);
 
@@ -62,7 +64,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		}
 
 		public bool Equals(VulkanImage? other) => other != null && Image == other.Image;
-		public override bool Equals(object? obj) => obj is VulkanImage buffer && Equals(buffer);
+		public override bool Equals(object? obj) => obj is VulkanImage image && Equals(image);
 
 		public override int GetHashCode() => Image.GetHashCode();
 

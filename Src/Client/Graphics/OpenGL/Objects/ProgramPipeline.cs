@@ -3,13 +3,13 @@ using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 
 namespace Engine3.Client.Graphics.OpenGL.Objects {
-	public class ProgramPipeline : IGraphicsResource {
+	public class ProgramPipeline : INamedGraphicsResource, IEquatable<ProgramPipeline> {
 		public ProgramPipelineHandle Handle { get; }
 
 		public string DebugName { get; }
 		public bool WasDestroyed { get; private set; }
 
-		public ProgramPipeline(string debugName, OpenGLShader? vert, OpenGLShader? frag, OpenGLShader? geom = null, OpenGLShader? tessEval = null, OpenGLShader? tessCtrl = null) {
+		internal ProgramPipeline(string debugName, OpenGLShader? vert, OpenGLShader? frag, OpenGLShader? geom = null, OpenGLShader? tessEval = null, OpenGLShader? tessCtrl = null) {
 			DebugName = debugName;
 			Handle = new(GL.CreateProgramPipeline());
 
@@ -18,6 +18,8 @@ namespace Engine3.Client.Graphics.OpenGL.Objects {
 			TryAddStage(geom);
 			TryAddStage(tessEval);
 			TryAddStage(tessCtrl);
+
+			INamedGraphicsResource.PrintNameWithHandle(this, Handle.Handle);
 
 			return;
 
@@ -43,5 +45,13 @@ namespace Engine3.Client.Graphics.OpenGL.Objects {
 
 			WasDestroyed = true;
 		}
+
+		public bool Equals(ProgramPipeline? other) => other != null && Handle == other.Handle;
+		public override bool Equals(object? obj) => obj is ProgramPipeline programPipeline && Equals(programPipeline);
+
+		public override int GetHashCode() => Handle.GetHashCode();
+
+		public static bool operator ==(ProgramPipeline? left, ProgramPipeline? right) => Equals(left, right);
+		public static bool operator !=(ProgramPipeline? left, ProgramPipeline? right) => !Equals(left, right);
 	}
 }

@@ -1,7 +1,9 @@
 using System.Text;
+using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan {
+	[PublicAPI]
 	public unsafe class PhysicalGpu : IEquatable<PhysicalGpu> {
 		public VkPhysicalDevice PhysicalDevice { get; }
 		public VkPhysicalDeviceProperties2 PhysicalDeviceProperties2 { get; }

@@ -12,7 +12,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			physicalGpu.ExtensionProperties) =>
 				QueueFamilyIndices = queueFamilyIndices;
 
-		public LogicalGpu CreateLogicalDevice(string[] requiredDeviceExtensions, string[] requiredValidationLayers) {
+		public LogicalGpu CreateLogicalGpu(string[] requiredDeviceExtensions, string[] requiredValidationLayers) {
 			List<VkDeviceQueueCreateInfo> queueCreateInfos = new();
 			float queuePriority = 1f;
 

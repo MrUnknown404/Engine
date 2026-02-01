@@ -11,7 +11,7 @@ using Silk.NET.Shaderc;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
 	[PublicAPI]
-	public unsafe class VulkanShader : IGraphicsResource {
+	public unsafe class VulkanShader : INamedGraphicsResource {
 		public VkShaderModule ShaderModule { get; }
 		public ShaderType ShaderType { get; }
 
@@ -25,6 +25,8 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			ShaderModule = CreateShaderModule(logicalDevice, fileLocation, shaderLang, shaderType, assembly);
 			ShaderType = shaderType;
 			this.logicalDevice = logicalDevice;
+
+			INamedGraphicsResource.PrintNameWithHandle(this, ShaderModule.Handle);
 		}
 
 		public void Destroy() {

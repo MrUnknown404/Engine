@@ -23,7 +23,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		}
 
 		public bool Equals(TextureSampler? other) => other != null && Sampler == other.Sampler;
-		public override bool Equals(object? obj) => obj is TextureSampler buffer && Equals(buffer);
+		public override bool Equals(object? obj) => obj is TextureSampler sampler && Equals(sampler);
 
 		public override int GetHashCode() => Sampler.GetHashCode();
 
