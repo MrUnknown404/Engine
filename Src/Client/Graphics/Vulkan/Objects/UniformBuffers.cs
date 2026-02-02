@@ -18,8 +18,6 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			this.renderer = renderer;
 			this.buffers = buffers;
 			this.buffersMapped = buffersMapped;
-
-			foreach (VulkanBuffer buffer in buffers) { INamedGraphicsResource.PrintNameWithHandle(this, buffer.Buffer.Handle); }
 		}
 
 		public void Copy<T>(ReadOnlySpan<T> data) where T : unmanaged {

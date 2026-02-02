@@ -51,8 +51,6 @@ namespace Engine3.Client.Graphics.OpenGL {
 			DrawFrame(delta);
 
 			Toolkit.OpenGL.SwapBuffers(Window.GLContextHandle);
-
-			FrameCount++;
 		}
 
 		protected abstract void DrawFrame(float delta);

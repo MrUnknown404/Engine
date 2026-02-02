@@ -4,7 +4,6 @@ namespace Engine3.Client.Graphics {
 	public abstract class Renderer {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-		public ulong FrameCount { get; protected set; }
 		public bool CanRender { get; set; } = true;
 		public bool ShouldDestroy { get; protected set; }
 

@@ -7,15 +7,15 @@ namespace Engine3.GameObject {
 		public Matrix4x4 CreateMatrix();
 	}
 
-	public interface ITransform<TSelf, TPos> : ITransform<TSelf> where TSelf : ITransform<TSelf> where TPos : unmanaged {
-		public TPos Position { get; set; }
+	public interface ITransformPosition<T> where T : unmanaged {
+		public T Position { get; set; }
 	}
 
-	public interface ITransform<TSelf, TPos, TScale> : ITransform<TSelf, TPos> where TSelf : ITransform<TSelf> where TPos : unmanaged where TScale : unmanaged {
-		public TScale Scale { get; set; }
+	public interface ITransformRotation<T> where T : unmanaged {
+		public T Rotation { get; set; }
 	}
 
-	public interface ITransform<TSelf, TPos, TScale, TRot> : ITransform<TSelf, TPos, TScale> where TSelf : ITransform<TSelf> where TPos : unmanaged where TScale : unmanaged where TRot : unmanaged {
-		public TRot Rotation { get; set; }
+	public interface ITransformScale<T> where T : unmanaged {
+		public T Scale { get; set; }
 	}
 }

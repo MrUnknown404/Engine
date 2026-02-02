@@ -63,7 +63,7 @@ namespace Engine3.Utility {
 
 		private static bool wasSetup;
 
-		internal static void Setup() {
+		internal static void Setup(bool isConsole) {
 			if (wasSetup) {
 				Logger.Warn($"Running {nameof(LoggerH)}#{nameof(Setup)} twice is not supported");
 				return;
@@ -76,8 +76,8 @@ namespace Engine3.Utility {
 			TimeSource.Current = new AccurateUtcTimeSource();
 			LogManager.Setup() /*.SetupLogFactory(static s => {
 				s.AddCallSiteHiddenClassType(typeof(LoggerH)); // i'll need this later
-			})*/.LoadConfiguration(static b => {
-				b.ForLogger().FilterMinLevel(ConsoleLogLevel).WriteToColoredConsole(layout: LogLayout);
+			})*/.LoadConfiguration(b => {
+				if (!isConsole) { b.ForLogger().FilterMinLevel(ConsoleLogLevel).WriteToColoredConsole(layout: LogLayout); }
 				b.ForLogger().FilterMinLevel(FileLogLevel).WriteToFile(fileName: $"{LogFolder}/{DateTime.Now.ToString(LogDateFormat)}.{LogFileType}", layout: LogLayout, maxArchiveFiles: MaxFiles - 1);
 			});
 

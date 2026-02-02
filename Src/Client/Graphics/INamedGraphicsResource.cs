@@ -16,7 +16,7 @@ namespace Engine3.Client.Graphics {
 			return false;
 		}
 
-		protected static void PrintNameWithHandle<T>(T resource, int handle) where T : INamedGraphicsResource => Logger.Trace($"0x{resource.DebugName} ({handle:X8})");
-		protected static void PrintNameWithHandle<T>(T resource, ulong handle) where T : INamedGraphicsResource => Logger.Trace($"0x{resource.DebugName} ({handle:X16})");
+		protected static void PrintNameWithHandle<T>(T resource, int handle) where T : INamedGraphicsResource => Logger.Trace($"{resource.DebugName} (0x{handle:X8})");
+		protected static void PrintNameWithHandle<T>(T resource, ulong handle) where T : INamedGraphicsResource => Logger.Trace($"{resource.DebugName} (0x{handle:X16})");
 	}
 }

@@ -19,10 +19,12 @@ using Engine3.Debug;
 #endif
 
 namespace Engine3 {
+	// TODO call timeBeginPeriod/timeEndPeriod on windows https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-sleep
+
 	public abstract class GameClient {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-		[field: MaybeNull] public Assembly Assembly { get => field ?? throw new Engine3Exception($"Attempted to get GameInstance Assembly too early. Must call {nameof(GameClient)}#{nameof(Start)} first"); private set; }
+		[field: MaybeNull] public Assembly Assembly { get => field ?? throw new Engine3Exception($"Attempted to get {nameof(GameClient)} Assembly too early. Must call {nameof(GameClient)}#{nameof(Start)} first"); private set; }
 
 		public IPackableVersion Version { get; }
 		public string Name { get; }
@@ -33,10 +35,20 @@ namespace Engine3 {
 		protected List<Window> Windows { get; } = new();
 		protected List<Renderer> Renderers { get; } = new();
 
-		public uint TargetUpdateCount { get; init; } = 60;
-		public ulong UpdateCount { get; private set; }
-		public uint UpdatesPerSecond { get; private set; }
+		public ushort UpsTarget { get; init; } = 60;
+		public ushort FpsTarget { get; init; }
+		public byte MaxFrameSkip { get; init; } = 5;
+
+		public ulong UpdateIndex { get; private set; }
+		public ulong FrameIndex { get; private set; }
+
+		public uint Ups { get; private set; }
+		public uint Fps { get; private set; }
+
+		/// <summary> In milliseconds </summary>
 		public float UpdateTime { get; private set; }
+		/// <summary> In milliseconds </summary>
+		public float FrameTime { get; private set; }
 
 		public bool WasGraphicsSetup { get; private set; }
 
@@ -71,7 +83,7 @@ namespace Engine3 {
 
 			Thread.CurrentThread.Name = settings.MainThreadName;
 
-			LoggerH.Setup();
+			LoggerH.Setup(GraphicsBackend.GraphicsBackend == Client.Graphics.GraphicsBackend.Console);
 			Logger.Debug("Finished setting up NLog");
 
 			Assembly = Assembly.GetCallingAssembly();
@@ -79,7 +91,7 @@ namespace Engine3 {
 
 			Engine3.GameInstance = gameClient;
 
-			if (GraphicsBackend is { GraphicsBackend: Client.Graphics.GraphicsBackend.Console, GraphicsApiHints: null, }) { throw new Engine3Exception($"GraphicsApiHints cannot be null with GraphicsApi: {GraphicsBackend}"); }
+			if (GraphicsBackend is { GraphicsBackend: not Client.Graphics.GraphicsBackend.Console, GraphicsApiHints: null, }) { throw new Engine3Exception($"GraphicsApiHints cannot be null with GraphicsApi: {GraphicsBackend}"); }
 
 			Logger.Info("Setting up engine...");
 			Logger.Debug($"- Engine Version: {Engine3.Version}");
@@ -93,7 +105,12 @@ namespace Engine3 {
 
 			SetupEngine(settings);
 
-			if (GraphicsBackend.GraphicsBackend != Client.Graphics.GraphicsBackend.Console) { SetupGraphics(); }
+			switch (GraphicsBackend.GraphicsBackend) {
+				case Client.Graphics.GraphicsBackend.Console: SetupConsole(); break;
+				case Client.Graphics.GraphicsBackend.OpenGL:
+				case Client.Graphics.GraphicsBackend.Vulkan: SetupGraphics(); break;
+				default: throw new ArgumentOutOfRangeException();
+			}
 
 			wasSetup = true;
 
@@ -111,6 +128,11 @@ namespace Engine3 {
 
 		protected abstract void Update();
 		protected abstract void Cleanup();
+
+		private void SetupConsole() {
+			Logger.Info("Setting up Console...");
+			throw new NotImplementedException();
+		}
 
 		private void SetupGraphics() {
 			Logger.Info("Setting up Toolkit...");
@@ -145,28 +167,102 @@ namespace Engine3 {
 		private void EngineUpdate() { }
 
 		private void GameLoop() {
-			while (shouldRunGameLoop) {
+			const long TicksPerSecond = 1000000000; // Stopwatch.Frequency;
+			const long TicksPerMillisecond = TicksPerSecond / 1000;
+
+			long updateTicksToWait = TicksPerSecond / UpsTarget;
+			long frameTicksToWait = FpsTarget == 0 ? 0 : TicksPerSecond / FpsTarget;
+
+			long currentTime = Stopwatch.GetTimestamp();
+			long updateAccumulator = 0;
+			long updateCounterAccumulator = 0;
+			long frameCounterAccumulator = 0;
+			long lastFrameTime = 0;
+
+			uint updateCounter = 0;
+			uint frameCounter = 0;
+
+			while (shouldRunGameLoop) { // TODO optional fps cap
 				if (GraphicsBackend.GraphicsBackend != Client.Graphics.GraphicsBackend.Console) { Toolkit.Window.ProcessEvents(false); }
 				if (requestShutdown) { shouldRunGameLoop = false; } // TODO check more?
 
 				if (!shouldRunGameLoop) { break; } // Early exit
 
-				EngineUpdate();
-				Update();
-				UpdateCount++;
+				long time = GetTimeDifference();
+				Update(time);
 
-				// console end. VK/GL graphics below TODO impl graphics rendering
+				// console end. VK/GL graphics below // TODO impl console rendering
 				if (GraphicsBackend.GraphicsBackend == Client.Graphics.GraphicsBackend.Console) { continue; }
-
-				float delta = 0; // TODO impl
 
 				TryCloseWindows();
 				TryDestroyRenderers();
 
-				foreach (Renderer pipeline in Renderers.Where(static pipeline => pipeline.CanRender)) { pipeline.Render(delta); }
+				Render(time);
 			}
 
 			return;
+
+			long GetTimeDifference() {
+				long cycleStart = Stopwatch.GetTimestamp();
+				long time = cycleStart - currentTime;
+				currentTime = cycleStart;
+				return time;
+			}
+
+			void Update(long time) {
+				updateAccumulator += time;
+				updateCounterAccumulator += time;
+
+				int frameSkip = 0;
+				while (updateAccumulator >= updateTicksToWait && frameSkip < MaxFrameSkip) {
+					long updateStart = Stopwatch.GetTimestamp();
+					EngineUpdate();
+					this.Update();
+					long updateEnd = Stopwatch.GetTimestamp();
+
+					UpdateTime = (float)(updateEnd - updateStart) / TicksPerMillisecond;
+
+					updateAccumulator -= updateTicksToWait;
+					UpdateIndex++;
+					updateCounter++;
+					frameSkip++;
+
+					if (updateCounterAccumulator >= TicksPerSecond) {
+						Ups = updateCounter;
+						updateCounter = 0;
+						updateCounterAccumulator -= TicksPerSecond;
+					}
+
+					if (frameSkip >= MaxFrameSkip) { Logger.Warn($"FrameSkip hit max. ({MaxFrameSkip})"); }
+				}
+			}
+
+			void Render(long time) {
+				if (FpsTarget != 0) {
+					while (Stopwatch.GetTimestamp() < lastFrameTime + frameTicksToWait) { Thread.Sleep(0); }
+					lastFrameTime = Stopwatch.GetTimestamp();
+				}
+
+				frameCounterAccumulator += time;
+
+				long frameStart = Stopwatch.GetTimestamp();
+
+				float delta = 1 - (float)(updateTicksToWait - updateAccumulator) / updateTicksToWait;
+				foreach (Renderer pipeline in Renderers.Where(static pipeline => pipeline.CanRender)) { pipeline.Render(delta); }
+
+				long frameEnd = Stopwatch.GetTimestamp();
+
+				FrameTime = (float)(frameEnd - frameStart) / TicksPerMillisecond;
+
+				FrameIndex++;
+				frameCounter++;
+
+				if (frameCounterAccumulator >= TicksPerSecond) {
+					Fps = frameCounter;
+					frameCounter = 0;
+					frameCounterAccumulator -= TicksPerSecond;
+				}
+			}
 
 			void TryCloseWindows() {
 				foreach (Window window2 in Windows.Where(static window => window.ShouldClose)) {

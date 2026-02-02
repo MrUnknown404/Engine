@@ -3,7 +3,7 @@ using JetBrains.Annotations;
 
 namespace Engine3.GameObject {
 	[PublicAPI]
-	public class Transform3D : ITransform<Transform3D, Vector3, Vector3, Quaternion> {
+	public class Transform3D : ITransform<Transform3D>, ITransformPosition<Vector3>, ITransformScale<Vector3>, ITransformRotation<Quaternion> {
 		public static Transform3D Zero => new();
 
 		public Vector3 Position { get; set; }

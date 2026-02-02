@@ -83,8 +83,6 @@ namespace Engine3.Client.Graphics.Vulkan {
 				SubmitQueue(frameData.ImageAvailableSemaphore, [ graphicsCommandBuffer.VkCommandBuffer, ], swapChainImageIndex, frameData.InFlightFence);
 				PresentFrame(swapChainImageIndex);
 			}
-
-			FrameCount++;
 		}
 
 		protected virtual bool AcquireNextImage(FrameData frameData, out uint swapChainImageIndex) {
@@ -134,7 +132,6 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		protected abstract void RecordCommandBuffer(GraphicsCommandBuffer graphicsCommandBuffer, float delta);
 
-		protected virtual VkCommandBuffer[] ProvideAdditionalCommandBuffers(float delta) => Array.Empty<VkCommandBuffer>();
 		protected virtual void CopyUniformBuffers(float delta) { }
 
 		/// <summary>
