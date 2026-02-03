@@ -26,11 +26,11 @@ namespace Engine3 {
 
 		[field: MaybeNull] public Assembly Assembly { get => field ?? throw new Engine3Exception($"Attempted to get {nameof(GameClient)} Assembly too early. Must call {nameof(GameClient)}#{nameof(Start)} first"); private set; }
 
-		public IPackableVersion Version { get; }
-		public string Name { get; }
+		internal Shaderc Shaderc { get; } = new(Shaderc.CreateDefaultContext(new ShadercSearchPathContainer().GetLibraryNames()));
 
+		public string Name { get; }
+		public IPackableVersion Version { get; }
 		public EngineGraphicsBackend GraphicsBackend { get; }
-		public Shaderc Shaderc { get; } = new(Shaderc.CreateDefaultContext(new ShadercSearchPathContainer().GetLibraryNames()));
 
 		protected List<Window> Windows { get; } = new();
 		protected List<Renderer> Renderers { get; } = new();
@@ -42,13 +42,7 @@ namespace Engine3 {
 		public ulong UpdateIndex { get; private set; }
 		public ulong FrameIndex { get; private set; }
 
-		public uint Ups { get; private set; }
-		public uint Fps { get; private set; }
-
-		/// <summary> In milliseconds </summary>
-		public float UpdateTime { get; private set; }
-		/// <summary> In milliseconds </summary>
-		public float FrameTime { get; private set; }
+		public PerformanceMonitor PerformanceMonitor { get; init; } = new();
 
 		public bool WasGraphicsSetup { get; private set; }
 
@@ -138,6 +132,7 @@ namespace Engine3 {
 		private void SetupGraphics() {
 			Logger.Info("Setting up Toolkit...");
 			SetupToolkit(new() {
+					ApplicationName = Name,
 					Logger = new TkLogger(),
 					FeatureFlags = GraphicsBackend.GraphicsBackend switch {
 							Client.Graphics.GraphicsBackend.OpenGL => ToolkitFlags.EnableOpenGL,
@@ -169,19 +164,13 @@ namespace Engine3 {
 
 		private void GameLoop() {
 			const long TicksPerSecond = 1000000000; // Stopwatch.Frequency;
-			const long TicksPerMillisecond = TicksPerSecond / 1000;
 
 			long updateTicksToWait = TicksPerSecond / UpsTarget;
 			long frameTicksToWait = FpsTarget == 0 ? 0 : TicksPerSecond / FpsTarget;
 
 			long currentTime = Stopwatch.GetTimestamp();
 			long updateAccumulator = 0;
-			long updateCounterAccumulator = 0;
-			long frameCounterAccumulator = 0;
 			long lastFrameTime = 0;
-
-			uint updateCounter = 0;
-			uint frameCounter = 0;
 
 			while (shouldRunGameLoop) {
 				if (GraphicsBackend.GraphicsBackend != Client.Graphics.GraphicsBackend.Console) { Toolkit.Window.ProcessEvents(false); }
@@ -189,7 +178,7 @@ namespace Engine3 {
 
 				if (!shouldRunGameLoop) { break; } // Early exit
 
-				long time = GetTimeDifference();
+				long time = PerformanceMonitor.GetTimeDifference(ref currentTime);
 				Update(time);
 
 				// console end. VK/GL graphics below // TODO impl console rendering
@@ -203,36 +192,23 @@ namespace Engine3 {
 
 			return;
 
-			long GetTimeDifference() {
-				long cycleStart = Stopwatch.GetTimestamp();
-				long time = cycleStart - currentTime;
-				currentTime = cycleStart;
-				return time;
-			}
-
 			void Update(long time) {
 				updateAccumulator += time;
-				updateCounterAccumulator += time;
+				PerformanceMonitor.AddUpdateCounterAccumulator(time);
 
 				int frameSkip = 0;
 				while (updateAccumulator >= updateTicksToWait && frameSkip < MaxFrameSkip) {
-					long updateStart = Stopwatch.GetTimestamp();
+					PerformanceMonitor.StartTimingUpdate();
 					EngineUpdate();
 					this.Update();
-					long updateEnd = Stopwatch.GetTimestamp();
-
-					UpdateTime = (float)(updateEnd - updateStart) / TicksPerMillisecond;
+					PerformanceMonitor.StopTimingUpdate();
 
 					updateAccumulator -= updateTicksToWait;
 					UpdateIndex++;
-					updateCounter++;
 					frameSkip++;
+					PerformanceMonitor.AddUpdate();
 
-					if (updateCounterAccumulator >= TicksPerSecond) {
-						Ups = updateCounter;
-						updateCounter = 0;
-						updateCounterAccumulator -= TicksPerSecond;
-					}
+					PerformanceMonitor.CheckUpdateTime();
 
 					if (frameSkip >= MaxFrameSkip) { Logger.Warn($"FrameSkip hit max. ({MaxFrameSkip})"); }
 				}
@@ -244,25 +220,18 @@ namespace Engine3 {
 					lastFrameTime = Stopwatch.GetTimestamp();
 				}
 
-				frameCounterAccumulator += time;
-
-				long frameStart = Stopwatch.GetTimestamp();
+				PerformanceMonitor.AddFrameCounterAccumulator(time);
 
 				float delta = 1 - (float)(updateTicksToWait - updateAccumulator) / updateTicksToWait;
+
+				PerformanceMonitor.StartTimingFrame();
 				foreach (Renderer pipeline in Renderers.Where(static pipeline => pipeline.CanRender)) { pipeline.Render(delta); }
-
-				long frameEnd = Stopwatch.GetTimestamp();
-
-				FrameTime = (float)(frameEnd - frameStart) / TicksPerMillisecond;
+				PerformanceMonitor.StopTimingFrame();
 
 				FrameIndex++;
-				frameCounter++;
+				PerformanceMonitor.AddFrame();
 
-				if (frameCounterAccumulator >= TicksPerSecond) {
-					Fps = frameCounter;
-					frameCounter = 0;
-					frameCounterAccumulator -= TicksPerSecond;
-				}
+				PerformanceMonitor.CheckFrameTime();
 			}
 
 			void TryCloseWindows() {
