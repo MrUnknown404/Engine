@@ -4,7 +4,7 @@ using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan {
-	public static unsafe partial class VkH {
+	public static partial class VkH {
 		/// <summary>
 		/// Helper method for extracting version information out of a packed uint following Vulkan's Version Specification.<br/><br/>
 		/// The variant is packed into bits 31-29.<br/>
@@ -34,46 +34,6 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		public static void CheckIfSuccess(VkResult result, VulkanException.Reason reason, params object?[] args) {
 			if (result != VkResult.Success) { throw new VulkanException(reason, result, args); }
-		}
-
-		[MustUseReturnValue]
-		public static VkSemaphore[] CreateSemaphores(VkDevice logicalDevice, uint count) {
-			VkSemaphoreCreateInfo semaphoreCreateInfo = new();
-			VkSemaphore[] semaphores = new VkSemaphore[count];
-
-			fixed (VkSemaphore* semaphoresPtr = semaphores) {
-				for (uint i = 0; i < count; i++) { CheckIfSuccess(Vk.CreateSemaphore(logicalDevice, &semaphoreCreateInfo, null, &semaphoresPtr[i]), VulkanException.Reason.CreateSemaphore); }
-			}
-
-			return semaphores;
-		}
-
-		[MustUseReturnValue]
-		public static VkSemaphore CreateSemaphore(VkDevice logicalDevice) {
-			VkSemaphoreCreateInfo semaphoreCreateInfo = new();
-			VkSemaphore semaphore;
-			CheckIfSuccess(Vk.CreateSemaphore(logicalDevice, &semaphoreCreateInfo, null, &semaphore), VulkanException.Reason.CreateSemaphore);
-			return semaphore;
-		}
-
-		[MustUseReturnValue]
-		public static VkFence[] CreateFences(VkDevice logicalDevice, uint count) {
-			VkFenceCreateInfo fenceCreateInfo = new() { flags = VkFenceCreateFlagBits.FenceCreateSignaledBit, };
-			VkFence[] fences = new VkFence[count];
-
-			fixed (VkFence* fencesPtr = fences) {
-				for (uint i = 0; i < count; i++) { CheckIfSuccess(Vk.CreateFence(logicalDevice, &fenceCreateInfo, null, &fencesPtr[i]), VulkanException.Reason.CreateFence); }
-			}
-
-			return fences;
-		}
-
-		[MustUseReturnValue]
-		public static VkFence CreateFence(VkDevice logicalDevice) {
-			VkFenceCreateInfo fenceCreateInfo = new() { flags = VkFenceCreateFlagBits.FenceCreateSignaledBit, };
-			VkFence fence;
-			CheckIfSuccess(Vk.CreateFence(logicalDevice, &fenceCreateInfo, null, &fence), VulkanException.Reason.CreateFence);
-			return fence;
 		}
 	}
 }

@@ -13,14 +13,12 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		public bool WasDestroyed { get; private set; }
 
 		private readonly VkDevice logicalDevice;
-		private readonly VkDescriptorSetLayout[]? descriptorSetLayouts;
 
 		internal GraphicsPipeline(SurfaceCapablePhysicalGpu physicalGpu, VkDevice logicalDevice, Settings settings) {
 			DebugName = settings.DebugName;
 			Pipeline = CreateGraphicsPipeline(physicalGpu, logicalDevice, settings, out VkPipelineLayout layout);
 			Layout = layout;
 			this.logicalDevice = logicalDevice;
-			descriptorSetLayouts = settings.DescriptorSetLayouts;
 
 			INamedGraphicsResource.PrintNameWithHandle(this, Pipeline.Handle);
 		}
@@ -119,7 +117,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 						fixed (VkVertexInputBindingDescription* vertexBindingDescriptionPtr = settings.VertexBindingDescriptions) {
 							VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = new() { dynamicStateCount = (uint)settings.DynamicStates.Length, pDynamicStates = dynamicStatesPtr, };
 
-							VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = new() { // TODO can we replace this with shader buffers? like OpenGL vertex pulling
+							VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = new() {
 									vertexBindingDescriptionCount = (uint)settings.VertexBindingDescriptions.Length,
 									pVertexBindingDescriptions = vertexBindingDescriptionPtr,
 									vertexAttributeDescriptionCount = (uint)settings.VertexAttributeDescriptions.Length,
@@ -152,13 +150,8 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			}
 		}
 
-		[Obsolete($"Call {nameof(VulkanRenderer)}.{nameof(VulkanRenderer.DestroyResource)} instead")] // TODO fix this
 		public void Destroy() {
 			if (INamedGraphicsResource.WarnIfDestroyed(this)) { return; }
-
-			if (descriptorSetLayouts != null) {
-				foreach (VkDescriptorSetLayout descriptorSetLayout in descriptorSetLayouts) { Vk.DestroyDescriptorSetLayout(logicalDevice, descriptorSetLayout, null); }
-			}
 
 			Vk.DestroyPipelineLayout(logicalDevice, Layout, null);
 			Vk.DestroyPipeline(logicalDevice, Pipeline, null);

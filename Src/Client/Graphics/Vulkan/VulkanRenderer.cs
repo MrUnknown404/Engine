@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Engine3.Client.Graphics.Vulkan.Objects;
 using Engine3.Exceptions;
 using Engine3.Utility;
@@ -28,10 +29,12 @@ namespace Engine3.Client.Graphics.Vulkan {
 		public byte MaxFramesInFlight => GraphicsBackend.MaxFramesInFlight;
 
 		// TODO do i want these per renderer or application wide?
+		private readonly ResourceManager<DescriptorSetLayout> descriptorSetLayoutManager = new();
 		private readonly ResourceManager<DescriptorPool> descriptorPoolManager = new();
 		private readonly ResourceManager<TextureSampler> samplerManager = new();
 
 		private readonly NamedResourceManager<GraphicsPipeline> graphicsPipelineManager = new();
+		private readonly NamedResourceManager<VulkanShader> shaderManager = new();
 		private readonly NamedResourceManager<VulkanBuffer> bufferManager = new();
 		private readonly NamedResourceManager<UniformBuffers> uniformBufferManager = new();
 		private readonly NamedResourceManager<VulkanImage> imageManager = new();
@@ -42,16 +45,16 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 			VkDevice logicalDevice = LogicalGpu.LogicalDevice;
 
-			GraphicsCommandPool = CreateCommandPool(logicalDevice, VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit, PhysicalGpu.QueueFamilyIndices.GraphicsFamily);
-			TransferCommandPool = CreateCommandPool(logicalDevice, VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit, PhysicalGpu.QueueFamilyIndices.TransferFamily);
-			RenderFinishedSemaphores = VkH.CreateSemaphores(logicalDevice, (uint)SwapChain.Images.Length);
+			GraphicsCommandPool = LogicalGpu.CreateCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit, PhysicalGpu.QueueFamilyIndices.GraphicsFamily);
+			TransferCommandPool = LogicalGpu.CreateCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit, PhysicalGpu.QueueFamilyIndices.TransferFamily);
+			RenderFinishedSemaphores = LogicalGpu.CreateSemaphores((uint)SwapChain.Images.Length);
 
-			VkCommandBuffer[] graphicsCommandBuffers = CreateCommandBuffers(logicalDevice, GraphicsCommandPool, MaxFramesInFlight);
-			VkSemaphore[] imageAvailableSemaphores = VkH.CreateSemaphores(logicalDevice, MaxFramesInFlight);
-			VkFence[] inFlightFences = VkH.CreateFences(logicalDevice, MaxFramesInFlight);
+			GraphicsCommandBuffer[] graphicsCommandBuffers = LogicalGpu.CreateCommandBuffers(GraphicsCommandPool, MaxFramesInFlight);
+			VkSemaphore[] imageAvailableSemaphores = LogicalGpu.CreateSemaphores(MaxFramesInFlight);
+			VkFence[] inFlightFences = LogicalGpu.CreateFences(MaxFramesInFlight);
 
 			Frames = new FrameData[MaxFramesInFlight];
-			for (int i = 0; i < MaxFramesInFlight; i++) { Frames[i] = new(logicalDevice, new(logicalDevice, GraphicsCommandPool, graphicsCommandBuffers[i]), imageAvailableSemaphores[i], inFlightFences[i]); }
+			for (int i = 0; i < MaxFramesInFlight; i++) { Frames[i] = new(logicalDevice, graphicsCommandBuffers[i], imageAvailableSemaphores[i], inFlightFences[i]); }
 
 			DepthImage = LogicalGpu.CreateDepthImage($"{nameof(VulkanRenderer)} Depth Image", TransferCommandPool, SwapChain.Extent);
 		}
@@ -65,9 +68,13 @@ namespace Engine3.Client.Graphics.Vulkan {
 		/// </summary>
 		protected internal override void Render(float delta) {
 			graphicsPipelineManager.TryCleanup();
+			shaderManager.TryCleanup();
 			bufferManager.TryCleanup();
 			uniformBufferManager.TryCleanup();
 			imageManager.TryCleanup();
+
+			descriptorSetLayoutManager.TryCleanup();
+			descriptorPoolManager.TryCleanup();
 			samplerManager.TryCleanup();
 
 			FrameData frameData = Frames[FrameIndex];
@@ -94,9 +101,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			// vkguide.dev waits for current
 			Vk.WaitForFences(logicalDevice, 1, &inFlightFence, (int)Vk.True, ulong.MaxValue);
 
-			uint tempSwapChainImageIndex;
-			VkResult result = Vk.AcquireNextImageKHR(logicalDevice, SwapChain.VkSwapChain, ulong.MaxValue, frameData.ImageAvailableSemaphore, VkFence.Zero, &tempSwapChainImageIndex); // todo 2
-			swapChainImageIndex = tempSwapChainImageIndex;
+			VkResult result = SwapChain.AcquireNextImage(frameData.ImageAvailableSemaphore, out swapChainImageIndex);
 
 			if (result == VkResult.ErrorOutOfDateKhr) {
 				OnSwapchainInvalid();
@@ -191,17 +196,17 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		protected DescriptorPool CreateDescriptorPool(VkDescriptorType[] descriptorSetTypes, uint count) {
-			DescriptorPool descriptorPool = new(LogicalGpu.LogicalDevice, count, descriptorSetTypes, MaxFramesInFlight);
-			descriptorPoolManager.Add(descriptorPool);
-			return descriptorPool;
-		}
-
-		[MustUseReturnValue]
 		protected GraphicsPipeline CreateGraphicsPipeline(GraphicsPipeline.Settings settings) {
 			GraphicsPipeline graphicsPipeline = LogicalGpu.CreateGraphicsPipeline(settings);
 			graphicsPipelineManager.Add(graphicsPipeline);
 			return graphicsPipeline;
+		}
+
+		[MustUseReturnValue]
+		protected VulkanShader CreateShader(string debugName, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {
+			VulkanShader shader = LogicalGpu.CreateShader(debugName, fileLocation, shaderLang, shaderType, assembly);
+			shaderManager.Add(shader);
+			return shader;
 		}
 
 		[MustUseReturnValue]
@@ -230,12 +235,28 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		protected VulkanImage CreateImageAndCopyUsingStaging(string debugName, string fileLocation, string fileExtension, uint width, uint height, byte texChannels, VkFormat imageFormat, Assembly assembly) {
+		protected VulkanImage CreateImageAndCopyUsingStaging(string debugName, string fileLocation, string fileExtension, byte texChannels, VkFormat imageFormat, Assembly assembly) {
 			using (StbiImage stbiImage = AssetH.LoadImage(fileLocation, fileExtension, texChannels, assembly)) {
-				VulkanImage image = CreateImage(debugName, width, height, imageFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits.ImageAspectColorBit);
+				VulkanImage image = CreateImage(debugName, (uint)stbiImage.Width, (uint)stbiImage.Height, imageFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageSampledBit,
+					VkImageAspectFlagBits.ImageAspectColorBit);
+
 				image.Copy(TransferCommandPool, LogicalGpu.TransferQueue, stbiImage);
 				return image;
 			}
+		}
+
+		[MustUseReturnValue]
+		protected DescriptorSetLayout CreateDescriptorSetLayout(DescriptorSetInfo[] descriptorSets) {
+			DescriptorSetLayout descriptorSetLayout = LogicalGpu.CreateDescriptorSetLayout(descriptorSets);
+			descriptorSetLayoutManager.Add(descriptorSetLayout);
+			return descriptorSetLayout;
+		}
+
+		[MustUseReturnValue]
+		protected DescriptorPool CreateDescriptorPool(VkDescriptorType[] descriptorSetTypes, uint count) {
+			DescriptorPool descriptorPool = LogicalGpu.CreateDescriptorPool(count, descriptorSetTypes, MaxFramesInFlight);
+			descriptorPoolManager.Add(descriptorPool);
+			return descriptorPool;
 		}
 
 		[MustUseReturnValue]
@@ -245,10 +266,47 @@ namespace Engine3.Client.Graphics.Vulkan {
 			return sampler;
 		}
 
-		protected internal void DestroyResource(GraphicsPipeline graphicsPipeline) => graphicsPipelineManager.Destroy(graphicsPipeline);
-		protected internal void DestroyResource(VulkanBuffer buffer) => bufferManager.Destroy(buffer);
-		protected internal void DestroyResource(UniformBuffers buffer) => uniformBufferManager.Destroy(buffer);
-		protected internal void DestroyResource(VulkanImage image) => imageManager.Destroy(image);
+		protected void CopyToBuffers(CopyToInfo[] copyToInfos) {
+			List<byte> newData = new();
+			foreach (CopyToInfo copyToInfo in copyToInfos) {
+				copyToInfo.SrcOffset = (ulong)newData.Count;
+				newData.AddRange(copyToInfo.Data);
+			}
+
+			ulong bufferSize = (ulong)newData.Count;
+
+			VulkanBuffer stagingBuffer = LogicalGpu.CreateBuffer("Temporary Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
+				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, bufferSize);
+
+			stagingBuffer.Copy(CollectionsMarshal.AsSpan(newData));
+
+			TransferCommandBuffer transferCommandBuffer = LogicalGpu.CreateTransferCommandBuffer(TransferCommandPool);
+
+			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
+
+			foreach (CopyToInfo copyToInfo in copyToInfos) {
+				transferCommandBuffer.CmdCopyBuffer(stagingBuffer.Buffer, copyToInfo.Buffer.Buffer, (ulong)copyToInfo.Data.LongLength, copyToInfo.SrcOffset, copyToInfo.DstOffset); //
+			}
+
+			transferCommandBuffer.EndCommandBuffer();
+
+			VkQueue queue = LogicalGpu.TransferQueue;
+			transferCommandBuffer.SubmitQueue(queue);
+
+			Vk.QueueWaitIdle(queue);
+			transferCommandBuffer.Destroy();
+
+			stagingBuffer.Destroy();
+		}
+
+		protected void DestroyResource(GraphicsPipeline graphicsPipeline) => graphicsPipelineManager.Destroy(graphicsPipeline);
+		protected void DestroyResource(VulkanShader shader) => shaderManager.Destroy(shader);
+		protected void DestroyResource(VulkanBuffer buffer) => bufferManager.Destroy(buffer);
+		protected void DestroyResource(UniformBuffers buffer) => uniformBufferManager.Destroy(buffer);
+		protected void DestroyResource(VulkanImage image) => imageManager.Destroy(image);
+
+		protected internal void DestroyResource(DescriptorSetLayout descriptorSetLayout) => descriptorSetLayoutManager.Destroy(descriptorSetLayout);
+		protected internal void DestroyResource(DescriptorPool descriptorPool) => descriptorPoolManager.Destroy(descriptorPool);
 		protected internal void DestroyResource(TextureSampler sampler) => samplerManager.Destroy(sampler);
 
 		protected virtual void OnSwapchainInvalid() {
@@ -263,16 +321,18 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 			Vk.DeviceWaitIdle(logicalDevice);
 
+			shaderManager.CleanupAll();
 			bufferManager.CleanupAll();
 			uniformBufferManager.CleanupAll();
 			imageManager.CleanupAll();
+
+			descriptorSetLayoutManager.CleanupAll();
+			descriptorPoolManager.CleanupAll();
 			samplerManager.CleanupAll();
 
-			graphicsPipelineManager.CleanupAll();
-
-			descriptorPoolManager.CleanupAll();
-
 			DepthImage.Destroy();
+
+			graphicsPipelineManager.CleanupAll();
 
 			Vk.DestroyCommandPool(logicalDevice, TransferCommandPool, null);
 			Vk.DestroyCommandPool(logicalDevice, GraphicsCommandPool, null);
@@ -303,25 +363,6 @@ namespace Engine3.Client.Graphics.Vulkan {
 						subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 				};
 
-		[MustUseReturnValue]
-		private static VkCommandPool CreateCommandPool(VkDevice logicalDevice, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) {
-			VkCommandPoolCreateInfo commandPoolCreateInfo = new() { flags = commandPoolCreateFlags, queueFamilyIndex = queueFamilyIndex, };
-			VkCommandPool commandPool;
-			VkH.CheckIfSuccess(Vk.CreateCommandPool(logicalDevice, &commandPoolCreateInfo, null, &commandPool), VulkanException.Reason.CreateCommandPool);
-			return commandPool;
-		}
-
-		[Obsolete($"Make {nameof(VulkanBuffer)}.CreateBuffers()")] // TODO make CreateBuffers()
-		[MustUseReturnValue]
-		private static VkCommandBuffer[] CreateCommandBuffers(VkDevice logicalDevice, VkCommandPool commandPool, uint count, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
-			VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = commandPool, level = level, commandBufferCount = count, };
-			VkCommandBuffer[] commandBuffers = new VkCommandBuffer[count];
-			fixed (VkCommandBuffer* commandBuffersPtr = commandBuffers) {
-				VkH.CheckIfSuccess(Vk.AllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, commandBuffersPtr), VulkanException.Reason.AllocateCommandBuffers);
-				return commandBuffers;
-			}
-		}
-
 		protected class FrameData {
 			public GraphicsCommandBuffer GraphicsCommandBuffer { get; }
 			public VkSemaphore ImageAvailableSemaphore { get; }
@@ -339,6 +380,31 @@ namespace Engine3.Client.Graphics.Vulkan {
 			public void Destroy() {
 				Vk.DestroySemaphore(logicalDevice, ImageAvailableSemaphore, null);
 				Vk.DestroyFence(logicalDevice, InFlightFence, null);
+			}
+		}
+
+		protected class CopyToInfo {
+			public byte[] Data { get; }
+			public VulkanBuffer Buffer { get; }
+			public ulong DstOffset { get; }
+
+			public ulong SrcOffset { get; internal set; }
+
+			public CopyToInfo(byte[] data, VulkanBuffer buffer, ulong dstOffset = 0) {
+				Data = data;
+				Buffer = buffer;
+				DstOffset = dstOffset;
+			}
+
+			public static CopyToInfo Of<T>(ReadOnlySpan<T> data, VulkanBuffer buffer, ulong dstOffset = 0) where T : unmanaged {
+				ulong byteSize = (ulong)(sizeof(T) * data.Length);
+
+				byte[] bytes = new byte[byteSize];
+				fixed (byte* bytesPtr = bytes) {
+					fixed (T* dataPtr = data) { System.Buffer.MemoryCopy(dataPtr, bytesPtr, byteSize, byteSize); }
+				}
+
+				return new(bytes, buffer, dstOffset);
 			}
 		}
 	}

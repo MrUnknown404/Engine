@@ -9,7 +9,7 @@ using OpenTK.Graphics.OpenGL;
 
 namespace Engine3.Client.Graphics.OpenGL.Objects {
 	[PublicAPI]
-	public class OpenGLShader : INamedGraphicsResource {
+	public class OpenGLShader : INamedGraphicsResource, IEquatable<OpenGLShader> {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public ShaderHandle Handle { get; }
@@ -20,12 +20,11 @@ namespace Engine3.Client.Graphics.OpenGL.Objects {
 
 		private readonly Dictionary<string, int> uniformLocations = new();
 
-		public OpenGLShader(string debugName, string fileLocation, ShaderType shaderType, Assembly assembly) {
+		internal OpenGLShader(string debugName, string fileLocation, ShaderType shaderType, Assembly assembly) {
 			DebugName = debugName;
 			ShaderType = shaderType;
 
-			string fullFileName = $"{Engine3.GameInstance.GraphicsBackend.GraphicsBackend}.{fileLocation}.{shaderType.FileExtension}.{ShaderLanguage.Glsl.FileExtension
-			}"; // TODO add spirv support https://wikis.khronos.org/opengl/SPIR-V
+			string fullFileName = $"{GraphicsBackend.OpenGL}.{fileLocation}.{shaderType.FileExtension}.{ShaderLanguage.Glsl.FileExtension}"; // TODO add spirv support https://wikis.khronos.org/opengl/SPIR-V
 
 			using (Stream? shaderStream = AssetH.GetAssetStream($"Shaders.{fullFileName}", assembly)) {
 				if (shaderStream == null) { throw new Engine3Exception($"Failed to create asset stream at Shaders.{fullFileName}"); }
@@ -111,5 +110,13 @@ namespace Engine3.Client.Graphics.OpenGL.Objects {
 
 			WasDestroyed = true;
 		}
+
+		public bool Equals(OpenGLShader? other) => other != null && Handle == other.Handle;
+		public override bool Equals(object? obj) => obj is OpenGLShader image && Equals(image);
+
+		public override int GetHashCode() => Handle.GetHashCode();
+
+		public static bool operator ==(OpenGLShader? left, OpenGLShader? right) => Equals(left, right);
+		public static bool operator !=(OpenGLShader? left, OpenGLShader? right) => !Equals(left, right);
 	}
 }

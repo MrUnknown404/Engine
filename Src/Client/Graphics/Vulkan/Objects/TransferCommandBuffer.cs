@@ -8,10 +8,17 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		internal TransferCommandBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) : base(logicalDevice, commandPool,
 			CreateCommandBuffer(logicalDevice, commandPool, level)) { }
 
-		public void CmdCopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, ulong bufferSize) {
-			VkBufferCopy2 bufferCopy2 = new() { size = bufferSize, };
+		public void CmdCopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, ulong bufferSize, ulong srcOffset = 0, ulong dstOffset = 0) {
+			VkBufferCopy2 bufferCopy2 = new() { srcOffset = srcOffset, dstOffset = dstOffset, size = bufferSize, };
 			VkCopyBufferInfo2 copyBufferInfo2 = new() { srcBuffer = srcBuffer, dstBuffer = dstBuffer, regionCount = 1, pRegions = &bufferCopy2, };
 			Vk.CmdCopyBuffer2(VkCommandBuffer, &copyBufferInfo2);
+		}
+
+		public void CmdCopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkBufferCopy2[] regions) {
+			fixed (VkBufferCopy2* regionsPtr = regions) {
+				VkCopyBufferInfo2 copyBufferInfo2 = new() { srcBuffer = srcBuffer, dstBuffer = dstBuffer, regionCount = (uint)regions.Length, pRegions = regionsPtr, };
+				Vk.CmdCopyBuffer2(VkCommandBuffer, &copyBufferInfo2);
+			}
 		}
 
 		public void CmdCopyImage(VkBuffer srcBuffer, VkImage dstImage, uint width, uint height) {

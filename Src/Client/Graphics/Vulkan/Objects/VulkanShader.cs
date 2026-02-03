@@ -11,7 +11,7 @@ using Silk.NET.Shaderc;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
 	[PublicAPI]
-	public unsafe class VulkanShader : INamedGraphicsResource {
+	public unsafe class VulkanShader : INamedGraphicsResource, IEquatable<VulkanShader> {
 		public VkShaderModule ShaderModule { get; }
 		public ShaderType ShaderType { get; }
 
@@ -37,9 +37,17 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			WasDestroyed = true;
 		}
 
+		public bool Equals(VulkanShader? other) => other != null && ShaderModule == other.ShaderModule;
+		public override bool Equals(object? obj) => obj is VulkanShader shader && Equals(shader);
+
+		public override int GetHashCode() => ShaderModule.GetHashCode();
+
+		public static bool operator ==(VulkanShader? left, VulkanShader? right) => Equals(left, right);
+		public static bool operator !=(VulkanShader? left, VulkanShader? right) => !Equals(left, right);
+
 		[MustUseReturnValue]
 		private static VkShaderModule CreateShaderModule(VkDevice logicalDevice, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {
-			string fullFileName = $"{Engine3.GameInstance.GraphicsBackend.GraphicsBackend}.{fileLocation}.{shaderType.FileExtension}.{shaderLang.FileExtension}";
+			string fullFileName = $"{GraphicsBackend.Vulkan}.{fileLocation}.{shaderType.FileExtension}.{shaderLang.FileExtension}";
 
 			using Stream? shaderStream = AssetH.GetAssetStream($"Shaders.{fullFileName}", assembly);
 			if (shaderStream == null) { throw new Engine3Exception($"Failed to create asset stream at Shaders.{fullFileName}"); }

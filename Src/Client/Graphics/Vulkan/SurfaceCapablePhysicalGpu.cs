@@ -81,8 +81,9 @@ namespace Engine3.Client.Graphics.Vulkan {
 		[MustUseReturnValue]
 		public VkFormat FindSupportedFormat(VkFormat[] availableFormats, VkImageTiling tiling, VkFormatFeatureFlagBits featureFlags) {
 			foreach (VkFormat format in availableFormats) {
-				VkFormatProperties formatProperties = new();
-				Vk.GetPhysicalDeviceFormatProperties(PhysicalDevice, format, &formatProperties); // TODO 2
+				VkFormatProperties2 formatProperties2 = new();
+				Vk.GetPhysicalDeviceFormatProperties2(PhysicalDevice, format, &formatProperties2);
+				VkFormatProperties formatProperties = formatProperties2.formatProperties;
 
 				switch (tiling) {
 					case VkImageTiling.ImageTilingLinear when (formatProperties.linearTilingFeatures & featureFlags) == featureFlags:

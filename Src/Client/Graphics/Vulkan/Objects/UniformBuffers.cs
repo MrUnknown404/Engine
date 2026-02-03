@@ -1,4 +1,5 @@
 using JetBrains.Annotations;
+using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
 	[PublicAPI]
@@ -30,11 +31,11 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 				fixed (void* dataPtr = data[(int)offset..]) { Buffer.MemoryCopy(dataPtr, buffersMapped[renderer.FrameIndex], (ulong)data.Length, (ulong)data.Length); }
 			}
 #else
-			fixed (void* dataPtr = data[(int)offset..]) { Buffer.MemoryCopy(dataPtr, uniformBuffersMapped[renderer.FrameIndex], (ulong)data.Length, (ulong)data.Length); }
+			fixed (void* dataPtr = data[(int)offset..]) { Buffer.MemoryCopy(dataPtr, buffersMapped[renderer.FrameIndex], (ulong)data.Length, (ulong)data.Length); }
 #endif
 		}
 
-		public OpenTK.Graphics.Vulkan.VkBuffer GetBuffer(byte index) => buffers[index].Buffer;
+		public VkBuffer GetBuffer(byte index) => buffers[index].Buffer;
 
 		public void Destroy() {
 			if (INamedGraphicsResource.WarnIfDestroyed(this)) { return; }

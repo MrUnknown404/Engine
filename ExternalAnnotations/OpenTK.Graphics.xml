@@ -15,6 +15,26 @@
 			<argument>Use 'Vk.GetPhysicalDeviceQueueFamilyProperties2()' for Vulkan 1.1+. See https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-gpdp2</argument>
 		</attribute>
 	</member>
+	<member name="M:OpenTK.Graphics.Vulkan.Vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(OpenTK.Graphics.Vulkan.VkPhysicalDevice,OpenTK.Graphics.Vulkan.VkSurfaceKHR,OpenTK.Graphics.Vulkan.VkSurfaceCapabilitiesKHR*)">
+		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
+			<argument>Use 'Vk.GetPhysicalDeviceSurfaceCapabilities2KHR()'</argument>
+		</attribute>
+	</member>
+	<member name="M:OpenTK.Graphics.Vulkan.Vk.GetPhysicalDeviceSurfaceFormatsKHR(OpenTK.Graphics.Vulkan.VkPhysicalDevice,OpenTK.Graphics.Vulkan.VkSurfaceKHR,System.UInt32*,OpenTK.Graphics.Vulkan.VkSurfaceFormatKHR*)">
+		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
+			<argument>Use 'Vk.GetPhysicalDeviceSurfaceFormats2KHR()'</argument>
+		</attribute>
+	</member>
+	<member name="M:OpenTK.Graphics.Vulkan.Vk.GetPhysicalDeviceMemoryProperties(OpenTK.Graphics.Vulkan.VkPhysicalDevice,OpenTK.Graphics.Vulkan.VkPhysicalDeviceMemoryProperties*)">
+		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
+			<argument>Use 'Vk.GetPhysicalDeviceMemoryProperties2()' for Vulkan 1.1+</argument>
+		</attribute>
+	</member>
+	<member name="M:OpenTK.Graphics.Vulkan.Vk.GetPhysicalDeviceFormatProperties(OpenTK.Graphics.Vulkan.VkPhysicalDevice,OpenTK.Graphics.Vulkan.VkFormat,OpenTK.Graphics.Vulkan.VkFormatProperties*)">
+		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
+			<argument>Use 'Vk.GetPhysicalDeviceFormatProperties2()' for Vulkan 1.1+</argument>
+		</attribute>
+	</member>
 	<member name="F:OpenTK.Graphics.Vulkan.VkDeviceCreateInfo.enabledLayerCount">
 		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
 			<argument>These are legacy and ignored in new versions of Vulkan. I don't know which version. See https://docs.vulkan.org/refpages/latest/refpages/source/VkDeviceCreateInfo.html</argument>
@@ -28,16 +48,6 @@
 	<member name="M:OpenTK.Graphics.Vulkan.Vk.GetDeviceQueue(OpenTK.Graphics.Vulkan.VkDevice,System.UInt32,System.UInt32,OpenTK.Graphics.Vulkan.VkQueue*)">
 		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
 			<argument>Use 'Vk.GetDeviceQueue2()' for Vulkan 1.1+</argument>
-		</attribute>
-	</member>
-	<member name="M:OpenTK.Graphics.Vulkan.Vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(OpenTK.Graphics.Vulkan.VkPhysicalDevice,OpenTK.Graphics.Vulkan.VkSurfaceKHR,OpenTK.Graphics.Vulkan.VkSurfaceCapabilitiesKHR*)">
-		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
-			<argument>Use 'Vk.GetPhysicalDeviceSurfaceCapabilities2KHR()'</argument>
-		</attribute>
-	</member>
-	<member name="M:OpenTK.Graphics.Vulkan.Vk.GetPhysicalDeviceSurfaceFormatsKHR(OpenTK.Graphics.Vulkan.VkPhysicalDevice,OpenTK.Graphics.Vulkan.VkSurfaceKHR,System.UInt32*,OpenTK.Graphics.Vulkan.VkSurfaceFormatKHR*)">
-		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
-			<argument>Use 'Vk.GetPhysicalDeviceSurfaceFormats2KHR()'</argument>
 		</attribute>
 	</member>
 	<member name="M:OpenTK.Graphics.Vulkan.Vk.QueueSubmit(OpenTK.Graphics.Vulkan.VkQueue,System.UInt32,OpenTK.Graphics.Vulkan.VkSubmitInfo*,OpenTK.Graphics.Vulkan.VkFence)">
@@ -68,11 +78,6 @@
 	<member name="M:OpenTK.Graphics.Vulkan.Vk.CmdCopyBuffer(OpenTK.Graphics.Vulkan.VkCommandBuffer,OpenTK.Graphics.Vulkan.VkBuffer,OpenTK.Graphics.Vulkan.VkBuffer,System.UInt32,OpenTK.Graphics.Vulkan.VkBufferCopy*)">
 		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
 			<argument>Use 'Vk.CmdCopyBuffer2()' for Vulkan 1.3+</argument>
-		</attribute>
-	</member>
-	<member name="M:OpenTK.Graphics.Vulkan.Vk.GetPhysicalDeviceMemoryProperties(OpenTK.Graphics.Vulkan.VkPhysicalDevice,OpenTK.Graphics.Vulkan.VkPhysicalDeviceMemoryProperties*)">
-		<attribute ctor="M:System.ObsoleteAttribute.#ctor(System.String)">
-			<argument>Use 'Vk.GetPhysicalDeviceMemoryProperties2()' for Vulkan 1.1+</argument>
 		</attribute>
 	</member>
 	<member name="M:OpenTK.Graphics.Vulkan.Vk.CmdPipelineBarrier(OpenTK.Graphics.Vulkan.VkCommandBuffer,OpenTK.Graphics.Vulkan.VkPipelineStageFlagBits,OpenTK.Graphics.Vulkan.VkPipelineStageFlagBits,OpenTK.Graphics.Vulkan.VkDependencyFlagBits,System.UInt32,OpenTK.Graphics.Vulkan.VkMemoryBarrier*,System.UInt32,OpenTK.Graphics.Vulkan.VkBufferMemoryBarrier*,System.UInt32,OpenTK.Graphics.Vulkan.VkImageMemoryBarrier*)">

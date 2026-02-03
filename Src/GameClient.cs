@@ -122,6 +122,7 @@ namespace Engine3 {
 			Logger.Info("GameLoop exited");
 			OnShutdownEvent?.Invoke();
 
+			Logger.Debug("Cleaning up everything...");
 			CleanupEverything();
 			Environment.Exit(0);
 		}
@@ -182,7 +183,7 @@ namespace Engine3 {
 			uint updateCounter = 0;
 			uint frameCounter = 0;
 
-			while (shouldRunGameLoop) { // TODO optional fps cap
+			while (shouldRunGameLoop) {
 				if (GraphicsBackend.GraphicsBackend != Client.Graphics.GraphicsBackend.Console) { Toolkit.Window.ProcessEvents(false); }
 				if (requestShutdown) { shouldRunGameLoop = false; } // TODO check more?
 
@@ -349,8 +350,6 @@ namespace Engine3 {
 		}
 
 		private void CleanupEverything() {
-			Logger.Debug("Cleaning up everything...");
-
 			Logger.Debug("Cleaning up engine...");
 			CleanupEngine();
 
@@ -386,7 +385,7 @@ namespace Engine3 {
 			}
 		}
 
-		private class ShadercSearchPathContainer : SearchPathContainer { // TODO rename
+		private class ShadercSearchPathContainer : SearchPathContainer {
 			public override string[] Linux => new[] { "libshaderc_shared.so", "libshaderc.so", };
 			public override string[] MacOS => new[] { "libshaderc_shared.dylib", };
 			public override string[] Android => new[] { "libshaderc_shared.so", };

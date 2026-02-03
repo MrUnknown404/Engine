@@ -4,7 +4,6 @@ using Engine3.Exceptions;
 using Engine3.Utility;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
-using StbiSharp;
 
 namespace Engine3.Client.Graphics.Vulkan {
 	[PublicAPI]
@@ -76,13 +75,13 @@ namespace Engine3.Client.Graphics.Vulkan {
 			VkH.CheckIfSuccess(Vk.CreateBuffer(LogicalDevice, &bufferCreateInfo, null, &buffer), VulkanException.Reason.CreateBuffer);
 
 			VkDeviceMemory bufferMemory = CreateDeviceMemory(buffer, memoryPropertyFlags);
-			BindBufferMemory(LogicalDevice, buffer, bufferMemory);
+			BindBufferMemory(buffer, bufferMemory);
 
 			return new(debugName, this, buffer, bufferMemory, bufferSize);
 		}
 
 		[MustUseReturnValue]
-		internal UniformBuffers CreateUniformBuffers(string debugName, VulkanRenderer renderer, ulong bufferSize) {
+		public UniformBuffers CreateUniformBuffers(string debugName, VulkanRenderer renderer, ulong bufferSize) {
 			VulkanBuffer[] buffers = new VulkanBuffer[renderer.MaxFramesInFlight];
 			void*[] buffersMapped = new void*[renderer.MaxFramesInFlight];
 
@@ -98,7 +97,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		internal TextureSampler CreateSampler(TextureSampler.Settings settings) {
+		public TextureSampler CreateSampler(TextureSampler.Settings settings) {
 			VkSamplerCreateInfo samplerCreateInfo = new() {
 					minFilter = settings.MinFilter,
 					magFilter = settings.MagFilter,
@@ -127,10 +126,10 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		internal VulkanImage CreateImage(string debugName, uint width, uint height, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlagBits usageFlags, VkImageAspectFlagBits aspectMask) {
+		public VulkanImage CreateImage(string debugName, uint width, uint height, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlagBits usageFlags, VkImageAspectFlagBits aspectMask) {
 			VkImage image = CreateImage(LogicalDevice, imageFormat, imageTiling, usageFlags, width, height);
 			VkDeviceMemory imageMemory = CreateDeviceMemory(image, VkMemoryPropertyFlagBits.MemoryPropertyDeviceLocalBit);
-			BindImageMemory(LogicalDevice, image, imageMemory);
+			BindImageMemory(image, imageMemory);
 			VkImageView imageView = CreateImageView(LogicalDevice, image, imageFormat, aspectMask);
 
 			return new(debugName, physicalGpu, this, image, imageMemory, imageView, imageFormat);
@@ -174,33 +173,78 @@ namespace Engine3.Client.Graphics.Vulkan {
 			}
 		}
 
+		[MustUseReturnValue] public DepthImage CreateDepthImage(string debugName, VkCommandPool transferCommandPool, VkExtent2D extent) => new(debugName, physicalGpu, this, transferCommandPool, TransferQueue, extent);
+
 		[MustUseReturnValue]
-		public VulkanImage CreateImageAndCopyUsingStaging(string debugName, string fileLocation, string fileExtension, uint width, uint height, byte texChannels, VkFormat imageFormat, VkImageTiling imageTiling,
-			VkImageUsageFlagBits usageFlags, VkImageAspectFlagBits aspectMask, VkCommandPool transferCommandPool, Assembly assembly) {
-			using (StbiImage stbiImage = AssetH.LoadImage(fileLocation, fileExtension, texChannels, assembly)) {
-				VulkanImage image = CreateImage(debugName, width, height, imageFormat, imageTiling, usageFlags, aspectMask);
-				image.Copy(transferCommandPool, TransferQueue, stbiImage);
-				return image;
-			}
+		public VkCommandPool CreateCommandPool(VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) {
+			VkCommandPoolCreateInfo commandPoolCreateInfo = new() { flags = commandPoolCreateFlags, queueFamilyIndex = queueFamilyIndex, };
+			VkCommandPool commandPool;
+			VkH.CheckIfSuccess(Vk.CreateCommandPool(LogicalDevice, &commandPoolCreateInfo, null, &commandPool), VulkanException.Reason.CreateCommandPool);
+			return commandPool;
 		}
 
-		[MustUseReturnValue] public DepthImage CreateDepthImage(string debugName, VkCommandPool transferCommandPool, VkExtent2D extent) => new(debugName, physicalGpu, this, transferCommandPool, TransferQueue, extent);
+		[MustUseReturnValue]
+		public GraphicsCommandBuffer[] CreateCommandBuffers(VkCommandPool commandPool, uint count, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
+			VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = commandPool, level = level, commandBufferCount = count, };
+			VkCommandBuffer[] commandBuffers = new VkCommandBuffer[count];
+			fixed (VkCommandBuffer* commandBuffersPtr = commandBuffers) {
+				VkH.CheckIfSuccess(Vk.AllocateCommandBuffers(LogicalDevice, &commandBufferAllocateInfo, commandBuffersPtr), VulkanException.Reason.AllocateCommandBuffers);
+			}
+
+			GraphicsCommandBuffer[] buffers = new GraphicsCommandBuffer[count];
+			for (int i = 0; i < commandBuffers.Length; i++) { buffers[i] = new(LogicalDevice, commandPool, commandBuffers[i]); }
+
+			return buffers;
+		}
+
+		[MustUseReturnValue]
+		public GraphicsCommandBuffer CreateGraphicsCommandBuffer(VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) => new(LogicalDevice, commandPool, level);
 
 		[MustUseReturnValue]
 		public TransferCommandBuffer CreateTransferCommandBuffer(VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) => new(LogicalDevice, commandPool, level);
 
-		[MustUseReturnValue]
-		public VkDescriptorSetLayout CreateDescriptorSetLayout(DescriptorSetInfo[] descriptorSets) {
-			VkDescriptorSetLayoutBinding[] bindings = descriptorSets.Select(static info => new VkDescriptorSetLayoutBinding {
-					binding = info.BindingLocation, descriptorType = info.DescriptorType, stageFlags = info.StageFlags, descriptorCount = 1,
-			}).ToArray();
+		[MustUseReturnValue] public DescriptorSetLayout CreateDescriptorSetLayout(DescriptorSetInfo[] descriptorSets) => new(LogicalDevice, descriptorSets);
 
-			fixed (VkDescriptorSetLayoutBinding* bindingsPtr = bindings) {
-				VkDescriptorSetLayoutCreateInfo layoutCreateInfo = new() { bindingCount = (uint)bindings.Length, pBindings = bindingsPtr, };
-				VkDescriptorSetLayout descriptorSetLayout;
-				VkH.CheckIfSuccess(Vk.CreateDescriptorSetLayout(LogicalDevice, &layoutCreateInfo, null, &descriptorSetLayout), VulkanException.Reason.CreateDescriptorSetLayout);
-				return descriptorSetLayout;
+		[MustUseReturnValue] public DescriptorPool CreateDescriptorPool(uint poolCount, VkDescriptorType[] descriptorTypes, byte maxFramesInFlight) => new(LogicalDevice, poolCount, descriptorTypes, maxFramesInFlight);
+
+		[MustUseReturnValue]
+		public VkSemaphore[] CreateSemaphores(uint count) {
+			VkSemaphoreCreateInfo semaphoreCreateInfo = new();
+			VkSemaphore[] semaphores = new VkSemaphore[count];
+
+			fixed (VkSemaphore* semaphoresPtr = semaphores) {
+				for (uint i = 0; i < count; i++) { VkH.CheckIfSuccess(Vk.CreateSemaphore(LogicalDevice, &semaphoreCreateInfo, null, &semaphoresPtr[i]), VulkanException.Reason.CreateSemaphore); }
 			}
+
+			return semaphores;
+		}
+
+		[MustUseReturnValue]
+		public VkSemaphore CreateSemaphore() {
+			VkSemaphoreCreateInfo semaphoreCreateInfo = new();
+			VkSemaphore semaphore;
+			VkH.CheckIfSuccess(Vk.CreateSemaphore(LogicalDevice, &semaphoreCreateInfo, null, &semaphore), VulkanException.Reason.CreateSemaphore);
+			return semaphore;
+		}
+
+		[MustUseReturnValue]
+		public VkFence[] CreateFences(uint count) {
+			VkFenceCreateInfo fenceCreateInfo = new() { flags = VkFenceCreateFlagBits.FenceCreateSignaledBit, };
+			VkFence[] fences = new VkFence[count];
+
+			fixed (VkFence* fencesPtr = fences) {
+				for (uint i = 0; i < count; i++) { VkH.CheckIfSuccess(Vk.CreateFence(LogicalDevice, &fenceCreateInfo, null, &fencesPtr[i]), VulkanException.Reason.CreateFence); }
+			}
+
+			return fences;
+		}
+
+		[MustUseReturnValue]
+		public VkFence CreateFence() {
+			VkFenceCreateInfo fenceCreateInfo = new() { flags = VkFenceCreateFlagBits.FenceCreateSignaledBit, };
+			VkFence fence;
+			VkH.CheckIfSuccess(Vk.CreateFence(LogicalDevice, &fenceCreateInfo, null, &fence), VulkanException.Reason.CreateFence);
+			return fence;
 		}
 
 		public void Destroy() {
@@ -212,14 +256,14 @@ namespace Engine3.Client.Graphics.Vulkan {
 			WasDestroyed = true;
 		}
 
-		private static void BindBufferMemory(VkDevice logicalDevice, VkBuffer buffer, VkDeviceMemory deviceMemory) {
+		private void BindBufferMemory(VkBuffer buffer, VkDeviceMemory deviceMemory) {
 			VkBindBufferMemoryInfo bindBufferMemoryInfo = new() { buffer = buffer, memory = deviceMemory, };
-			VkH.CheckIfSuccess(Vk.BindBufferMemory2(logicalDevice, 1, &bindBufferMemoryInfo), VulkanException.Reason.BindBufferMemory);
+			VkH.CheckIfSuccess(Vk.BindBufferMemory2(LogicalDevice, 1, &bindBufferMemoryInfo), VulkanException.Reason.BindBufferMemory);
 		}
 
-		private static void BindImageMemory(VkDevice logicalDevice, VkImage image, VkDeviceMemory deviceMemory) {
+		private void BindImageMemory(VkImage image, VkDeviceMemory deviceMemory) {
 			VkBindImageMemoryInfo bindImageMemoryInfo = new() { image = image, memory = deviceMemory, };
-			VkH.CheckIfSuccess(Vk.BindImageMemory2(logicalDevice, 1, &bindImageMemoryInfo), VulkanException.Reason.BindImageMemory);
+			VkH.CheckIfSuccess(Vk.BindImageMemory2(LogicalDevice, 1, &bindImageMemoryInfo), VulkanException.Reason.BindImageMemory);
 		}
 	}
 }

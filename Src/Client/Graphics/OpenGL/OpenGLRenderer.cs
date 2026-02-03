@@ -1,3 +1,4 @@
+using System.Reflection;
 using Engine3.Client.Graphics.OpenGL.Objects;
 using JetBrains.Annotations;
 using NLog;
@@ -15,6 +16,7 @@ namespace Engine3.Client.Graphics.OpenGL {
 		public ClearBufferMask ClearBufferMask { get; set; } = ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit;
 
 		private readonly NamedResourceManager<ProgramPipeline> programPipelineManager = new();
+		private readonly NamedResourceManager<OpenGLShader> shaderManager = new();
 		private readonly NamedResourceManager<OpenGLBuffer> bufferManager = new();
 		private readonly NamedResourceManager<OpenGLImage> imageManager = new();
 
@@ -38,6 +40,11 @@ namespace Engine3.Client.Graphics.OpenGL {
 
 		protected internal override void Render(float delta) {
 			Window.MakeContextCurrent();
+
+			programPipelineManager.TryCleanup();
+			shaderManager.TryCleanup();
+			bufferManager.TryCleanup();
+			imageManager.TryCleanup();
 
 			GL.ClearColor(Window.ClearColor);
 			GL.Clear(ClearBufferMask);
@@ -63,6 +70,13 @@ namespace Engine3.Client.Graphics.OpenGL {
 		}
 
 		[MustUseReturnValue]
+		protected OpenGLShader CreateShader(string debugName, string fileLocation, ShaderType shaderType, Assembly assembly) {
+			OpenGLShader shader = new(debugName, fileLocation, shaderType, assembly);
+			shaderManager.Add(shader);
+			return shader;
+		}
+
+		[MustUseReturnValue]
 		protected OpenGLBuffer CreateBuffer(string debugName, BufferStorageMask storageMask, ulong bufferSize) {
 			OpenGLBuffer buffer = new(debugName, bufferSize, storageMask);
 			bufferManager.Add(buffer);
@@ -77,8 +91,10 @@ namespace Engine3.Client.Graphics.OpenGL {
 			return image;
 		}
 
-		protected internal void DestroyResource(ProgramPipeline programPipeline) => programPipelineManager.Destroy(programPipeline);
-		protected internal void DestroyResource(OpenGLBuffer buffer) => bufferManager.Destroy(buffer);
+		protected void DestroyResource(ProgramPipeline programPipeline) => programPipelineManager.Destroy(programPipeline);
+		protected void DestroyResource(OpenGLShader shader) => shaderManager.Destroy(shader);
+		protected void DestroyResource(OpenGLBuffer buffer) => bufferManager.Destroy(buffer);
+		protected void DestroyResource(OpenGLImage image) => imageManager.Destroy(image);
 
 		protected override void PrepareCleanup() => Window.MakeContextCurrent();
 

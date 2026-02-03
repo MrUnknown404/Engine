@@ -16,7 +16,6 @@ namespace Engine3.Client.Graphics.Vulkan {
 		public VkImage[] Images { get; private set; }
 		public VkImageView[] ImageViews { get; private set; }
 
-		public string DebugName => nameof(SwapChain);
 		public bool WasDestroyed { get; private set; }
 
 		private readonly VulkanWindow window;
@@ -56,6 +55,13 @@ namespace Engine3.Client.Graphics.Vulkan {
 			ImageViews = CreateImageViews(logicalDevice, Images, swapChainImageFormat, VkImageAspectFlagBits.ImageAspectColorBit);
 
 			WasDestroyed = false;
+		}
+
+		public VkResult AcquireNextImage(VkSemaphore semaphore, out uint swapChainImageIndex) {
+			uint tempSwapChainImageIndex;
+			VkResult result = Vk.AcquireNextImageKHR(window.LogicalGpu.LogicalDevice, VkSwapChain, ulong.MaxValue, semaphore, VkFence.Zero, &tempSwapChainImageIndex);
+			swapChainImageIndex = tempSwapChainImageIndex;
+			return result;
 		}
 
 		public void Destroy() {

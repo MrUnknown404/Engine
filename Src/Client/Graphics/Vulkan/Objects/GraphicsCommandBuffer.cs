@@ -4,6 +4,9 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 	public unsafe class GraphicsCommandBuffer : CommandBuffer {
 		internal GraphicsCommandBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBuffer commandBuffer) : base(logicalDevice, commandPool, commandBuffer) { }
 
+		internal GraphicsCommandBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) : base(logicalDevice, commandPool,
+			CreateCommandBuffer(logicalDevice, commandPool, level)) { }
+
 		public void CmdBeginRendering(VkExtent2D extent, VkImageView swapChainImageView, VkImageView depthImageView, VkClearColorValue clearColorValue, VkClearDepthStencilValue depthStencilValue) {
 			VkRenderingAttachmentInfo colorAttachmentInfo = new() {
 					imageView = swapChainImageView,

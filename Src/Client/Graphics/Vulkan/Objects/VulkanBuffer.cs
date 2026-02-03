@@ -23,11 +23,15 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			INamedGraphicsResource.PrintNameWithHandle(this, Buffer.Handle);
 		}
 
-		public static void CopyMemory(void* srcDataPtr, void* dstDataPtr, ulong dstSize, ulong sourceBytesToCopy) => System.Buffer.MemoryCopy(srcDataPtr, dstDataPtr, dstSize, sourceBytesToCopy);
+		public void Copy<T>(ReadOnlySpan<T> data) where T : unmanaged => Copy(data, 0);
 
-		public void UnmapMemory() {
-			VkMemoryUnmapInfo memoryUnmapInfo = new() { memory = BufferMemory, };
-			Vk.UnmapMemory2(logicalGpu.LogicalDevice, &memoryUnmapInfo);
+		public void Copy<T>(ReadOnlySpan<T> data, ulong offset) where T : unmanaged {
+			ulong bufferSize = (ulong)(sizeof(T) * data.Length);
+			fixed (T* inDataPtr = data) {
+				void* dataPtr = MapMemory(bufferSize, offset);
+				System.Buffer.MemoryCopy(inDataPtr, dataPtr, bufferSize, bufferSize);
+				UnmapMemory();
+			}
 		}
 
 		[MustUseReturnValue]
@@ -38,36 +42,9 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			return dataPtr;
 		}
 
-		public void Copy<T>(ReadOnlySpan<T> data) where T : unmanaged => Copy(data, 0);
-
-		public void Copy<T>(ReadOnlySpan<T> data, ulong offset) where T : unmanaged {
-			ulong bufferSize = (ulong)(sizeof(T) * data.Length);
-			fixed (T* inDataPtr = data) {
-				void* dataPtr = MapMemory(bufferSize, offset);
-				CopyMemory(inDataPtr, dataPtr, bufferSize, bufferSize);
-				UnmapMemory();
-			}
-		}
-
-		public void CopyUsingStaging<T>(VkCommandPool transferCommandPool, VkQueue transferQueue, ReadOnlySpan<T> data, ulong offset = 0) where T : unmanaged {
-			ulong bufferSize = (ulong)(sizeof(T) * data.Length);
-
-			VulkanBuffer stagingBuffer = logicalGpu.CreateBuffer("Temporary Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
-				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, bufferSize); // TODO should i make a persistent staging buffer?
-
-			stagingBuffer.Copy(data, offset);
-
-			TransferCommandBuffer transferCommandBuffer = logicalGpu.CreateTransferCommandBuffer(transferCommandPool);
-
-			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
-			transferCommandBuffer.CmdCopyBuffer(stagingBuffer.Buffer, Buffer, bufferSize);
-			transferCommandBuffer.EndCommandBuffer();
-			transferCommandBuffer.SubmitQueue(transferQueue);
-
-			Vk.QueueWaitIdle(transferQueue);
-			transferCommandBuffer.Destroy();
-
-			stagingBuffer.Destroy();
+		public void UnmapMemory() {
+			VkMemoryUnmapInfo memoryUnmapInfo = new() { memory = BufferMemory, };
+			Vk.UnmapMemory2(logicalGpu.LogicalDevice, &memoryUnmapInfo);
 		}
 
 		public void Destroy() {
