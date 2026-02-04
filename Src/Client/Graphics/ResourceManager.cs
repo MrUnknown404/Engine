@@ -13,8 +13,8 @@ namespace Engine3.Client.Graphics {
 		}
 #endif
 
-		protected List<T> Resources { get; } = new();
-		protected Queue<T> DeletionQueue { get; } = new();
+		private List<T> Resources { get; } = new();
+		private Queue<T> DeletionQueue { get; } = new();
 
 		public void Add(T toAdd) => Resources.Add(toAdd);
 		public void Destroy(T toDestroy) => DeletionQueue.Enqueue(toDestroy);
@@ -23,12 +23,14 @@ namespace Engine3.Client.Graphics {
 			if (DeletionQueue.Count != 0) {
 				while (DeletionQueue.TryDequeue(out T? obj)) {
 					if (Resources.Remove(obj)) {
-						Logger.Trace($"Destroying: {obj.GetType().Name}");
+						Logger.Trace(GetDestroyMessage(obj));
 						obj.Destroy();
 					} else { Logger.Error($"Could not find to be destroyed {typeof(T).Name}"); }
 				}
 			}
 		}
+
+		protected virtual string GetDestroyMessage(T obj) => $"Destroying: {obj.GetType().Name}";
 
 		public void CleanupAll() {
 			if (Resources.Count == 0) { return; }

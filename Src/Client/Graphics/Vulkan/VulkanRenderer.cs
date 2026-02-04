@@ -36,7 +36,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		private readonly NamedResourceManager<GraphicsPipeline> graphicsPipelineManager = new();
 		private readonly NamedResourceManager<VulkanShader> shaderManager = new();
 		private readonly NamedResourceManager<VulkanBuffer> bufferManager = new();
-		private readonly NamedResourceManager<UniformBuffers> uniformBufferManager = new();
+		private readonly NamedResourceManager<DescriptorBuffers> uniformBufferManager = new();
 		private readonly NamedResourceManager<VulkanImage> imageManager = new();
 
 		protected VulkanRenderer(VulkanGraphicsBackend graphicsBackend, VulkanWindow window) : base(graphicsBackend, window) {
@@ -217,8 +217,8 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		protected UniformBuffers CreateUniformBuffers(string debugName, ulong bufferSize) {
-			UniformBuffers buffer = LogicalGpu.CreateUniformBuffers(debugName, this, bufferSize);
+		protected DescriptorBuffers CreateDescriptorBuffers(string debugName, ulong bufferSize, VkDescriptorType descriptorType, VkBufferUsageFlagBits extraBufferUsageFlags) {
+			DescriptorBuffers buffer = LogicalGpu.CreateDescriptorBuffers(debugName, this, bufferSize, descriptorType, extraBufferUsageFlags);
 			uniformBufferManager.Add(buffer);
 			return buffer;
 		}
@@ -302,7 +302,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		protected void DestroyResource(GraphicsPipeline graphicsPipeline) => graphicsPipelineManager.Destroy(graphicsPipeline);
 		protected void DestroyResource(VulkanShader shader) => shaderManager.Destroy(shader);
 		protected void DestroyResource(VulkanBuffer buffer) => bufferManager.Destroy(buffer);
-		protected void DestroyResource(UniformBuffers buffer) => uniformBufferManager.Destroy(buffer);
+		protected void DestroyResource(DescriptorBuffers buffer) => uniformBufferManager.Destroy(buffer);
 		protected void DestroyResource(VulkanImage image) => imageManager.Destroy(image);
 
 		protected internal void DestroyResource(DescriptorSetLayout descriptorSetLayout) => descriptorSetLayoutManager.Destroy(descriptorSetLayout);

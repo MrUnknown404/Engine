@@ -89,6 +89,6 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		public void CmdDrawIndexed(uint indexCount, uint instanceCount, uint firstIndex, int vertexOffset, uint firstInstance) =>
 				Vk.CmdDrawIndexed(VkCommandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 
-		public void CmdDrawIndexed(uint indexCount) => Vk.CmdDrawIndexed(VkCommandBuffer, indexCount, 1, 0, 0, 0);
+		public void CmdDrawIndexed(uint indexCount) => CmdDrawIndexed(indexCount, 1, 0, 0, 0);
 	}
 }

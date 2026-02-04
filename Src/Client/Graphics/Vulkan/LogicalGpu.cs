@@ -81,19 +81,17 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public UniformBuffers CreateUniformBuffers(string debugName, VulkanRenderer renderer, ulong bufferSize) {
+		public DescriptorBuffers CreateDescriptorBuffers(string debugName, VulkanRenderer renderer, ulong bufferSize, VkDescriptorType descriptorType, VkBufferUsageFlagBits bufferUsageFlags) {
 			VulkanBuffer[] buffers = new VulkanBuffer[renderer.MaxFramesInFlight];
 			void*[] buffersMapped = new void*[renderer.MaxFramesInFlight];
 
 			for (int i = 0; i < renderer.MaxFramesInFlight; i++) {
-				VulkanBuffer buffer = CreateBuffer($"{debugName}[{i}]", VkBufferUsageFlagBits.BufferUsageUniformBufferBit,
-					VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, bufferSize);
-
+				VulkanBuffer buffer = CreateBuffer($"{debugName}[{i}]", bufferUsageFlags, VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, bufferSize);
 				buffers[i] = buffer;
 				buffersMapped[i] = buffer.MapMemory(bufferSize);
 			}
 
-			return new(debugName, bufferSize, renderer, buffers, buffersMapped);
+			return new(debugName, bufferSize, renderer, buffers, buffersMapped, descriptorType);
 		}
 
 		[MustUseReturnValue]

@@ -23,9 +23,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			INamedGraphicsResource.PrintNameWithHandle(this, Buffer.Handle);
 		}
 
-		public void Copy<T>(ReadOnlySpan<T> data) where T : unmanaged => Copy(data, 0);
-
-		public void Copy<T>(ReadOnlySpan<T> data, ulong offset) where T : unmanaged {
+		public void Copy<T>(ReadOnlySpan<T> data, ulong offset = 0) where T : unmanaged {
 			ulong bufferSize = (ulong)(sizeof(T) * data.Length);
 			fixed (T* inDataPtr = data) {
 				void* dataPtr = MapMemory(bufferSize, offset);

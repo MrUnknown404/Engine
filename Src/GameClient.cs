@@ -35,8 +35,8 @@ namespace Engine3 {
 		protected List<Window> Windows { get; } = new();
 		protected List<Renderer> Renderers { get; } = new();
 
-		public ushort UpsTarget { get; init; } = 60;
-		public ushort FpsTarget { get; init; }
+		public ushort TargetUps { get; init; } = 60;
+		public ushort TargetFps { get; init; }
 		public byte MaxFrameSkip { get; init; } = 5;
 
 		public ulong UpdateIndex { get; private set; }
@@ -165,8 +165,8 @@ namespace Engine3 {
 		private void GameLoop() {
 			const long TicksPerSecond = 1000000000; // Stopwatch.Frequency;
 
-			long updateTicksToWait = TicksPerSecond / UpsTarget;
-			long frameTicksToWait = FpsTarget == 0 ? 0 : TicksPerSecond / FpsTarget;
+			long updateTicksToWait = TicksPerSecond / TargetUps;
+			long frameTicksToWait = TargetFps == 0 ? 0 : TicksPerSecond / TargetFps;
 
 			long currentTime = Stopwatch.GetTimestamp();
 			long updateAccumulator = 0;
@@ -215,7 +215,7 @@ namespace Engine3 {
 			}
 
 			void Render(long time) {
-				if (FpsTarget != 0) {
+				if (TargetFps != 0) {
 					while (Stopwatch.GetTimestamp() < lastFrameTime + frameTicksToWait) { Thread.Sleep(0); }
 					lastFrameTime = Stopwatch.GetTimestamp();
 				}

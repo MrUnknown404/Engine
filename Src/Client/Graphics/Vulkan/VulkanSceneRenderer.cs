@@ -11,7 +11,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		private bool isGameObjectCacheDirty;
 
-		private readonly Dictionary<VkPipeline, IEnumerable<IGameObject>> cachedSortedGameObjects = new();
+		private readonly Dictionary<VkPipeline, IEnumerable<(IGameObject, uint)>> cachedSortedGameObjects = new();
 
 		private readonly Camera camera;
 
@@ -45,10 +45,10 @@ namespace Engine3.Client.Graphics.Vulkan {
 			graphicsCommandBuffer.CmdSetViewport(0, 0, SwapChain.Extent.width, SwapChain.Extent.height, 0, 1);
 			graphicsCommandBuffer.CmdSetScissor(SwapChain.Extent, new(0, 0));
 
-			foreach ((VkPipeline pipeline, IEnumerable<IGameObject> gameObjects) in cachedSortedGameObjects) {
+			foreach ((VkPipeline pipeline, IEnumerable<(IGameObject, uint)> gameObjects) in cachedSortedGameObjects) {
 				graphicsCommandBuffer.CmdBindGraphicsPipeline(pipeline);
 
-				foreach (IGameObject gameObject in gameObjects) {
+				foreach ((IGameObject gameObject, uint count) in gameObjects) {
 					if (gameObject.Model is { } model) {
 						Mesh[] meshes = model.Meshes;
 						if (meshes.Length == 0) { continue; }
