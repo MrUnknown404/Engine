@@ -31,7 +31,6 @@ namespace Engine3.Client {
 
 			LogicalGpu = SelectedGpu.CreateLogicalGpu(graphicsBackend.GetAllRequiredDeviceExtensions(), graphicsBackend.GetAllRequiredValidationLayers());
 			Logger.Debug("Created logical gpu");
-			Logger.Trace($"- Handle: {LogicalGpu.LogicalDevice.Handle:X}");
 		}
 
 		protected override void Cleanup() {

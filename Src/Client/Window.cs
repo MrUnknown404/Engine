@@ -1,12 +1,11 @@
 using Engine3.Client.Graphics;
 using Engine3.Exceptions;
-using Engine3.Utility;
 using NLog;
 using OpenTK.Mathematics;
 using OpenTK.Platform;
 
 namespace Engine3.Client {
-	public abstract class Window : IDestroyable, IEquatable<Window> {
+	public abstract class Window : IEquatable<Window> {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public WindowHandle WindowHandle { get; }
@@ -52,8 +51,11 @@ namespace Engine3.Client {
 		public void Hide() => SetWindowMode(WindowMode.Hidden);
 		public void SetWindowMode(WindowMode windowMode) => Toolkit.Window.SetMode(WindowHandle, windowMode);
 
-		public void Destroy() {
-			if (IDestroyable.WarnIfDestroyed(this)) { return; }
+		internal void Destroy() {
+			if (WasDestroyed) {
+				Logger.Warn($"Tried to destroy a {nameof(Window)} that was already destroyed");
+				return;
+			}
 
 			Cleanup();
 

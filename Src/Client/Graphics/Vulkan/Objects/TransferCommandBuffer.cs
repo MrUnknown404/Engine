@@ -4,9 +4,10 @@ using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
-	public unsafe class TransferCommandBuffer : CommandBuffer {
+	public sealed unsafe class TransferCommandBuffer : CommandBuffer {
 		internal TransferCommandBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) : base(logicalDevice, commandPool,
-			CreateCommandBuffer(logicalDevice, commandPool, level)) { }
+			CreateCommandBuffer(logicalDevice, commandPool, level)) =>
+				PrintCreate();
 
 		public void CmdCopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, ulong bufferSize, ulong srcOffset = 0, ulong dstOffset = 0) {
 			VkBufferCopy2 bufferCopy2 = new() { srcOffset = srcOffset, dstOffset = dstOffset, size = bufferSize, };

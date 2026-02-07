@@ -1,8 +1,10 @@
-using Engine3.Utility;
+using NLog;
 using OpenTK.Platform;
 
 namespace Engine3.Client.Graphics {
-	public abstract class EngineGraphicsBackend : IDestroyable {
+	public abstract class EngineGraphicsBackend {
+		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
 		public GraphicsBackend GraphicsBackend { get; }
 		public GraphicsApiHints? GraphicsApiHints { get; }
 
@@ -17,7 +19,10 @@ namespace Engine3.Client.Graphics {
 		protected internal abstract void Cleanup();
 
 		public void Destroy() {
-			if (IDestroyable.WarnIfDestroyed(this)) { return; }
+			if (WasDestroyed) {
+				Logger.Warn($"Tried to destroy a {nameof(Window)} that was already destroyed");
+				return;
+			}
 
 			Cleanup();
 

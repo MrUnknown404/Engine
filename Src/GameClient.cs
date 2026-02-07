@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using Engine3.Client;
 using Engine3.Client.Graphics;
 using Engine3.Client.Graphics.OpenGL;
 using Engine3.Exceptions;
@@ -31,9 +32,10 @@ namespace Engine3 {
 		public string Name { get; }
 		public IPackableVersion Version { get; }
 		public EngineGraphicsBackend GraphicsBackend { get; }
+		public bool UseImGui { get; init; }
 
-		protected List<Window> Windows { get; } = new();
-		protected List<Renderer> Renderers { get; } = new();
+		private readonly List<Window> windows = new();
+		private readonly List<Renderer> renderers = new();
 
 		public ushort TargetUps { get; init; } = 60;
 		public ushort TargetFps { get; init; }
@@ -99,13 +101,6 @@ namespace Engine3 {
 
 			SetupEngine(settings);
 
-			switch (GraphicsBackend.GraphicsBackend) {
-				case Client.Graphics.GraphicsBackend.Console: SetupConsole(); break;
-				case Client.Graphics.GraphicsBackend.OpenGL:
-				case Client.Graphics.GraphicsBackend.Vulkan: SetupGraphics(); break;
-				default: throw new ArgumentOutOfRangeException();
-			}
-
 			wasSetup = true;
 
 			Logger.Debug("Setup finished. Invoking events then entering loop");
@@ -124,31 +119,6 @@ namespace Engine3 {
 		protected abstract void Update();
 		protected abstract void Cleanup();
 
-		private void SetupConsole() {
-			Logger.Info("Setting up Console...");
-			throw new NotImplementedException();
-		}
-
-		private void SetupGraphics() {
-			Logger.Info("Setting up Toolkit...");
-			SetupToolkit(new() {
-					ApplicationName = Name,
-					Logger = new TkLogger(),
-					FeatureFlags = GraphicsBackend.GraphicsBackend switch {
-							Client.Graphics.GraphicsBackend.OpenGL => ToolkitFlags.EnableOpenGL,
-							Client.Graphics.GraphicsBackend.Vulkan => ToolkitFlags.EnableVulkan,
-							Client.Graphics.GraphicsBackend.Console => throw new UnreachableException(),
-							_ => throw new ArgumentOutOfRangeException(),
-					},
-			});
-
-			OnSetupToolkitEvent?.Invoke();
-
-			Logger.Debug($"Setting up {Enum.GetName(GraphicsBackend.GraphicsBackend)}...");
-			GraphicsBackend.Setup(this);
-			WasGraphicsSetup = true;
-		}
-
 		private void SetupEngine(StartupSettings settings) {
 			settings.Print();
 
@@ -158,6 +128,29 @@ namespace Engine3 {
 #endif
 
 			Stbi.SetFlipVerticallyOnLoad(settings.StbiFlipOnLoad);
+
+			Logger.Info("Setting up Toolkit...");
+			SetupToolkit(new() {
+					ApplicationName = Name,
+					Logger = new TkLogger(),
+					FeatureFlags = GraphicsBackend.GraphicsBackend switch {
+							Client.Graphics.GraphicsBackend.OpenGL => ToolkitFlags.EnableOpenGL,
+							Client.Graphics.GraphicsBackend.Vulkan => ToolkitFlags.EnableVulkan,
+							Client.Graphics.GraphicsBackend.Console => ToolkitFlags.None,
+							_ => throw new ArgumentOutOfRangeException(),
+					},
+			}, GraphicsBackend.GraphicsBackend == Client.Graphics.GraphicsBackend.Console);
+
+			OnSetupToolkitEvent?.Invoke();
+
+			Logger.Debug($"Setting up {Enum.GetName(GraphicsBackend.GraphicsBackend)}...");
+			GraphicsBackend.Setup(this);
+			WasGraphicsSetup = true;
+
+			if (UseImGui && GraphicsBackend.GraphicsBackend != Client.Graphics.GraphicsBackend.Console) {
+				Logger.Debug("Setting up ImGui...");
+				ImGuiH.Setup(GraphicsBackend.GraphicsBackend);
+			}
 		}
 
 		private void EngineUpdate() { }
@@ -225,7 +218,7 @@ namespace Engine3 {
 				float delta = 1 - (float)(updateTicksToWait - updateAccumulator) / updateTicksToWait;
 
 				PerformanceMonitor.StartTimingFrame();
-				foreach (Renderer pipeline in Renderers.Where(static pipeline => pipeline.CanRender)) { pipeline.Render(delta); }
+				foreach (Renderer pipeline in renderers.Where(static pipeline => pipeline.CanRender)) { pipeline.Render(delta); }
 				PerformanceMonitor.StopTimingFrame();
 
 				FrameIndex++;
@@ -235,44 +228,53 @@ namespace Engine3 {
 			}
 
 			void TryCloseWindows() {
-				foreach (Window window2 in Windows.Where(static window => window.ShouldClose)) {
+				foreach (Window window2 in windows.Where(static window => window.ShouldClose)) {
 					Logger.Debug("Found window to destroy...");
 					windowCloseQueue.Enqueue(window2);
 				}
 
-				while (windowCloseQueue.TryDequeue(out Window? window)) {
-					if (Windows.Remove(window)) {
-						Window tempWindow = window; // a
-						foreach (Renderer renderer in Renderers.Where(pipeline => pipeline.IsSameWindow(tempWindow))) { DestroyRenderingPipeline(renderer); }
-
-						Logger.Debug($"Destroying {nameof(Window)}...");
-						window.Destroy();
-					} else { Logger.Error($"Could not find to be destroyed {nameof(Window)} in {nameof(GameClient)}'s {nameof(Window)} list"); }
-				}
+				while (windowCloseQueue.TryDequeue(out Window? window)) { RemoveWindow(window); }
 			}
 
 			void TryDestroyRenderers() {
-				foreach (Renderer pipeline in Renderers.Where(static pipeline => pipeline.ShouldDestroy)) {
+				foreach (Renderer pipeline in renderers.Where(static renderer => renderer.ShouldDestroy)) {
 					Logger.Debug($"Found {nameof(Renderer)} to destroy...");
 					renderersCloseQueue.Enqueue(pipeline);
 				}
 
-				while (renderersCloseQueue.TryDequeue(out Renderer? pipeline)) { DestroyRenderingPipeline(pipeline); }
+				while (renderersCloseQueue.TryDequeue(out Renderer? renderer)) { RemoveRenderer(renderer); }
 			}
 
-			void DestroyRenderingPipeline(Renderer renderer) {
-				if (Renderers.Remove(renderer)) {
+			void RemoveWindow<T>(T window) where T : Window {
+				if (windows.Remove(window)) {
+					if (UseImGui) { ImGuiH.RemoveWindow(window); }
+
+					foreach (Renderer renderer in renderers.Where(pipeline => pipeline.IsSameWindow(window))) { RemoveRenderer(renderer); }
+
+					Logger.Debug($"Destroying {nameof(Window)}...");
+					window.Destroy();
+				} else { Logger.Error($"Could not find to be destroyed {nameof(Window)} in {nameof(GameClient)}'s {nameof(Window)} list"); }
+			}
+
+			void RemoveRenderer<T>(T renderer) where T : Renderer {
+				if (renderers.Remove(renderer)) {
 					Logger.Debug($"Destroying {nameof(Renderer)}...");
 					renderer.Destroy();
 				} else { Logger.Error($"Could not find to be destroyed {nameof(Renderer)} in {nameof(GameClient)}'s {nameof(Renderer)} list"); }
 			}
 		}
 
-		private void SetupToolkit(ToolkitOptions toolkitOptions) {
-			EventQueue.EventRaised += (_, _, args) => {
+		private void SetupToolkit(ToolkitOptions toolkitOptions, bool isConsole) {
+			if (!isConsole) { EventQueue.EventRaised += OnEventQueueOnEventRaised; }
+
+			Toolkit.Init(toolkitOptions);
+
+			return;
+
+			void OnEventQueueOnEventRaised(PalHandle? palHandle, PlatformEventType platformEventType, EventArgs args) {
 				switch (args) {
 					case CloseEventArgs closeArgs: {
-						if (Windows.Find(w => w.WindowHandle == closeArgs.Window) is { } window) {
+						if (windows.Find(w => w.WindowHandle == closeArgs.Window) is { } window) {
 							window.TryCloseWindow();
 							return;
 						}
@@ -281,7 +283,7 @@ namespace Engine3 {
 						break;
 					}
 					case WindowResizeEventArgs resizeArgs: {
-						if (Windows.Find(w => w.WindowHandle == resizeArgs.Window) is { } window) {
+						if (windows.Find(w => w.WindowHandle == resizeArgs.Window) is { } window) {
 							window.WasResized = true;
 							return;
 						}
@@ -290,7 +292,7 @@ namespace Engine3 {
 						break;
 					}
 					case KeyDownEventArgs downArgs: {
-						if (Windows.Find(w => w.WindowHandle == downArgs.Window) is { } window) {
+						if (windows.Find(w => w.WindowHandle == downArgs.Window) is { } window) {
 							window.InputManager.SetKey(downArgs.Key, true);
 							return;
 						}
@@ -299,7 +301,7 @@ namespace Engine3 {
 						break;
 					}
 					case KeyUpEventArgs upArgs: {
-						if (Windows.Find(w => w.WindowHandle == upArgs.Window) is { } window) {
+						if (windows.Find(w => w.WindowHandle == upArgs.Window) is { } window) {
 							window.InputManager.SetKey(upArgs.Key, false);
 							return;
 						}
@@ -308,10 +310,16 @@ namespace Engine3 {
 						break;
 					}
 				}
-			};
-
-			Toolkit.Init(toolkitOptions);
+			}
 		}
+
+		public void AddWindow<T>(T window) where T : Window {
+			windows.Add(window);
+
+			if (UseImGui) { ImGuiH.AddWindow(window); }
+		}
+
+		public void AddRenderer<T>(T renderer) where T : Renderer => renderers.Add(renderer);
 
 		public void Shutdown() {
 			Logger.Debug("Shutdown called");
@@ -325,11 +333,16 @@ namespace Engine3 {
 			Logger.Debug("Cleaning up instance...");
 			Cleanup();
 
-			Logger.Debug($"Cleaning up {Renderers.Count} {nameof(Renderer)}s...");
-			foreach (Renderer pipeline in Renderers) { pipeline.Destroy(); }
+			Logger.Debug($"Cleaning up {renderers.Count} {nameof(Renderer)}s...");
+			foreach (Renderer renderer in renderers) { renderer.Destroy(); }
 
-			Logger.Debug($"Cleaning up {Windows.Count} {nameof(Window)}s...");
-			foreach (Window window in Windows) { window.Destroy(); }
+			Logger.Debug($"Cleaning up {windows.Count} {nameof(Window)}s...");
+			foreach (Window window in windows) { window.Destroy(); }
+
+			if (UseImGui) {
+				Logger.Debug("Cleaning up ImGui...");
+				ImGuiH.Cleanup();
+			}
 
 			Logger.Debug("Cleaning up graphics...");
 			GraphicsBackend.Cleanup();

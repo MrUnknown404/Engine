@@ -6,7 +6,7 @@ namespace Engine3.GameObject {
 		public Scene.Scene Scene { get; }
 		public TTransform Transform { get; } = TTransform.Zero;
 
-		// TODO components? have transform be a component?
+		// TODO i should probably do components? have transform be a component?
 
 		public Model? Model { get; set; }
 

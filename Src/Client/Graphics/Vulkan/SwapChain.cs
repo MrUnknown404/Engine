@@ -7,7 +7,7 @@ using OpenTK.Mathematics;
 using OpenTK.Platform;
 
 namespace Engine3.Client.Graphics.Vulkan {
-	public unsafe class SwapChain : IGraphicsResource {
+	public unsafe class SwapChain : GraphicsResource<SwapChain, ulong> {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public VkSwapchainKHR VkSwapChain { get; private set; }
@@ -16,7 +16,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		public VkImage[] Images { get; private set; }
 		public VkImageView[] ImageViews { get; private set; }
 
-		public bool WasDestroyed { get; private set; }
+		protected override ulong Handle => VkSwapChain.Handle;
 
 		private readonly VulkanWindow window;
 		private readonly VkPresentModeKHR presentMode;
@@ -64,15 +64,11 @@ namespace Engine3.Client.Graphics.Vulkan {
 			return result;
 		}
 
-		public void Destroy() {
-			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
-
+		protected override void Cleanup() {
 			VkDevice logicalDevice = window.LogicalGpu.LogicalDevice;
 
 			Vk.DestroySwapchainKHR(logicalDevice, VkSwapChain, null);
 			foreach (VkImageView imageView in ImageViews) { Vk.DestroyImageView(logicalDevice, imageView, null); }
-
-			WasDestroyed = true;
 		}
 
 		[MustUseReturnValue]

@@ -2,10 +2,11 @@ using Engine3.Exceptions;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
-	public unsafe class DescriptorSetLayout : IGraphicsResource, IEquatable<DescriptorSetLayout> {
+	public sealed unsafe class DescriptorSetLayout : GraphicsResource<DescriptorSetLayout, ulong> {
 		public VkDescriptorSetLayout VkDescriptorSetLayout { get; }
 
-		public bool WasDestroyed { get; private set; }
+		protected override ulong Handle => VkDescriptorSetLayout.Handle;
+
 		private readonly VkDevice logicalDevice;
 
 		internal DescriptorSetLayout(VkDevice logicalDevice, DescriptorSetInfo[] descriptorSets) {
@@ -22,23 +23,9 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 				VkDescriptorSetLayout = descriptorSetLayout;
 			}
 
-			IGraphicsResource.PrintNameWithHandle<DescriptorSetLayout>(VkDescriptorSetLayout.Handle);
+			PrintCreate();
 		}
 
-		public void Destroy() {
-			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
-
-			Vk.DestroyDescriptorSetLayout(logicalDevice, VkDescriptorSetLayout, null);
-
-			WasDestroyed = true;
-		}
-
-		public bool Equals(DescriptorSetLayout? other) => other != null && VkDescriptorSetLayout == other.VkDescriptorSetLayout;
-		public override bool Equals(object? obj) => obj is DescriptorSetLayout descriptorSetLayout && Equals(descriptorSetLayout);
-
-		public override int GetHashCode() => VkDescriptorSetLayout.GetHashCode();
-
-		public static bool operator ==(DescriptorSetLayout? left, DescriptorSetLayout? right) => Equals(left, right);
-		public static bool operator !=(DescriptorSetLayout? left, DescriptorSetLayout? right) => !Equals(left, right);
+		protected override void Cleanup() => Vk.DestroyDescriptorSetLayout(logicalDevice, VkDescriptorSetLayout, null);
 	}
 }

@@ -5,22 +5,20 @@ using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
-	public unsafe class GraphicsPipeline : INamedGraphicsResource, IEquatable<GraphicsPipeline> {
+	public sealed unsafe class GraphicsPipeline : NamedGraphicsResource<GraphicsPipeline, ulong> {
 		public VkPipeline Pipeline { get; }
 		public VkPipelineLayout Layout { get; }
 
-		public string DebugName { get; }
-		public bool WasDestroyed { get; private set; }
+		protected override ulong Handle => Pipeline.Handle;
 
 		private readonly VkDevice logicalDevice;
 
-		internal GraphicsPipeline(SurfaceCapablePhysicalGpu physicalGpu, VkDevice logicalDevice, Settings settings) {
-			DebugName = settings.DebugName;
+		internal GraphicsPipeline(SurfaceCapablePhysicalGpu physicalGpu, VkDevice logicalDevice, Settings settings) : base(settings.DebugName) {
 			Pipeline = CreateGraphicsPipeline(physicalGpu, logicalDevice, settings, out VkPipelineLayout layout);
 			Layout = layout;
 			this.logicalDevice = logicalDevice;
 
-			INamedGraphicsResource.PrintNameWithHandle(this, Pipeline.Handle);
+			PrintCreate();
 		}
 
 		[MustUseReturnValue]
@@ -28,20 +26,29 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			byte* entryPointName = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference("main"u8));
 
 			fixed (VkDescriptorSetLayout* descriptorSetLayoutsPtr = settings.DescriptorSetLayouts) {
-				VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = new() { pushConstantRangeCount = 0, pPushConstantRanges = null, };
-				if (settings.DescriptorSetLayouts != null) {
-					pipelineLayoutCreateInfo.setLayoutCount = (uint)settings.DescriptorSetLayouts.Length;
-					pipelineLayoutCreateInfo.pSetLayouts = descriptorSetLayoutsPtr;
-				}
+				fixed (VkPushConstantRange* pushConstantRangesPtr = settings.PushConstantRanges) {
+					VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = new();
 
-				VkPipelineLayout tempPipelineLayout;
-				VkH.CheckIfSuccess(Vk.CreatePipelineLayout(logicalDevice, &pipelineLayoutCreateInfo, null, &tempPipelineLayout), VulkanException.Reason.CreatePipelineLayout);
-				pipelineLayout = tempPipelineLayout;
+					if (settings.DescriptorSetLayouts != null) {
+						pipelineLayoutCreateInfo.setLayoutCount = (uint)settings.DescriptorSetLayouts.Length;
+						pipelineLayoutCreateInfo.pSetLayouts = descriptorSetLayoutsPtr;
+					}
+
+					if (settings.PushConstantRanges != null) {
+						pipelineLayoutCreateInfo.pushConstantRangeCount = (uint)settings.PushConstantRanges.Length;
+						pipelineLayoutCreateInfo.pPushConstantRanges = pushConstantRangesPtr;
+					}
+
+					VkPipelineLayout tempPipelineLayout;
+					VkH.CheckIfSuccess(Vk.CreatePipelineLayout(logicalDevice, &pipelineLayoutCreateInfo, null, &tempPipelineLayout), VulkanException.Reason.CreatePipelineLayout);
+					pipelineLayout = tempPipelineLayout;
+				}
 			}
 
 			VkPipelineShaderStageCreateInfo[] shaderStageCreateInfos = new VkPipelineShaderStageCreateInfo[settings.Shaders.Length];
 			for (int i = 0; i < settings.Shaders.Length; i++) {
 				VulkanShader shader = settings.Shaders[i];
+
 				shaderStageCreateInfos[i] = new() {
 						module = shader.ShaderModule,
 						stage = shader.ShaderType switch {
@@ -55,6 +62,8 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 						},
 						pName = entryPointName,
 				};
+
+				if (shader.SpecializationInfo is { } specializationInfo) { shaderStageCreateInfos[i].pSpecializationInfo = &specializationInfo; }
 			}
 
 			VkFormat swapChainImageFormat = settings.SwapChainImageFormat;
@@ -102,9 +111,9 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			// colorBlendStateCreateInfo.blendConstants[3] = 0;
 
 			VkPipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo = new() {
-					depthTestEnable = (int)Vk.True,
-					depthWriteEnable = (int)Vk.True,
-					depthCompareOp = VkCompareOp.CompareOpLess,
+					depthTestEnable = (int)(settings.EnableDepthTest ? Vk.True : Vk.False),
+					depthWriteEnable = (int)(settings.EnableDepthTest ? Vk.True : Vk.False),
+					depthCompareOp = settings.DepthCompareOp,
 					depthBoundsTestEnable = (int)Vk.False,
 					minDepthBounds = 0,
 					maxDepthBounds = 1,
@@ -150,22 +159,10 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			}
 		}
 
-		public void Destroy() {
-			if (INamedGraphicsResource.WarnIfDestroyed(this)) { return; }
-
+		protected override void Cleanup() {
 			Vk.DestroyPipelineLayout(logicalDevice, Layout, null);
 			Vk.DestroyPipeline(logicalDevice, Pipeline, null);
-
-			WasDestroyed = true;
 		}
-
-		public bool Equals(GraphicsPipeline? other) => other != null && Pipeline == other.Pipeline;
-		public override bool Equals(object? obj) => obj is GraphicsPipeline pipeline && Equals(pipeline);
-
-		public override int GetHashCode() => Pipeline.GetHashCode();
-
-		public static bool operator ==(GraphicsPipeline? left, GraphicsPipeline? right) => Equals(left, right);
-		public static bool operator !=(GraphicsPipeline? left, GraphicsPipeline? right) => !Equals(left, right);
 
 		public class Settings {
 			public string DebugName { get; }
@@ -185,8 +182,11 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			public VkBlendFactor DstAlphaBlendFactor { get; init; } = VkBlendFactor.BlendFactorZero;
 			public VkBlendOp AlphaBlendOp { get; init; } = VkBlendOp.BlendOpAdd;
 			public VkDynamicState[] DynamicStates { get; init; } = [ VkDynamicState.DynamicStateViewport, VkDynamicState.DynamicStateScissor, ];
+			public bool EnableDepthTest { get; init; } = true;
+			public VkCompareOp DepthCompareOp { get; init; } = VkCompareOp.CompareOpLess;
 
 			public VkDescriptorSetLayout[]? DescriptorSetLayouts { get; init; }
+			public VkPushConstantRange[]? PushConstantRanges { get; init; }
 
 			public Settings(string debugName, VkFormat swapChainImageFormat, VulkanShader[] shaders, VkVertexInputAttributeDescription[] vertexAttributeDescriptions, VkVertexInputBindingDescription[] vertexBindingDescriptions) {
 				DebugName = debugName;

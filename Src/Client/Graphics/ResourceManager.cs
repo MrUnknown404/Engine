@@ -1,43 +1,30 @@
+using System.Diagnostics.CodeAnalysis;
 using NLog;
 
 namespace Engine3.Client.Graphics {
-	public class ResourceManager<T> where T : IGraphicsResource, IEquatable<T> {
-		// ReSharper disable once StaticMemberInGenericType
+	public class ResourceManager<TSelf> where TSelf : GraphicsResource {
+		[SuppressMessage("ReSharper", "StaticMemberInGenericType")]
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-#if DEBUG
-		public ResourceManager() {
-			bool isNamedResourceManager = (GetType().BaseType ?? throw new NullReferenceException()).Name[..^2] == nameof(ResourceManager<>);
-			bool isTypeNamed = typeof(T).GetInterfaces().Contains(typeof(INamedGraphicsResource));
-			if (!isNamedResourceManager && isTypeNamed) { Logger.Warn($"{typeof(T).Name} is of type {nameof(INamedGraphicsResource)} and should be in {nameof(NamedResourceManager<>)}"); }
-		}
-#endif
+		private List<TSelf> Resources { get; } = new();
+		private Queue<TSelf> DeletionQueue { get; } = new();
 
-		private List<T> Resources { get; } = new();
-		private Queue<T> DeletionQueue { get; } = new();
+		public void Add(TSelf toAdd) => Resources.Add(toAdd);
+		public void EnqueueDestroy(TSelf toDestroy) => DeletionQueue.Enqueue(toDestroy);
 
-		public void Add(T toAdd) => Resources.Add(toAdd);
-		public void Destroy(T toDestroy) => DeletionQueue.Enqueue(toDestroy);
+		public void TryCleanup() {
+			if (DeletionQueue.Count == 0) { return; }
 
-		public virtual void TryCleanup() {
-			if (DeletionQueue.Count != 0) {
-				while (DeletionQueue.TryDequeue(out T? obj)) {
-					if (Resources.Remove(obj)) {
-						Logger.Trace(GetDestroyMessage(obj));
-						obj.Destroy();
-					} else { Logger.Error($"Could not find to be destroyed {typeof(T).Name}"); }
-				}
+			while (DeletionQueue.TryDequeue(out TSelf? obj)) {
+				if (Resources.Remove(obj)) { obj.Destroy(); } else { Logger.Error($"Could not find to be destroyed {typeof(TSelf).Name}"); }
 			}
 		}
-
-		protected virtual string GetDestroyMessage(T obj) => $"Destroying: {obj.GetType().Name}";
 
 		public void CleanupAll() {
 			if (Resources.Count == 0) { return; }
 
 			Logger.Debug($"Cleaning up {Resources.Count} resources...");
-			foreach (T resource in Resources) { DeletionQueue.Enqueue(resource); }
-			TryCleanup();
+			foreach (TSelf resource in Resources) { resource.Destroy(); }
 		}
 	}
 }

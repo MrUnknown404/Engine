@@ -2,20 +2,18 @@ using OpenTK.Graphics.Vulkan;
 using StbiSharp;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
-	public unsafe class VulkanImage : INamedGraphicsResource, IEquatable<VulkanImage> {
+	public sealed unsafe class VulkanImage : NamedGraphicsResource<VulkanImage, ulong> {
 		public VkImage Image { get; }
 		public VkDeviceMemory ImageMemory { get; }
 		public VkImageView ImageView { get; }
 		public VkFormat ImageFormat { get; }
 
-		public string DebugName { get; }
-		public bool WasDestroyed { get; private set; }
+		protected override ulong Handle => Image.Handle;
 
 		private readonly SurfaceCapablePhysicalGpu physicalGpu;
 		private readonly LogicalGpu logicalGpu;
 
-		internal VulkanImage(string debugName, SurfaceCapablePhysicalGpu physicalGpu, LogicalGpu logicalGpu, VkImage image, VkDeviceMemory imageMemory, VkImageView imageView, VkFormat imageFormat) {
-			DebugName = debugName;
+		internal VulkanImage(string debugName, SurfaceCapablePhysicalGpu physicalGpu, LogicalGpu logicalGpu, VkImage image, VkDeviceMemory imageMemory, VkImageView imageView, VkFormat imageFormat) : base(debugName) {
 			this.physicalGpu = physicalGpu;
 			this.logicalGpu = logicalGpu;
 			Image = image;
@@ -23,17 +21,19 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			ImageView = imageView;
 			ImageFormat = imageFormat;
 
-			INamedGraphicsResource.PrintNameWithHandle(this, Image.Handle);
+			PrintCreate();
 		}
 
-		public void Copy(VkCommandPool transferCommandPool, VkQueue transferQueue, StbiImage stbiImage) {
-			uint width = (uint)stbiImage.Width;
-			uint height = (uint)stbiImage.Height;
+		[Obsolete] // TODO move elsewhere
+		public void CopyUsingStaging(VkCommandPool transferCommandPool, VkQueue transferQueue, StbiImage stbiImage) =>
+				CopyUsingStaging(transferCommandPool, transferQueue, (uint)stbiImage.Width, (uint)stbiImage.Height, (uint)stbiImage.NumChannels, stbiImage.Data);
 
+		[Obsolete] // TODO move elsewhere
+		public void CopyUsingStaging(VkCommandPool transferCommandPool, VkQueue transferQueue, uint width, uint height, uint channels, ReadOnlySpan<byte> data) {
 			VulkanBuffer stagingBuffer = logicalGpu.CreateBuffer("Temporary Image Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
-				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, (ulong)(width * height * stbiImage.NumChannels));
+				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, width * height * channels);
 
-			stagingBuffer.Copy(stbiImage.Data);
+			stagingBuffer.Copy(data);
 
 			TransferCommandBuffer transferCommandBuffer = logicalGpu.CreateTransferCommandBuffer(transferCommandPool);
 			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
@@ -45,30 +45,37 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			transferCommandBuffer.EndCommandBuffer();
 			transferCommandBuffer.SubmitQueue(transferQueue);
 
-			Vk.QueueWaitIdle(transferQueue);
-			transferCommandBuffer.Destroy();
-
-			stagingBuffer.Destroy();
+			logicalGpu.EnqueueDestroy(transferCommandBuffer);
+			logicalGpu.EnqueueDestroy(stagingBuffer);
 		}
 
-		public void Destroy() {
-			if (INamedGraphicsResource.WarnIfDestroyed(this)) { return; }
+		[Obsolete]
+		public void CopyUsingStaging(VkCommandPool transferCommandPool, VkQueue transferQueue, uint width, uint height, uint channels, byte* data) { // TODO move elsewhere
+			VulkanBuffer stagingBuffer = logicalGpu.CreateBuffer("Temporary Image Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
+				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, width * height * channels);
 
+			stagingBuffer.Copy(data, width * height * channels);
+
+			TransferCommandBuffer transferCommandBuffer = logicalGpu.CreateTransferCommandBuffer(transferCommandPool);
+			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
+
+			transferCommandBuffer.TransitionImageLayout(physicalGpu.QueueFamilyIndices, Image, ImageFormat, VkImageLayout.ImageLayoutUndefined, VkImageLayout.ImageLayoutTransferDstOptimal);
+			transferCommandBuffer.CmdCopyImage(stagingBuffer.Buffer, Image, width, height);
+			transferCommandBuffer.TransitionImageLayout(physicalGpu.QueueFamilyIndices, Image, ImageFormat, VkImageLayout.ImageLayoutTransferDstOptimal, VkImageLayout.ImageLayoutShaderReadOnlyOptimal);
+
+			transferCommandBuffer.EndCommandBuffer();
+			transferCommandBuffer.SubmitQueue(transferQueue);
+
+			logicalGpu.EnqueueDestroy(transferCommandBuffer);
+			logicalGpu.EnqueueDestroy(stagingBuffer);
+		}
+
+		protected override void Cleanup() {
 			VkDevice logicalDevice = logicalGpu.LogicalDevice;
 
 			Vk.DestroyImageView(logicalDevice, ImageView, null);
 			Vk.DestroyImage(logicalDevice, Image, null);
 			Vk.FreeMemory(logicalDevice, ImageMemory, null);
-
-			WasDestroyed = true;
 		}
-
-		public bool Equals(VulkanImage? other) => other != null && Image == other.Image;
-		public override bool Equals(object? obj) => obj is VulkanImage image && Equals(image);
-
-		public override int GetHashCode() => Image.GetHashCode();
-
-		public static bool operator ==(VulkanImage? left, VulkanImage? right) => Equals(left, right);
-		public static bool operator !=(VulkanImage? left, VulkanImage? right) => !Equals(left, right);
 	}
 }

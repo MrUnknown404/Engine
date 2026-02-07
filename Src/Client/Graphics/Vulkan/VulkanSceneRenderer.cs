@@ -43,7 +43,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		protected override void RecordCommandBuffer(GraphicsCommandBuffer graphicsCommandBuffer, float delta) {
 			graphicsCommandBuffer.CmdSetViewport(0, 0, SwapChain.Extent.width, SwapChain.Extent.height, 0, 1);
-			graphicsCommandBuffer.CmdSetScissor(SwapChain.Extent, new(0, 0));
+			graphicsCommandBuffer.CmdSetScissor(new(0, 0), SwapChain.Extent);
 
 			foreach ((VkPipeline pipeline, IEnumerable<(IGameObject, uint)> gameObjects) in cachedSortedGameObjects) {
 				graphicsCommandBuffer.CmdBindGraphicsPipeline(pipeline);

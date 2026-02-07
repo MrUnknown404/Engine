@@ -1,34 +1,47 @@
+using Engine3.Exceptions;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
-	public unsafe class TextureSampler : IGraphicsResource, IEquatable<TextureSampler> {
+	public sealed unsafe class TextureSampler : GraphicsResource<TextureSampler, ulong> {
 		public VkSampler Sampler { get; }
 
-		public bool WasDestroyed { get; private set; }
+		protected override ulong Handle => Sampler.Handle;
 
 		private readonly VkDevice logicalDevice;
 
-		internal TextureSampler(VkDevice logicalDevice, VkSampler sampler) {
+		internal TextureSampler(VkDevice logicalDevice, Settings settings) {
 			this.logicalDevice = logicalDevice;
-			Sampler = sampler;
+
+			VkSamplerCreateInfo samplerCreateInfo = new() {
+					minFilter = settings.MinFilter,
+					magFilter = settings.MagFilter,
+					addressModeU = settings.AddressMode.U,
+					addressModeV = settings.AddressMode.V,
+					addressModeW = settings.AddressMode.W,
+					anisotropyEnable =
+							(int)(settings.AnisotropyEnable && (Engine3.GameInstance.GraphicsBackend as VulkanGraphicsBackend ?? throw new Engine3Exception("Wrong graphics api is in use")).AllowEnableAnisotropy ?
+									Vk.True :
+									Vk.False),
+					maxAnisotropy = settings.MaxAnisotropy,
+					borderColor = settings.BorderColor,
+					unnormalizedCoordinates = (int)(settings.NormalizedCoordinates ? Vk.False : Vk.True),
+					compareEnable = (int)Vk.False,
+					compareOp = VkCompareOp.CompareOpAlways,
+					mipmapMode = settings.MipmapMode,
+					mipLodBias = settings.MipLodBias,
+					minLod = settings.MinLod,
+					maxLod = settings.MaxLod,
+			};
+
+			VkSampler textureSampler;
+			VkH.CheckIfSuccess(Vk.CreateSampler(logicalDevice, &samplerCreateInfo, null, &textureSampler), VulkanException.Reason.CreateTextureSampler);
+			Sampler = textureSampler;
+
+			PrintCreate();
 		}
 
-		public void Destroy() {
-			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
-
-			Vk.DestroySampler(logicalDevice, Sampler, null);
-
-			WasDestroyed = true;
-		}
-
-		public bool Equals(TextureSampler? other) => other != null && Sampler == other.Sampler;
-		public override bool Equals(object? obj) => obj is TextureSampler sampler && Equals(sampler);
-
-		public override int GetHashCode() => Sampler.GetHashCode();
-
-		public static bool operator ==(TextureSampler? left, TextureSampler? right) => Equals(left, right);
-		public static bool operator !=(TextureSampler? left, TextureSampler? right) => !Equals(left, right);
+		protected override void Cleanup() => Vk.DestroySampler(logicalDevice, Sampler, null);
 
 		[PublicAPI]
 		public class Settings {

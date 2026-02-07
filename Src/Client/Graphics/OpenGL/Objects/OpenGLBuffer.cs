@@ -1,52 +1,47 @@
 using JetBrains.Annotations;
+using NLog;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 
 namespace Engine3.Client.Graphics.OpenGL.Objects {
 	[PublicAPI]
-	public unsafe class OpenGLBuffer : IBufferObject, IEquatable<OpenGLBuffer> {
-		public BufferHandle Handle { get; }
+	public sealed unsafe class OpenGLBuffer : NamedGraphicsResource<OpenGLBuffer, nint> {
+		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+		public BufferHandle BufferHandle { get; }
 		public ulong BufferSize { get; } // Closest to GLsizeiptr is nint? - https://wikis.khronos.org/opengl/OpenGL_Type
 
-		public string DebugName { get; }
-		public bool WasDestroyed { get; private set; }
+		protected override nint Handle => BufferHandle.Handle;
 
-		internal OpenGLBuffer(string debugName, ulong bufferSize, BufferStorageMask bufferStorageMask) {
-			DebugName = debugName;
+		internal OpenGLBuffer(string debugName, ulong bufferSize, BufferStorageMask bufferStorageMask) : base(debugName) {
 			BufferSize = bufferSize;
-			Handle = new(GL.CreateBuffer());
+			BufferHandle = new(GL.CreateBuffer());
 
 #if DEBUG
-			checked { GL.NamedBufferStorage((int)Handle, (nint)BufferSize, IntPtr.Zero, bufferStorageMask); }
+			checked { GL.NamedBufferStorage((int)BufferHandle, (nint)BufferSize, IntPtr.Zero, bufferStorageMask); }
 #else
-			GL.NamedBufferStorage((int)Handle, (nint)BufferSize, IntPtr.Zero, bufferStorageMask);
+			GL.NamedBufferStorage((int)ShaderHandle, (nint)BufferSize, IntPtr.Zero, bufferStorageMask);
 #endif
 
-			INamedGraphicsResource.PrintNameWithHandle(this, Handle.Handle);
+			PrintCreate();
 		}
 
 		public void Copy<T>(ReadOnlySpan<T> data, ulong offset = 0) where T : unmanaged {
 #if DEBUG
-			checked { GL.NamedBufferSubData((int)Handle, (nint)offset, sizeof(T) * data.Length, data); }
+			checked { GL.NamedBufferSubData((int)BufferHandle, (nint)offset, sizeof(T) * data.Length, data); }
 #else
-			GL.NamedBufferSubData((int)Handle, (nint)offset, sizeof(T) * data.Length, data);
+			GL.NamedBufferSubData((int)ShaderHandle, (nint)offset, sizeof(T) * data.Length, data);
 #endif
 		}
 
-		public void Destroy() {
-			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
-
-			GL.DeleteBuffer((int)Handle);
-
-			WasDestroyed = true;
+		public void Copy(void* data, ulong bufferSize, ulong offset = 0) {
+#if DEBUG
+			checked { GL.NamedBufferSubData((int)BufferHandle, (nint)offset, (nint)bufferSize, data); }
+#else
+			GL.NamedBufferSubData((int)ShaderHandle, (nint)offset, (nint)bufferSize, data);
+#endif
 		}
 
-		public bool Equals(OpenGLBuffer? other) => other != null && Handle == other.Handle;
-		public override bool Equals(object? obj) => obj is OpenGLBuffer buffer && Equals(buffer);
-
-		public override int GetHashCode() => Handle.GetHashCode();
-
-		public static bool operator ==(OpenGLBuffer? left, OpenGLBuffer? right) => Equals(left, right);
-		public static bool operator !=(OpenGLBuffer? left, OpenGLBuffer? right) => !Equals(left, right);
+		protected override void Cleanup() => GL.DeleteBuffer((int)BufferHandle);
 	}
 }

@@ -1,19 +1,33 @@
 using System.Reflection;
 using Engine3.Client.Graphics.Vulkan.Objects;
 using Engine3.Exceptions;
-using Engine3.Utility;
 using JetBrains.Annotations;
+using NLog;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan {
 	[PublicAPI]
-	public unsafe class LogicalGpu : IDestroyable {
+	public sealed unsafe class LogicalGpu : GraphicsResource<LogicalGpu, ulong> {
+		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
 		public VkDevice LogicalDevice { get; }
 		public VkQueue GraphicsQueue { get; }
 		public VkQueue PresentQueue { get; }
 		public VkQueue TransferQueue { get; }
 
-		public bool WasDestroyed { get; private set; }
+		protected override ulong Handle => LogicalDevice.Handle;
+
+		private readonly ResourceManager<GraphicsPipeline> graphicsPipelineManager = new();
+		private readonly ResourceManager<CommandPool> commandPoolManager = new();
+		private readonly ResourceManager<CommandBuffer> commandBufferManager = new();
+		private readonly ResourceManager<DescriptorSetLayout> descriptorSetLayoutManager = new();
+		private readonly ResourceManager<DescriptorPool> descriptorPoolManager = new();
+		private readonly ResourceManager<VulkanShader> shaderManager = new();
+		private readonly ResourceManager<VulkanBuffer> bufferManager = new();
+		private readonly ResourceManager<DescriptorBuffers> descriptorBufferManager = new();
+		private readonly ResourceManager<VulkanImage> imageManager = new();
+		private readonly ResourceManager<TextureSampler> samplerManager = new();
+
 		private readonly SurfaceCapablePhysicalGpu physicalGpu;
 
 		internal LogicalGpu(SurfaceCapablePhysicalGpu physicalGpu, VkDevice logicalDevice, VkQueue graphicsQueue, VkQueue presentQueue, VkQueue transferQueue) {
@@ -22,50 +36,82 @@ namespace Engine3.Client.Graphics.Vulkan {
 			GraphicsQueue = graphicsQueue;
 			PresentQueue = presentQueue;
 			TransferQueue = transferQueue;
+
+			PrintCreate();
 		}
 
 		[MustUseReturnValue]
-		public VulkanShader CreateShader(string debugName, string fileName, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) => new(debugName, LogicalDevice, fileName, shaderLang, shaderType, assembly);
-
-		[MustUseReturnValue] internal GraphicsPipeline CreateGraphicsPipeline(GraphicsPipeline.Settings settings) => new(physicalGpu, LogicalDevice, settings);
-
-		[MustUseReturnValue]
-		public VkDeviceMemory CreateDeviceMemory(VkBuffer buffer, VkMemoryPropertyFlagBits memoryPropertyFlags) {
-			VkBufferMemoryRequirementsInfo2 bufferMemoryRequirementsInfo2 = new() { buffer = buffer, };
-			VkMemoryRequirements2 memoryRequirements2 = new();
-			Vk.GetBufferMemoryRequirements2(LogicalDevice, &bufferMemoryRequirementsInfo2, &memoryRequirements2);
-			return CreateDeviceMemory(memoryRequirements2.memoryRequirements, memoryPropertyFlags);
+		public GraphicsPipeline CreateGraphicsPipeline(GraphicsPipeline.Settings settings) {
+			GraphicsPipeline graphicsPipeline = new(physicalGpu, LogicalDevice, settings);
+			graphicsPipelineManager.Add(graphicsPipeline);
+			return graphicsPipeline;
 		}
 
 		[MustUseReturnValue]
-		public VkDeviceMemory CreateDeviceMemory(VkImage image, VkMemoryPropertyFlagBits memoryPropertyFlags) {
-			VkImageMemoryRequirementsInfo2 imageMemoryRequirementsInfo2 = new() { image = image, };
-			VkMemoryRequirements2 memoryRequirements2 = new();
-			Vk.GetImageMemoryRequirements2(LogicalDevice, &imageMemoryRequirementsInfo2, &memoryRequirements2);
-			return CreateDeviceMemory(memoryRequirements2.memoryRequirements, memoryPropertyFlags);
+		public CommandPool CreateCommandPool(VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) {
+			CommandPool commandPool = new(LogicalDevice, commandPoolCreateFlags, queueFamilyIndex);
+			commandPoolManager.Add(commandPool);
+			return commandPool;
 		}
 
 		[MustUseReturnValue]
-		public VkDeviceMemory CreateDeviceMemory(VkMemoryRequirements memoryRequirements, VkMemoryPropertyFlagBits memoryPropertyFlags) {
-			VkMemoryAllocateInfo memoryAllocateInfo = new() {
-					allocationSize = memoryRequirements.size, memoryTypeIndex = FindMemoryType(physicalGpu.PhysicalDeviceMemoryProperties2.memoryProperties, memoryRequirements.memoryTypeBits, memoryPropertyFlags),
-			};
-
-			// TODO "It should be noted that in a real world application, you're not supposed to actually call vkAllocateMemory for every individual buffer.
-			// The right way to allocate memory for a large number of objects at the same time is to create a custom allocator that splits up a single allocation
-			// among many different objects by using the offset parameters that we've seen in many functions."
-			VkDeviceMemory deviceMemory;
-			VkH.CheckIfSuccess(Vk.AllocateMemory(LogicalDevice, &memoryAllocateInfo, null, &deviceMemory), VulkanException.Reason.AllocateMemory);
-			return deviceMemory;
-
-			[MustUseReturnValue]
-			static uint FindMemoryType(VkPhysicalDeviceMemoryProperties memoryProperties, uint typeFilter, VkMemoryPropertyFlagBits memoryPropertyFlag) {
-				for (int i = 0; i < memoryProperties.memoryTypeCount; i++) {
-					if ((typeFilter & (1 << i)) != 0 && (memoryProperties.memoryTypes[i].propertyFlags & memoryPropertyFlag) == memoryPropertyFlag) { return (uint)i; }
-				}
-
-				throw new Engine3VulkanException("Failed to find suitable memory type");
+		public GraphicsCommandBuffer[] CreateGraphicsCommandBuffers(VkCommandPool commandPool, uint count, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
+			VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = commandPool, level = level, commandBufferCount = count, };
+			VkCommandBuffer[] commandBuffers = new VkCommandBuffer[count];
+			fixed (VkCommandBuffer* commandBuffersPtr = commandBuffers) {
+				VkH.CheckIfSuccess(Vk.AllocateCommandBuffers(LogicalDevice, &commandBufferAllocateInfo, commandBuffersPtr), VulkanException.Reason.AllocateCommandBuffers);
 			}
+
+			GraphicsCommandBuffer[] buffers = new GraphicsCommandBuffer[count];
+			for (int i = 0; i < commandBuffers.Length; i++) {
+				GraphicsCommandBuffer commandBuffer = new(LogicalDevice, commandPool, commandBuffers[i]);
+				buffers[i] = commandBuffer;
+				commandBufferManager.Add(commandBuffer);
+			}
+
+			return buffers;
+		}
+
+		[MustUseReturnValue]
+		public GraphicsCommandBuffer CreateGraphicsCommandBuffer(VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
+			GraphicsCommandBuffer commandBuffer = new(LogicalDevice, commandPool, level);
+			commandBufferManager.Add(commandBuffer);
+			return new GraphicsCommandBuffer(LogicalDevice, commandPool, level);
+		}
+
+		[MustUseReturnValue]
+		public TransferCommandBuffer CreateTransferCommandBuffer(VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
+			TransferCommandBuffer commandBuffer = new(LogicalDevice, commandPool, level);
+			commandBufferManager.Add(commandBuffer);
+			return commandBuffer;
+		}
+
+		[MustUseReturnValue]
+		public DescriptorSetLayout CreateDescriptorSetLayout(DescriptorSetInfo[] descriptorSets) {
+			DescriptorSetLayout descriptorSetLayout = new(LogicalDevice, descriptorSets);
+			descriptorSetLayoutManager.Add(descriptorSetLayout);
+			return descriptorSetLayout;
+		}
+
+		[MustUseReturnValue]
+		public DescriptorPool CreateDescriptorPool(VkDescriptorType[] descriptorSetTypes, uint count, byte maxFramesInFlight, VkDescriptorPoolCreateFlagBits descriptorPoolCreateFlags = 0) {
+			DescriptorPool descriptorPool = new(LogicalDevice, count, descriptorSetTypes, maxFramesInFlight, descriptorPoolCreateFlags);
+			descriptorPoolManager.Add(descriptorPool);
+			return descriptorPool;
+		}
+
+		[MustUseReturnValue]
+		public TextureSampler CreateSampler(TextureSampler.Settings settings) {
+			TextureSampler sampler = new(LogicalDevice, settings);
+			samplerManager.Add(sampler);
+			return sampler;
+		}
+
+		[MustUseReturnValue]
+		public VulkanShader CreateShader(string debugName, string fileName, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly, VkSpecializationInfo? specializationInfo = null) { // TODO settings
+			VulkanShader shader = new(debugName, LogicalDevice, fileName, shaderLang, shaderType, specializationInfo, assembly);
+			shaderManager.Add(shader);
+			return shader;
 		}
 
 		[MustUseReturnValue]
@@ -77,60 +123,31 @@ namespace Engine3.Client.Graphics.Vulkan {
 			VkDeviceMemory bufferMemory = CreateDeviceMemory(buffer, memoryPropertyFlags);
 			BindBufferMemory(buffer, bufferMemory);
 
-			return new(debugName, this, buffer, bufferMemory, bufferSize);
+			VulkanBuffer vulkanBuffer = new(debugName, this, buffer, bufferMemory, bufferSize);
+			bufferManager.Add(vulkanBuffer);
+			return vulkanBuffer;
 		}
 
 		[MustUseReturnValue]
-		public DescriptorBuffers CreateDescriptorBuffers(string debugName, VulkanRenderer renderer, ulong bufferSize, VkDescriptorType descriptorType, VkBufferUsageFlagBits bufferUsageFlags) {
-			VulkanBuffer[] buffers = new VulkanBuffer[renderer.MaxFramesInFlight];
-			void*[] buffersMapped = new void*[renderer.MaxFramesInFlight];
-
-			for (int i = 0; i < renderer.MaxFramesInFlight; i++) {
-				VulkanBuffer buffer = CreateBuffer($"{debugName}[{i}]", bufferUsageFlags, VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, bufferSize);
-				buffers[i] = buffer;
-				buffersMapped[i] = buffer.MapMemory(bufferSize);
-			}
-
-			return new(debugName, bufferSize, renderer, buffers, buffersMapped, descriptorType);
+		public DescriptorBuffers CreateDescriptorBuffers(string debugName, ulong bufferSize, byte maxFramesInFlight, VkDescriptorType descriptorType, VkBufferUsageFlagBits bufferUsageFlags) {
+			DescriptorBuffers descriptorBuffer = new(debugName, this, bufferSize, maxFramesInFlight, bufferUsageFlags, descriptorType);
+			descriptorBufferManager.Add(descriptorBuffer);
+			return descriptorBuffer;
 		}
 
 		[MustUseReturnValue]
-		public TextureSampler CreateSampler(TextureSampler.Settings settings) {
-			VkSamplerCreateInfo samplerCreateInfo = new() {
-					minFilter = settings.MinFilter,
-					magFilter = settings.MagFilter,
-					addressModeU = settings.AddressMode.U,
-					addressModeV = settings.AddressMode.V,
-					addressModeW = settings.AddressMode.W,
-					anisotropyEnable =
-							(int)(settings.AnisotropyEnable && (Engine3.GameInstance.GraphicsBackend as VulkanGraphicsBackend ?? throw new Engine3Exception("Wrong graphics api is in use")).AllowEnableAnisotropy ?
-									Vk.True :
-									Vk.False),
-					maxAnisotropy = settings.MaxAnisotropy,
-					borderColor = settings.BorderColor,
-					unnormalizedCoordinates = (int)(settings.NormalizedCoordinates ? Vk.False : Vk.True),
-					compareEnable = (int)Vk.False,
-					compareOp = VkCompareOp.CompareOpAlways,
-					mipmapMode = settings.MipmapMode,
-					mipLodBias = settings.MipLodBias,
-					minLod = settings.MinLod,
-					maxLod = settings.MaxLod,
-			};
+		public VulkanImage CreateImage(string debugName, uint width, uint height, VkFormat imageFormat, VkImageTiling imageTiling = VkImageTiling.ImageTilingOptimal,
+			VkImageUsageFlagBits usageFlags = VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits aspectMask = VkImageAspectFlagBits.ImageAspectColorBit) {
+			// VulkanImage image = LogicalGpu.CreateImage(debugName, width, height, imageFormat, imageTiling, usageFlags, aspectMask);
 
-			VkSampler textureSampler;
-			VkH.CheckIfSuccess(Vk.CreateSampler(LogicalDevice, &samplerCreateInfo, null, &textureSampler), VulkanException.Reason.CreateTextureSampler);
-
-			return new(LogicalDevice, textureSampler);
-		}
-
-		[MustUseReturnValue]
-		public VulkanImage CreateImage(string debugName, uint width, uint height, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlagBits usageFlags, VkImageAspectFlagBits aspectMask) {
 			VkImage image = CreateImage(LogicalDevice, imageFormat, imageTiling, usageFlags, width, height);
 			VkDeviceMemory imageMemory = CreateDeviceMemory(image, VkMemoryPropertyFlagBits.MemoryPropertyDeviceLocalBit);
 			BindImageMemory(image, imageMemory);
 			VkImageView imageView = CreateImageView(LogicalDevice, image, imageFormat, aspectMask);
 
-			return new(debugName, physicalGpu, this, image, imageMemory, imageView, imageFormat);
+			VulkanImage vulkanImage = new(debugName, physicalGpu, this, image, imageMemory, imageView, imageFormat);
+			imageManager.Add(vulkanImage);
+			return vulkanImage;
 
 			[MustUseReturnValue]
 			static VkImage CreateImage(VkDevice logicalDevice, VkFormat imageFormat, VkImageTiling tiling, VkImageUsageFlagBits usage, uint width, uint height) {
@@ -171,42 +188,49 @@ namespace Engine3.Client.Graphics.Vulkan {
 			}
 		}
 
-		[MustUseReturnValue] public DepthImage CreateDepthImage(string debugName, VkCommandPool transferCommandPool, VkExtent2D extent) => new(debugName, physicalGpu, this, transferCommandPool, TransferQueue, extent);
-
 		[MustUseReturnValue]
-		public VkCommandPool CreateCommandPool(VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) {
-			VkCommandPoolCreateInfo commandPoolCreateInfo = new() { flags = commandPoolCreateFlags, queueFamilyIndex = queueFamilyIndex, };
-			VkCommandPool commandPool;
-			VkH.CheckIfSuccess(Vk.CreateCommandPool(LogicalDevice, &commandPoolCreateInfo, null, &commandPool), VulkanException.Reason.CreateCommandPool);
-			return commandPool;
+		public VkDeviceMemory CreateDeviceMemory(VkBuffer buffer, VkMemoryPropertyFlagBits memoryPropertyFlags) {
+			VkBufferMemoryRequirementsInfo2 bufferMemoryRequirementsInfo2 = new() { buffer = buffer, };
+			VkMemoryRequirements2 memoryRequirements2 = new();
+			Vk.GetBufferMemoryRequirements2(LogicalDevice, &bufferMemoryRequirementsInfo2, &memoryRequirements2);
+			return CreateDeviceMemory(memoryRequirements2.memoryRequirements, memoryPropertyFlags);
 		}
 
 		[MustUseReturnValue]
-		public GraphicsCommandBuffer[] CreateCommandBuffers(VkCommandPool commandPool, uint count, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
-			VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = commandPool, level = level, commandBufferCount = count, };
-			VkCommandBuffer[] commandBuffers = new VkCommandBuffer[count];
-			fixed (VkCommandBuffer* commandBuffersPtr = commandBuffers) {
-				VkH.CheckIfSuccess(Vk.AllocateCommandBuffers(LogicalDevice, &commandBufferAllocateInfo, commandBuffersPtr), VulkanException.Reason.AllocateCommandBuffers);
+		public VkDeviceMemory CreateDeviceMemory(VkImage image, VkMemoryPropertyFlagBits memoryPropertyFlags) {
+			VkImageMemoryRequirementsInfo2 imageMemoryRequirementsInfo2 = new() { image = image, };
+			VkMemoryRequirements2 memoryRequirements2 = new();
+			Vk.GetImageMemoryRequirements2(LogicalDevice, &imageMemoryRequirementsInfo2, &memoryRequirements2);
+			return CreateDeviceMemory(memoryRequirements2.memoryRequirements, memoryPropertyFlags);
+		}
+
+		[MustUseReturnValue]
+		public VkDeviceMemory CreateDeviceMemory(VkMemoryRequirements memoryRequirements, VkMemoryPropertyFlagBits memoryPropertyFlags) {
+			VkMemoryAllocateInfo memoryAllocateInfo = new() {
+					allocationSize = memoryRequirements.size, memoryTypeIndex = FindMemoryType(physicalGpu.PhysicalDeviceMemoryProperties2.memoryProperties, memoryRequirements.memoryTypeBits, memoryPropertyFlags),
+			};
+
+			// TODO "It should be noted that in a real world application, you're not supposed to actually call vkAllocateMemory for every individual buffer.
+			// The right way to allocate memory for a large number of objects at the same time is to create a custom allocator that splits up a single allocation
+			// among many different objects by using the offset parameters that we've seen in many functions."
+			VkDeviceMemory deviceMemory;
+			VkH.CheckIfSuccess(Vk.AllocateMemory(LogicalDevice, &memoryAllocateInfo, null, &deviceMemory), VulkanException.Reason.AllocateMemory);
+			return deviceMemory;
+
+			[MustUseReturnValue]
+			static uint FindMemoryType(VkPhysicalDeviceMemoryProperties memoryProperties, uint typeFilter, VkMemoryPropertyFlagBits memoryPropertyFlag) {
+				for (int i = 0; i < memoryProperties.memoryTypeCount; i++) {
+					if ((typeFilter & (1 << i)) != 0 && (memoryProperties.memoryTypes[i].propertyFlags & memoryPropertyFlag) == memoryPropertyFlag) { return (uint)i; }
+				}
+
+				throw new Engine3VulkanException("Failed to find suitable memory type");
 			}
-
-			GraphicsCommandBuffer[] buffers = new GraphicsCommandBuffer[count];
-			for (int i = 0; i < commandBuffers.Length; i++) { buffers[i] = new(LogicalDevice, commandPool, commandBuffers[i]); }
-
-			return buffers;
 		}
 
-		[MustUseReturnValue]
-		public GraphicsCommandBuffer CreateGraphicsCommandBuffer(VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) => new(LogicalDevice, commandPool, level);
+		[MustUseReturnValue] public DepthImage CreateDepthImage(VkCommandPool transferCommandPool, VkExtent2D extent) => new(physicalGpu, this, transferCommandPool, TransferQueue, extent);
 
 		[MustUseReturnValue]
-		public TransferCommandBuffer CreateTransferCommandBuffer(VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) => new(LogicalDevice, commandPool, level);
-
-		[MustUseReturnValue] public DescriptorSetLayout CreateDescriptorSetLayout(DescriptorSetInfo[] descriptorSets) => new(LogicalDevice, descriptorSets);
-
-		[MustUseReturnValue] public DescriptorPool CreateDescriptorPool(uint poolCount, VkDescriptorType[] descriptorTypes, byte maxFramesInFlight) => new(LogicalDevice, poolCount, descriptorTypes, maxFramesInFlight);
-
-		[MustUseReturnValue]
-		public VkSemaphore[] CreateSemaphores(uint count) {
+		public VkSemaphore[] CreateSemaphores(uint count) { // TODO auto resource
 			VkSemaphoreCreateInfo semaphoreCreateInfo = new();
 			VkSemaphore[] semaphores = new VkSemaphore[count];
 
@@ -218,7 +242,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public VkSemaphore CreateSemaphore() {
+		public VkSemaphore CreateSemaphore() { // TODO auto resource
 			VkSemaphoreCreateInfo semaphoreCreateInfo = new();
 			VkSemaphore semaphore;
 			VkH.CheckIfSuccess(Vk.CreateSemaphore(LogicalDevice, &semaphoreCreateInfo, null, &semaphore), VulkanException.Reason.CreateSemaphore);
@@ -226,7 +250,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public VkFence[] CreateFences(uint count) {
+		public VkFence[] CreateFences(uint count) { // TODO auto resource
 			VkFenceCreateInfo fenceCreateInfo = new() { flags = VkFenceCreateFlagBits.FenceCreateSignaledBit, };
 			VkFence[] fences = new VkFence[count];
 
@@ -238,20 +262,93 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public VkFence CreateFence() {
+		public VkFence CreateFence() { // TODO auto resource
 			VkFenceCreateInfo fenceCreateInfo = new() { flags = VkFenceCreateFlagBits.FenceCreateSignaledBit, };
 			VkFence fence;
 			VkH.CheckIfSuccess(Vk.CreateFence(LogicalDevice, &fenceCreateInfo, null, &fence), VulkanException.Reason.CreateFence);
 			return fence;
 		}
 
-		public void Destroy() {
-			if (IDestroyable.WarnIfDestroyed(this)) { return; }
+		public void EnqueueDestroy(GraphicsPipeline graphicsPipeline) {
+			Logger.Trace($"Requesting to destroy {nameof(GraphicsPipeline)} ({graphicsPipeline.Pipeline.Handle:X16})");
+			graphicsPipelineManager.EnqueueDestroy(graphicsPipeline);
+		}
 
+		public void EnqueueDestroy(CommandPool commandPool) {
+			Logger.Trace($"Requesting to destroy {nameof(CommandPool)}");
+			commandPoolManager.EnqueueDestroy(commandPool);
+		}
+
+		public void EnqueueDestroy(CommandBuffer commandBuffer) {
+			Logger.Trace($"Requesting to destroy {nameof(CommandBuffer)}");
+			commandBufferManager.EnqueueDestroy(commandBuffer);
+		}
+
+		public void EnqueueDestroy(DescriptorBuffers descriptorBuffers) {
+			Logger.Trace($"Requesting to destroy {nameof(DescriptorBuffers)}");
+			descriptorBufferManager.EnqueueDestroy(descriptorBuffers);
+		}
+
+		public void EnqueueDestroy(DescriptorSetLayout descriptorSetLayout) {
+			Logger.Trace($"Requesting to destroy {nameof(DescriptorSetLayout)} ({descriptorSetLayout.VkDescriptorSetLayout.Handle:X16})");
+			descriptorSetLayoutManager.EnqueueDestroy(descriptorSetLayout);
+		}
+
+		public void EnqueueDestroy(DescriptorPool descriptorPool) {
+			Logger.Trace($"Requesting to destroy {nameof(DescriptorPool)} ({descriptorPool.VkDescriptorPool.Handle:X16})");
+			descriptorPoolManager.EnqueueDestroy(descriptorPool);
+		}
+
+		public void EnqueueDestroy(TextureSampler sampler) {
+			Logger.Trace($"Requesting to destroy {nameof(TextureSampler)} ({sampler.Sampler.Handle:X16})");
+			samplerManager.EnqueueDestroy(sampler);
+		}
+
+		public void EnqueueDestroy(VulkanShader shader) {
+			Logger.Trace($"Requesting to destroy {nameof(VulkanShader)} ({shader.ShaderModule.Handle:X16})");
+			shaderManager.EnqueueDestroy(shader);
+		}
+
+		public void EnqueueDestroy(VulkanBuffer buffer) {
+			Logger.Trace($"Requesting to destroy {nameof(VulkanBuffer)} ({buffer.Buffer.Handle:X16})");
+			bufferManager.EnqueueDestroy(buffer);
+		}
+
+		public void EnqueueDestroy(VulkanImage image) {
+			Logger.Trace($"Requesting to destroy {nameof(VulkanImage)} ({image.Image.Handle:X16})");
+			imageManager.EnqueueDestroy(image);
+		}
+
+		public void TryCleanupResources() {
+			Vk.DeviceWaitIdle(LogicalDevice); // TODO bad. only call if needed
+
+			graphicsPipelineManager.TryCleanup();
+			commandBufferManager.TryCleanup();
+			commandPoolManager.TryCleanup();
+			descriptorSetLayoutManager.TryCleanup();
+			descriptorPoolManager.TryCleanup();
+			shaderManager.TryCleanup();
+			bufferManager.TryCleanup();
+			descriptorBufferManager.TryCleanup();
+			samplerManager.TryCleanup();
+			imageManager.TryCleanup();
+		}
+
+		protected override void Cleanup() {
 			Vk.DeviceWaitIdle(LogicalDevice);
-			Vk.DestroyDevice(LogicalDevice, null);
 
-			WasDestroyed = true;
+			graphicsPipelineManager.CleanupAll();
+			commandBufferManager.CleanupAll();
+			commandPoolManager.CleanupAll();
+			descriptorSetLayoutManager.CleanupAll();
+			descriptorPoolManager.CleanupAll();
+			shaderManager.CleanupAll();
+			bufferManager.CleanupAll();
+			descriptorBufferManager.CleanupAll();
+			samplerManager.CleanupAll();
+			imageManager.CleanupAll();
+
+			Vk.DestroyDevice(LogicalDevice, null);
 		}
 
 		private void BindBufferMemory(VkBuffer buffer, VkDeviceMemory deviceMemory) {

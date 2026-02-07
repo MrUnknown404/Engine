@@ -1,14 +1,13 @@
 using Engine3.Exceptions;
-using Engine3.Utility;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
-	public abstract unsafe class CommandBuffer : IDestroyable {
+	public abstract unsafe class CommandBuffer : GraphicsResource<CommandBuffer, ulong> {
 		public VkCommandPool CommandPool { get; }
 		public VkCommandBuffer VkCommandBuffer { get; }
 
-		public bool WasDestroyed { get; private set; }
+		protected override ulong Handle => VkCommandBuffer.Handle;
 
 		private readonly VkDevice logicalDevice;
 
@@ -20,7 +19,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		public void ResetCommandBuffer() => Vk.ResetCommandBuffer(VkCommandBuffer, 0);
 
-		public VkResult BeginCommandBuffer(VkCommandBufferUsageFlagBits bufferUsageFlags ) {
+		public VkResult BeginCommandBuffer(VkCommandBufferUsageFlagBits bufferUsageFlags) {
 			VkCommandBufferBeginInfo commandBufferBeginInfo = new() { flags = bufferUsageFlags, };
 			return Vk.BeginCommandBuffer(VkCommandBuffer, &commandBufferBeginInfo);
 		}
@@ -37,13 +36,9 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			return commandBuffers;
 		}
 
-		public void Destroy() {
-			if (IDestroyable.WarnIfDestroyed(this)) { return; }
-
+		protected override void Cleanup() {
 			VkCommandBuffer commandBuffers = VkCommandBuffer;
-			Vk.FreeCommandBuffers(logicalDevice, CommandPool, 1, &commandBuffers);
-
-			WasDestroyed = true;
+			Vk.FreeCommandBuffers(logicalDevice, CommandPool, 1, &commandBuffers); // TODO move this into CommandPool & make bulk free method
 		}
 	}
 }

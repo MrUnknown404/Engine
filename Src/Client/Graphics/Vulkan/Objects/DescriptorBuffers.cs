@@ -4,61 +4,56 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
 	[PublicAPI]
-	public unsafe class DescriptorBuffers : INamedGraphicsResource, IEquatable<DescriptorBuffers> {
+	public sealed unsafe class DescriptorBuffers : NamedGraphicsResource<DescriptorBuffers, ulong> {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public VkDescriptorType DescriptorType { get; }
 
-		public string DebugName { get; }
-		public bool WasDestroyed { get; private set; }
-
 		public ulong BufferSize { get; }
 
-		private readonly VulkanRenderer renderer;
+		protected override ulong Handle => buffers[0].Buffer.Handle;
+
 		private readonly VulkanBuffer[] buffers;
 		private readonly void*[] buffersMapped;
+		private readonly LogicalGpu logicalGpu;
 
-		internal DescriptorBuffers(string debugName, ulong bufferSize, VulkanRenderer renderer, VulkanBuffer[] buffers, void*[] buffersMapped, VkDescriptorType descriptorType) {
-			DebugName = debugName;
+		internal DescriptorBuffers(string debugName, LogicalGpu logicalGpu, ulong bufferSize, byte maxFramesInFlight, VkBufferUsageFlagBits bufferUsageFlags, VkDescriptorType descriptorType) : base(debugName) {
 			BufferSize = bufferSize;
-			this.renderer = renderer;
-			this.buffers = buffers;
-			this.buffersMapped = buffersMapped;
 			DescriptorType = descriptorType;
+			this.logicalGpu = logicalGpu;
+
+			buffers = new VulkanBuffer[maxFramesInFlight];
+			buffersMapped = new void*[maxFramesInFlight];
+
+			for (int i = 0; i < maxFramesInFlight; i++) {
+				VulkanBuffer buffer = logicalGpu.CreateBuffer($"{debugName}[{i}]", bufferUsageFlags, VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, bufferSize);
+				buffers[i] = buffer;
+				buffersMapped[i] = buffer.MapMemory(bufferSize);
+			}
+
+			PrintCreate();
 		}
 
-		public void Copy<T>(T data) where T : unmanaged => Buffer.MemoryCopy(&data, buffersMapped[renderer.FrameIndex], sizeof(T), sizeof(T));
+		public void Copy<T>(T data, byte frameIndex) where T : unmanaged => Buffer.MemoryCopy(&data, buffersMapped[frameIndex], sizeof(T), sizeof(T));
 
-		public void Copy<T>(ReadOnlySpan<T> data) where T : unmanaged {
-			fixed (void* dataPtr = data) { Buffer.MemoryCopy(dataPtr, buffersMapped[renderer.FrameIndex], (ulong)data.Length, (ulong)data.Length); }
+		public void Copy<T>(ReadOnlySpan<T> data, byte frameIndex) where T : unmanaged {
+			fixed (void* dataPtr = data) { Buffer.MemoryCopy(dataPtr, buffersMapped[frameIndex], (ulong)data.Length, (ulong)data.Length); }
 		}
 
-		public void Copy<T>(ReadOnlySpan<T> data, ulong offset) where T : unmanaged {
+		public void Copy<T>(ReadOnlySpan<T> data, byte frameIndex, ulong offset) where T : unmanaged {
 #if DEBUG
 			checked { // is this safe? untested
-				fixed (void* dataPtr = data[(int)offset..]) { Buffer.MemoryCopy(dataPtr, buffersMapped[renderer.FrameIndex], (ulong)data.Length, (ulong)data.Length); }
+				fixed (void* dataPtr = data[(int)offset..]) { Buffer.MemoryCopy(dataPtr, buffersMapped[frameIndex], (ulong)data.Length, (ulong)data.Length); }
 			}
 #else
-			fixed (void* dataPtr = data[(int)offset..]) { Buffer.MemoryCopy(dataPtr, buffersMapped[renderer.FrameIndex], (ulong)data.Length, (ulong)data.Length); }
+			fixed (void* dataPtr = data[(int)offset..]) { Buffer.MemoryCopy(dataPtr, buffersMapped[frameIndex], (ulong)data.Length, (ulong)data.Length); }
 #endif
 		}
 
 		public VkBuffer GetBuffer(byte index) => buffers[index].Buffer;
 
-		public void Destroy() {
-			if (INamedGraphicsResource.WarnIfDestroyed(this)) { return; }
-
-			foreach (VulkanBuffer uniformBuffer in buffers) { uniformBuffer.Destroy(); }
-
-			WasDestroyed = true;
+		protected override void Cleanup() {
+			foreach (VulkanBuffer buffer in buffers) { logicalGpu.EnqueueDestroy(buffer); }
 		}
-
-		public bool Equals(DescriptorBuffers? other) => other != null && buffers[0] == other.buffers[0];
-		public override bool Equals(object? obj) => obj is DescriptorBuffers buffer && Equals(buffer);
-
-		public override int GetHashCode() => buffers[0].GetHashCode();
-
-		public static bool operator ==(DescriptorBuffers? left, DescriptorBuffers? right) => Equals(left, right);
-		public static bool operator !=(DescriptorBuffers? left, DescriptorBuffers? right) => !Equals(left, right);
 	}
 }

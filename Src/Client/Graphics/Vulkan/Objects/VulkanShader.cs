@@ -11,39 +11,26 @@ using Silk.NET.Shaderc;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
 	[PublicAPI]
-	public unsafe class VulkanShader : INamedGraphicsResource, IEquatable<VulkanShader> {
+	public sealed unsafe class VulkanShader : NamedGraphicsResource<VulkanShader, ulong> {
 		public VkShaderModule ShaderModule { get; }
 		public ShaderType ShaderType { get; }
+		public VkSpecializationInfo? SpecializationInfo { get; }
 
-		public string DebugName { get; }
-		public bool WasDestroyed { get; private set; }
+		protected override ulong Handle => ShaderModule.Handle;
 
 		private readonly VkDevice logicalDevice;
 
-		internal VulkanShader(string debugName, VkDevice logicalDevice, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {
-			DebugName = debugName;
+// TODO settings class
+		internal VulkanShader(string debugName, VkDevice logicalDevice, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, VkSpecializationInfo? specializationInfo, Assembly assembly) : base(debugName) {
 			ShaderModule = CreateShaderModule(logicalDevice, fileLocation, shaderLang, shaderType, assembly);
 			ShaderType = shaderType;
+			SpecializationInfo = specializationInfo;
 			this.logicalDevice = logicalDevice;
 
-			INamedGraphicsResource.PrintNameWithHandle(this, ShaderModule.Handle);
+			PrintCreate();
 		}
 
-		public void Destroy() {
-			if (IGraphicsResource.WarnIfDestroyed(this)) { return; }
-
-			Vk.DestroyShaderModule(logicalDevice, ShaderModule, null);
-
-			WasDestroyed = true;
-		}
-
-		public bool Equals(VulkanShader? other) => other != null && ShaderModule == other.ShaderModule;
-		public override bool Equals(object? obj) => obj is VulkanShader shader && Equals(shader);
-
-		public override int GetHashCode() => ShaderModule.GetHashCode();
-
-		public static bool operator ==(VulkanShader? left, VulkanShader? right) => Equals(left, right);
-		public static bool operator !=(VulkanShader? left, VulkanShader? right) => !Equals(left, right);
+		protected override void Cleanup() => Vk.DestroyShaderModule(logicalDevice, ShaderModule, null);
 
 		[MustUseReturnValue]
 		private static VkShaderModule CreateShaderModule(VkDevice logicalDevice, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {

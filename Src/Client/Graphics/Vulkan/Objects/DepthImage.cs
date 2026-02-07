@@ -1,9 +1,7 @@
-using Engine3.Utility;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
-	public class DepthImage : IGraphicsResource {
-		public string DebugName { get; }
+	public class DepthImage {
 		public bool WasDestroyed { get; private set; }
 
 		public VulkanImage Image { get; private set; }
@@ -14,8 +12,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		private readonly VkQueue transferQueue;
 		private readonly VkFormat depthFormat;
 
-		internal DepthImage(string debugName, SurfaceCapablePhysicalGpu physicalGpu, LogicalGpu logicalGpu, VkCommandPool transferCommandPool, VkQueue transferQueue, VkExtent2D extent) {
-			DebugName = debugName;
+		internal DepthImage(SurfaceCapablePhysicalGpu physicalGpu, LogicalGpu logicalGpu, VkCommandPool transferCommandPool, VkQueue transferQueue, VkExtent2D extent) {
 			this.physicalGpu = physicalGpu;
 			this.logicalGpu = logicalGpu;
 			this.transferCommandPool = transferCommandPool;
@@ -27,7 +24,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		}
 
 		public void Recreate(VkExtent2D extent) {
-			Image.Destroy();
+			logicalGpu.EnqueueDestroy(Image);
 
 			Image = logicalGpu.CreateImage(Image.DebugName, extent.width, extent.height, depthFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageDepthStencilAttachmentBit,
 				VkImageAspectFlagBits.ImageAspectDepthBit);
@@ -40,18 +37,9 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			transferCommandBuffer.EndCommandBuffer();
 			transferCommandBuffer.SubmitQueue(transferQueue);
 
-			Vk.QueueWaitIdle(transferQueue);
-			transferCommandBuffer.Destroy();
+			logicalGpu.EnqueueDestroy(transferCommandBuffer);
 
 			WasDestroyed = false;
-		}
-
-		public void Destroy() {
-			if (IDestroyable.WarnIfDestroyed(this)) { return; }
-
-			Image.Destroy();
-
-			WasDestroyed = true;
 		}
 	}
 }

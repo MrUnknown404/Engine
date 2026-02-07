@@ -32,13 +32,15 @@ namespace Engine3.Client.Graphics {
 		protected abstract void Cleanup();
 	}
 
-	public abstract class Renderer<TWindow, TBackend> : Renderer where TWindow : Window where TBackend : EngineGraphicsBackend {
+	public abstract class Renderer<TWindow, TBackend, TImGui> : Renderer where TWindow : Window where TBackend : EngineGraphicsBackend where TImGui : ImGuiBackend {
 		protected TBackend GraphicsBackend { get; }
 		protected TWindow Window { get; }
+		protected TImGui? ImGuiBackend { get; }
 
-		protected Renderer(TBackend graphicsBackend, TWindow window) {
+		protected Renderer(TBackend graphicsBackend, TWindow window, TImGui? imGuiBackend) {
 			GraphicsBackend = graphicsBackend;
 			Window = window;
+			ImGuiBackend = imGuiBackend;
 		}
 
 		public override bool IsSameWindow(Window window) => Window == window;

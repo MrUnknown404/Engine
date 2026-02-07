@@ -8,22 +8,24 @@ using OpenTK.Mathematics;
 using OpenTK.Platform;
 
 namespace Engine3.Client.Graphics.OpenGL {
-	public abstract class OpenGLRenderer : Renderer<OpenGLWindow, OpenGLGraphicsBackend> {
+	public abstract class OpenGLRenderer : Renderer<OpenGLWindow, OpenGLGraphicsBackend, OpenGLImGuiBackend> {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		protected VertexArrayHandle? EmptyVao { get; private set; }
 
 		public ClearBufferMask ClearBufferMask { get; set; } = ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit;
 
-		private readonly NamedResourceManager<ProgramPipeline> programPipelineManager = new();
-		private readonly NamedResourceManager<OpenGLShader> shaderManager = new();
-		private readonly NamedResourceManager<OpenGLBuffer> bufferManager = new();
-		private readonly NamedResourceManager<OpenGLImage> imageManager = new();
+		private readonly ResourceManager<ProgramPipeline> programPipelineManager = new(); // this is per context i think
+		private readonly ResourceManager<OpenGLShader> shaderManager = new(); // i think these are shared? etc
+		private readonly ResourceManager<OpenGLBuffer> bufferManager = new();
+		private readonly ResourceManager<OpenGLImage> imageManager = new();
 
-		protected OpenGLRenderer(OpenGLGraphicsBackend graphicsBackend, OpenGLWindow window) : base(graphicsBackend, window) { }
+		protected OpenGLRenderer(OpenGLGraphicsBackend graphicsBackend, OpenGLWindow window, OpenGLImGuiBackend? imGuiBackend = null) : base(graphicsBackend, window, imGuiBackend) { }
 
 		public override void Setup() {
 			Window.MakeContextCurrent();
+
+			ImGuiBackend?.Setup();
 
 			GL.Enable(EnableCap.DepthTest);
 			GL.Enable(EnableCap.CullFace);
@@ -35,7 +37,7 @@ namespace Engine3.Client.Graphics.OpenGL {
 
 			EmptyVao = new(GL.CreateVertexArray());
 			GL.BindVertexArray(EmptyVao.Value.Handle); // Some hardware requires vao to be bound even if it's not in use
-			Logger.Debug($"EmptyVao has Handle: {EmptyVao.Value.Handle}");
+			Logger.Debug($"EmptyVao has ShaderHandle: {EmptyVao.Value.Handle}");
 		}
 
 		protected internal override void Render(float delta) {
@@ -91,10 +93,10 @@ namespace Engine3.Client.Graphics.OpenGL {
 			return image;
 		}
 
-		protected void DestroyResource(ProgramPipeline programPipeline) => programPipelineManager.Destroy(programPipeline);
-		protected void DestroyResource(OpenGLShader shader) => shaderManager.Destroy(shader);
-		protected void DestroyResource(OpenGLBuffer buffer) => bufferManager.Destroy(buffer);
-		protected void DestroyResource(OpenGLImage image) => imageManager.Destroy(image);
+		protected void DestroyResource(ProgramPipeline programPipeline) => programPipelineManager.EnqueueDestroy(programPipeline);
+		protected void DestroyResource(OpenGLShader shader) => shaderManager.EnqueueDestroy(shader);
+		protected void DestroyResource(OpenGLBuffer buffer) => bufferManager.EnqueueDestroy(buffer);
+		protected void DestroyResource(OpenGLImage image) => imageManager.EnqueueDestroy(image);
 
 		protected override void PrepareCleanup() => Window.MakeContextCurrent();
 

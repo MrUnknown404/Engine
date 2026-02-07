@@ -1,26 +1,27 @@
 using JetBrains.Annotations;
+using NLog;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
 	[PublicAPI]
-	public unsafe class VulkanBuffer : IBufferObject, IEquatable<VulkanBuffer> {
+	public sealed unsafe class VulkanBuffer : NamedGraphicsResource<VulkanBuffer, ulong> {
+		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
 		public VkBuffer Buffer { get; }
 		public VkDeviceMemory BufferMemory { get; }
 		public ulong BufferSize { get; }
 
-		public string DebugName { get; }
-		public bool WasDestroyed { get; private set; }
+		protected override ulong Handle => Buffer.Handle;
 
 		private readonly LogicalGpu logicalGpu;
 
-		internal VulkanBuffer(string debugName, LogicalGpu logicalGpu, VkBuffer buffer, VkDeviceMemory bufferMemory, ulong bufferSize) {
-			DebugName = debugName;
+		internal VulkanBuffer(string debugName, LogicalGpu logicalGpu, VkBuffer buffer, VkDeviceMemory bufferMemory, ulong bufferSize) : base(debugName) {
 			Buffer = buffer;
 			BufferMemory = bufferMemory;
 			BufferSize = bufferSize;
 			this.logicalGpu = logicalGpu;
 
-			INamedGraphicsResource.PrintNameWithHandle(this, Buffer.Handle);
+			PrintCreate();
 		}
 
 		public void Copy<T>(ReadOnlySpan<T> data, ulong offset = 0) where T : unmanaged {
@@ -30,6 +31,12 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 				System.Buffer.MemoryCopy(inDataPtr, dataPtr, bufferSize, bufferSize);
 				UnmapMemory();
 			}
+		}
+
+		public void Copy(void* data, ulong bufferSize, ulong offset = 0) {
+			void* dataPtr = MapMemory(bufferSize, offset);
+			System.Buffer.MemoryCopy(data, dataPtr, bufferSize, bufferSize);
+			UnmapMemory();
 		}
 
 		[MustUseReturnValue]
@@ -45,23 +52,11 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			Vk.UnmapMemory2(logicalGpu.LogicalDevice, &memoryUnmapInfo);
 		}
 
-		public void Destroy() {
-			if (INamedGraphicsResource.WarnIfDestroyed(this)) { return; }
-
+		protected override void Cleanup() {
 			VkDevice logicalDevice = logicalGpu.LogicalDevice;
 
 			Vk.DestroyBuffer(logicalDevice, Buffer, null);
 			Vk.FreeMemory(logicalDevice, BufferMemory, null);
-
-			WasDestroyed = true;
 		}
-
-		public bool Equals(VulkanBuffer? other) => other != null && Buffer == other.Buffer;
-		public override bool Equals(object? obj) => obj is VulkanBuffer buffer && Equals(buffer);
-
-		public override int GetHashCode() => Buffer.GetHashCode();
-
-		public static bool operator ==(VulkanBuffer? left, VulkanBuffer? right) => Equals(left, right);
-		public static bool operator !=(VulkanBuffer? left, VulkanBuffer? right) => !Equals(left, right);
 	}
 }
