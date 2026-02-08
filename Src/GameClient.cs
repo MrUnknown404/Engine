@@ -7,6 +7,7 @@ using Engine3.Client.Graphics.OpenGL;
 using Engine3.Exceptions;
 using Engine3.Utility;
 using Engine3.Utility.Versions;
+using ImGuiNET;
 using NLog;
 using OpenTK.Platform;
 using OpenTK.Windowing.GraphicsLibraryFramework;
@@ -32,7 +33,6 @@ namespace Engine3 {
 		public string Name { get; }
 		public IPackableVersion Version { get; }
 		public EngineGraphicsBackend GraphicsBackend { get; }
-		public bool UseImGui { get; init; }
 
 		private readonly List<Window> windows = new();
 		private readonly List<Renderer> renderers = new();
@@ -93,6 +93,7 @@ namespace Engine3 {
 			Logger.Debug($"- Engine Version: {Engine3.Version}");
 			Logger.Debug($"- Game Version: {Version}");
 			Logger.Debug($"- GLFW Version: {GLFW.GetVersionString()}"); // TODO i have no idea what window manager OpenTK uses. i see GLFW, & SDL. but it looks like PAL is just using Win32 API/X11 API directly. help
+			Logger.Debug($"- ImGui Version: {ImGui.GetVersion()}");
 			Logger.Debug($"- Graphics Api: {GraphicsBackend.GraphicsBackend}");
 
 			uint spvVersion = 0, spvRevision = 0;
@@ -146,11 +147,6 @@ namespace Engine3 {
 			Logger.Debug($"Setting up {Enum.GetName(GraphicsBackend.GraphicsBackend)}...");
 			GraphicsBackend.Setup(this);
 			WasGraphicsSetup = true;
-
-			if (UseImGui && GraphicsBackend.GraphicsBackend != Client.Graphics.GraphicsBackend.Console) {
-				Logger.Debug("Setting up ImGui...");
-				ImGuiH.Setup(GraphicsBackend.GraphicsBackend);
-			}
 		}
 
 		private void EngineUpdate() { }
@@ -247,8 +243,6 @@ namespace Engine3 {
 
 			void RemoveWindow<T>(T window) where T : Window {
 				if (windows.Remove(window)) {
-					if (UseImGui) { ImGuiH.RemoveWindow(window); }
-
 					foreach (Renderer renderer in renderers.Where(pipeline => pipeline.IsSameWindow(window))) { RemoveRenderer(renderer); }
 
 					Logger.Debug($"Destroying {nameof(Window)}...");
@@ -313,12 +307,7 @@ namespace Engine3 {
 			}
 		}
 
-		public void AddWindow<T>(T window) where T : Window {
-			windows.Add(window);
-
-			if (UseImGui) { ImGuiH.AddWindow(window); }
-		}
-
+		public void AddWindow<T>(T window) where T : Window => windows.Add(window);
 		public void AddRenderer<T>(T renderer) where T : Renderer => renderers.Add(renderer);
 
 		public void Shutdown() {
@@ -339,10 +328,8 @@ namespace Engine3 {
 			Logger.Debug($"Cleaning up {windows.Count} {nameof(Window)}s...");
 			foreach (Window window in windows) { window.Destroy(); }
 
-			if (UseImGui) {
-				Logger.Debug("Cleaning up ImGui...");
-				ImGuiH.Cleanup();
-			}
+			Logger.Debug("Cleaning up ImGui...");
+			ImGuiH.Cleanup();
 
 			Logger.Debug("Cleaning up graphics...");
 			GraphicsBackend.Cleanup();

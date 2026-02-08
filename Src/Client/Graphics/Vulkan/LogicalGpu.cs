@@ -7,7 +7,7 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan {
 	[PublicAPI]
-	public sealed unsafe class LogicalGpu : GraphicsResource<LogicalGpu, ulong> {
+	public sealed unsafe class LogicalGpu : GraphicsResource<LogicalGpu, ulong>, IGraphicsResourceProvider {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public VkDevice LogicalDevice { get; }
@@ -270,17 +270,17 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		public void EnqueueDestroy(GraphicsPipeline graphicsPipeline) {
-			Logger.Trace($"Requesting to destroy {nameof(GraphicsPipeline)} ({graphicsPipeline.Pipeline.Handle:X16})");
+			Logger.Trace($"Requesting to destroy {nameof(GraphicsPipeline)} ({graphicsPipeline.Pipeline.Handle:X})");
 			graphicsPipelineManager.EnqueueDestroy(graphicsPipeline);
 		}
 
 		public void EnqueueDestroy(CommandPool commandPool) {
-			Logger.Trace($"Requesting to destroy {nameof(CommandPool)}");
+			Logger.Trace($"Requesting to destroy {nameof(CommandPool)} ({commandPool.VkCommandPool.Handle:X})");
 			commandPoolManager.EnqueueDestroy(commandPool);
 		}
 
 		public void EnqueueDestroy(CommandBuffer commandBuffer) {
-			Logger.Trace($"Requesting to destroy {nameof(CommandBuffer)}");
+			Logger.Trace($"Requesting to destroy {nameof(CommandBuffer)} ({commandBuffer.VkCommandBuffer.Handle:X})");
 			commandBufferManager.EnqueueDestroy(commandBuffer);
 		}
 
@@ -290,32 +290,32 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		public void EnqueueDestroy(DescriptorSetLayout descriptorSetLayout) {
-			Logger.Trace($"Requesting to destroy {nameof(DescriptorSetLayout)} ({descriptorSetLayout.VkDescriptorSetLayout.Handle:X16})");
+			Logger.Trace($"Requesting to destroy {nameof(DescriptorSetLayout)} ({descriptorSetLayout.VkDescriptorSetLayout.Handle:X})");
 			descriptorSetLayoutManager.EnqueueDestroy(descriptorSetLayout);
 		}
 
 		public void EnqueueDestroy(DescriptorPool descriptorPool) {
-			Logger.Trace($"Requesting to destroy {nameof(DescriptorPool)} ({descriptorPool.VkDescriptorPool.Handle:X16})");
+			Logger.Trace($"Requesting to destroy {nameof(DescriptorPool)} ({descriptorPool.VkDescriptorPool.Handle:X})");
 			descriptorPoolManager.EnqueueDestroy(descriptorPool);
 		}
 
 		public void EnqueueDestroy(TextureSampler sampler) {
-			Logger.Trace($"Requesting to destroy {nameof(TextureSampler)} ({sampler.Sampler.Handle:X16})");
+			Logger.Trace($"Requesting to destroy {nameof(TextureSampler)} ({sampler.Sampler.Handle:X})");
 			samplerManager.EnqueueDestroy(sampler);
 		}
 
 		public void EnqueueDestroy(VulkanShader shader) {
-			Logger.Trace($"Requesting to destroy {nameof(VulkanShader)} ({shader.ShaderModule.Handle:X16})");
+			Logger.Trace($"Requesting to destroy {nameof(VulkanShader)} ({shader.ShaderModule.Handle:X})");
 			shaderManager.EnqueueDestroy(shader);
 		}
 
 		public void EnqueueDestroy(VulkanBuffer buffer) {
-			Logger.Trace($"Requesting to destroy {nameof(VulkanBuffer)} ({buffer.Buffer.Handle:X16})");
+			Logger.Trace($"Requesting to destroy {nameof(VulkanBuffer)} ({buffer.Buffer.Handle:X})");
 			bufferManager.EnqueueDestroy(buffer);
 		}
 
 		public void EnqueueDestroy(VulkanImage image) {
-			Logger.Trace($"Requesting to destroy {nameof(VulkanImage)} ({image.Image.Handle:X16})");
+			Logger.Trace($"Requesting to destroy {nameof(VulkanImage)} ({image.Image.Handle:X})");
 			imageManager.EnqueueDestroy(image);
 		}
 

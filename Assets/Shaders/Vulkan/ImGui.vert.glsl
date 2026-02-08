@@ -28,6 +28,5 @@ vec4 toLinearFast(vec4 sRGB) {
 void main() {
 	gl_Position = vec4(inPosition * scale + translate, 0, 1);
 	outUVs = inUVs;
-
 	outColor = UseFastLinearColorConversion ? toLinearFast(inColor) : toLinearSlow(inColor);
 }

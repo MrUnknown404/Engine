@@ -3,7 +3,7 @@ using OpenTK.Graphics.OpenGL;
 using StbiSharp;
 
 namespace Engine3.Client.Graphics.OpenGL.Objects {
-	public sealed class OpenGLImage : NamedGraphicsResource<OpenGLImage, nint> { // TODO untested
+	public sealed unsafe class OpenGLImage : NamedGraphicsResource<OpenGLImage, nint> {
 		public TextureHandle TextureHandle { get; }
 
 		protected override nint Handle => TextureHandle.Handle;
@@ -28,8 +28,13 @@ namespace Engine3.Client.Graphics.OpenGL.Objects {
 		public void Copy(StbiImage stbiImage, SizedInternalFormat sizeFormat = SizedInternalFormat.Rgba8, PixelFormat pixelFormat = PixelFormat.Rgba) {
 			int width = stbiImage.Width;
 			int height = stbiImage.Height;
-			GL.TextureStorage2D((int)TextureHandle, 1, sizeFormat, width, height);
+			GL.TextureStorage2D((int)TextureHandle, 1, sizeFormat, width, height); // TODO move to constructor?
 			GL.TextureSubImage2D((int)TextureHandle, 0, 0, 0, width, height, pixelFormat, PixelType.UnsignedByte, stbiImage.Data);
+		}
+
+		public void Copy(void* data, uint width, uint height, SizedInternalFormat sizeFormat = SizedInternalFormat.Rgba8, PixelFormat pixelFormat = PixelFormat.Rgba) {
+			GL.TextureStorage2D((int)TextureHandle, 1, sizeFormat, (int)width, (int)height); // TODO move to constructor?
+			GL.TextureSubImage2D((int)TextureHandle, 0, 0, 0, (int)width, (int)height, pixelFormat, PixelType.UnsignedByte, data);
 		}
 
 		protected override void Cleanup() => GL.DeleteTexture((int)TextureHandle);

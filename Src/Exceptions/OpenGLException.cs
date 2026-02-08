@@ -8,7 +8,7 @@ namespace Engine3.Exceptions {
 		public static string ReasonToString(Reason reason) =>
 				reason switch {
 						Reason.Unknown => "Unknown error type",
-						Reason.ShaderCompileFail => $"Failed to compile shader: {0}. Reason: {1}",
+						Reason.ShaderCompileFail => "Failed to compile shader: {0}. Reason: {1}",
 						_ => throw new ArgumentOutOfRangeException(nameof(reason), reason, null),
 				};
 

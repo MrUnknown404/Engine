@@ -58,23 +58,28 @@ namespace Engine3.Client.Graphics.Vulkan {
 		/// Present the swap chain image
 		/// </summary>
 		protected internal override void Render(float delta) {
-			LogicalGpu.TryCleanupResources();
-
-			ImDrawDataPtr imDrawData;
-			if (ImGuiBackend != null) {
-				if (ImGuiBackend.NewFrame(out imDrawData)) { ImGuiBackend.UpdateBuffers(imDrawData); }
-			} else { imDrawData = new(); }
+			LogicalGpu.TryCleanupResources(); // TODO don't destroy every frame?
 
 			FrameData frameData = Frames[FrameIndex];
 			if (AcquireNextImage(frameData, out uint swapChainImageIndex)) {
+				// copy buffers
+				ImDrawDataPtr imDrawData = null;
+				bool shouldDrawImGui = false;
+
+				if (ImGuiBackend != null) {
+					shouldDrawImGui = ImGuiBackend.NewFrame(out imDrawData);
+					if (shouldDrawImGui) { ImGuiBackend.UpdateBuffers(imDrawData); }
+				}
+
 				CopyUniformBuffers(delta);
 
+				// draw
 				BeginFrame(frameData, swapChainImageIndex);
 
 				GraphicsCommandBuffer graphicsCommandBuffer = frameData.GraphicsCommandBuffer;
 				RecordCommandBuffer(graphicsCommandBuffer, delta);
 
-				if (ImGuiBackend != null && imDrawData.CmdListsCount != 0) { ImGuiBackend.RecordCommandBuffer(graphicsCommandBuffer, FrameIndex, imDrawData); }
+				if (ImGuiBackend != null && shouldDrawImGui) { ImGuiBackend.RecordCommandBuffer(graphicsCommandBuffer, FrameIndex, imDrawData); }
 
 				EndFrame(frameData, swapChainImageIndex);
 				SubmitQueue(frameData.ImageAvailableSemaphore, [ graphicsCommandBuffer.VkCommandBuffer, ], swapChainImageIndex, frameData.InFlightFence);
@@ -185,7 +190,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			FrameIndex = (byte)((FrameIndex + 1) % MaxFramesInFlight);
 		}
 
-		[Obsolete]
+		[Obsolete] // TODO move elsewhere
 		[MustUseReturnValue]
 		protected VulkanImage CreateImageAndCopyUsingStaging(string debugName, string fileLocation, string fileExtension, byte texChannels, VkFormat imageFormat, Assembly assembly,
 			VkImageTiling imageTiling = VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits usageFlags = VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits aspectMask = VkImageAspectFlagBits.ImageAspectColorBit) {
@@ -196,7 +201,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			}
 		}
 
-		[Obsolete]
+		[Obsolete] // TODO move elsewhere
 		[MustUseReturnValue]
 		protected VulkanImage CreateImageAndCopyUsingStaging(string debugName, uint width, uint height, byte texChannels, VkFormat imageFormat, byte* data, VkImageTiling imageTiling = VkImageTiling.ImageTilingOptimal,
 			VkImageUsageFlagBits usageFlags = VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits aspectMask = VkImageAspectFlagBits.ImageAspectColorBit) {

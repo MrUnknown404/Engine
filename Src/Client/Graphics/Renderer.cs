@@ -11,7 +11,7 @@ namespace Engine3.Client.Graphics {
 
 		internal Renderer() { }
 
-		public abstract void Setup();
+		public abstract void Setup(); // TODO have engine call this?
 		protected internal abstract void Render(float delta);
 
 		public abstract bool IsSameWindow(Window window);
@@ -23,6 +23,7 @@ namespace Engine3.Client.Graphics {
 			}
 
 			PrepareCleanup();
+			CleanupImGui();
 			Cleanup();
 
 			WasDestroyed = true;
@@ -30,6 +31,8 @@ namespace Engine3.Client.Graphics {
 
 		protected abstract void PrepareCleanup();
 		protected abstract void Cleanup();
+
+		internal abstract void CleanupImGui();
 	}
 
 	public abstract class Renderer<TWindow, TBackend, TImGui> : Renderer where TWindow : Window where TBackend : EngineGraphicsBackend where TImGui : ImGuiBackend {
@@ -44,5 +47,7 @@ namespace Engine3.Client.Graphics {
 		}
 
 		public override bool IsSameWindow(Window window) => Window == window;
+
+		internal override void CleanupImGui() => ImGuiBackend?.Cleanup();
 	}
 }

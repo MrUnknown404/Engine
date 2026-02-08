@@ -11,8 +11,8 @@ namespace Engine3.Client.Graphics {
 
 		protected NamedGraphicsResource(string debugName) => DebugName = debugName;
 
-		protected override void PrintCreate() => Logger.Trace($"Creating {TypeName} ({DebugName}, 0x{Handle:X})");
-		protected override void PrintDestroy() => Logger.Trace($"Destroying {TypeName} ({DebugName}, 0x{Handle:X})");
-		protected override void WarnDestroy() => Logger.Warn($"{TypeName} ({DebugName}, 0x{Handle:X}) was already destroyed");
+		protected override void PrintCreate() => Logger.Trace($"Creating {TypeName} ({DebugName}, 0x{Handle:X16})");
+		protected override void PrintDestroy() => Logger.Trace($"Destroying {TypeName} ({DebugName}, 0x{Handle:X16})");
+		protected override void WarnDestroy() => Logger.Warn($"{TypeName} ({DebugName}, 0x{Handle:X16}) was already destroyed");
 	}
 }

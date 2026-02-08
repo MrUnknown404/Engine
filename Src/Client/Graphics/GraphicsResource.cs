@@ -34,9 +34,9 @@ namespace Engine3.Client.Graphics {
 
 		protected abstract THandle Handle { get; }
 
-		protected override void PrintCreate() => Logger.Trace($"Creating {TypeName} (0x{Handle:X})");
-		protected override void PrintDestroy() => Logger.Trace($"Destroying {TypeName} (0x{Handle:X})");
-		protected override void WarnDestroy() => Logger.Warn($"{TypeName} (0x{Handle:X}) was already destroyed");
+		protected override void PrintCreate() => Logger.Trace($"Creating {TypeName} (0x{Handle:X16})");
+		protected override void PrintDestroy() => Logger.Trace($"Destroying {TypeName} (0x{Handle:X16})");
+		protected override void WarnDestroy() => Logger.Warn($"{TypeName} (0x{Handle:X16}) was already destroyed");
 
 		public bool Equals(GraphicsResource<TSelf, THandle>? other) => other != null && Handle == other.Handle;
 		public bool Equals(TSelf? other) => other is GraphicsResource<TSelf, THandle> resource && Equals(resource);

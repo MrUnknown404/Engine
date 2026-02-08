@@ -9,7 +9,7 @@ using OpenTK.Graphics.OpenGL;
 
 namespace Engine3.Client.Graphics.OpenGL.Objects {
 	[PublicAPI]
-	public sealed class OpenGLShader : NamedGraphicsResource<OpenGLShader, nint> {
+	public sealed class OpenGLShader : NamedGraphicsResource<OpenGLShader, nint> { // TODO add support for non vertex pulling shaders
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public ShaderHandle ShaderHandle { get; }
