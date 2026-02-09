@@ -32,6 +32,9 @@ namespace Engine3.Client.Graphics.Vulkan {
 			IntPtr requiredValidationLayersPtr = MarshalTk.StringArrayToCoTaskMemAnsi(requiredValidationLayers);
 #endif
 
+			VkDevice logicalDevice;
+			VkResult result;
+
 			fixed (VkDeviceQueueCreateInfo* queueCreateInfosPtr = CollectionsMarshal.AsSpan(queueCreateInfos)) {
 				VkDeviceCreateInfo deviceCreateInfo = new() {
 						pNext = &physicalDeviceVulkan14Features,
@@ -48,29 +51,28 @@ namespace Engine3.Client.Graphics.Vulkan {
 #endif
 				};
 
-				VkDevice logicalDevice;
-				VkResult result = Vk.CreateDevice(PhysicalDevice, &deviceCreateInfo, null, &logicalDevice);
+				result = Vk.CreateDevice(PhysicalDevice, &deviceCreateInfo, null, &logicalDevice);
+			}
 
-				MarshalTk.FreeStringArrayCoTaskMem(requiredDeviceExtensionsPtr, requiredDeviceExtensions.Length);
+			MarshalTk.FreeStringArrayCoTaskMem(requiredDeviceExtensionsPtr, requiredDeviceExtensions.Length);
 #if DEBUG
-				MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, requiredValidationLayers.Length);
+			MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, requiredValidationLayers.Length);
 #endif
 
-				VkH.CheckIfSuccess(result, VulkanException.Reason.CreateLogicalDevice);
+			VkH.CheckIfSuccess(result, VulkanException.Reason.CreateLogicalDevice);
 
-				VkQueue graphicsQueue = GetDeviceQueue(logicalDevice, QueueFamilyIndices.GraphicsFamily);
-				VkQueue presentQueue = GetDeviceQueue(logicalDevice, QueueFamilyIndices.PresentFamily);
-				VkQueue transferQueue = GetDeviceQueue(logicalDevice, QueueFamilyIndices.TransferFamily);
+			VkQueue graphicsQueue = GetDeviceQueue(logicalDevice, QueueFamilyIndices.GraphicsFamily);
+			VkQueue presentQueue = GetDeviceQueue(logicalDevice, QueueFamilyIndices.PresentFamily);
+			VkQueue transferQueue = GetDeviceQueue(logicalDevice, QueueFamilyIndices.TransferFamily);
 
-				return new(this, logicalDevice, graphicsQueue, presentQueue, transferQueue);
+			return new(this, logicalDevice, graphicsQueue, presentQueue, transferQueue);
 
-				[MustUseReturnValue]
-				static VkQueue GetDeviceQueue(VkDevice logicalDevice, uint queueFamilyIndex) {
-					VkDeviceQueueInfo2 deviceQueueInfo2 = new() { queueFamilyIndex = queueFamilyIndex, };
-					VkQueue queue;
-					Vk.GetDeviceQueue2(logicalDevice, &deviceQueueInfo2, &queue);
-					return queue;
-				}
+			[MustUseReturnValue]
+			static VkQueue GetDeviceQueue(VkDevice logicalDevice, uint queueFamilyIndex) {
+				VkDeviceQueueInfo2 deviceQueueInfo2 = new() { queueFamilyIndex = queueFamilyIndex, };
+				VkQueue queue;
+				Vk.GetDeviceQueue2(logicalDevice, &deviceQueueInfo2, &queue);
+				return queue;
 			}
 		}
 

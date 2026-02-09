@@ -127,7 +127,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			VkImageMemoryBarrier2 imageMemoryBarrier2 = GetBeginPipelineBarrierImageMemoryBarrier(SwapChain.Images[swapChainImageIndex]);
 			graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier2, });
 
-			graphicsCommandBuffer.CmdBeginRendering(SwapChain.Extent, SwapChain.ImageViews[swapChainImageIndex], DepthImage?.Image.ImageView ?? null, Window.ClearColor.ToVkClearColorValue(), new(1, 0));
+			graphicsCommandBuffer.CmdBeginRendering(SwapChain.Extent, SwapChain.ImageViews[swapChainImageIndex], DepthImage?.Image.ImageView, Window.ClearColor.ToVkClearColorValue(), new(1, 0));
 		}
 
 		protected abstract void RecordCommandBuffer(GraphicsCommandBuffer graphicsCommandBuffer, float delta);
@@ -154,24 +154,21 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		protected virtual void SubmitQueue(VkSemaphore waitSemaphore, VkCommandBuffer[] commandBuffers, uint swapChainImageIndex, VkFence fence) {
-			VkPipelineStageFlagBits[] waitStages = [ VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, ];
-
+			VkPipelineStageFlagBits* waitStages = stackalloc VkPipelineStageFlagBits[] { VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, };
 			VkSemaphore signalSemaphore = RenderFinishedSemaphores[swapChainImageIndex];
 
-			fixed (VkPipelineStageFlagBits* waitStagesPtr = waitStages) {
-				fixed (VkCommandBuffer* commandBuffersPtr = commandBuffers) {
-					VkSubmitInfo a = new() {
-							waitSemaphoreCount = 1,
-							pWaitSemaphores = &waitSemaphore,
-							pWaitDstStageMask = waitStagesPtr,
-							commandBufferCount = (uint)commandBuffers.Length,
-							pCommandBuffers = commandBuffersPtr,
-							signalSemaphoreCount = 1,
-							pSignalSemaphores = &signalSemaphore,
-					};
+			fixed (VkCommandBuffer* commandBuffersPtr = commandBuffers) {
+				VkSubmitInfo a = new() {
+						waitSemaphoreCount = 1,
+						pWaitSemaphores = &waitSemaphore,
+						pWaitDstStageMask = waitStages,
+						commandBufferCount = (uint)commandBuffers.Length,
+						pCommandBuffers = commandBuffersPtr,
+						signalSemaphoreCount = 1,
+						pSignalSemaphores = &signalSemaphore,
+				};
 
-					Vk.QueueSubmit(LogicalGpu.GraphicsQueue, 1, &a, fence);
-				}
+				Vk.QueueSubmit(LogicalGpu.GraphicsQueue, 1, &a, fence);
 			}
 		}
 
