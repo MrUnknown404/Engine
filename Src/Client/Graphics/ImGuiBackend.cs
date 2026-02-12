@@ -18,7 +18,7 @@ namespace Engine3.Client.Graphics {
 		public Action? AddImGui { get; set; }
 		public Action? AddExtraDebugUI { get; set; }
 		public bool ShowDebugUI { get; set; }
-		public byte IndentAmount { get; init; } = 10;
+		public byte IndentAmount { get; init; } = 6;
 
 		internal nint MouseWindowID { private get; set; }
 		internal int MousePendingLeaveFrame { private get; set; }
@@ -132,7 +132,7 @@ namespace Engine3.Client.Graphics {
 			return imDrawData is { Valid: true, CmdListsCount: > 0, };
 		}
 
-		protected virtual void AddDebugUI() {
+		private void AddDebugUI() {
 			GameClient game = Engine3.GameInstance;
 			PerformanceMonitor pm = game.PerformanceMonitor;
 
@@ -191,9 +191,9 @@ namespace Engine3.Client.Graphics {
 				if (showTime) { ImGui.Text($"Time: {time:F3} ms"); }
 
 				if (showTimeGraph) {
-					if (pm.StoreLastTimeValues) {
+					if (pm.StoreTimesForGraph) {
 						if (times.Length != 0) { ImGui.PlotLines($"{name} Time Graph", ref times[0], times.Length); }
-					} else { ImGui.Text($"{nameof(pm.StoreLastTimeValues)} is false"); }
+					} else { ImGui.Text($"{nameof(pm.StoreTimesForGraph)} is false"); }
 				}
 
 				if (showMinMaxAvgTime) {
@@ -209,8 +209,10 @@ namespace Engine3.Client.Graphics {
 				ImGui.SeparatorText("Backend Settings");
 
 				ImGui.Text($"Calculate Min/Max/Avg: {pm.CalculateMinMaxAverage}");
-				ImGui.Text($"Store Last Time Values: {pm.StoreLastTimeValues}");
 				ImGui.Text($"Min/Max/Avg Sample Time: {pm.MinMaxAverageSampleTime} seconds");
+				ImGui.Text($"Store Times For Graph: {pm.StoreTimesForGraph}");
+				ImGui.Text($"Update Time Graph Size: {pm.UpdateTimeGraphSize}");
+				ImGui.Text($"Frame Time Graph Size: {pm.FrameTimeGraphSize}");
 			}
 
 			void ShowToggles() {

@@ -21,9 +21,9 @@ namespace Engine3.Utility {
 		public bool CalculateMinMaxAverage { get; init; }
 		public byte MinMaxAverageSampleTime { get; init; } = 3; // seconds
 
-		public bool StoreLastTimeValues { get; init; }
-		public ushort AmountOfUpdateTimeToStore { get; init; } = 100;
-		public ushort AmountOfFrameTimeToStore { get; init; } = 1000;
+		public bool StoreTimesForGraph { get; init; }
+		public ushort UpdateTimeGraphSize { get; init; } = 100;
+		public ushort FrameTimeGraphSize { get; init; } = 1000;
 
 		public float[] UpdateTimesInSampleTime => updateTimesInSampleTime.ToArray();
 		public float[] FrameTimesInSampleTime => frameTimesInSampleTime.ToArray();
@@ -68,9 +68,9 @@ namespace Engine3.Utility {
 			UpdateTime = (float)(Stopwatch.GetTimestamp() - updateStartTick) / TicksPerMillisecond;
 
 			if (CalculateMinMaxAverage) { updateTimesInSampleTime.Add(UpdateTime); }
-			if (StoreLastTimeValues) {
+			if (StoreTimesForGraph) {
 				lastUpdateTimes.Add(UpdateTime);
-				if (lastUpdateTimes.Count > AmountOfUpdateTimeToStore) { lastUpdateTimes.RemoveAt(0); }
+				if (lastUpdateTimes.Count > UpdateTimeGraphSize) { lastUpdateTimes.RemoveAt(0); }
 			}
 		}
 
@@ -78,9 +78,9 @@ namespace Engine3.Utility {
 			FrameTime = (float)(Stopwatch.GetTimestamp() - frameStartTick) / TicksPerMillisecond;
 
 			if (CalculateMinMaxAverage) { frameTimesInSampleTime.Add(FrameTime); }
-			if (StoreLastTimeValues) {
+			if (StoreTimesForGraph) {
 				lastFrameTimes.Add(FrameTime);
-				if (lastFrameTimes.Count > AmountOfFrameTimeToStore) { lastFrameTimes.RemoveAt(0); }
+				if (lastFrameTimes.Count > FrameTimeGraphSize) { lastFrameTimes.RemoveAt(0); }
 			}
 		}
 

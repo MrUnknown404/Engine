@@ -45,7 +45,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 				}
 			}
 
-			VkPipelineShaderStageCreateInfo[] shaderStageCreateInfos = new VkPipelineShaderStageCreateInfo[settings.Shaders.Length];
+			VkPipelineShaderStageCreateInfo* shaderStageCreateInfos = stackalloc VkPipelineShaderStageCreateInfo[settings.Shaders.Length];
 			for (int i = 0; i < settings.Shaders.Length; i++) {
 				VulkanShader shader = settings.Shaders[i];
 
@@ -120,40 +120,38 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 					stencilTestEnable = (int)Vk.False,
 			};
 
-			fixed (VkPipelineShaderStageCreateInfo* shaderStageCreateInfosPtr = shaderStageCreateInfos) {
-				fixed (VkDynamicState* dynamicStatesPtr = settings.DynamicStates) {
-					fixed (VkVertexInputAttributeDescription* attributeDescriptionsPtr = settings.VertexAttributeDescriptions) {
-						fixed (VkVertexInputBindingDescription* vertexBindingDescriptionPtr = settings.VertexBindingDescriptions) {
-							VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = new() { dynamicStateCount = (uint)settings.DynamicStates.Length, pDynamicStates = dynamicStatesPtr, };
+			fixed (VkDynamicState* dynamicStatesPtr = settings.DynamicStates) {
+				fixed (VkVertexInputAttributeDescription* attributeDescriptionsPtr = settings.VertexAttributeDescriptions) {
+					fixed (VkVertexInputBindingDescription* vertexBindingDescriptionPtr = settings.VertexBindingDescriptions) {
+						VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = new() { dynamicStateCount = (uint)settings.DynamicStates.Length, pDynamicStates = dynamicStatesPtr, };
 
-							VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = new() {
-									vertexBindingDescriptionCount = (uint)settings.VertexBindingDescriptions.Length,
-									pVertexBindingDescriptions = vertexBindingDescriptionPtr,
-									vertexAttributeDescriptionCount = (uint)settings.VertexAttributeDescriptions.Length,
-									pVertexAttributeDescriptions = attributeDescriptionsPtr,
-							};
+						VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = new() {
+								vertexBindingDescriptionCount = (uint)settings.VertexBindingDescriptions.Length,
+								pVertexBindingDescriptions = vertexBindingDescriptionPtr,
+								vertexAttributeDescriptionCount = (uint)settings.VertexAttributeDescriptions.Length,
+								pVertexAttributeDescriptions = attributeDescriptionsPtr,
+						};
 
-							VkGraphicsPipelineCreateInfo pipelineCreateInfo = new() {
-									pNext = &renderingCreateInfo,
-									stageCount = (uint)shaderStageCreateInfos.Length,
-									pStages = shaderStageCreateInfosPtr,
-									pVertexInputState = &vertexInputStateCreateInfo,
-									pInputAssemblyState = &inputAssemblyStateCreateInfo,
-									pViewportState = &viewportStateCreateInfo,
-									pRasterizationState = &rasterizationStateCreateInfo,
-									pMultisampleState = &multisampleStateCreateInfo,
-									pDepthStencilState = &depthStencilStateCreateInfo,
-									pColorBlendState = &colorBlendStateCreateInfo,
-									pDynamicState = &dynamicStateCreateInfo,
-									layout = pipelineLayout,
-									basePipelineHandle = VkPipeline.Zero,
-									basePipelineIndex = -1,
-							};
+						VkGraphicsPipelineCreateInfo pipelineCreateInfo = new() {
+								pNext = &renderingCreateInfo,
+								stageCount = (uint)settings.Shaders.Length,
+								pStages = shaderStageCreateInfos,
+								pVertexInputState = &vertexInputStateCreateInfo,
+								pInputAssemblyState = &inputAssemblyStateCreateInfo,
+								pViewportState = &viewportStateCreateInfo,
+								pRasterizationState = &rasterizationStateCreateInfo,
+								pMultisampleState = &multisampleStateCreateInfo,
+								pDepthStencilState = &depthStencilStateCreateInfo,
+								pColorBlendState = &colorBlendStateCreateInfo,
+								pDynamicState = &dynamicStateCreateInfo,
+								layout = pipelineLayout,
+								basePipelineHandle = VkPipeline.Zero,
+								basePipelineIndex = -1,
+						};
 
-							VkPipeline graphicsPipeline;
-							VkH.CheckIfSuccess(Vk.CreateGraphicsPipelines(logicalDevice, VkPipelineCache.Zero, 1, &pipelineCreateInfo, null, &graphicsPipeline), VulkanException.Reason.CreateGraphicsPipeline);
-							return graphicsPipeline;
-						}
+						VkPipeline graphicsPipeline;
+						VkH.CheckIfSuccess(Vk.CreateGraphicsPipelines(logicalDevice, VkPipelineCache.Zero, 1, &pipelineCreateInfo, null, &graphicsPipeline), VulkanException.Reason.CreateGraphicsPipeline);
+						return graphicsPipeline;
 					}
 				}
 			}

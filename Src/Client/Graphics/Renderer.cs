@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using NLog;
 
 namespace Engine3.Client.Graphics {
@@ -32,6 +33,7 @@ namespace Engine3.Client.Graphics {
 		protected abstract void PrepareCleanup();
 		protected abstract void Cleanup();
 
+		[SuppressMessage("ReSharper", "MemberCanBeProtected.Global")]
 		internal abstract void CleanupImGui();
 	}
 
