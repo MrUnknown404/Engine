@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Engine3.Exceptions;
+using Engine3.Utility;
 using ImGuiNET;
 using NLog;
 using OpenTK.Mathematics;
@@ -14,7 +15,10 @@ namespace Engine3.Client.Graphics {
 		protected const string ImGuiName = "ImGui";
 
 		public nint Context { get; }
-		public Action? AddImGuiWindows { get; init; } = static () => ImGui.ShowDemoWindow();
+		public Action? AddImGui { get; set; }
+		public Action? AddExtraDebugUI { get; set; }
+		public bool ShowDebugUI { get; set; }
+		public byte IndentAmount { get; init; } = 10;
 
 		internal nint MouseWindowID { private get; set; }
 		internal int MousePendingLeaveFrame { private get; set; }
@@ -26,6 +30,22 @@ namespace Engine3.Client.Graphics {
 
 		private nint nextFreeWindowId = 1;
 		private SystemCursorType currentCursorType;
+
+		private bool showUpdateIndex;
+		private bool showUps = true;
+		private bool showUpdateTime = true;
+		private bool showUpdateTimeGraph;
+		private bool showMinMaxAvgUpdateTime;
+
+		private bool showFrameIndex;
+		private bool showFps = true;
+		private bool showFrameTime = true;
+		private bool showFrameTimeGraph;
+		private bool showMinMaxAvgFrameTime;
+
+		private bool showBackendSettings;
+		private bool popoutUpdates;
+		private bool popoutFrames;
 
 		internal ImGuiBackend(Window window, GraphicsBackend graphicsBackend) {
 			Logger.Debug("Setting up ImGui...");
@@ -94,7 +114,9 @@ namespace Engine3.Client.Graphics {
 
 			if ((io.ConfigFlags & ImGuiConfigFlags.DockingEnable) != 0) { ImGui.DockSpaceOverViewport(0, null, ImGuiDockNodeFlags.PassthruCentralNode); }
 
-			AddImGuiWindows?.Invoke();
+			if (ShowDebugUI) { AddDebugUI(); }
+
+			AddImGui?.Invoke();
 
 			ImGui.EndFrame();
 
@@ -108,6 +130,108 @@ namespace Engine3.Client.Graphics {
 
 			imDrawData = ImGui.GetDrawData();
 			return imDrawData is { Valid: true, CmdListsCount: > 0, };
+		}
+
+		protected virtual void AddDebugUI() {
+			GameClient game = Engine3.GameInstance;
+			PerformanceMonitor pm = game.PerformanceMonitor;
+
+			bool showAnyUpdates = showUpdateIndex || showUps || showUpdateTime || showMinMaxAvgUpdateTime;
+			bool showAnyFrames = showFrameIndex || showFps || showFrameTime || showMinMaxAvgFrameTime;
+
+			if (ImGui.Begin("Debug")) {
+				ImGuiH.IndentedCollapsingHeader("Performance", IndentAmount, ShowPerformance);
+				AddExtraDebugUI?.Invoke();
+			}
+
+			ImGui.End();
+
+			if (showAnyUpdates && popoutUpdates) {
+				ImGui.Begin("Update Info");
+				Show("Update", showUpdateIndex, showUps, showUpdateTime, showUpdateTimeGraph, showMinMaxAvgUpdateTime, game.UpdateIndex, pm.Ups, game.TargetUps, pm.UpdateTime, pm.LastUpdateTimes, pm.MinUpdateTime,
+					pm.MaxUpdateTime, pm.AvgUpdateTime);
+
+				ImGui.End();
+			}
+
+			if (showAnyFrames && popoutFrames) {
+				ImGui.Begin("Frame Info");
+				Show("Frame", showFrameIndex, showFps, showFrameTime, showFrameTimeGraph, showMinMaxAvgFrameTime, game.FrameIndex, pm.Fps, game.TargetFps, pm.FrameTime, pm.LastFrameTimes, pm.MinFrameTime, pm.MaxFrameTime,
+					pm.AvgFrameTime);
+
+				ImGui.End();
+			}
+
+			return;
+
+			void ShowPerformance() {
+				if (!popoutUpdates && showAnyUpdates) {
+					ImGui.SeparatorText("Update Info");
+					Show("Update", showUpdateIndex, showUps, showUpdateTime, showUpdateTimeGraph, showMinMaxAvgUpdateTime, game.UpdateIndex, pm.Ups, game.TargetUps, pm.UpdateTime, pm.LastUpdateTimes, pm.MinUpdateTime,
+						pm.MaxUpdateTime, pm.AvgUpdateTime);
+				}
+
+				if (!popoutFrames && showAnyFrames) {
+					ImGui.SeparatorText("Frame Info");
+					Show("Frame", showFrameIndex, showFps, showFrameTime, showFrameTimeGraph, showMinMaxAvgFrameTime, game.FrameIndex, pm.Fps, game.TargetFps, pm.FrameTime, pm.LastFrameTimes, pm.MinFrameTime, pm.MaxFrameTime,
+						pm.AvgFrameTime);
+				}
+
+				if (showBackendSettings) { ShowBackendSettings(); }
+
+				if ((!popoutUpdates && showAnyUpdates) || (!popoutFrames && showAnyFrames) || showBackendSettings) { ImGui.Separator(); }
+
+				ImGuiH.IndentedCollapsingHeader("Toggles", IndentAmount, ShowToggles);
+			}
+
+			void Show(string name, bool showIndex, bool showPerSecond, bool showTime, bool showTimeGraph, bool showMinMaxAvgTime, ulong index, uint perSecond, uint targetPerSecond, float time, float[] times, float minTime,
+				float maxTime, float avgTime) {
+				if (showIndex) { ImGui.Text($"Index: {index}"); }
+				if (showPerSecond) { ImGui.Text($"{name[0]}ps: {perSecond}{(targetPerSecond == 0 ? string.Empty : $"/{targetPerSecond}")}"); }
+				if (showTime) { ImGui.Text($"Time: {time:F3} ms"); }
+
+				if (showTimeGraph) {
+					if (pm.StoreLastTimeValues) {
+						if (times.Length != 0) { ImGui.PlotLines($"{name} Time Graph", ref times[0], times.Length); }
+					} else { ImGui.Text($"{nameof(pm.StoreLastTimeValues)} is false"); }
+				}
+
+				if (showMinMaxAvgTime) {
+					if (pm.CalculateMinMaxAverage) {
+						ImGui.Text($"Min: {minTime:F3} ms");
+						ImGui.Text($"Max: {maxTime:F3} ms");
+						ImGui.Text($"Avg: {avgTime:F3} ms");
+					} else { ImGui.Text($"{nameof(pm.CalculateMinMaxAverage)} is false"); }
+				}
+			}
+
+			void ShowBackendSettings() {
+				ImGui.SeparatorText("Backend Settings");
+
+				ImGui.Text($"Calculate Min/Max/Avg: {pm.CalculateMinMaxAverage}");
+				ImGui.Text($"Store Last Time Values: {pm.StoreLastTimeValues}");
+				ImGui.Text($"Min/Max/Avg Sample Time: {pm.MinMaxAverageSampleTime} seconds");
+			}
+
+			void ShowToggles() {
+				ImGui.Checkbox("Show Update Index", ref showUpdateIndex);
+				ImGui.Checkbox("Show Ups", ref showUps);
+				ImGui.Checkbox("Show Update Time", ref showUpdateTime);
+				ImGui.Checkbox("Show Update Time Graph", ref showUpdateTimeGraph);
+				ImGui.Checkbox("Show Min/Max/Avg Update Time", ref showMinMaxAvgUpdateTime);
+
+				ImGui.Separator();
+				ImGui.Checkbox("Show Frame Index", ref showFrameIndex);
+				ImGui.Checkbox("Show Fps", ref showFps);
+				ImGui.Checkbox("Show Frame Time", ref showFrameTime);
+				ImGui.Checkbox("Show Frame Time Graph", ref showFrameTimeGraph);
+				ImGui.Checkbox("Show Min/Max/Avg Frame Time", ref showMinMaxAvgFrameTime);
+
+				ImGui.Separator();
+				ImGui.Checkbox("Show Backend Settings", ref showBackendSettings);
+				ImGui.Checkbox("Popout Updates", ref popoutUpdates);
+				ImGui.Checkbox("Popout Frames", ref popoutFrames);
+			}
 		}
 
 		public abstract void UpdateBuffers(ImDrawDataPtr drawData);

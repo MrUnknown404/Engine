@@ -183,7 +183,7 @@ namespace Engine3 {
 
 			void Update(long time) {
 				updateAccumulator += time;
-				PerformanceMonitor.AddUpdateCounterAccumulator(time);
+				PerformanceMonitor.AddUpdateAccumulator(time);
 
 				int frameSkip = 0;
 				while (updateAccumulator >= updateTicksToWait && frameSkip < MaxFrameSkip) {
@@ -209,7 +209,7 @@ namespace Engine3 {
 					lastFrameTime = Stopwatch.GetTimestamp();
 				}
 
-				PerformanceMonitor.AddFrameCounterAccumulator(time);
+				PerformanceMonitor.AddFrameAccumulator(time);
 
 				float delta = 1 - (float)(updateTicksToWait - updateAccumulator) / updateTicksToWait;
 

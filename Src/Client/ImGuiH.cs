@@ -9,6 +9,26 @@ namespace Engine3.Client {
 	public static unsafe class ImGuiH {
 		private static IntPtr nativeClipboardText;
 
+		public static void IndentedCollapsingHeader(string label, float indent, Action drawFunc, ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags.None) {
+			if (ImGui.CollapsingHeader(label, nodeFlags)) {
+				ImGui.Indent(indent);
+				drawFunc();
+				ImGui.Unindent(indent);
+			}
+		}
+
+		public static void HelpMarker(string tooltip, bool sameLine = true) {
+			if (sameLine) { ImGui.SameLine(); }
+
+			ImGui.TextDisabled("(?)");
+			if (ImGui.BeginItemTooltip()) {
+				ImGui.PushTextWrapPos(ImGui.GetFontSize() * 35);
+				ImGui.TextUnformatted(tooltip);
+				ImGui.PopTextWrapPos();
+				ImGui.EndTooltip();
+			}
+		}
+
 		internal static void EventQueue_EventRaised(ImGuiBackend imGuiBackend, EventArgs args) {
 			if (args is WindowEventArgs windowEvent && (!imGuiBackend.IsOwner(windowEvent.Window) || imGuiBackend.GetWindowId(windowEvent.Window) == 0)) { return; }
 
