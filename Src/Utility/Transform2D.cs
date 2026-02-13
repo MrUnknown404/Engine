@@ -1,9 +1,9 @@
 using System.Numerics;
 using JetBrains.Annotations;
 
-namespace Engine3.GameObject {
+namespace Engine3.Utility {
 	[PublicAPI]
-	public class Transform2D : ITransform<Transform2D>, ITransformPosition<Vector3>, ITransformScale<Vector2>, ITransformRotation<uint> {
+	public class Transform2D {
 		public static Transform2D Zero => new();
 
 		public Vector3 Position { get; set; }

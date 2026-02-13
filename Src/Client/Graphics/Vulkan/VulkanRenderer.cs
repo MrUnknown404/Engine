@@ -24,7 +24,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		protected virtual DepthImage? DepthImage => null;
 
-		public byte FrameIndex { get; private set; }
+		protected byte FrameIndex { get; private set; }
 
 		protected SurfaceCapablePhysicalGpu PhysicalGpu => Window.SelectedGpu;
 		protected LogicalGpu LogicalGpu => Window.LogicalGpu;
@@ -184,8 +184,10 @@ namespace Engine3.Client.Graphics.Vulkan {
 				OnSwapchainInvalid();
 			} else { VkH.CheckIfSuccess(result, VulkanException.Reason.QueuePresent); }
 
-			FrameIndex = (byte)((FrameIndex + 1) % MaxFramesInFlight);
+			IncrementFrameIndex();
 		}
+
+		protected void IncrementFrameIndex() => FrameIndex = (byte)((FrameIndex + 1) % MaxFramesInFlight);
 
 		[Obsolete] // TODO move elsewhere
 		[MustUseReturnValue]

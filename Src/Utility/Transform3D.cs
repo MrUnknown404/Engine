@@ -1,9 +1,9 @@
 using System.Numerics;
 using JetBrains.Annotations;
 
-namespace Engine3.GameObject {
+namespace Engine3.Utility {
 	[PublicAPI]
-	public class Transform3D : ITransform<Transform3D>, ITransformPosition<Vector3>, ITransformScale<Vector3>, ITransformRotation<Quaternion> {
+	public class Transform3D {
 		public static Transform3D Zero => new();
 
 		public Vector3 Position { get; set; }
