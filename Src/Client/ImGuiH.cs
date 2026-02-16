@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Engine3.Client.Graphics;
+using Engine3.Client.Graphics.ImGui;
 using ImGuiNET;
 using OpenTK.Mathematics;
 using OpenTK.Platform;
@@ -10,38 +10,43 @@ namespace Engine3.Client {
 		private static IntPtr nativeClipboardText;
 
 		public static void IndentedCollapsingHeader(string label, float indent, Action drawFunc, ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags.None) {
-			if (ImGui.CollapsingHeader(label, nodeFlags)) {
-				ImGui.Indent(indent);
+			if (ImGuiNet.CollapsingHeader(label, nodeFlags)) {
+				ImGuiNet.Indent(indent);
 				drawFunc();
-				ImGui.Unindent(indent);
+				ImGuiNet.Unindent(indent);
 			}
 		}
 
 		public static void HelpMarker(string tooltip, bool sameLine = true) {
-			if (sameLine) { ImGui.SameLine(); }
+			if (sameLine) { ImGuiNet.SameLine(); }
 
-			ImGui.TextDisabled("(?)");
-			if (ImGui.BeginItemTooltip()) {
-				ImGui.PushTextWrapPos(ImGui.GetFontSize() * 35);
-				ImGui.TextUnformatted(tooltip);
-				ImGui.PopTextWrapPos();
-				ImGui.EndTooltip();
+			ImGuiNet.TextDisabled("(?)");
+			if (ImGuiNet.BeginItemTooltip()) {
+				ImGuiNet.PushTextWrapPos(ImGuiNet.GetFontSize() * 35);
+				ImGuiNet.TextUnformatted(tooltip);
+				ImGuiNet.PopTextWrapPos();
+				ImGuiNet.EndTooltip();
 			}
 		}
 
 		internal static void EventQueue_EventRaised(ImGuiBackend imGuiBackend, EventArgs args) {
 			if (args is WindowEventArgs windowEvent && (!imGuiBackend.IsOwner(windowEvent.Window) || imGuiBackend.GetWindowId(windowEvent.Window) == 0)) { return; }
 
-			ImGui.SetCurrentContext(imGuiBackend.Context);
-			ImGuiIOPtr io = ImGui.GetIO();
+			ImGuiNet.SetCurrentContext(imGuiBackend.Context);
+			ImGuiIOPtr io = ImGuiNet.GetIO();
 
 			switch (args) {
 				case MouseMoveEventArgs mouseMove:
+					if (Toolkit.Window.GetCursorCaptureMode(mouseMove.Window) == CursorCaptureMode.Locked) {
+						io.AddMousePosEvent(float.MinValue, float.MinValue);
+						break;
+					}
+
 					float x = mouseMove.ClientPosition.X;
 					float y = mouseMove.ClientPosition.Y;
 
 					if (io.ConfigFlags.HasFlag(ImGuiConfigFlags.ViewportsEnable)) {
-						Toolkit.Window.ClientToScreen(mouseMove.Window, (x, y), out Vector2 screenPos);
+						Toolkit.Window.ClientToScreen(mouseMove.Window, new(x, y), out Vector2 screenPos);
 
 						x = screenPos.X;
 						y = screenPos.Y;
@@ -49,9 +54,18 @@ namespace Engine3.Client {
 
 					io.AddMousePosEvent(x, y);
 					break;
-				case ScrollEventArgs scroll: io.AddMouseWheelEvent(scroll.Delta.X, scroll.Delta.Y); break;
-				case MouseButtonDownEventArgs { Button: >= 0 and < (MouseButton)ImGuiMouseButton.COUNT, } mouseDown: io.AddMouseButtonEvent((int)mouseDown.Button, true); break;
-				case MouseButtonUpEventArgs { Button: >= 0 and < (MouseButton)ImGuiMouseButton.COUNT, } mouseUp: io.AddMouseButtonEvent((int)mouseUp.Button, false); break;
+				case ScrollEventArgs scroll:
+					if (Toolkit.Window.GetCursorCaptureMode(scroll.Window) == CursorCaptureMode.Locked) { break; }
+					io.AddMouseWheelEvent(scroll.Delta.X, scroll.Delta.Y);
+					break;
+				case MouseButtonDownEventArgs { Button: >= 0 and < (MouseButton)ImGuiMouseButton.COUNT, } mouseDown:
+					if (Toolkit.Window.GetCursorCaptureMode(mouseDown.Window) == CursorCaptureMode.Locked) { break; }
+					io.AddMouseButtonEvent((int)mouseDown.Button, true);
+					break;
+				case MouseButtonUpEventArgs { Button: >= 0 and < (MouseButton)ImGuiMouseButton.COUNT, } mouseUp:
+					if (Toolkit.Window.GetCursorCaptureMode(mouseUp.Window) == CursorCaptureMode.Locked) { break; }
+					io.AddMouseButtonEvent((int)mouseUp.Button, false);
+					break;
 				case TextInputEventArgs text:
 					IntPtr utf8 = Marshal.StringToCoTaskMemUTF8(text.Text);
 					ImGuiNative.ImGuiIO_AddInputCharactersUTF8(io.NativePtr, (byte*)utf8);
@@ -67,6 +81,8 @@ namespace Engine3.Client {
 					break;
 				case DisplayConnectionChangedEventArgs: imGuiBackend.WantUpdateMonitors = true; break;
 				case MouseEnterEventArgs mouseEnter:
+					if (Toolkit.Window.GetCursorCaptureMode(mouseEnter.Window) == CursorCaptureMode.Locked) { break; }
+
 					if (mouseEnter.Entered) {
 						imGuiBackend.MouseWindowID = imGuiBackend.GetWindowId(mouseEnter.Window);
 						imGuiBackend.MousePendingLeaveFrame = 0;
@@ -77,18 +93,18 @@ namespace Engine3.Client {
 
 					break;
 				case FocusEventArgs focus: io.AddFocusEvent(focus.GotFocus); break;
-				case WindowMoveEventArgs windowMove: ImGui.FindViewportByPlatformHandle(imGuiBackend.GetWindowId(windowMove.Window)).PlatformRequestMove = true; break;
+				case WindowMoveEventArgs windowMove: ImGuiNet.FindViewportByPlatformHandle(imGuiBackend.GetWindowId(windowMove.Window)).PlatformRequestMove = true; break;
 				case WindowResizeEventArgs windowResize:
 					nint id = imGuiBackend.GetWindowId(windowResize.Window);
-					ImGui.FindViewportByPlatformHandle(id).PlatformRequestResize = true;
+					ImGuiNet.FindViewportByPlatformHandle(id).PlatformRequestResize = true;
 					break;
-				case CloseEventArgs windowClose: ImGui.FindViewportByPlatformHandle(imGuiBackend.GetWindowId(windowClose.Window)).PlatformRequestClose = true; break;
+				case CloseEventArgs windowClose: ImGuiNet.FindViewportByPlatformHandle(imGuiBackend.GetWindowId(windowClose.Window)).PlatformRequestClose = true; break;
 			}
 
 			return;
 
 			static void UpdateKeyModifiers(KeyModifier modifier) {
-				ImGuiIOPtr io = ImGui.GetIO();
+				ImGuiIOPtr io = ImGuiNet.GetIO();
 				io.AddKeyEvent(ImGuiKey.ModCtrl, modifier.HasFlag(KeyModifier.Control));
 				io.AddKeyEvent(ImGuiKey.ModShift, modifier.HasFlag(KeyModifier.Shift));
 				io.AddKeyEvent(ImGuiKey.ModAlt, modifier.HasFlag(KeyModifier.Alt));

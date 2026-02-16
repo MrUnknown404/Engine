@@ -210,7 +210,39 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[Obsolete] // TODO move elsewhere
-		protected void CopyToBuffers(CopyToInfo[] copyToInfos) {
+		protected void CopyToBuffers(ICollection<CopyToBufferInfo> copyToInfos) {
+			List<byte> newData = new();
+			foreach (CopyToBufferInfo copyToInfo in copyToInfos) {
+				copyToInfo.SrcOffset = (ulong)newData.Count;
+				newData.AddRange(copyToInfo.Data);
+			}
+
+			ulong bufferSize = (ulong)newData.Count;
+
+			VulkanBuffer stagingBuffer = LogicalGpu.CreateBuffer("Temporary Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
+				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, bufferSize);
+
+			stagingBuffer.Copy(CollectionsMarshal.AsSpan(newData));
+
+			TransferCommandBuffer transferCommandBuffer = LogicalGpu.CreateTransferCommandBuffer(TransferCommandPool.VkCommandPool);
+
+			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
+
+			foreach (CopyToBufferInfo copyToInfo in copyToInfos) {
+				transferCommandBuffer.CmdCopyBuffer(stagingBuffer.Buffer, copyToInfo.Buffer.Buffer, (ulong)copyToInfo.Data.LongLength, copyToInfo.SrcOffset, copyToInfo.DstOffset); //
+			}
+
+			transferCommandBuffer.EndCommandBuffer();
+
+			VkQueue queue = LogicalGpu.TransferQueue;
+			transferCommandBuffer.SubmitQueue(queue);
+
+			LogicalGpu.EnqueueDestroy(transferCommandBuffer);
+			LogicalGpu.EnqueueDestroy(stagingBuffer);
+		}
+
+		[Obsolete] // TODO move elsewhere
+		protected void CopyToBuffer(ICollection<CopyToInfo> copyToInfos, VulkanBuffer buffer) {
 			List<byte> newData = new();
 			foreach (CopyToInfo copyToInfo in copyToInfos) {
 				copyToInfo.SrcOffset = (ulong)newData.Count;
@@ -229,7 +261,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
 
 			foreach (CopyToInfo copyToInfo in copyToInfos) {
-				transferCommandBuffer.CmdCopyBuffer(stagingBuffer.Buffer, copyToInfo.Buffer.Buffer, (ulong)copyToInfo.Data.LongLength, copyToInfo.SrcOffset, copyToInfo.DstOffset); //
+				transferCommandBuffer.CmdCopyBuffer(stagingBuffer.Buffer, buffer.Buffer, (ulong)copyToInfo.Data.LongLength, copyToInfo.SrcOffset, copyToInfo.DstOffset); //
 			}
 
 			transferCommandBuffer.EndCommandBuffer();
@@ -296,19 +328,34 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		protected class CopyToInfo {
-			public byte[] Data { get; }
-			public VulkanBuffer Buffer { get; }
-			public ulong DstOffset { get; }
+			public byte[] Data { get; } // TODO byte[] or byte* ?
 
+			public ulong DstOffset { get; }
 			public ulong SrcOffset { get; internal set; }
 
-			public CopyToInfo(byte[] data, VulkanBuffer buffer, ulong dstOffset = 0) {
+			public CopyToInfo(byte[] data, ulong dstOffset = 0) {
 				Data = data;
-				Buffer = buffer;
 				DstOffset = dstOffset;
 			}
 
-			public static CopyToInfo Of<T>(ReadOnlySpan<T> data, VulkanBuffer buffer, ulong dstOffset = 0) where T : unmanaged {
+			public static CopyToInfo Of<T>(ReadOnlySpan<T> data, ulong dstOffset = 0) where T : unmanaged {
+				ulong byteSize = (ulong)(sizeof(T) * data.Length);
+
+				byte[] bytes = new byte[byteSize];
+				fixed (byte* bytesPtr = bytes) {
+					fixed (T* dataPtr = data) { Buffer.MemoryCopy(dataPtr, bytesPtr, byteSize, byteSize); }
+				}
+
+				return new(bytes, dstOffset);
+			}
+		}
+
+		protected class CopyToBufferInfo : CopyToInfo {
+			public VulkanBuffer Buffer { get; }
+
+			public CopyToBufferInfo(byte[] data, VulkanBuffer buffer, ulong dstOffset = 0) : base(data, dstOffset) => Buffer = buffer;
+
+			public static CopyToBufferInfo Of<T>(ReadOnlySpan<T> data, VulkanBuffer buffer, ulong dstOffset = 0) where T : unmanaged {
 				ulong byteSize = (ulong)(sizeof(T) * data.Length);
 
 				byte[] bytes = new byte[byteSize];

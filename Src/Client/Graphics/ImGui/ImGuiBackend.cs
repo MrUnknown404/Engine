@@ -7,8 +7,9 @@ using ImGuiNET;
 using NLog;
 using OpenTK.Mathematics;
 using OpenTK.Platform;
+using Vector2 = System.Numerics.Vector2;
 
-namespace Engine3.Client.Graphics {
+namespace Engine3.Client.Graphics.ImGui {
 	public abstract unsafe class ImGuiBackend {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
@@ -29,7 +30,7 @@ namespace Engine3.Client.Graphics {
 		private readonly Queue<nint> freeWindowIdList = new();
 
 		private nint nextFreeWindowId = 1;
-		private SystemCursorType currentCursorType;
+		private ImGuiMouseCursor currentCursorType;
 
 		private bool showUpdateIndex;
 		private bool showUps = true;
@@ -50,15 +51,15 @@ namespace Engine3.Client.Graphics {
 		internal ImGuiBackend(Window window, GraphicsBackend graphicsBackend) {
 			Logger.Debug("Setting up ImGui...");
 
-			Context = ImGui.CreateContext();
+			Context = ImGuiNet.CreateContext();
 			this.window = window;
 
-			ImGui.SetCurrentContext(Context);
+			ImGuiNet.SetCurrentContext(Context);
 			AddWindow(window);
 
-			ImGuiIOPtr io = ImGui.GetIO();
-			ImGuiPlatformIOPtr platformIO = ImGui.GetPlatformIO();
-			ImGuiViewportPtr mainViewport = ImGui.GetMainViewport();
+			ImGuiIOPtr io = ImGuiNet.GetIO();
+			ImGuiPlatformIOPtr platformIO = ImGuiNet.GetPlatformIO();
+			ImGuiViewportPtr mainViewport = ImGuiNet.GetMainViewport();
 
 			// io.ConfigFlags |= ImGuiConfigFlags.NavEnableKeyboard;
 			io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
@@ -80,7 +81,7 @@ namespace Engine3.Client.Graphics {
 
 			mainViewport.PlatformHandle = GetWindowId(window.WindowHandle);
 
-			ImGui.StyleColorsDark();
+			ImGuiNet.StyleColorsDark();
 
 			UpdateMonitors();
 
@@ -90,9 +91,9 @@ namespace Engine3.Client.Graphics {
 		}
 
 		public bool NewFrame(out ImDrawDataPtr imDrawData) {
-			ImGui.SetCurrentContext(Context);
+			ImGuiNet.SetCurrentContext(Context);
 
-			ImGuiIOPtr io = ImGui.GetIO();
+			ImGuiIOPtr io = ImGuiNet.GetIO();
 
 			Toolkit.Window.GetFramebufferSize(window.WindowHandle, out Vector2i frameBufferSize);
 			io.DisplaySize = new(frameBufferSize.X, frameBufferSize.Y); // TODO set on change
@@ -101,7 +102,7 @@ namespace Engine3.Client.Graphics {
 			if (WantUpdateMonitors) { UpdateMonitors(); }
 
 			Toolkit.Mouse.GetGlobalMouseState(out MouseState mouseState);
-			if (MousePendingLeaveFrame != 0 && MousePendingLeaveFrame >= ImGui.GetFrameCount() && mouseState.PressedButtons == 0) {
+			if (MousePendingLeaveFrame != 0 && MousePendingLeaveFrame >= ImGuiNet.GetFrameCount() && mouseState.PressedButtons == 0) {
 				MouseWindowID = 0;
 				MousePendingLeaveFrame = 0;
 				io.AddMousePosEvent(float.MinValue, float.MinValue);
@@ -110,15 +111,15 @@ namespace Engine3.Client.Graphics {
 			UpdateMouseData(window.WindowHandle);
 			UpdateMouseCursor(window.WindowHandle);
 
-			ImGui.NewFrame();
+			ImGuiNet.NewFrame();
 
-			if ((io.ConfigFlags & ImGuiConfigFlags.DockingEnable) != 0) { ImGui.DockSpaceOverViewport(0, null, ImGuiDockNodeFlags.PassthruCentralNode); }
+			if ((io.ConfigFlags & ImGuiConfigFlags.DockingEnable) != 0) { ImGuiNet.DockSpaceOverViewport(0, null, ImGuiDockNodeFlags.PassthruCentralNode); }
 
 			if (ShowDebugUI) { AddDebugUI(); }
 
 			AddImGui?.Invoke();
 
-			ImGui.EndFrame();
+			ImGuiNet.EndFrame();
 
 			// if ((ImGui.GetIO().ConfigFlags & ImGuiConfigFlags.ViewportsEnable) != 0) {
 			// 	ImGui.UpdatePlatformWindows();
@@ -126,9 +127,9 @@ namespace Engine3.Client.Graphics {
 			// 	// Toolkit.OpenGL.SetCurrentContext(mainGLContext);
 			// }
 
-			ImGui.Render();
+			ImGuiNet.Render();
 
-			imDrawData = ImGui.GetDrawData();
+			imDrawData = ImGuiNet.GetDrawData();
 			return imDrawData is { Valid: true, CmdListsCount: > 0, };
 		}
 
@@ -139,100 +140,126 @@ namespace Engine3.Client.Graphics {
 			bool showAnyUpdates = showUpdateIndex || showUps || showUpdateTime || showMinMaxAvgUpdateTime;
 			bool showAnyFrames = showFrameIndex || showFps || showFrameTime || showMinMaxAvgFrameTime;
 
-			if (ImGui.Begin("Debug")) {
+			if (ImGuiNet.Begin("Debug")) {
 				ImGuiH.IndentedCollapsingHeader("Performance", IndentAmount, ShowPerformance);
+				ImGuiH.IndentedCollapsingHeader("Input", IndentAmount, ShowInput);
 				AddExtraDebugUI?.Invoke();
 			}
 
-			ImGui.End();
+			ImGuiNet.End();
 
 			if (showAnyUpdates && popoutUpdates) {
-				ImGui.Begin("Update Info");
+				ImGuiNet.Begin("Update Info");
 				Show("Update", showUpdateIndex, showUps, showUpdateTime, showUpdateTimeGraph, showMinMaxAvgUpdateTime, game.UpdateIndex, pm.Ups, game.TargetUps, pm.UpdateTime, pm.LastUpdateTimes, pm.MinUpdateTime,
 					pm.MaxUpdateTime, pm.AvgUpdateTime);
 
-				ImGui.End();
+				ImGuiNet.End();
 			}
 
 			if (showAnyFrames && popoutFrames) {
-				ImGui.Begin("Frame Info");
+				ImGuiNet.Begin("Frame Info");
 				Show("Frame", showFrameIndex, showFps, showFrameTime, showFrameTimeGraph, showMinMaxAvgFrameTime, game.FrameIndex, pm.Fps, game.TargetFps, pm.FrameTime, pm.LastFrameTimes, pm.MinFrameTime, pm.MaxFrameTime,
 					pm.AvgFrameTime);
 
-				ImGui.End();
+				ImGuiNet.End();
 			}
 
 			return;
 
+			void ShowInput() {
+				ImGuiH.IndentedCollapsingHeader("Mouse", IndentAmount, ShowMouse);
+				ImGuiH.IndentedCollapsingHeader("Keyboard", IndentAmount, ShowKeyboard);
+			}
+
+			void ShowMouse() {
+				MouseManager mouseManager = window.MouseManager;
+
+				Vector2 show = mouseManager.Position;
+				ImGuiNet.InputFloat2("Position", ref show, "%.1f");
+				ImGuiH.HelpMarker("X/Y");
+
+				ImGuiNet.Text($"Scroll Delta: {mouseManager.ScrollDelta:F1}");
+
+				foreach (MouseButton button in Enum.GetValues<MouseButton>()) {
+					bool b = mouseManager.IsButton(button);
+					ImGuiNet.Checkbox($"{button}", ref b);
+				}
+			}
+
+			void ShowKeyboard() {
+				KeyManager keyManager = window.KeyManager; // TODO show keyboard. active first then all?
+				ImGuiNet.Text("Not implemented");
+			}
+
 			void ShowPerformance() {
 				if (!popoutUpdates && showAnyUpdates) {
-					ImGui.SeparatorText("Update Info");
+					ImGuiNet.SeparatorText("Update Info");
 					Show("Update", showUpdateIndex, showUps, showUpdateTime, showUpdateTimeGraph, showMinMaxAvgUpdateTime, game.UpdateIndex, pm.Ups, game.TargetUps, pm.UpdateTime, pm.LastUpdateTimes, pm.MinUpdateTime,
 						pm.MaxUpdateTime, pm.AvgUpdateTime);
 				}
 
 				if (!popoutFrames && showAnyFrames) {
-					ImGui.SeparatorText("Frame Info");
+					ImGuiNet.SeparatorText("Frame Info");
 					Show("Frame", showFrameIndex, showFps, showFrameTime, showFrameTimeGraph, showMinMaxAvgFrameTime, game.FrameIndex, pm.Fps, game.TargetFps, pm.FrameTime, pm.LastFrameTimes, pm.MinFrameTime, pm.MaxFrameTime,
 						pm.AvgFrameTime);
 				}
 
 				if (showBackendSettings) { ShowBackendSettings(); }
 
-				if ((!popoutUpdates && showAnyUpdates) || (!popoutFrames && showAnyFrames) || showBackendSettings) { ImGui.Separator(); }
+				if ((!popoutUpdates && showAnyUpdates) || (!popoutFrames && showAnyFrames) || showBackendSettings) { ImGuiNet.Separator(); }
 
 				ImGuiH.IndentedCollapsingHeader("Toggles", IndentAmount, ShowToggles);
 			}
 
 			void Show(string name, bool showIndex, bool showPerSecond, bool showTime, bool showTimeGraph, bool showMinMaxAvgTime, ulong index, uint perSecond, uint targetPerSecond, float time, float[] times, float minTime,
 				float maxTime, float avgTime) {
-				if (showIndex) { ImGui.Text($"Index: {index}"); }
-				if (showPerSecond) { ImGui.Text($"{name[0]}ps: {perSecond}{(targetPerSecond == 0 ? string.Empty : $"/{targetPerSecond}")}"); }
-				if (showTime) { ImGui.Text($"Time: {time:F3} ms"); }
+				if (showIndex) { ImGuiNet.Text($"Index: {index}"); }
+				if (showPerSecond) { ImGuiNet.Text($"{name[0]}ps: {perSecond}{(targetPerSecond == 0 ? string.Empty : $"/{targetPerSecond}")}"); }
+				if (showTime) { ImGuiNet.Text($"Time: {time:F3} ms"); }
 
 				if (showTimeGraph) {
 					if (pm.StoreTimesForGraph) {
-						if (times.Length != 0) { ImGui.PlotLines($"{name} Time Graph", ref times[0], times.Length); }
-					} else { ImGui.Text($"{nameof(pm.StoreTimesForGraph)} is false"); }
+						if (times.Length != 0) { ImGuiNet.PlotLines($"{name} Time Graph", ref times[0], times.Length); }
+					} else { ImGuiNet.Text($"{nameof(pm.StoreTimesForGraph)} is false"); }
 				}
 
 				if (showMinMaxAvgTime) {
 					if (pm.CalculateMinMaxAverage) {
-						ImGui.Text($"Min: {minTime:F3} ms");
-						ImGui.Text($"Max: {maxTime:F3} ms");
-						ImGui.Text($"Avg: {avgTime:F3} ms");
-					} else { ImGui.Text($"{nameof(pm.CalculateMinMaxAverage)} is false"); }
+						ImGuiNet.Text($"Min: {minTime:F3} ms");
+						ImGuiNet.Text($"Max: {maxTime:F3} ms");
+						ImGuiNet.Text($"Avg: {avgTime:F3} ms");
+					} else { ImGuiNet.Text($"{nameof(pm.CalculateMinMaxAverage)} is false"); }
 				}
 			}
 
 			void ShowBackendSettings() {
-				ImGui.SeparatorText("Backend Settings");
+				ImGuiNet.SeparatorText("Backend Settings");
 
-				ImGui.Text($"Calculate Min/Max/Avg: {pm.CalculateMinMaxAverage}");
-				ImGui.Text($"Min/Max/Avg Sample Time: {pm.MinMaxAverageSampleTime} seconds");
-				ImGui.Text($"Store Times For Graph: {pm.StoreTimesForGraph}");
-				ImGui.Text($"Update Time Graph Size: {pm.UpdateTimeGraphSize}");
-				ImGui.Text($"Frame Time Graph Size: {pm.FrameTimeGraphSize}");
+				ImGuiNet.Text($"Calculate Min/Max/Avg: {pm.CalculateMinMaxAverage}");
+				ImGuiNet.Text($"Min/Max/Avg Sample Time: {pm.MinMaxAverageSampleTime} seconds");
+				ImGuiNet.Text($"Store Times For Graph: {pm.StoreTimesForGraph}");
+				ImGuiNet.Text($"Update Time Graph Size: {pm.UpdateTimeGraphSize}");
+				ImGuiNet.Text($"Frame Time Graph Size: {pm.FrameTimeGraphSize}");
 			}
 
 			void ShowToggles() {
-				ImGui.Checkbox("Show Update Index", ref showUpdateIndex);
-				ImGui.Checkbox("Show Ups", ref showUps);
-				ImGui.Checkbox("Show Update Time", ref showUpdateTime);
-				ImGui.Checkbox("Show Update Time Graph", ref showUpdateTimeGraph);
-				ImGui.Checkbox("Show Min/Max/Avg Update Time", ref showMinMaxAvgUpdateTime);
+				ImGuiNet.Checkbox("Show Update Index", ref showUpdateIndex);
+				ImGuiNet.Checkbox("Show Ups", ref showUps);
+				ImGuiNet.Checkbox("Show Update Time", ref showUpdateTime);
+				ImGuiNet.Checkbox("Show Update Time Graph", ref showUpdateTimeGraph);
+				ImGuiNet.Checkbox("Show Min/Max/Avg Update Time", ref showMinMaxAvgUpdateTime);
 
-				ImGui.Separator();
-				ImGui.Checkbox("Show Frame Index", ref showFrameIndex);
-				ImGui.Checkbox("Show Fps", ref showFps);
-				ImGui.Checkbox("Show Frame Time", ref showFrameTime);
-				ImGui.Checkbox("Show Frame Time Graph", ref showFrameTimeGraph);
-				ImGui.Checkbox("Show Min/Max/Avg Frame Time", ref showMinMaxAvgFrameTime);
+				ImGuiNet.Separator();
+				ImGuiNet.Checkbox("Show Frame Index", ref showFrameIndex);
+				ImGuiNet.Checkbox("Show Fps", ref showFps);
+				ImGuiNet.Checkbox("Show Frame Time", ref showFrameTime);
+				ImGuiNet.Checkbox("Show Frame Time Graph", ref showFrameTimeGraph);
+				ImGuiNet.Checkbox("Show Min/Max/Avg Frame Time", ref showMinMaxAvgFrameTime);
 
-				ImGui.Separator();
-				ImGui.Checkbox("Show Backend Settings", ref showBackendSettings);
-				ImGui.Checkbox("Popout Updates", ref popoutUpdates);
-				ImGui.Checkbox("Popout Frames", ref popoutFrames);
+				ImGuiNet.Separator();
+				ImGuiNet.Checkbox("Show Backend Settings", ref showBackendSettings);
+				ImGuiNet.Checkbox("Popout Updates", ref popoutUpdates);
+				ImGuiNet.Checkbox("Popout Frames", ref popoutFrames);
 			}
 		}
 
@@ -254,7 +281,7 @@ namespace Engine3.Client.Graphics {
 		}
 
 		private void UpdateMouseData(WindowHandle window) {
-			ImGuiIOPtr io = ImGui.GetIO();
+			ImGuiIOPtr io = ImGuiNet.GetIO();
 
 			if (Toolkit.Window.IsFocused(window)) {
 				if (io.WantSetMousePos) { Toolkit.Mouse.SetGlobalPosition((io.MousePos.X, io.MousePos.Y)); }
@@ -262,39 +289,38 @@ namespace Engine3.Client.Graphics {
 			}
 
 			if ((io.BackendFlags & ImGuiBackendFlags.HasMouseHoveredViewport) != 0) {
-				ImGuiViewportPtr imGuiViewport = ImGui.FindViewportByPlatformHandle(MouseWindowID);
-				uint viewportID = imGuiViewport.NativePtr == null ? 0 : imGuiViewport.ID;
-				io.AddMouseViewportEvent(viewportID);
+				ImGuiViewportPtr imGuiViewport = ImGuiNet.FindViewportByPlatformHandle(MouseWindowID);
+				io.AddMouseViewportEvent(imGuiViewport.NativePtr == null ? 0 : imGuiViewport.ID);
 			}
 		}
 
 		private void UpdateMouseCursor(WindowHandle window) {
-			ImGuiIOPtr io = ImGui.GetIO();
+			ImGuiIOPtr io = ImGuiNet.GetIO();
+
+			if (Toolkit.Window.GetCursorCaptureMode(window) == CursorCaptureMode.Locked) { return; }
 
 			if ((io.ConfigFlags & ImGuiConfigFlags.NoMouseCursorChange) != 0) { return; }
 
-			ImGuiMouseCursor imGuiCursor = ImGui.GetMouseCursor();
+			ImGuiMouseCursor imGuiCursor = ImGuiNet.GetMouseCursor();
 			if (io.MouseDrawCursor || imGuiCursor == ImGuiMouseCursor.None) {
 				Toolkit.Window.SetCursor(window, null);
 				return;
 			}
 
-			SystemCursorType cursorType = imGuiCursor switch {
-					ImGuiMouseCursor.Arrow => SystemCursorType.Default,
-					ImGuiMouseCursor.TextInput => SystemCursorType.TextBeam,
-					ImGuiMouseCursor.ResizeAll => SystemCursorType.ArrowFourway,
-					ImGuiMouseCursor.ResizeNS => SystemCursorType.ArrowNS,
-					ImGuiMouseCursor.ResizeEW => SystemCursorType.ArrowEW,
-					ImGuiMouseCursor.ResizeNESW => SystemCursorType.ArrowNESW,
-					ImGuiMouseCursor.ResizeNWSE => SystemCursorType.ArrowNWSE,
-					ImGuiMouseCursor.Hand => SystemCursorType.Hand,
-					ImGuiMouseCursor.NotAllowed => SystemCursorType.Forbidden,
-					_ => SystemCursorType.Default,
-			};
-
-			if (currentCursorType != cursorType) {
-				currentCursorType = cursorType;
-				Toolkit.Window.SetCursor(window, Toolkit.Cursor.Create(cursorType));
+			if (currentCursorType != imGuiCursor) {
+				currentCursorType = imGuiCursor;
+				Toolkit.Window.SetCursor(window, imGuiCursor switch {
+						ImGuiMouseCursor.Arrow => Window.DefaultCursorHandle,
+						ImGuiMouseCursor.TextInput => Window.TypingCursorHandle,
+						ImGuiMouseCursor.ResizeAll => Window.ArrowFourWayCursorHandle,
+						ImGuiMouseCursor.ResizeNS => Window.ArrowNSCursorHandle,
+						ImGuiMouseCursor.ResizeEW => Window.ArrowEWCursorHandle,
+						ImGuiMouseCursor.ResizeNESW => Window.ArrowNESWCursorHandle,
+						ImGuiMouseCursor.ResizeNWSE => Window.ArrowNWSECursorHandle,
+						ImGuiMouseCursor.Hand => Window.HandCursorHandle,
+						ImGuiMouseCursor.NotAllowed => Window.ForbiddenCursorHandle,
+						_ => Window.DefaultCursorHandle,
+				});
 			}
 		}
 
@@ -302,7 +328,7 @@ namespace Engine3.Client.Graphics {
 			int displayCount = Toolkit.Display.GetDisplayCount();
 			if (displayCount == 0) { throw new Engine3Exception("No displays found"); }
 
-			ImGuiPlatformIOPtr platformIO = ImGui.GetPlatformIO();
+			ImGuiPlatformIOPtr platformIO = ImGuiNet.GetPlatformIO();
 			if (platformIO.Monitors.Data != 0) { Marshal.FreeHGlobal(platformIO.NativePtr->Monitors.Data); }
 
 			platformIO.NativePtr->Monitors = new(displayCount, displayCount, Marshal.AllocHGlobal(displayCount * sizeof(ImGuiPlatformMonitor)));
@@ -330,7 +356,7 @@ namespace Engine3.Client.Graphics {
 		}
 
 		public void Cleanup() {
-			ImGui.DestroyPlatformWindows();
+			ImGuiNet.DestroyPlatformWindows();
 			EventQueue.EventRaised -= OnEventQueueOnEventRaised;
 		}
 

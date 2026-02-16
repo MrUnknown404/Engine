@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using JetBrains.Annotations;
 
 namespace Engine3.Utility.Versions {
@@ -26,7 +25,7 @@ namespace Engine3.Utility.Versions {
 		private const byte HotfixOffset = 0;
 		private const byte HotfixCharOffset = (byte)'a' - 1;
 
-		public required uint Packed { get; init; }
+		public uint Packed { get; init; }
 
 		/// <summary>
 		/// Release value depacked from <see cref="Packed"/>
@@ -93,9 +92,8 @@ namespace Engine3.Utility.Versions {
 			}
 		}
 
-		[SetsRequiredMembers] public Version4Interweaved(uint packed) => Packed = packed;
+		public Version4Interweaved(uint packed) => Packed = packed;
 
-		[SetsRequiredMembers]
 		public Version4Interweaved(byte release, byte major, ushort minor, char hotfix = char.MinValue) {
 			Release = release;
 			Major = major;

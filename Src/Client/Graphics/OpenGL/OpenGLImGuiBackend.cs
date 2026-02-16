@@ -1,4 +1,5 @@
 using System.Numerics;
+using Engine3.Client.Graphics.ImGui;
 using Engine3.Client.Graphics.OpenGL.Objects;
 using ImGuiNET;
 using OpenTK.Graphics.OpenGL;
@@ -17,8 +18,8 @@ namespace Engine3.Client.Graphics.OpenGL {
 		public OpenGLImGuiBackend(Window window) : base(window, GraphicsBackend.OpenGL, new()) { }
 
 		public void Setup() {
-			ImGui.SetCurrentContext(Context);
-			ImGuiIOPtr io = ImGui.GetIO();
+			ImGuiNet.SetCurrentContext(Context);
+			ImGuiIOPtr io = ImGuiNet.GetIO();
 
 			vertexShader = GraphicsResourceProvider.CreateShader($"{ImGuiName} Vertex Shader", ImGuiName, ShaderType.Vertex, Engine3.Assembly);
 			fragmentShader = GraphicsResourceProvider.CreateShader($"{ImGuiName} Fragment Shader", ImGuiName, ShaderType.Fragment, Engine3.Assembly);

@@ -7,13 +7,13 @@ using Engine3.Client.Graphics.OpenGL;
 using Engine3.Exceptions;
 using Engine3.Utility;
 using Engine3.Utility.Versions;
-using ImGuiNET;
 using NLog;
 using OpenTK.Platform;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using Silk.NET.Core.Loader;
 using Silk.NET.Shaderc;
 using StbiSharp;
+using MouseMoveEventArgs = OpenTK.Platform.MouseMoveEventArgs;
 using Window = Engine3.Client.Window;
 
 #if DEBUG
@@ -93,7 +93,7 @@ namespace Engine3 {
 			Logger.Debug($"- Engine Version: {Engine3.Version}");
 			Logger.Debug($"- Game Version: {Version}");
 			Logger.Debug($"- GLFW Version: {GLFW.GetVersionString()}"); // TODO i have no idea what window manager OpenTK uses. i see GLFW, & SDL. but it looks like PAL is just using Win32 API/X11 API directly. help
-			Logger.Debug($"- ImGui Version: {ImGui.GetVersion()}");
+			Logger.Debug($"- ImGui Version: {ImGuiNet.GetVersion()}");
 			Logger.Debug($"- Graphics Api: {GraphicsBackend.GraphicsBackend}");
 
 			uint spvVersion = 0, spvRevision = 0;
@@ -214,7 +214,7 @@ namespace Engine3 {
 				float delta = 1 - (float)(updateTicksToWait - updateAccumulator) / updateTicksToWait;
 
 				PerformanceMonitor.StartTimingFrame();
-				foreach (Renderer pipeline in renderers.Where(static pipeline => pipeline.CanRender)) { pipeline.Render(delta); }
+				foreach (Renderer renderer in renderers.Where(static pipeline => pipeline.CanRender)) { renderer.Render(delta); } // TODO check if window is minimized
 				PerformanceMonitor.StopTimingFrame();
 
 				FrameIndex++;
@@ -233,9 +233,9 @@ namespace Engine3 {
 			}
 
 			void TryDestroyRenderers() {
-				foreach (Renderer pipeline in renderers.Where(static renderer => renderer.ShouldDestroy)) {
+				foreach (Renderer renderer in renderers.Where(static renderer => renderer.ShouldDestroy)) {
 					Logger.Debug($"Found {nameof(Renderer)} to destroy...");
-					renderersCloseQueue.Enqueue(pipeline);
+					renderersCloseQueue.Enqueue(renderer);
 				}
 
 				while (renderersCloseQueue.TryDequeue(out Renderer? renderer)) { RemoveRenderer(renderer); }
@@ -243,7 +243,7 @@ namespace Engine3 {
 
 			void RemoveWindow<T>(T window) where T : Window {
 				if (windows.Remove(window)) {
-					foreach (Renderer renderer in renderers.Where(pipeline => pipeline.IsSameWindow(window))) { RemoveRenderer(renderer); }
+					foreach (Renderer renderer in renderers.Where(renderer => renderer.IsSameWindow(window))) { RemoveRenderer(renderer); }
 
 					Logger.Debug($"Destroying {nameof(Window)}...");
 					window.Destroy();
@@ -265,46 +265,85 @@ namespace Engine3 {
 
 			return;
 
+			// TODO hate that i have to do this. let me have events per window. see if i can find a way to do that
 			void OnEventQueueOnEventRaised(PalHandle? palHandle, PlatformEventType platformEventType, EventArgs args) {
 				switch (args) {
 					case CloseEventArgs closeArgs: {
-						if (windows.Find(w => w.WindowHandle == closeArgs.Window) is { } window) {
-							window.TryCloseWindow();
-							return;
+						if (!FindWindow(closeArgs.Window, out Window? window)) {
+							Logger.Warn("Attempted to close an unknown window");
+							break;
 						}
 
-						Logger.Warn("Attempted to close an unknown window");
+						window.TryCloseWindow();
 						break;
 					}
 					case WindowResizeEventArgs resizeArgs: {
-						if (windows.Find(w => w.WindowHandle == resizeArgs.Window) is { } window) {
-							window.WasResized = true;
-							return;
+						if (!FindWindow(resizeArgs.Window, out Window? window)) {
+							Logger.Warn("Attempted to resize an unknown window");
+							break;
 						}
 
-						Logger.Warn("Attempted to resize an unknown window");
+						window.WasResized = true;
 						break;
 					}
 					case KeyDownEventArgs downArgs: {
-						if (windows.Find(w => w.WindowHandle == downArgs.Window) is { } window) {
-							window.InputManager.SetKey(downArgs.Key, true);
-							return;
+						if (!FindWindow(downArgs.Window, out Window? window)) {
+							Logger.Warn("Attempted to provide input to an unknown window");
+							break;
 						}
 
-						Logger.Warn("Attempted to provide input to an unknown window");
+						window.KeyManager.SetKey(downArgs.Key, true);
 						break;
 					}
 					case KeyUpEventArgs upArgs: {
-						if (windows.Find(w => w.WindowHandle == upArgs.Window) is { } window) {
-							window.InputManager.SetKey(upArgs.Key, false);
-							return;
+						if (!FindWindow(upArgs.Window, out Window? window)) {
+							Logger.Warn("Attempted to provide input to an unknown window");
+							break;
 						}
 
-						Logger.Warn("Attempted to provide input to an unknown window");
+						window.KeyManager.SetKey(upArgs.Key, false);
+						break;
+					}
+					case MouseMoveEventArgs moveArgs: {
+						if (!FindWindow(moveArgs.Window, out Window? window)) {
+							Logger.Warn("Attempted to provide input to an unknown window");
+							break;
+						}
+
+						window.MouseManager.Position = new(moveArgs.ClientPosition.X, moveArgs.ClientPosition.Y);
+						break;
+					}
+					case MouseButtonDownEventArgs downArgs: {
+						if (!FindWindow(downArgs.Window, out Window? window)) {
+							Logger.Warn("Attempted to provide input to an unknown window");
+							break;
+						}
+
+						window.MouseManager.SetButton(downArgs.Button, true);
+						break;
+					}
+					case MouseButtonUpEventArgs upArgs: {
+						if (!FindWindow(upArgs.Window, out Window? window)) {
+							Logger.Warn("Attempted to provide input to an unknown window");
+							break;
+						}
+
+						window.MouseManager.SetButton(upArgs.Button, false);
+						break;
+					}
+					case ScrollEventArgs scrollArgs: {
+						if (!FindWindow(scrollArgs.Window, out Window? window)) {
+							Logger.Warn("Attempted to provide input to an unknown window");
+							break;
+						}
+
+						window.MouseManager.ScrollDelta = scrollArgs.Delta.Y;
 						break;
 					}
 				}
 			}
+
+			bool FindWindow(WindowHandle windowHandle, [NotNullWhen(true)] out Window? window) => (window = windows.Find(w => w.WindowHandle == windowHandle)) != null;
 		}
 
 		public void AddWindow<T>(T window) where T : Window => windows.Add(window);

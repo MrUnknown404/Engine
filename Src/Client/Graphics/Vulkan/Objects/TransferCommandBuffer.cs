@@ -95,15 +95,19 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			}
 		}
 
-		[Obsolete("Make bulk methods later")] // TODO make bulk methods later
 		public void SubmitQueue(VkQueue queue) {
 			VkCommandBuffer commandBuffer = VkCommandBuffer;
-			SubmitQueue(queue, new() { commandBufferCount = 1, pCommandBuffers = &commandBuffer, });
+			SubmitQueue(queue, new VkSubmitInfo { commandBufferCount = 1, pCommandBuffers = &commandBuffer, });
 		}
 
-		[Obsolete("Make bulk methods later")]
 		public void SubmitQueue(VkQueue queue, VkSubmitInfo submitInfo, VkFence? fence = null) {
 			VkH.CheckIfSuccess(Vk.QueueSubmit(queue, 1, &submitInfo, fence ?? VkFence.Zero), VulkanException.Reason.QueueSubmit); // TODO device lost?
+		}
+
+		public void SubmitQueue(VkQueue queue, VkSubmitInfo[] submitInfo, VkFence? fence = null) {
+			fixed (VkSubmitInfo* submitInfoPtr = submitInfo) {
+				VkH.CheckIfSuccess(Vk.QueueSubmit(queue, (uint)submitInfo.Length, submitInfoPtr, fence ?? VkFence.Zero), VulkanException.Reason.QueueSubmit); // TODO device lost?
+			}
 		}
 	}
 }

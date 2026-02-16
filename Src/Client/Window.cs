@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Engine3.Client.Graphics;
 using Engine3.Exceptions;
 using NLog;
@@ -8,10 +9,52 @@ namespace Engine3.Client {
 	public abstract class Window : IEquatable<Window> {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
+		[SuppressMessage("ReSharper", "InconsistentNaming")]
+		private static readonly Lazy<CursorHandle> defaultCursorHandle = new(static () => Toolkit.Cursor.Create(SystemCursorType.Default));
+		[SuppressMessage("ReSharper", "InconsistentNaming")]
+		private static readonly Lazy<CursorHandle> crossCursorHandle = new(static () => Toolkit.Cursor.Create(SystemCursorType.Cross));
+		[SuppressMessage("ReSharper", "InconsistentNaming")]
+		private static readonly Lazy<CursorHandle> forbiddenCursorHandle = new(static () => Toolkit.Cursor.Create(SystemCursorType.Forbidden));
+		[SuppressMessage("ReSharper", "InconsistentNaming")]
+		private static readonly Lazy<CursorHandle> handCursorHandle = new(static () => Toolkit.Cursor.Create(SystemCursorType.Hand));
+		[SuppressMessage("ReSharper", "InconsistentNaming")]
+		private static readonly Lazy<CursorHandle> helpCursorHandle = new(static () => Toolkit.Cursor.Create(SystemCursorType.Help));
+		[SuppressMessage("ReSharper", "InconsistentNaming")]
+		private static readonly Lazy<CursorHandle> loadingCursorHandle = new(static () => Toolkit.Cursor.Create(SystemCursorType.Loading));
+		[SuppressMessage("ReSharper", "InconsistentNaming")]
+		private static readonly Lazy<CursorHandle> typingCursorHandle = new(static () => Toolkit.Cursor.Create(SystemCursorType.TextBeam));
+		[SuppressMessage("ReSharper", "InconsistentNaming")]
+		private static readonly Lazy<CursorHandle> waitCursorHandle = new(static () => Toolkit.Cursor.Create(SystemCursorType.Wait));
+		[SuppressMessage("ReSharper", "InconsistentNaming")]
+		private static readonly Lazy<CursorHandle> arrowNWSECursorHandle = new(static () => Toolkit.Cursor.Create(SystemCursorType.ArrowNWSE));
+		[SuppressMessage("ReSharper", "InconsistentNaming")]
+		private static readonly Lazy<CursorHandle> arrowNESWCursorHandle = new(static () => Toolkit.Cursor.Create(SystemCursorType.ArrowNESW));
+		[SuppressMessage("ReSharper", "InconsistentNaming")]
+		private static readonly Lazy<CursorHandle> arrowEWCursorHandle = new(static () => Toolkit.Cursor.Create(SystemCursorType.ArrowEW));
+		[SuppressMessage("ReSharper", "InconsistentNaming")]
+		private static readonly Lazy<CursorHandle> arrowNSCursorHandle = new(static () => Toolkit.Cursor.Create(SystemCursorType.ArrowNS));
+		[SuppressMessage("ReSharper", "InconsistentNaming")]
+		private static readonly Lazy<CursorHandle> arrowFourWayCursorHandle = new(static () => Toolkit.Cursor.Create(SystemCursorType.ArrowFourway));
+
+		public static CursorHandle DefaultCursorHandle => defaultCursorHandle.Value;
+		public static CursorHandle CrossCursorHandle => crossCursorHandle.Value;
+		public static CursorHandle ForbiddenCursorHandle => forbiddenCursorHandle.Value;
+		public static CursorHandle HandCursorHandle => handCursorHandle.Value;
+		public static CursorHandle HelpCursorHandle => helpCursorHandle.Value;
+		public static CursorHandle LoadingCursorHandle => loadingCursorHandle.Value;
+		public static CursorHandle TypingCursorHandle => typingCursorHandle.Value;
+		public static CursorHandle WaitCursorHandle => waitCursorHandle.Value;
+		public static CursorHandle ArrowNWSECursorHandle => arrowNWSECursorHandle.Value;
+		public static CursorHandle ArrowNESWCursorHandle => arrowNESWCursorHandle.Value;
+		public static CursorHandle ArrowEWCursorHandle => arrowEWCursorHandle.Value;
+		public static CursorHandle ArrowNSCursorHandle => arrowNSCursorHandle.Value;
+		public static CursorHandle ArrowFourWayCursorHandle => arrowFourWayCursorHandle.Value;
+
 		public WindowHandle WindowHandle { get; }
 		public Color4<Rgba> ClearColor { get; set; } = new(0, 0, 0, 1);
 
-		public InputManager InputManager { get; } = new();
+		public KeyManager KeyManager { get; } = new();
+		public MouseManager MouseManager { get; } = new();
 
 		public bool ShouldClose { get; private set; }
 		public bool WasResized { get; internal set; }
@@ -47,15 +90,38 @@ namespace Engine3.Client {
 			ShouldClose = true;
 		}
 
+		public void LockCursor() => SetCursorMode(CursorCaptureMode.Locked);
+		public void ConfineCursor() => SetCursorMode(CursorCaptureMode.Confined);
+		public void FreeCursor() => SetCursorMode(CursorCaptureMode.Normal);
+		public void SetCursorMode(CursorCaptureMode cursorCaptureMode) => Toolkit.Window.SetCursorCaptureMode(WindowHandle, cursorCaptureMode);
+
 		public void Show() => SetWindowMode(WindowMode.Normal);
 		public void Hide() => SetWindowMode(WindowMode.Hidden);
 		public void SetWindowMode(WindowMode windowMode) => Toolkit.Window.SetMode(WindowHandle, windowMode);
+
+		public void HideCursor() => SetCursor(null);
+		public void DefaultCursor() => SetCursor(DefaultCursorHandle);
+		public void SetCursor(CursorHandle? cursor) => Toolkit.Window.SetCursor(WindowHandle, cursor);
 
 		internal void Destroy() {
 			if (WasDestroyed) {
 				Logger.Warn($"Tried to destroy a {nameof(Window)} that was already destroyed");
 				return;
 			}
+
+			if (defaultCursorHandle.IsValueCreated) { Toolkit.Cursor.Destroy(DefaultCursorHandle); }
+			if (crossCursorHandle.IsValueCreated) { Toolkit.Cursor.Destroy(CrossCursorHandle); }
+			if (forbiddenCursorHandle.IsValueCreated) { Toolkit.Cursor.Destroy(ForbiddenCursorHandle); }
+			if (handCursorHandle.IsValueCreated) { Toolkit.Cursor.Destroy(HandCursorHandle); }
+			if (helpCursorHandle.IsValueCreated) { Toolkit.Cursor.Destroy(HelpCursorHandle); }
+			if (loadingCursorHandle.IsValueCreated) { Toolkit.Cursor.Destroy(LoadingCursorHandle); }
+			if (typingCursorHandle.IsValueCreated) { Toolkit.Cursor.Destroy(TypingCursorHandle); }
+			if (waitCursorHandle.IsValueCreated) { Toolkit.Cursor.Destroy(WaitCursorHandle); }
+			if (arrowNWSECursorHandle.IsValueCreated) { Toolkit.Cursor.Destroy(ArrowNWSECursorHandle); }
+			if (arrowNESWCursorHandle.IsValueCreated) { Toolkit.Cursor.Destroy(ArrowNESWCursorHandle); }
+			if (arrowEWCursorHandle.IsValueCreated) { Toolkit.Cursor.Destroy(ArrowEWCursorHandle); }
+			if (arrowNSCursorHandle.IsValueCreated) { Toolkit.Cursor.Destroy(ArrowNSCursorHandle); }
+			if (arrowFourWayCursorHandle.IsValueCreated) { Toolkit.Cursor.Destroy(ArrowFourWayCursorHandle); }
 
 			Cleanup();
 

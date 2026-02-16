@@ -20,7 +20,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		private readonly VkDevice logicalDevice;
 
-// TODO settings class
+		// TODO settings class?
 		internal VulkanShader(string debugName, VkDevice logicalDevice, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, VkSpecializationInfo? specializationInfo, Assembly assembly) : base(debugName) {
 			ShaderModule = CreateShaderModule(logicalDevice, fileLocation, shaderLang, shaderType, assembly);
 			ShaderType = shaderType;

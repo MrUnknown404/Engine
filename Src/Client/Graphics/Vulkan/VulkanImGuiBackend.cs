@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using Engine3.Client.Graphics.ImGui;
 using Engine3.Client.Graphics.Vulkan.Objects;
 using ImGuiNET;
 using OpenTK.Graphics.Vulkan;
@@ -64,8 +65,8 @@ namespace Engine3.Client.Graphics.Vulkan {
 			indexBuffer = GraphicsResourceProvider.CreateBuffer($"{ImGuiName} Index Buffer", VkBufferUsageFlagBits.BufferUsageIndexBufferBit,
 				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, 1);
 
-			ImGui.SetCurrentContext(Context);
-			ImGuiIOPtr io = ImGui.GetIO();
+			ImGuiNet.SetCurrentContext(Context);
+			ImGuiIOPtr io = ImGuiNet.GetIO();
 
 			io.Fonts.GetTexDataAsRGBA32(out byte* fontData, out int fontImageWidth, out int fontImageHeight, out int texChannels);
 

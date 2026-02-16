@@ -1,10 +1,21 @@
 using System.Numerics;
+using Engine3.Utility;
 using JetBrains.Annotations;
 
 namespace Engine3.Client {
+	public class CameraTransform : ITransform<CameraTransform> {
+		public static CameraTransform Zero => new();
+
+		public Vector3 Position { get; set; }
+		public Quaternion Rotation { get; set; }
+
+		public Matrix4x4 CreateMatrix() => throw new NotImplementedException(); // TODO
+	}
+
 	[PublicAPI]
 	public class Camera {
-		public Vector3 Position { get; set; }
+		// TODO camera transform
+		public CameraTransform Transform { get; } = new();
 
 		public float PitchDegrees { // TODO use quaternions https://www.opengl-tutorial.org/intermediate-tutorials/tutorial-17-quaternions/
 			get;
@@ -68,12 +79,14 @@ namespace Engine3.Client {
 			FarPlane = farPlane;
 		}
 
+		[MustUseReturnValue]
 		public static Camera CreateOrthographic(float width, float height, float nearPlane, float farPlane) {
 			Camera camera = new(nearPlane, farPlane);
 			camera.SetOrthographic(width, height);
 			return camera;
 		}
 
+		[MustUseReturnValue]
 		public static Camera CreatePerspective(float aspectRatio, float fov, float nearPlane, float farPlane) {
 			Camera camera = new(nearPlane, farPlane);
 			camera.SetPerspective(aspectRatio, fov);
@@ -92,6 +105,7 @@ namespace Engine3.Client {
 			PerspectiveFovDegrees = fov;
 		}
 
+		[MustUseReturnValue]
 		public Matrix4x4 CreateProjectionMatrix() =>
 				CameraType switch {
 						CameraTypes.Orthographic => Matrix4x4.CreateOrthographic(OrthographicWidth, OrthographicHeight, NearPlane, FarPlane),
@@ -99,17 +113,18 @@ namespace Engine3.Client {
 						_ => throw new ArgumentOutOfRangeException(),
 				};
 
+		[MustUseReturnValue]
 		public Matrix4x4 CreateViewMatrix() {
 			if (shouldRebuildVectors) {
 				RebuildVectors();
 				shouldRebuildVectors = false;
 			}
 
-			return Matrix4x4.CreateLookAt(Position, UseLookAtPosition ? LookAtPosition : Position + Forward, Vector3.UnitY);
+			return Matrix4x4.CreateLookAt(Transform.Position, UseLookAtPosition ? LookAtPosition : Transform.Position + Forward, Vector3.UnitY);
 		}
 
 		private void RebuildVectors() {
-			Forward = Vector3.Normalize(UseLookAtPosition ? LookAtPosition - Position : new(MathF.Cos(PitchRadians) * MathF.Cos(YawRadians), MathF.Sin(PitchRadians), MathF.Cos(PitchRadians) * MathF.Sin(YawRadians)));
+			Forward = Vector3.Normalize(UseLookAtPosition ? LookAtPosition - Transform.Position : new(MathF.Cos(PitchRadians) * MathF.Cos(YawRadians), MathF.Sin(PitchRadians), MathF.Cos(PitchRadians) * MathF.Sin(YawRadians)));
 			Right = Vector3.Normalize(Vector3.Cross(Forward, Vector3.UnitY));
 		}
 

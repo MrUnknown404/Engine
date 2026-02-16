@@ -3,7 +3,7 @@ using JetBrains.Annotations;
 
 namespace Engine3.Utility {
 	[PublicAPI]
-	public class Transform2D {
+	public class Transform2D : ITransform<Transform2D> {
 		public static Transform2D Zero => new();
 
 		public Vector3 Position { get; set; }
