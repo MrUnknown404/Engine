@@ -3,21 +3,21 @@ using Engine3.Utility;
 using JetBrains.Annotations;
 
 namespace Engine3.Client {
-	public class CameraTransform : ITransform<CameraTransform> {
+	public class CameraTransform : ITransform<CameraTransform> { // TODO impl rotation
 		public static CameraTransform Zero => new();
 
 		public Vector3 Position { get; set; }
-		public Quaternion Rotation { get; set; }
+		public Quaternion Rotation { get; set; } // TODO use quaternions https://www.opengl-tutorial.org/intermediate-tutorials/tutorial-17-quaternions/
 
-		public Matrix4x4 CreateMatrix() => throw new NotImplementedException(); // TODO
+		public Matrix4x4 CreateMatrix() => throw new NotImplementedException(); // TODO create matrix
 	}
 
 	[PublicAPI]
 	public class Camera {
-		// TODO camera transform
 		public CameraTransform Transform { get; } = new();
 
-		public float PitchDegrees { // TODO use quaternions https://www.opengl-tutorial.org/intermediate-tutorials/tutorial-17-quaternions/
+		[Obsolete]
+		public float PitchDegrees {
 			get;
 			set {
 				field = value;
@@ -26,6 +26,7 @@ namespace Engine3.Client {
 			}
 		}
 
+		[Obsolete]
 		public float YawDegrees {
 			get;
 			set {
@@ -34,7 +35,6 @@ namespace Engine3.Client {
 				shouldRebuildVectors = true;
 			}
 		} = 90;
-		// TODO impl roll
 
 		public float PitchRadians => float.DegreesToRadians(PitchDegrees);
 		public float YawRadians => float.DegreesToRadians(YawDegrees);

@@ -284,6 +284,7 @@ namespace Engine3 {
 						}
 
 						window.WasResized = true;
+						window.InvokeOnResize((uint)resizeArgs.NewClientSize.X, (uint)resizeArgs.NewClientSize.Y);
 						break;
 					}
 					case KeyDownEventArgs downArgs: {

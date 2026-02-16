@@ -63,6 +63,7 @@ namespace Engine3.Client {
 		public event AttemptCloseWindow? TryCloseWindowEvent;
 		public event Action? OnCloseWindowEvent;
 		public event Action? BeforeDestroyEvent;
+		public event Action<uint, uint>? OnResize;
 
 		protected Window(EngineGraphicsBackend graphicsBackend, string title, uint width, uint height) {
 			if (graphicsBackend.GraphicsBackend == GraphicsBackend.Console) { throw new Engine3Exception("Cannot create a window when graphics api is set to console"); }
@@ -134,6 +135,8 @@ namespace Engine3.Client {
 		}
 
 		protected abstract void Cleanup();
+
+		public void InvokeOnResize(uint width, uint height) => OnResize?.Invoke(width, height);
 
 		public delegate void AttemptCloseWindow(ref bool shouldCloseWindow);
 

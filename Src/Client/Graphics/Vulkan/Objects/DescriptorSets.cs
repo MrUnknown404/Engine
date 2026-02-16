@@ -17,28 +17,26 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		// TODO make UpdateDescriptorSets method
 
 		public void UpdateDescriptorSet(uint binding, DescriptorBuffers descriptorBuffers) {
-			VkWriteDescriptorSet[] writeDescriptorSets = new VkWriteDescriptorSet[maxFramesInFlight];
-			VkDescriptorBufferInfo[] bufferInfos = new VkDescriptorBufferInfo[maxFramesInFlight];
+			VkWriteDescriptorSet* writeDescriptorSets = stackalloc VkWriteDescriptorSet[maxFramesInFlight];
+			VkDescriptorBufferInfo* bufferInfos = stackalloc VkDescriptorBufferInfo[maxFramesInFlight];
 
-			fixed (VkDescriptorBufferInfo* bufferInfosPtr = bufferInfos) {
-				for (byte i = 0; i < maxFramesInFlight; i++) {
-					bufferInfosPtr[i] = new() { buffer = descriptorBuffers.GetBuffer(i), range = descriptorBuffers.BufferSize, };
-					writeDescriptorSets[i] = new() { dstBinding = binding, dstSet = descriptorSets[i], descriptorType = descriptorBuffers.DescriptorType, descriptorCount = 1, pBufferInfo = &bufferInfosPtr[i], };
-				}
-
-				fixed (VkWriteDescriptorSet* writeDescriptorSetsPtr = writeDescriptorSets) { Vk.UpdateDescriptorSets(logicalDevice, (uint)writeDescriptorSets.Length, writeDescriptorSetsPtr, 0, null); }
+			for (byte i = 0; i < maxFramesInFlight; i++) {
+				bufferInfos[i] = new() { buffer = descriptorBuffers.GetBuffer(i), range = descriptorBuffers.BufferSize, };
+				writeDescriptorSets[i] = new() { dstBinding = binding, dstSet = descriptorSets[i], descriptorType = descriptorBuffers.DescriptorType, descriptorCount = 1, pBufferInfo = &bufferInfos[i], };
 			}
+
+			Vk.UpdateDescriptorSets(logicalDevice, maxFramesInFlight, writeDescriptorSets, 0, null);
 		}
 
 		public void UpdateDescriptorSet(uint binding, VkImageView imageView, VkSampler textureSampler) {
-			VkWriteDescriptorSet[] writeDescriptorSets = new VkWriteDescriptorSet[maxFramesInFlight];
+			VkWriteDescriptorSet* writeDescriptorSets = stackalloc VkWriteDescriptorSet[maxFramesInFlight];
 			VkDescriptorImageInfo imageInfo = new() { imageView = imageView, imageLayout = VkImageLayout.ImageLayoutShaderReadOnlyOptimal, sampler = textureSampler, };
 
 			for (int i = 0; i < maxFramesInFlight; i++) {
 				writeDescriptorSets[i] = new() { dstBinding = binding, dstSet = descriptorSets[i], descriptorType = VkDescriptorType.DescriptorTypeCombinedImageSampler, descriptorCount = 1, pImageInfo = &imageInfo, };
 			}
 
-			fixed (VkWriteDescriptorSet* writeDescriptorSetsPtr = writeDescriptorSets) { Vk.UpdateDescriptorSets(logicalDevice, (uint)writeDescriptorSets.Length, writeDescriptorSetsPtr, 0, null); }
+			Vk.UpdateDescriptorSets(logicalDevice, maxFramesInFlight, writeDescriptorSets, 0, null);
 		}
 	}
 }
