@@ -15,25 +15,25 @@ namespace Engine3.Client.Graphics.OpenGL {
 
 		private OpenGLImage fontImage = null!;
 
-		public OpenGLImGuiBackend(Window window) : base(window, GraphicsBackend.OpenGL, new()) { }
+		public OpenGLImGuiBackend(Window window, params IImGuiProvider[] imGuiProviders) : base(window, GraphicsBackend.OpenGL, new(), imGuiProviders) { }
 
 		public void Setup() {
 			ImGuiNet.SetCurrentContext(Context);
 			ImGuiIOPtr io = ImGuiNet.GetIO();
 
-			vertexShader = GraphicsResourceProvider.CreateShader($"{ImGuiName} Vertex Shader", ImGuiName, ShaderType.Vertex, Engine3.Assembly);
-			fragmentShader = GraphicsResourceProvider.CreateShader($"{ImGuiName} Fragment Shader", ImGuiName, ShaderType.Fragment, Engine3.Assembly);
-			programPipeline = GraphicsResourceProvider.CreateProgramPipeline($"{ImGuiName} Program Pipeline", vertexShader, fragmentShader);
+			vertexShader = GraphicsResourceProvider.CreateShader($"{ImGuiAssetName} Vertex Shader", ImGuiAssetName, ShaderType.Vertex, Engine3.Assembly);
+			fragmentShader = GraphicsResourceProvider.CreateShader($"{ImGuiAssetName} Fragment Shader", ImGuiAssetName, ShaderType.Fragment, Engine3.Assembly);
+			programPipeline = GraphicsResourceProvider.CreateProgramPipeline($"{ImGuiAssetName} Program Pipeline", vertexShader, fragmentShader);
 
-			// GraphicsResourceProvider.EnqueueDestroy(vertexShader);
+			// GraphicsResourceProvider.EnqueueDestroy(vertexShader); // see OpenGLRenderer1
 			// GraphicsResourceProvider.EnqueueDestroy(fragmentShader);
 
-			vertexBuffer = GraphicsResourceProvider.CreateBuffer($"{ImGuiName} Vertex Buffer", BufferStorageMask.DynamicStorageBit, 1);
-			indexBuffer = GraphicsResourceProvider.CreateBuffer($"{ImGuiName} Index Buffer", BufferStorageMask.DynamicStorageBit, 1);
+			vertexBuffer = GraphicsResourceProvider.CreateBuffer($"{ImGuiAssetName} Vertex Buffer", BufferStorageMask.DynamicStorageBit, 1);
+			indexBuffer = GraphicsResourceProvider.CreateBuffer($"{ImGuiAssetName} Index Buffer", BufferStorageMask.DynamicStorageBit, 1);
 
 			io.Fonts.GetTexDataAsRGBA32(out byte* fontData, out int fontImageWidth, out int fontImageHeight, out _);
 
-			fontImage = GraphicsResourceProvider.CreateImage($"{ImGuiName} Font Image");
+			fontImage = GraphicsResourceProvider.CreateImage($"{ImGuiAssetName} Font Image");
 			fontImage.Copy(fontData, (uint)fontImageWidth, (uint)fontImageHeight);
 
 			io.Fonts.ClearTexData(); // do i need to call this?

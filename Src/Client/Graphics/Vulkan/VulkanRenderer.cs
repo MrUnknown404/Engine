@@ -30,7 +30,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		protected LogicalGpu LogicalGpu => Window.LogicalGpu;
 		protected byte MaxFramesInFlight => GraphicsBackend.MaxFramesInFlight;
 
-		protected VulkanRenderer(VulkanGraphicsBackend graphicsBackend, VulkanWindow window, VulkanImGuiBackend? imGuiBackend = null) : base(graphicsBackend, window, imGuiBackend) {
+		protected VulkanRenderer(VulkanGraphicsBackend graphicsBackend, VulkanWindow window) : base(graphicsBackend, window) {
 			SwapChain = new(window, window.SelectedGpu.PhysicalDevice, window.LogicalGpu.LogicalDevice, window.SelectedGpu.QueueFamilyIndices, window.Surface, graphicsBackend.PresentMode);
 			Logger.Debug("Created swap chain");
 

@@ -37,10 +37,12 @@ namespace Engine3.Utility {
 
 		private long updateStartTick;
 		private long frameStartTick;
+
 		private long updateAccumulator;
 		private long updateMinMaxAvgAccumulator;
 		private long frameAccumulator;
 		private long frameMinMaxAvgAccumulator;
+
 		private uint updateCounter;
 		private uint frameCounter;
 

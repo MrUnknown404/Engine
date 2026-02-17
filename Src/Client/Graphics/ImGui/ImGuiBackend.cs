@@ -2,24 +2,20 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Engine3.Exceptions;
-using Engine3.Utility;
 using ImGuiNET;
 using NLog;
 using OpenTK.Mathematics;
 using OpenTK.Platform;
-using Vector2 = System.Numerics.Vector2;
 
 namespace Engine3.Client.Graphics.ImGui {
 	public abstract unsafe class ImGuiBackend {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-		protected const string ImGuiName = "ImGui";
+		protected const string ImGuiAssetName = "ImGui";
 
 		public nint Context { get; }
-		public Action? AddImGui { get; set; }
-		public Action? AddExtraDebugUI { get; set; }
 		public bool ShowDebugUI { get; set; }
-		public byte IndentAmount { get; init; } = 6;
+		public IImGuiProvider? DebugUIImGui { get; init; }
 
 		internal nint MouseWindowID { private get; set; }
 		internal int MousePendingLeaveFrame { private get; set; }
@@ -29,30 +25,25 @@ namespace Engine3.Client.Graphics.ImGui {
 		private readonly Dictionary<WindowHandle, nint> windowToId = new();
 		private readonly Queue<nint> freeWindowIdList = new();
 
+		private readonly List<IImGuiProvider> imGuiProviders = new();
+
 		private nint nextFreeWindowId = 1;
 		private ImGuiMouseCursor currentCursorType;
 
-		private bool showUpdateIndex;
-		private bool showUps = true;
-		private bool showUpdateTime = true;
-		private bool showUpdateTimeGraph;
-		private bool showMinMaxAvgUpdateTime;
+		internal ImGuiBackend(Window window, GraphicsBackend graphicsBackend, params IImGuiProvider[] imGuiProviders) {
+			this.imGuiProviders.AddRange(imGuiProviders);
 
-		private bool showFrameIndex;
-		private bool showFps = true;
-		private bool showFrameTime = true;
-		private bool showFrameTimeGraph;
-		private bool showMinMaxAvgFrameTime;
-
-		private bool showBackendSettings;
-		private bool popoutUpdates;
-		private bool popoutFrames;
-
-		internal ImGuiBackend(Window window, GraphicsBackend graphicsBackend) {
 			Logger.Debug("Setting up ImGui...");
 
 			Context = ImGuiNet.CreateContext();
 			this.window = window;
+
+			window.OnResize += (_, _) => {
+				ImGuiNet.SetCurrentContext(Context);
+				ImGuiIOPtr io = ImGuiNet.GetIO();
+				Toolkit.Window.GetFramebufferSize(window.WindowHandle, out Vector2i frameBufferSize);
+				io.DisplaySize = new(frameBufferSize.X, frameBufferSize.Y); // TODO should this be window size or framebuffer size?
+			};
 
 			ImGuiNet.SetCurrentContext(Context);
 			AddWindow(window);
@@ -63,7 +54,7 @@ namespace Engine3.Client.Graphics.ImGui {
 
 			// io.ConfigFlags |= ImGuiConfigFlags.NavEnableKeyboard;
 			io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
-			io.ConfigFlags |= ImGuiConfigFlags.IsSRGB; // TODO what does this do? use it?
+			io.ConfigFlags |= ImGuiConfigFlags.IsSRGB; // TODO what does this do? doesn't seem to do anything? use it?
 
 			io.BackendFlags |= ImGuiBackendFlags.HasMouseCursors;
 			io.BackendFlags |= ImGuiBackendFlags.HasSetMousePos;
@@ -92,11 +83,7 @@ namespace Engine3.Client.Graphics.ImGui {
 
 		public bool NewFrame(out ImDrawDataPtr imDrawData) {
 			ImGuiNet.SetCurrentContext(Context);
-
 			ImGuiIOPtr io = ImGuiNet.GetIO();
-
-			Toolkit.Window.GetFramebufferSize(window.WindowHandle, out Vector2i frameBufferSize);
-			io.DisplaySize = new(frameBufferSize.X, frameBufferSize.Y); // TODO set on change
 			// io.DeltaTime = ; TODO set delta?
 
 			if (WantUpdateMonitors) { UpdateMonitors(); }
@@ -115,9 +102,11 @@ namespace Engine3.Client.Graphics.ImGui {
 
 			if ((io.ConfigFlags & ImGuiConfigFlags.DockingEnable) != 0) { ImGuiNet.DockSpaceOverViewport(0, null, ImGuiDockNodeFlags.PassthruCentralNode); }
 
-			if (ShowDebugUI) { AddDebugUI(); }
+			if (ShowDebugUI) {
+				if (DebugUIImGui != null) { DebugUIImGui.ShowImGui(); } else { Logger.Warn("Trying to display DebugUI but we have no object"); }
+			}
 
-			AddImGui?.Invoke();
+			foreach (IImGuiProvider imGuiProvider in imGuiProviders) { imGuiProvider.ShowImGui(); }
 
 			ImGuiNet.EndFrame();
 
@@ -131,136 +120,6 @@ namespace Engine3.Client.Graphics.ImGui {
 
 			imDrawData = ImGuiNet.GetDrawData();
 			return imDrawData is { Valid: true, CmdListsCount: > 0, };
-		}
-
-		private void AddDebugUI() {
-			GameClient game = Engine3.GameInstance;
-			PerformanceMonitor pm = game.PerformanceMonitor;
-
-			bool showAnyUpdates = showUpdateIndex || showUps || showUpdateTime || showMinMaxAvgUpdateTime;
-			bool showAnyFrames = showFrameIndex || showFps || showFrameTime || showMinMaxAvgFrameTime;
-
-			if (ImGuiNet.Begin("Debug")) {
-				ImGuiH.IndentedCollapsingHeader("Performance", IndentAmount, ShowPerformance);
-				ImGuiH.IndentedCollapsingHeader("Input", IndentAmount, ShowInput);
-				AddExtraDebugUI?.Invoke();
-			}
-
-			ImGuiNet.End();
-
-			if (showAnyUpdates && popoutUpdates) {
-				ImGuiNet.Begin("Update Info");
-				Show("Update", showUpdateIndex, showUps, showUpdateTime, showUpdateTimeGraph, showMinMaxAvgUpdateTime, game.UpdateIndex, pm.Ups, game.TargetUps, pm.UpdateTime, pm.LastUpdateTimes, pm.MinUpdateTime,
-					pm.MaxUpdateTime, pm.AvgUpdateTime);
-
-				ImGuiNet.End();
-			}
-
-			if (showAnyFrames && popoutFrames) {
-				ImGuiNet.Begin("Frame Info");
-				Show("Frame", showFrameIndex, showFps, showFrameTime, showFrameTimeGraph, showMinMaxAvgFrameTime, game.FrameIndex, pm.Fps, game.TargetFps, pm.FrameTime, pm.LastFrameTimes, pm.MinFrameTime, pm.MaxFrameTime,
-					pm.AvgFrameTime);
-
-				ImGuiNet.End();
-			}
-
-			return;
-
-			void ShowInput() {
-				ImGuiH.IndentedCollapsingHeader("Mouse", IndentAmount, ShowMouse);
-				ImGuiH.IndentedCollapsingHeader("Keyboard", IndentAmount, ShowKeyboard);
-			}
-
-			void ShowMouse() {
-				MouseManager mouseManager = window.MouseManager;
-
-				Vector2 show = mouseManager.Position;
-				ImGuiNet.InputFloat2("Position", ref show, "%.1f");
-				ImGuiH.HelpMarker("X/Y");
-
-				ImGuiNet.Text($"Scroll Delta: {mouseManager.ScrollDelta:F1}");
-
-				foreach (MouseButton button in Enum.GetValues<MouseButton>()) {
-					bool b = mouseManager.IsButton(button);
-					ImGuiNet.Checkbox($"{button}", ref b);
-				}
-			}
-
-			void ShowKeyboard() {
-				KeyManager keyManager = window.KeyManager; // TODO show keyboard. active first then all?
-				ImGuiNet.Text("Not implemented");
-			}
-
-			void ShowPerformance() {
-				if (!popoutUpdates && showAnyUpdates) {
-					ImGuiNet.SeparatorText("Update Info");
-					Show("Update", showUpdateIndex, showUps, showUpdateTime, showUpdateTimeGraph, showMinMaxAvgUpdateTime, game.UpdateIndex, pm.Ups, game.TargetUps, pm.UpdateTime, pm.LastUpdateTimes, pm.MinUpdateTime,
-						pm.MaxUpdateTime, pm.AvgUpdateTime);
-				}
-
-				if (!popoutFrames && showAnyFrames) {
-					ImGuiNet.SeparatorText("Frame Info");
-					Show("Frame", showFrameIndex, showFps, showFrameTime, showFrameTimeGraph, showMinMaxAvgFrameTime, game.FrameIndex, pm.Fps, game.TargetFps, pm.FrameTime, pm.LastFrameTimes, pm.MinFrameTime, pm.MaxFrameTime,
-						pm.AvgFrameTime);
-				}
-
-				if (showBackendSettings) { ShowBackendSettings(); }
-
-				if ((!popoutUpdates && showAnyUpdates) || (!popoutFrames && showAnyFrames) || showBackendSettings) { ImGuiNet.Separator(); }
-
-				ImGuiH.IndentedCollapsingHeader("Toggles", IndentAmount, ShowToggles);
-			}
-
-			void Show(string name, bool showIndex, bool showPerSecond, bool showTime, bool showTimeGraph, bool showMinMaxAvgTime, ulong index, uint perSecond, uint targetPerSecond, float time, float[] times, float minTime,
-				float maxTime, float avgTime) {
-				if (showIndex) { ImGuiNet.Text($"Index: {index}"); }
-				if (showPerSecond) { ImGuiNet.Text($"{name[0]}ps: {perSecond}{(targetPerSecond == 0 ? string.Empty : $"/{targetPerSecond}")}"); }
-				if (showTime) { ImGuiNet.Text($"Time: {time:F3} ms"); }
-
-				if (showTimeGraph) {
-					if (pm.StoreTimesForGraph) {
-						if (times.Length != 0) { ImGuiNet.PlotLines($"{name} Time Graph", ref times[0], times.Length); }
-					} else { ImGuiNet.Text($"{nameof(pm.StoreTimesForGraph)} is false"); }
-				}
-
-				if (showMinMaxAvgTime) {
-					if (pm.CalculateMinMaxAverage) {
-						ImGuiNet.Text($"Min: {minTime:F3} ms");
-						ImGuiNet.Text($"Max: {maxTime:F3} ms");
-						ImGuiNet.Text($"Avg: {avgTime:F3} ms");
-					} else { ImGuiNet.Text($"{nameof(pm.CalculateMinMaxAverage)} is false"); }
-				}
-			}
-
-			void ShowBackendSettings() {
-				ImGuiNet.SeparatorText("Backend Settings");
-
-				ImGuiNet.Text($"Calculate Min/Max/Avg: {pm.CalculateMinMaxAverage}");
-				ImGuiNet.Text($"Min/Max/Avg Sample Time: {pm.MinMaxAverageSampleTime} seconds");
-				ImGuiNet.Text($"Store Times For Graph: {pm.StoreTimesForGraph}");
-				ImGuiNet.Text($"Update Time Graph Size: {pm.UpdateTimeGraphSize}");
-				ImGuiNet.Text($"Frame Time Graph Size: {pm.FrameTimeGraphSize}");
-			}
-
-			void ShowToggles() {
-				ImGuiNet.Checkbox("Show Update Index", ref showUpdateIndex);
-				ImGuiNet.Checkbox("Show Ups", ref showUps);
-				ImGuiNet.Checkbox("Show Update Time", ref showUpdateTime);
-				ImGuiNet.Checkbox("Show Update Time Graph", ref showUpdateTimeGraph);
-				ImGuiNet.Checkbox("Show Min/Max/Avg Update Time", ref showMinMaxAvgUpdateTime);
-
-				ImGuiNet.Separator();
-				ImGuiNet.Checkbox("Show Frame Index", ref showFrameIndex);
-				ImGuiNet.Checkbox("Show Fps", ref showFps);
-				ImGuiNet.Checkbox("Show Frame Time", ref showFrameTime);
-				ImGuiNet.Checkbox("Show Frame Time Graph", ref showFrameTimeGraph);
-				ImGuiNet.Checkbox("Show Min/Max/Avg Frame Time", ref showMinMaxAvgFrameTime);
-
-				ImGuiNet.Separator();
-				ImGuiNet.Checkbox("Show Backend Settings", ref showBackendSettings);
-				ImGuiNet.Checkbox("Popout Updates", ref popoutUpdates);
-				ImGuiNet.Checkbox("Popout Frames", ref popoutFrames);
-			}
 		}
 
 		public abstract void UpdateBuffers(ImDrawDataPtr drawData);
@@ -366,6 +225,7 @@ namespace Engine3.Client.Graphics.ImGui {
 	public abstract class ImGuiBackend<T> : ImGuiBackend where T : IGraphicsResourceProvider {
 		protected T GraphicsResourceProvider { get; }
 
-		protected ImGuiBackend(Window window, GraphicsBackend graphicsBackend, T graphicsResourceProvider) : base(window, graphicsBackend) => GraphicsResourceProvider = graphicsResourceProvider;
+		protected ImGuiBackend(Window window, GraphicsBackend graphicsBackend, T graphicsResourceProvider, params IImGuiProvider[] imGuiProviders) : base(window, graphicsBackend, imGuiProviders) =>
+				GraphicsResourceProvider = graphicsResourceProvider;
 	}
 }

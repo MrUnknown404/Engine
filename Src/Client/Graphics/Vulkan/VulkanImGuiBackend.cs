@@ -15,13 +15,13 @@ namespace Engine3.Client.Graphics.Vulkan {
 		private DescriptorSets descriptorSet = null!;
 		private TextureSampler textureSampler = null!;
 		private VulkanImage fontImage = null!;
-		private VulkanBuffer vertexBuffer = null!; // Frames-in-flight? i think i read somewhere i should? look into
-		private VulkanBuffer indexBuffer = null!; // Frames-in-flight?
+		private VulkanBuffer vertexBuffer = null!; // TODO Frames-in-flight? i think i read somewhere i should? look into
+		private VulkanBuffer indexBuffer = null!; // ^
 
 		private readonly SurfaceCapablePhysicalGpu physicalGpu;
 		private readonly byte maxFramesInFlight;
 
-		public VulkanImGuiBackend(VulkanWindow window, byte maxFramesInFlight) : base(window, GraphicsBackend.Vulkan, window.LogicalGpu) {
+		public VulkanImGuiBackend(VulkanWindow window, byte maxFramesInFlight, params IImGuiProvider[] imGuiProviders) : base(window, GraphicsBackend.Vulkan, window.LogicalGpu, imGuiProviders) {
 			physicalGpu = window.SelectedGpu;
 			this.maxFramesInFlight = maxFramesInFlight;
 		}
@@ -31,8 +31,8 @@ namespace Engine3.Client.Graphics.Vulkan {
 			VkSpecializationMapEntry specializationMapEntry = new() { constantID = 0, size = sizeof(uint), offset = 0, };
 			VkSpecializationInfo specializationInfo = new() { dataSize = (nuint)sizeof(ImGuiFragmentShaderConstants), mapEntryCount = 1, pMapEntries = &specializationMapEntry, pData = &shaderConstants, };
 
-			VulkanShader vertexShader = GraphicsResourceProvider.CreateShader($"{ImGuiName} Vertex Shader", ImGuiName, ShaderLanguage.Glsl, ShaderType.Vertex, Engine3.Assembly, specializationInfo);
-			VulkanShader fragmentShader = GraphicsResourceProvider.CreateShader($"{ImGuiName} Fragment Shader", ImGuiName, ShaderLanguage.Glsl, ShaderType.Fragment, Engine3.Assembly);
+			VulkanShader vertexShader = GraphicsResourceProvider.CreateShader($"{ImGuiAssetName} Vertex Shader", ImGuiAssetName, ShaderLanguage.Glsl, ShaderType.Vertex, Engine3.Assembly, specializationInfo);
+			VulkanShader fragmentShader = GraphicsResourceProvider.CreateShader($"{ImGuiAssetName} Fragment Shader", ImGuiAssetName, ShaderLanguage.Glsl, ShaderType.Fragment, Engine3.Assembly);
 
 			DescriptorSetLayout descriptorSetLayout = GraphicsResourceProvider.CreateDescriptorSetLayout([ new(VkDescriptorType.DescriptorTypeCombinedImageSampler, VkShaderStageFlagBits.ShaderStageFragmentBit, 0), ]);
 
@@ -48,7 +48,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			VkVertexInputBindingDescription[] vertexBindingDescriptions = [ new() { binding = 0, stride = (uint)sizeof(ImDrawVert), inputRate = VkVertexInputRate.VertexInputRateVertex, }, ];
 
 			graphicsPipeline = GraphicsResourceProvider.CreateGraphicsPipeline(
-				new($"{ImGuiName} Graphics Pipeline", swapFormatImageFormat, [ vertexShader, fragmentShader, ], vertexAttributeDescriptions, vertexBindingDescriptions) {
+				new($"{ImGuiAssetName} Graphics Pipeline", swapFormatImageFormat, [ vertexShader, fragmentShader, ], vertexAttributeDescriptions, vertexBindingDescriptions) {
 						DescriptorSetLayouts = [ descriptorSetLayout.VkDescriptorSetLayout, ],
 						PushConstantRanges = [ new() { stageFlags = VkShaderStageFlagBits.ShaderStageVertexBit, offset = 0, size = (uint)sizeof(ImGuiPushConstants), }, ],
 						EnableDepthTest = false,
@@ -59,10 +59,10 @@ namespace Engine3.Client.Graphics.Vulkan {
 			GraphicsResourceProvider.EnqueueDestroy(vertexShader);
 			GraphicsResourceProvider.EnqueueDestroy(fragmentShader);
 
-			vertexBuffer = GraphicsResourceProvider.CreateBuffer($"{ImGuiName} Vertex Buffer", VkBufferUsageFlagBits.BufferUsageVertexBufferBit,
+			vertexBuffer = GraphicsResourceProvider.CreateBuffer($"{ImGuiAssetName} Vertex Buffer", VkBufferUsageFlagBits.BufferUsageVertexBufferBit,
 				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, 1);
 
-			indexBuffer = GraphicsResourceProvider.CreateBuffer($"{ImGuiName} Index Buffer", VkBufferUsageFlagBits.BufferUsageIndexBufferBit,
+			indexBuffer = GraphicsResourceProvider.CreateBuffer($"{ImGuiAssetName} Index Buffer", VkBufferUsageFlagBits.BufferUsageIndexBufferBit,
 				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, 1);
 
 			ImGuiNet.SetCurrentContext(Context);
@@ -70,7 +70,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 			io.Fonts.GetTexDataAsRGBA32(out byte* fontData, out int fontImageWidth, out int fontImageHeight, out int texChannels);
 
-			fontImage = GraphicsResourceProvider.CreateImage($"{ImGuiName} Font Image", (uint)fontImageWidth, (uint)fontImageHeight, VkFormat.FormatR8g8b8a8Unorm);
+			fontImage = GraphicsResourceProvider.CreateImage($"{ImGuiAssetName} Font Image", (uint)fontImageWidth, (uint)fontImageHeight, VkFormat.FormatR8g8b8a8Unorm);
 			fontImage.CopyUsingStaging(transferCommandPool, GraphicsResourceProvider.TransferQueue, (uint)fontImageWidth, (uint)fontImageHeight, (byte)texChannels, fontData);
 
 			io.Fonts.ClearTexData(); // do i need to call this?

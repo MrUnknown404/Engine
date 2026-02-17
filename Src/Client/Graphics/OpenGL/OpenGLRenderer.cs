@@ -14,7 +14,7 @@ namespace Engine3.Client.Graphics.OpenGL {
 
 		public ClearBufferMask ClearBufferMask { get; set; } = ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit;
 
-		protected OpenGLRenderer(OpenGLGraphicsBackend graphicsBackend, OpenGLWindow window, OpenGLImGuiBackend? imGuiBackend = null) : base(graphicsBackend, window, imGuiBackend) { }
+		protected OpenGLRenderer(OpenGLGraphicsBackend graphicsBackend, OpenGLWindow window) : base(graphicsBackend, window) { }
 
 		public override void Setup() {
 			Window.MakeContextCurrent();
