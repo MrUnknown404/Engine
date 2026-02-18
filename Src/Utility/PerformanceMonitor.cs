@@ -32,7 +32,7 @@ namespace Engine3.Utility {
 
 		private readonly List<float> updateTimesInSampleTime = new();
 		private readonly List<float> frameTimesInSampleTime = new();
-		private readonly List<float> lastUpdateTimes = new(); // TODO use better collection?
+		private readonly List<float> lastUpdateTimes = new(); // TODO use better collection? array or circular buffer? or something else?
 		private readonly List<float> lastFrameTimes = new();
 
 		private long updateStartTick;

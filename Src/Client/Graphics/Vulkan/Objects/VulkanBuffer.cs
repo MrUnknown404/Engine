@@ -25,26 +25,25 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		}
 
 		public void Copy<T>(ReadOnlySpan<T> data, ulong offset = 0) where T : unmanaged {
-			ulong bufferSize = (ulong)(sizeof(T) * data.Length);
-			fixed (T* inDataPtr = data) {
-				void* dataPtr = MapMemory(bufferSize, offset);
-				System.Buffer.MemoryCopy(inDataPtr, dataPtr, bufferSize, bufferSize);
-				UnmapMemory();
-			}
+			fixed (T* dataPtr = data) { Copy(dataPtr, (ulong)(data.Length * sizeof(T)), offset); }
+		}
+
+		public void Copy(ReadOnlySpan<byte> data, ulong offset = 0) {
+			fixed (byte* dataPtr = data) { Copy(dataPtr, (ulong)data.Length, offset); }
 		}
 
 		public void Copy(void* data, ulong bufferSize, ulong offset = 0) {
-			void* dataPtr = MapMemory(bufferSize, offset);
-			System.Buffer.MemoryCopy(data, dataPtr, bufferSize, bufferSize);
+			void* dstPtr = MapMemory(bufferSize, offset);
+			System.Buffer.MemoryCopy(data, dstPtr, bufferSize, bufferSize);
 			UnmapMemory();
 		}
 
 		[MustUseReturnValue]
 		public void* MapMemory(ulong bufferSize, ulong offset = 0) {
 			VkMemoryMapInfo memoryMapInfo = new() { memory = BufferMemory, size = bufferSize, offset = offset, };
-			void* dataPtr;
-			Vk.MapMemory2(logicalGpu.LogicalDevice, &memoryMapInfo, &dataPtr);
-			return dataPtr;
+			void* dstPtr;
+			Vk.MapMemory2(logicalGpu.LogicalDevice, &memoryMapInfo, &dstPtr);
+			return dstPtr;
 		}
 
 		public void UnmapMemory() {

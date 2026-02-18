@@ -26,7 +26,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			this.maxFramesInFlight = maxFramesInFlight;
 		}
 
-		public void Setup(VkCommandPool transferCommandPool, VkFormat swapFormatImageFormat) {
+		public void Setup(TransferCommandPool transferCommandPool, VkFormat swapFormatImageFormat) {
 			ImGuiFragmentShaderConstants shaderConstants = ImGuiShaderConstants;
 			VkSpecializationMapEntry specializationMapEntry = new() { constantID = 0, size = sizeof(uint), offset = 0, };
 			VkSpecializationInfo specializationInfo = new() { dataSize = (nuint)sizeof(ImGuiFragmentShaderConstants), mapEntryCount = 1, pMapEntries = &specializationMapEntry, pData = &shaderConstants, };
@@ -71,7 +71,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			io.Fonts.GetTexDataAsRGBA32(out byte* fontData, out int fontImageWidth, out int fontImageHeight, out int texChannels);
 
 			fontImage = GraphicsResourceProvider.CreateImage($"{ImGuiAssetName} Font Image", (uint)fontImageWidth, (uint)fontImageHeight, VkFormat.FormatR8g8b8a8Unorm);
-			fontImage.CopyUsingStaging(transferCommandPool, GraphicsResourceProvider.TransferQueue, (uint)fontImageWidth, (uint)fontImageHeight, (byte)texChannels, fontData);
+			transferCommandPool.CopyToImage(fontImage, physicalGpu.QueueFamilyIndices, GraphicsResourceProvider.TransferQueue, (uint)fontImageWidth, (uint)fontImageHeight, (byte)texChannels, fontData);
 
 			io.Fonts.ClearTexData(); // do i need to call this?
 
@@ -145,7 +145,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 					if (clipMax.X <= clipMin.X || clipMax.Y <= clipMin.Y) { continue; }
 
-					graphicsCommandBuffer.CmdSetScissor(new((int)clipMin.X, (int)clipMin.Y), new((uint)(clipMax.X - clipMin.X), (uint)(clipMax.Y - clipMin.Y)));
+					graphicsCommandBuffer.CmdSetScissor((int)clipMin.X, (int)clipMin.Y, (uint)(clipMax.X - clipMin.X), (uint)(clipMax.Y - clipMin.Y));
 					graphicsCommandBuffer.CmdDrawIndexed(drawCmd.ElemCount, 1, indexOffset, vertexOffset, 0);
 
 					indexOffset += drawCmd.ElemCount;

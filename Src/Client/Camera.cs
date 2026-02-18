@@ -1,20 +1,24 @@
 using System.Numerics;
-using Engine3.Utility;
 using JetBrains.Annotations;
 
 namespace Engine3.Client {
-	public class CameraTransform : ITransform<CameraTransform> { // TODO impl rotation
-		public static CameraTransform Zero => new();
-
-		public Vector3 Position { get; set; }
-		public Quaternion Rotation { get; set; } // TODO use quaternions https://www.opengl-tutorial.org/intermediate-tutorials/tutorial-17-quaternions/
-
-		public Matrix4x4 CreateMatrix() => throw new NotImplementedException(); // TODO create matrix
-	}
-
 	[PublicAPI]
 	public class Camera {
-		public CameraTransform Transform { get; } = new();
+		public Vector3 Position {
+			get;
+			set {
+				field = value;
+				isDirectionVectorsDirty = true;
+			}
+		}
+
+		public Quaternion Orientation { // TODO impl https://www.opengl-tutorial.org/intermediate-tutorials/tutorial-17-quaternions/
+			get;
+			set {
+				field = value;
+				isDirectionVectorsDirty = true;
+			}
+		} = Quaternion.Identity;
 
 		[Obsolete]
 		public float PitchDegrees {
@@ -22,7 +26,7 @@ namespace Engine3.Client {
 			set {
 				field = value;
 				if (field is >= 360 or <= -360) { field %= 360; }
-				shouldRebuildVectors = true;
+				isDirectionVectorsDirty = true;
 			}
 		}
 
@@ -32,15 +36,37 @@ namespace Engine3.Client {
 			set {
 				field = value;
 				if (field is >= 360 or <= -360) { field %= 360; }
-				shouldRebuildVectors = true;
+				isDirectionVectorsDirty = true;
 			}
 		} = 90;
 
-		public float PitchRadians => float.DegreesToRadians(PitchDegrees);
-		public float YawRadians => float.DegreesToRadians(YawDegrees);
+		[Obsolete] public float PitchRadians => float.DegreesToRadians(PitchDegrees);
+		[Obsolete] public float YawRadians => float.DegreesToRadians(YawDegrees);
 
-		public Vector3 Forward { get; private set; }
-		public Vector3 Right { get; private set; }
+		public Vector3 Forward {
+			get {
+				if (isDirectionVectorsDirty) {
+					RebuildVectors();
+					isDirectionVectorsDirty = false;
+				}
+
+				return field;
+			}
+			private set;
+		}
+
+		public Vector3 Right {
+			get {
+				if (isDirectionVectorsDirty) {
+					RebuildVectors();
+					isDirectionVectorsDirty = false;
+				}
+
+				return field;
+			}
+			private set;
+		}
+
 		public Vector3 Backwards => -Forward;
 		public Vector3 Left => -Right;
 
@@ -48,7 +74,8 @@ namespace Engine3.Client {
 			get;
 			set {
 				field = value;
-				shouldRebuildVectors = true;
+				isDirectionVectorsDirty = true;
+				isViewDirty = true;
 			}
 		}
 
@@ -56,23 +83,95 @@ namespace Engine3.Client {
 			get;
 			set {
 				field = value;
-				shouldRebuildVectors = true;
+				isDirectionVectorsDirty = true;
+				isViewDirty = true;
 			}
+		}
+
+		public Matrix4x4 Projection {
+			get {
+				if (isProjectionDirty) {
+					field = CameraType switch {
+							CameraTypes.Orthographic => Matrix4x4.CreateOrthographic(OrthographicWidth, OrthographicHeight, NearPlane, FarPlane),
+							CameraTypes.Perspective => Matrix4x4.CreatePerspectiveFieldOfView(PerspectiveFovRadians, PerspectiveAspectRatio, NearPlane, FarPlane),
+							_ => throw new ArgumentOutOfRangeException(),
+					};
+
+					isProjectionDirty = false;
+				}
+
+				return field;
+			}
+			private set;
+		}
+
+		public Matrix4x4 View {
+			get {
+				if (isViewDirty) {
+					field = Matrix4x4.CreateLookAt(Position, UseLookAtPosition ? LookAtPosition : Position + Forward, Vector3.UnitY);
+					isViewDirty = true;
+				}
+
+				return field;
+			}
+			private set;
 		}
 
 		public CameraTypes CameraType { get; private set; }
 
-		public float OrthographicWidth { get; set; }
-		public float OrthographicHeight { get; set; }
+		public float OrthographicWidth {
+			get;
+			set {
+				field = value;
+				isProjectionDirty = true;
+			}
+		}
 
-		public float PerspectiveAspectRatio { get; set; }
-		public float PerspectiveFovDegrees { get; set; }
+		public float OrthographicHeight {
+			get;
+			set {
+				field = value;
+				isProjectionDirty = true;
+			}
+		}
+
+		public float PerspectiveAspectRatio {
+			get;
+			set {
+				field = value;
+				isProjectionDirty = true;
+			}
+		}
+
+		public float PerspectiveFovDegrees {
+			get;
+			set {
+				field = value;
+				isProjectionDirty = true;
+			}
+		}
+
 		public float PerspectiveFovRadians => float.DegreesToRadians(PerspectiveFovDegrees);
 
-		public float NearPlane { get; set; }
-		public float FarPlane { get; set; }
+		public float NearPlane {
+			get;
+			set {
+				field = value;
+				isProjectionDirty = true;
+			}
+		}
 
-		private bool shouldRebuildVectors = true;
+		public float FarPlane {
+			get;
+			set {
+				field = value;
+				isProjectionDirty = true;
+			}
+		}
+
+		private bool isProjectionDirty = true;
+		private bool isViewDirty = true;
+		private bool isDirectionVectorsDirty = true;
 
 		private Camera(float nearPlane, float farPlane) {
 			NearPlane = nearPlane;
@@ -93,39 +192,23 @@ namespace Engine3.Client {
 			return camera;
 		}
 
-		private void SetOrthographic(float width, float height) {
+		public void SetOrthographic(float width, float height) {
 			CameraType = CameraTypes.Orthographic;
 			OrthographicWidth = width;
 			OrthographicHeight = height;
 		}
 
-		private void SetPerspective(float aspectRatio, float fov) {
+		public void SetPerspective(float aspectRatio, float fov) {
 			CameraType = CameraTypes.Perspective;
 			PerspectiveAspectRatio = aspectRatio;
 			PerspectiveFovDegrees = fov;
 		}
 
-		[MustUseReturnValue]
-		public Matrix4x4 CreateProjectionMatrix() =>
-				CameraType switch {
-						CameraTypes.Orthographic => Matrix4x4.CreateOrthographic(OrthographicWidth, OrthographicHeight, NearPlane, FarPlane),
-						CameraTypes.Perspective => Matrix4x4.CreatePerspectiveFieldOfView(PerspectiveFovRadians, PerspectiveAspectRatio, NearPlane, FarPlane),
-						_ => throw new ArgumentOutOfRangeException(),
-				};
-
-		[MustUseReturnValue]
-		public Matrix4x4 CreateViewMatrix() {
-			if (shouldRebuildVectors) {
-				RebuildVectors();
-				shouldRebuildVectors = false;
-			}
-
-			return Matrix4x4.CreateLookAt(Transform.Position, UseLookAtPosition ? LookAtPosition : Transform.Position + Forward, Vector3.UnitY);
-		}
-
 		private void RebuildVectors() {
-			Forward = Vector3.Normalize(UseLookAtPosition ? LookAtPosition - Transform.Position : new(MathF.Cos(PitchRadians) * MathF.Cos(YawRadians), MathF.Sin(PitchRadians), MathF.Cos(PitchRadians) * MathF.Sin(YawRadians)));
-			Right = Vector3.Normalize(Vector3.Cross(Forward, Vector3.UnitY));
+			Vector3 forward = Vector3.Normalize(UseLookAtPosition ? LookAtPosition - Position : new(MathF.Cos(PitchRadians) * MathF.Cos(YawRadians), MathF.Sin(PitchRadians), MathF.Cos(PitchRadians) * MathF.Sin(YawRadians)));
+
+			Forward = forward;
+			Right = Vector3.Normalize(Vector3.Cross(forward, Vector3.UnitY));
 		}
 
 		public enum CameraTypes : byte {

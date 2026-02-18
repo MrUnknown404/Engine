@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Engine3.Client.Graphics.ImGui;
+using ImGuiNET;
 using NLog;
 
 namespace Engine3.Client.Graphics {
@@ -34,7 +35,6 @@ namespace Engine3.Client.Graphics {
 		protected abstract void PrepareCleanup();
 		protected abstract void Cleanup();
 
-		[SuppressMessage("ReSharper", "MemberCanBeProtected.Global")]
 		internal abstract void CleanupImGui();
 	}
 
@@ -49,6 +49,17 @@ namespace Engine3.Client.Graphics {
 		}
 
 		public override bool IsSameWindow(Window window) => Window == window;
+
+		protected bool TryImGuiNewFrame([NotNullWhen(true)] out ImDrawDataPtr? imDrawData) {
+			if (ImGuiBackend != null && ImGuiBackend.NewFrame(out ImDrawDataPtr drawData)) {
+				ImGuiBackend.UpdateBuffers(drawData);
+				imDrawData = drawData;
+				return true;
+			}
+
+			imDrawData = null;
+			return false;
+		}
 
 		internal override void CleanupImGui() => ImGuiBackend?.Cleanup();
 	}

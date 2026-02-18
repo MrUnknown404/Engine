@@ -1,14 +1,9 @@
-using System.Reflection;
-using System.Runtime.InteropServices;
 using Engine3.Client.Graphics.Vulkan.Objects;
 using Engine3.Exceptions;
-using Engine3.Utility;
 using Engine3.Utility.Extensions;
 using ImGuiNET;
-using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics.Vulkan;
-using StbiSharp;
 
 namespace Engine3.Client.Graphics.Vulkan {
 	public abstract unsafe class VulkanRenderer : Renderer<VulkanWindow, VulkanGraphicsBackend, VulkanImGuiBackend> {
@@ -16,8 +11,8 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		protected SwapChain SwapChain { get; }
 
-		protected CommandPool GraphicsCommandPool { get; }
-		protected CommandPool TransferCommandPool { get; }
+		protected GraphicsCommandPool GraphicsCommandPool { get; }
+		protected TransferCommandPool TransferCommandPool { get; }
 
 		protected FrameData[] Frames { get; }
 		protected VkSemaphore[] RenderFinishedSemaphores { get; }
@@ -34,11 +29,11 @@ namespace Engine3.Client.Graphics.Vulkan {
 			SwapChain = new(window, window.SelectedGpu.PhysicalDevice, window.LogicalGpu.LogicalDevice, window.SelectedGpu.QueueFamilyIndices, window.Surface, graphicsBackend.PresentMode);
 			Logger.Debug("Created swap chain");
 
-			GraphicsCommandPool = LogicalGpu.CreateCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit, PhysicalGpu.QueueFamilyIndices.GraphicsFamily);
-			TransferCommandPool = LogicalGpu.CreateCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit, PhysicalGpu.QueueFamilyIndices.TransferFamily);
+			GraphicsCommandPool = LogicalGpu.CreateGraphicsCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit, Window.SelectedGpu.QueueFamilyIndices.GraphicsFamily);
+			TransferCommandPool = LogicalGpu.CreateTransferCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit, Window.SelectedGpu.QueueFamilyIndices.TransferFamily);
 			RenderFinishedSemaphores = LogicalGpu.CreateSemaphores((uint)SwapChain.Images.Length);
 
-			GraphicsCommandBuffer[] graphicsCommandBuffers = LogicalGpu.CreateGraphicsCommandBuffers(GraphicsCommandPool.VkCommandPool, MaxFramesInFlight);
+			GraphicsCommandBuffer[] graphicsCommandBuffers = GraphicsCommandPool.CreateCommandBuffers(MaxFramesInFlight);
 			VkSemaphore[] imageAvailableSemaphores = LogicalGpu.CreateSemaphores(MaxFramesInFlight);
 			VkFence[] inFlightFences = LogicalGpu.CreateFences(MaxFramesInFlight);
 
@@ -48,7 +43,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			for (int i = 0; i < MaxFramesInFlight; i++) { Frames[i] = new(logicalDevice, graphicsCommandBuffers[i], imageAvailableSemaphores[i], inFlightFences[i]); }
 		}
 
-		public override void Setup() => ImGuiBackend?.Setup(TransferCommandPool.VkCommandPool, SwapChain.ImageFormat);
+		public override void Setup() => ImGuiBackend?.Setup(TransferCommandPool, SwapChain.ImageFormat);
 
 		/// <summary>
 		/// Wait for the previous frame to finish
@@ -63,24 +58,18 @@ namespace Engine3.Client.Graphics.Vulkan {
 			FrameData frameData = Frames[FrameIndex];
 			if (AcquireNextImage(frameData, out uint swapChainImageIndex)) {
 				// copy buffers
-				ImDrawDataPtr imDrawData = null;
-				bool shouldDrawImGui = false;
-
-				if (ImGuiBackend != null) {
-					shouldDrawImGui = ImGuiBackend.NewFrame(out imDrawData);
-					if (shouldDrawImGui) { ImGuiBackend.UpdateBuffers(imDrawData); }
-				}
-
-				CopyUniformBuffers(delta);
+				CopyBuffers(delta);
 
 				// draw
 				BeginFrame(frameData, swapChainImageIndex);
 
 				GraphicsCommandBuffer graphicsCommandBuffer = frameData.GraphicsCommandBuffer;
-				RecordCommandBuffer(graphicsCommandBuffer, delta);
+				RecordCommandBuffer(graphicsCommandBuffer);
 
-				if (ImGuiBackend != null && shouldDrawImGui) { ImGuiBackend.RecordCommandBuffer(graphicsCommandBuffer, FrameIndex, imDrawData); }
+				// update imgui buffers then draw
+				if (TryImGuiNewFrame(out ImDrawDataPtr? imDrawData)) { ImGuiBackend!.RecordCommandBuffer(graphicsCommandBuffer, FrameIndex, imDrawData.Value); } // ImGuiBackend shouldn't be null if TryImGuiNewFrame returned true
 
+				// end
 				EndFrame(frameData, swapChainImageIndex);
 				SubmitQueue(frameData.ImageAvailableSemaphore, [ graphicsCommandBuffer.VkCommandBuffer, ], swapChainImageIndex, frameData.InFlightFence);
 				PresentFrame(swapChainImageIndex);
@@ -130,9 +119,9 @@ namespace Engine3.Client.Graphics.Vulkan {
 			graphicsCommandBuffer.CmdBeginRendering(SwapChain.Extent, SwapChain.ImageViews[swapChainImageIndex], DepthImage?.Image.ImageView, Window.ClearColor.ToVkClearColorValue(), new(1, 0));
 		}
 
-		protected abstract void RecordCommandBuffer(GraphicsCommandBuffer graphicsCommandBuffer, float delta);
+		protected abstract void RecordCommandBuffer(GraphicsCommandBuffer graphicsCommandBuffer);
 
-		protected virtual void CopyUniformBuffers(float delta) { }
+		protected virtual void CopyBuffers(float delta) { }
 
 		/// <summary>
 		/// Order of what vulkan methods are called here
@@ -189,90 +178,6 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		protected void IncrementFrameIndex() => FrameIndex = (byte)((FrameIndex + 1) % MaxFramesInFlight);
 
-		[Obsolete] // TODO move elsewhere
-		[MustUseReturnValue]
-		protected VulkanImage CreateImageAndCopyUsingStaging(string debugName, string fileLocation, string fileExtension, byte texChannels, VkFormat imageFormat, Assembly assembly,
-			VkImageTiling imageTiling = VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits usageFlags = VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits aspectMask = VkImageAspectFlagBits.ImageAspectColorBit) {
-			using (StbiImage stbiImage = AssetH.LoadImage(fileLocation, fileExtension, texChannels, assembly)) {
-				VulkanImage image = LogicalGpu.CreateImage(debugName, (uint)stbiImage.Width, (uint)stbiImage.Height, imageFormat, imageTiling, usageFlags, aspectMask);
-				image.CopyUsingStaging(TransferCommandPool.VkCommandPool, LogicalGpu.TransferQueue, stbiImage);
-				return image;
-			}
-		}
-
-		[Obsolete] // TODO move elsewhere
-		[MustUseReturnValue]
-		protected VulkanImage CreateImageAndCopyUsingStaging(string debugName, uint width, uint height, byte texChannels, VkFormat imageFormat, byte* data, VkImageTiling imageTiling = VkImageTiling.ImageTilingOptimal,
-			VkImageUsageFlagBits usageFlags = VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits aspectMask = VkImageAspectFlagBits.ImageAspectColorBit) {
-			VulkanImage image = LogicalGpu.CreateImage(debugName, width, height, imageFormat, imageTiling, usageFlags, aspectMask);
-			image.CopyUsingStaging(TransferCommandPool.VkCommandPool, LogicalGpu.TransferQueue, width, height, texChannels, data);
-			return image;
-		}
-
-		[Obsolete] // TODO move elsewhere
-		protected void CopyToBuffers(ICollection<CopyToBufferInfo> copyToInfos) {
-			List<byte> newData = new();
-			foreach (CopyToBufferInfo copyToInfo in copyToInfos) {
-				copyToInfo.SrcOffset = (ulong)newData.Count;
-				newData.AddRange(copyToInfo.Data);
-			}
-
-			ulong bufferSize = (ulong)newData.Count;
-
-			VulkanBuffer stagingBuffer = LogicalGpu.CreateBuffer("Temporary Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
-				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, bufferSize);
-
-			stagingBuffer.Copy(CollectionsMarshal.AsSpan(newData));
-
-			TransferCommandBuffer transferCommandBuffer = LogicalGpu.CreateTransferCommandBuffer(TransferCommandPool.VkCommandPool);
-
-			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
-
-			foreach (CopyToBufferInfo copyToInfo in copyToInfos) {
-				transferCommandBuffer.CmdCopyBuffer(stagingBuffer.Buffer, copyToInfo.Buffer.Buffer, (ulong)copyToInfo.Data.LongLength, copyToInfo.SrcOffset, copyToInfo.DstOffset); //
-			}
-
-			transferCommandBuffer.EndCommandBuffer();
-
-			VkQueue queue = LogicalGpu.TransferQueue;
-			transferCommandBuffer.SubmitQueue(queue);
-
-			LogicalGpu.EnqueueDestroy(transferCommandBuffer);
-			LogicalGpu.EnqueueDestroy(stagingBuffer);
-		}
-
-		[Obsolete] // TODO move elsewhere
-		protected void CopyToBuffer(ICollection<CopyToInfo> copyToInfos, VulkanBuffer buffer) {
-			List<byte> newData = new();
-			foreach (CopyToInfo copyToInfo in copyToInfos) {
-				copyToInfo.SrcOffset = (ulong)newData.Count;
-				newData.AddRange(copyToInfo.Data);
-			}
-
-			ulong bufferSize = (ulong)newData.Count;
-
-			VulkanBuffer stagingBuffer = LogicalGpu.CreateBuffer("Temporary Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
-				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, bufferSize);
-
-			stagingBuffer.Copy(CollectionsMarshal.AsSpan(newData));
-
-			TransferCommandBuffer transferCommandBuffer = LogicalGpu.CreateTransferCommandBuffer(TransferCommandPool.VkCommandPool);
-
-			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
-
-			foreach (CopyToInfo copyToInfo in copyToInfos) {
-				transferCommandBuffer.CmdCopyBuffer(stagingBuffer.Buffer, buffer.Buffer, (ulong)copyToInfo.Data.LongLength, copyToInfo.SrcOffset, copyToInfo.DstOffset); //
-			}
-
-			transferCommandBuffer.EndCommandBuffer();
-
-			VkQueue queue = LogicalGpu.TransferQueue;
-			transferCommandBuffer.SubmitQueue(queue);
-
-			LogicalGpu.EnqueueDestroy(transferCommandBuffer);
-			LogicalGpu.EnqueueDestroy(stagingBuffer);
-		}
-
 		protected virtual void OnSwapchainInvalid() {
 			SwapChain.Recreate();
 			DepthImage?.Recreate(SwapChain.Extent);
@@ -324,46 +229,6 @@ namespace Engine3.Client.Graphics.Vulkan {
 			public void Destroy() {
 				Vk.DestroySemaphore(logicalDevice, ImageAvailableSemaphore, null);
 				Vk.DestroyFence(logicalDevice, InFlightFence, null);
-			}
-		}
-
-		protected class CopyToInfo {
-			public byte[] Data { get; } // TODO byte[] or byte* ?
-
-			public ulong DstOffset { get; }
-			public ulong SrcOffset { get; internal set; }
-
-			public CopyToInfo(byte[] data, ulong dstOffset = 0) {
-				Data = data;
-				DstOffset = dstOffset;
-			}
-
-			public static CopyToInfo Of<T>(ReadOnlySpan<T> data, ulong dstOffset = 0) where T : unmanaged {
-				ulong byteSize = (ulong)(sizeof(T) * data.Length);
-
-				byte[] bytes = new byte[byteSize];
-				fixed (byte* bytesPtr = bytes) {
-					fixed (T* dataPtr = data) { Buffer.MemoryCopy(dataPtr, bytesPtr, byteSize, byteSize); }
-				}
-
-				return new(bytes, dstOffset);
-			}
-		}
-
-		protected class CopyToBufferInfo : CopyToInfo {
-			public VulkanBuffer Buffer { get; }
-
-			public CopyToBufferInfo(byte[] data, VulkanBuffer buffer, ulong dstOffset = 0) : base(data, dstOffset) => Buffer = buffer;
-
-			public static CopyToBufferInfo Of<T>(ReadOnlySpan<T> data, VulkanBuffer buffer, ulong dstOffset = 0) where T : unmanaged {
-				ulong byteSize = (ulong)(sizeof(T) * data.Length);
-
-				byte[] bytes = new byte[byteSize];
-				fixed (byte* bytesPtr = bytes) {
-					fixed (T* dataPtr = data) { System.Buffer.MemoryCopy(dataPtr, bytesPtr, byteSize, byteSize); }
-				}
-
-				return new(bytes, buffer, dstOffset);
 			}
 		}
 	}

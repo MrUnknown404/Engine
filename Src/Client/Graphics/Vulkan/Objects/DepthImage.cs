@@ -8,11 +8,11 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		private readonly SurfaceCapablePhysicalGpu physicalGpu;
 		private readonly LogicalGpu logicalGpu;
-		private readonly VkCommandPool transferCommandPool;
+		private readonly TransferCommandPool transferCommandPool;
 		private readonly VkQueue transferQueue;
 		private readonly VkFormat depthFormat;
 
-		internal DepthImage(SurfaceCapablePhysicalGpu physicalGpu, LogicalGpu logicalGpu, VkCommandPool transferCommandPool, VkQueue transferQueue, VkExtent2D extent) {
+		internal DepthImage(SurfaceCapablePhysicalGpu physicalGpu, LogicalGpu logicalGpu, TransferCommandPool transferCommandPool, VkQueue transferQueue, VkExtent2D extent) {
 			this.physicalGpu = physicalGpu;
 			this.logicalGpu = logicalGpu;
 			this.transferCommandPool = transferCommandPool;
@@ -29,7 +29,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			Image = logicalGpu.CreateImage(Image.DebugName, extent.width, extent.height, depthFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageDepthStencilAttachmentBit,
 				VkImageAspectFlagBits.ImageAspectDepthBit);
 
-			TransferCommandBuffer transferCommandBuffer = logicalGpu.CreateTransferCommandBuffer(transferCommandPool);
+			TransferCommandBuffer transferCommandBuffer = transferCommandPool.CreateCommandBuffer();
 			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
 
 			transferCommandBuffer.TransitionImageLayout(physicalGpu.QueueFamilyIndices, Image.Image, depthFormat, VkImageLayout.ImageLayoutUndefined, VkImageLayout.ImageLayoutDepthStencilAttachmentOptimal);

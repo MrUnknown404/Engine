@@ -9,8 +9,8 @@ namespace Engine3.Client.Graphics.ImGui.Makers {
 			// transform
 			ImGuiNet.SeparatorText("Transform");
 
-			Vector3 position = obj.Transform.Position;
-			if (ImGuiNet.DragFloat3("Position", ref position, 0.1f / 2f)) { obj.Transform.Position = position; } // why x2?
+			Vector3 position = obj.Position;
+			if (ImGuiNet.DragFloat3("Position", ref position, 0.1f / 2f)) { obj.Position = position; } // why x2?
 			ImGuiH.HelpMarker("X/Y/Z");
 
 			Vector3 rotation = new(obj.PitchDegrees, obj.YawDegrees, 0); // TODO roll

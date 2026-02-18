@@ -38,31 +38,31 @@ namespace Engine3.Client.Graphics.OpenGL {
 
 			ResourceProvider.TryCleanup(); // TODO don't destroy every frame?
 
+			// clear
 			GL.ClearColor(Window.ClearColor);
 			GL.Clear(ClearBufferMask);
 
+			// resize
 			if (Window.WasResized) {
 				Toolkit.Window.GetFramebufferSize(Window.WindowHandle, out Vector2i frameBufferSize);
 				GL.Viewport(0, 0, frameBufferSize.X, frameBufferSize.Y);
 				Window.WasResized = false;
 			}
 
-			ImDrawDataPtr imDrawData = null;
-			bool shouldDrawImGui = false;
+			// copy
+			CopyBuffers(delta);
 
-			if (ImGuiBackend != null) {
-				shouldDrawImGui = ImGuiBackend.NewFrame(out imDrawData);
-				if (shouldDrawImGui) { ImGuiBackend.UpdateBuffers(imDrawData); }
-			}
+			// draw
+			DrawFrame(); // TODO do i want to store/restore state? // what if i made a gl state object and stored each pipeline's state?
 
-			DrawFrame(delta); // TODO do i want to store/restore state? // what if i made a gl state object and stored each pipeline's state?
+			if (TryImGuiNewFrame(out ImDrawDataPtr? imDrawData)) { ImGuiBackend!.DrawFrame(imDrawData.Value); } // ImGuiBackend shouldn't be null if TryImGuiNewFrame returned true
 
-			if (ImGuiBackend != null && shouldDrawImGui) { ImGuiBackend.DrawFrame(imDrawData); }
-
+			// end
 			Toolkit.OpenGL.SwapBuffers(Window.GLContextHandle);
 		}
 
-		protected abstract void DrawFrame(float delta);
+		protected abstract void CopyBuffers(float delta);
+		protected abstract void DrawFrame();
 
 		protected override void PrepareCleanup() => Window.MakeContextCurrent();
 		protected override void Cleanup() => ResourceProvider.CleanupAll();

@@ -48,42 +48,17 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public CommandPool CreateCommandPool(VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) {
-			CommandPool commandPool = new(LogicalDevice, commandPoolCreateFlags, queueFamilyIndex);
+		public TransferCommandPool CreateTransferCommandPool(VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) {
+			TransferCommandPool commandPool = new(this, commandPoolCreateFlags, queueFamilyIndex);
 			commandPoolManager.Add(commandPool);
 			return commandPool;
 		}
 
 		[MustUseReturnValue]
-		public GraphicsCommandBuffer[] CreateGraphicsCommandBuffers(VkCommandPool commandPool, uint count, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
-			VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = commandPool, level = level, commandBufferCount = count, };
-			VkCommandBuffer[] commandBuffers = new VkCommandBuffer[count];
-			fixed (VkCommandBuffer* commandBuffersPtr = commandBuffers) {
-				VkH.CheckIfSuccess(Vk.AllocateCommandBuffers(LogicalDevice, &commandBufferAllocateInfo, commandBuffersPtr), VulkanException.Reason.AllocateCommandBuffers);
-			}
-
-			GraphicsCommandBuffer[] buffers = new GraphicsCommandBuffer[count];
-			for (int i = 0; i < commandBuffers.Length; i++) {
-				GraphicsCommandBuffer commandBuffer = new(LogicalDevice, commandPool, commandBuffers[i]);
-				buffers[i] = commandBuffer;
-				commandBufferManager.Add(commandBuffer);
-			}
-
-			return buffers;
-		}
-
-		[MustUseReturnValue]
-		public GraphicsCommandBuffer CreateGraphicsCommandBuffer(VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
-			GraphicsCommandBuffer commandBuffer = new(LogicalDevice, commandPool, level);
-			commandBufferManager.Add(commandBuffer);
-			return new GraphicsCommandBuffer(LogicalDevice, commandPool, level);
-		}
-
-		[MustUseReturnValue]
-		public TransferCommandBuffer CreateTransferCommandBuffer(VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
-			TransferCommandBuffer commandBuffer = new(LogicalDevice, commandPool, level);
-			commandBufferManager.Add(commandBuffer);
-			return commandBuffer;
+		public GraphicsCommandPool CreateGraphicsCommandPool(VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) {
+			GraphicsCommandPool commandPool = new(this, commandPoolCreateFlags, queueFamilyIndex);
+			commandPoolManager.Add(commandPool);
+			return commandPool;
 		}
 
 		[MustUseReturnValue]
@@ -138,14 +113,12 @@ namespace Engine3.Client.Graphics.Vulkan {
 		[MustUseReturnValue]
 		public VulkanImage CreateImage(string debugName, uint width, uint height, VkFormat imageFormat, VkImageTiling imageTiling = VkImageTiling.ImageTilingOptimal,
 			VkImageUsageFlagBits usageFlags = VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits aspectMask = VkImageAspectFlagBits.ImageAspectColorBit) {
-			// VulkanImage image = LogicalGpu.CreateImage(debugName, width, height, imageFormat, imageTiling, usageFlags, aspectMask);
-
 			VkImage image = CreateImage(LogicalDevice, imageFormat, imageTiling, usageFlags, width, height);
 			VkDeviceMemory imageMemory = CreateDeviceMemory(image, VkMemoryPropertyFlagBits.MemoryPropertyDeviceLocalBit);
 			BindImageMemory(image, imageMemory);
 			VkImageView imageView = CreateImageView(LogicalDevice, image, imageFormat, aspectMask);
 
-			VulkanImage vulkanImage = new(debugName, physicalGpu, this, image, imageMemory, imageView, imageFormat);
+			VulkanImage vulkanImage = new(debugName, this, image, imageMemory, imageView, imageFormat);
 			imageManager.Add(vulkanImage);
 			return vulkanImage;
 
@@ -227,7 +200,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			}
 		}
 
-		[MustUseReturnValue] public DepthImage CreateDepthImage(VkCommandPool transferCommandPool, VkExtent2D extent) => new(physicalGpu, this, transferCommandPool, TransferQueue, extent);
+		[MustUseReturnValue] public DepthImage CreateDepthImage(TransferCommandPool transferCommandPool, VkExtent2D extent) => new(physicalGpu, this, transferCommandPool, TransferQueue, extent);
 
 		[MustUseReturnValue]
 		public VkSemaphore[] CreateSemaphores(uint count) { // TODO auto resource
@@ -268,6 +241,8 @@ namespace Engine3.Client.Graphics.Vulkan {
 			VkH.CheckIfSuccess(Vk.CreateFence(LogicalDevice, &fenceCreateInfo, null, &fence), VulkanException.Reason.CreateFence);
 			return fence;
 		}
+
+		internal void AddCommandBuffer(CommandBuffer commandBuffer) => commandBufferManager.Add(commandBuffer);
 
 		public void EnqueueDestroy(GraphicsPipeline graphicsPipeline) {
 			Logger.Trace($"Requesting to destroy {nameof(GraphicsPipeline)} ({graphicsPipeline.Pipeline.Handle:X16})");
@@ -320,7 +295,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		public void TryCleanupResources() {
-			Vk.DeviceWaitIdle(LogicalDevice); // TODO bad. only call if needed
+			Vk.DeviceWaitIdle(LogicalDevice); // FIXME bad. only call if needed
 
 			graphicsPipelineManager.TryCleanup();
 			commandBufferManager.TryCleanup();

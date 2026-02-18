@@ -10,6 +10,7 @@ I'll remove the entry when done
   - add more levels/log types
   - multiple files or single file?
   - NLog doesn't print generic type names correctly. either fix or use something else
+- make code analyzer for minimum params count
 
 ---
 

@@ -46,7 +46,7 @@ namespace Engine3.Client {
 
 			if (moveVector != Vector3.Zero) {
 				moveVector = Vector3.Normalize(moveVector);
-				Camera.Transform.Position += moveVector * (fastSpeed ? FastSpeed : Speed);
+				Camera.Position += moveVector * (fastSpeed ? FastSpeed : Speed);
 			}
 
 			// # mouse
