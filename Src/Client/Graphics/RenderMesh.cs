@@ -1,9 +1,10 @@
 namespace Engine3.Client.Graphics {
-	public class Mesh {
+	public class RenderMesh {
 		public byte[] Vertices { get; }
 		public uint[] Indices { get; }
+		public Material? Material { get; init; }
 
-		public Mesh(byte[] vertices, uint[] indices) {
+		public RenderMesh(byte[] vertices, uint[] indices) {
 			Vertices = vertices;
 			Indices = indices;
 		}

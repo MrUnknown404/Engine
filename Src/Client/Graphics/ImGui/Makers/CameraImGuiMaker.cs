@@ -13,17 +13,20 @@ namespace Engine3.Client.Graphics.ImGui.Makers {
 			if (ImGuiNet.DragFloat3("Position", ref position, 0.1f / 2f)) { obj.Position = position; } // why x2?
 			ImGuiH.HelpMarker("X/Y/Z");
 
-			Vector3 rotation = new(obj.PitchDegrees, obj.YawDegrees, 0); // TODO roll
-			if (ImGuiNet.DragFloat3("Rotation", ref rotation, 0.1f / 2f)) {
-				obj.PitchDegrees = rotation.X;
-				obj.YawDegrees = rotation.Y;
-				// Object.RollDegrees = camPos.Z;
-			}
-
-			ImGuiH.HelpMarker("Pitch/Yaw/Roll (roll not implemented)");
+			Vector4 orientation = obj.Orientation.AsVector4();
+			if (ImGuiNet.DragFloat4("Orientation", ref orientation, 0.1f / 2f)) { obj.Orientation = new(orientation.X, orientation.Y, orientation.Z, orientation.W); } // why x2?
+			ImGuiH.HelpMarker("X/Y/Z/W");
 
 			Vector3 forward = obj.Forward;
 			ImGuiNet.InputFloat3("Forward", ref forward, null, ImGuiInputTextFlags.ReadOnly);
+			ImGuiH.HelpMarker("X/Y/Z");
+
+			Vector3 right = obj.Right;
+			ImGuiNet.InputFloat3("Right", ref right, null, ImGuiInputTextFlags.ReadOnly);
+			ImGuiH.HelpMarker("X/Y/Z");
+
+			Vector3 up = obj.Up;
+			ImGuiNet.InputFloat3("Up", ref up, null, ImGuiInputTextFlags.ReadOnly);
 			ImGuiH.HelpMarker("X/Y/Z");
 
 			// look at

@@ -1,5 +1,7 @@
 #version 460
 
+layout (constant_id = 0) const bool UseFastLinearColorConversion = true;
+
 layout (location = 0) in vec2 inPosition;
 layout (location = 1) in vec2 inUVs;
 layout (location = 2) in vec4 inColor;
@@ -11,8 +13,6 @@ layout (push_constant, std430) uniform PushConsants {
 	vec2 translate;
 	vec2 scale;
 };
-
-layout (constant_id = 0) const bool UseFastLinearColorConversion = true;
 
 vec4 toLinearSlow(vec4 sRGB) {
 	bvec3 cutoff = lessThan(sRGB.rgb, vec3(0.04045));

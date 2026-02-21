@@ -16,7 +16,7 @@ namespace Engine3.Client.Graphics.OpenGL {
 
 		protected OpenGLRenderer(OpenGLGraphicsBackend graphicsBackend, OpenGLWindow window) : base(graphicsBackend, window) { }
 
-		public override void Setup() {
+		protected internal override void Setup() {
 			Window.MakeContextCurrent();
 
 			ImGuiBackend?.Setup();

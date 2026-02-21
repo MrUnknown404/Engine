@@ -2,17 +2,32 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Engine3.Client.Graphics.ImGui;
 using ImGuiNET;
+using JetBrains.Annotations;
 using OpenTK.Mathematics;
 using OpenTK.Platform;
 
 namespace Engine3.Client {
 	public static unsafe class ImGuiH {
 		private static IntPtr nativeClipboardText;
+		private static int widgetOffset;
+
+		[MustUseReturnValue]
+		public static string OffsetWidgetName(string name) {
+			name = $"{name}##{name}_{widgetOffset}";
+			widgetOffset++;
+			return name;
+		}
+
+		public static void PushOffset() => ImGuiNet.PushID(widgetOffset++);
+
+		internal static void ResetWidgetOffset() => widgetOffset = 0;
 
 		public static void IndentedCollapsingHeader(string label, float indent, Action drawFunc, ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags.None) {
 			if (ImGuiNet.CollapsingHeader(label, nodeFlags)) {
 				ImGuiNet.Indent(indent);
+				PushOffset();
 				drawFunc();
+				ImGuiNet.PopID();
 				ImGuiNet.Unindent(indent);
 			}
 		}

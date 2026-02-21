@@ -78,10 +78,10 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 					lineWidth = 1,
 					cullMode = settings.CullMode,
 					frontFace = settings.FrontFace,
-					depthBiasEnable = (int)Vk.False,
-					depthBiasConstantFactor = 0,
-					depthBiasClamp = 0,
-					depthBiasSlopeFactor = 0,
+					depthBiasEnable = (int)(settings.EnableDepthBias ? Vk.True : Vk.False),
+					depthBiasConstantFactor = settings.DepthBiasConstantFactor,
+					depthBiasClamp = settings.DepthBiasClamp,
+					depthBiasSlopeFactor = settings.DepthBiasSlopeFactor,
 			};
 
 			VkPipelineMultisampleStateCreateInfo multisampleStateCreateInfo = new() {
@@ -95,7 +95,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 			VkPipelineColorBlendAttachmentState colorBlendAttachmentState = new() {
 					colorWriteMask = VkColorComponentFlagBits.ColorComponentRBit | VkColorComponentFlagBits.ColorComponentGBit | VkColorComponentFlagBits.ColorComponentBBit | VkColorComponentFlagBits.ColorComponentABit,
-					blendEnable = (int)Vk.True,
+					blendEnable = (int)(settings.EnableBlend ? Vk.True : Vk.False),
 					srcColorBlendFactor = settings.SrcColorBlendFactor,
 					dstColorBlendFactor = settings.DstColorBlendFactor,
 					colorBlendOp = settings.ColorBlendOp,
@@ -112,11 +112,11 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 			VkPipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo = new() {
 					depthTestEnable = (int)(settings.EnableDepthTest ? Vk.True : Vk.False),
-					depthWriteEnable = (int)(settings.EnableDepthTest ? Vk.True : Vk.False),
+					depthWriteEnable = (int)(settings.EnableDepthWrite ? Vk.True : Vk.False),
 					depthCompareOp = settings.DepthCompareOp,
 					depthBoundsTestEnable = (int)Vk.False,
-					minDepthBounds = 0,
-					maxDepthBounds = 1,
+					minDepthBounds = settings.MinDepthBounds,
+					maxDepthBounds = settings.MaxDepthBounds,
 					stencilTestEnable = (int)Vk.False,
 			};
 
@@ -169,10 +169,12 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			public VkVertexInputAttributeDescription[] VertexAttributeDescriptions { get; }
 			public VkVertexInputBindingDescription[] VertexBindingDescriptions { get; }
 
+			// TODO sort these
 			public VkPrimitiveTopology Topology { get; init; } = VkPrimitiveTopology.PrimitiveTopologyTriangleList;
 			public VkPolygonMode PolygonMode { get; init; } = VkPolygonMode.PolygonModeFill;
 			public VkCullModeFlagBits CullMode { get; init; } = VkCullModeFlagBits.CullModeBackBit;
-			public VkFrontFace FrontFace { get; init; } = VkFrontFace.FrontFaceClockwise;
+			public VkFrontFace FrontFace { get; init; } = VkFrontFace.FrontFaceClockwise; // TODO whats the 'default'?
+			public bool EnableBlend { get; init; } = true;
 			public VkBlendFactor SrcColorBlendFactor { get; init; } = VkBlendFactor.BlendFactorSrcAlpha;
 			public VkBlendFactor DstColorBlendFactor { get; init; } = VkBlendFactor.BlendFactorOneMinusSrcAlpha;
 			public VkBlendOp ColorBlendOp { get; init; } = VkBlendOp.BlendOpAdd;
@@ -181,7 +183,14 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			public VkBlendOp AlphaBlendOp { get; init; } = VkBlendOp.BlendOpAdd;
 			public VkDynamicState[] DynamicStates { get; init; } = [ VkDynamicState.DynamicStateViewport, VkDynamicState.DynamicStateScissor, ];
 			public bool EnableDepthTest { get; init; } = true;
+			public bool EnableDepthWrite { get; init; } = true;
 			public VkCompareOp DepthCompareOp { get; init; } = VkCompareOp.CompareOpLess;
+			public float MinDepthBounds { get; init; } = 0;
+			public float MaxDepthBounds { get; init; } = 1;
+			public bool EnableDepthBias { get; init; }
+			public float DepthBiasConstantFactor { get; init; }
+			public float DepthBiasClamp { get; init; }
+			public float DepthBiasSlopeFactor { get; init; }
 
 			public VkDescriptorSetLayout[]? DescriptorSetLayouts { get; init; }
 			public VkPushConstantRange[]? PushConstantRanges { get; init; }

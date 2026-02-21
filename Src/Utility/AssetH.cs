@@ -1,20 +1,24 @@
 using System.Reflection;
+using Engine3.Client.Graphics;
 using Engine3.Exceptions;
 using JetBrains.Annotations;
 using NLog;
+using SharpGLTF.Runtime;
+using SharpGLTF.Schema2;
 using StbiSharp;
+using Material = SharpGLTF.Schema2.Material;
 
 namespace Engine3.Utility {
 	[PublicAPI]
 	public static class AssetH {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-		private const string MissingTextureName = "Missing.png";
-
 		[MustDisposeResource] public static Stream? GetAssetStream(string path, Assembly assembly) => assembly.GetManifestResourceStream($"{assembly.GetName().Name}.Assets.{path}");
 
 		[MustDisposeResource]
 		public static StbiImage LoadImage(string fileLocation, string fileExtension, byte texChannels, Assembly assembly) {
+			const string MissingTextureName = "Missing.png";
+
 			string fullFileName = $"{fileLocation}.{fileExtension}";
 			Stream? textureStream = GetAssetStream($"Textures.{fullFileName}", assembly);
 
@@ -30,5 +34,32 @@ namespace Engine3.Utility {
 			textureStream.Dispose();
 			return image;
 		}
+
+		[MustUseReturnValue]
+		public static RenderMesh LoadMesh(string fileLocation, [RequireStaticDelegate] GLTFMeshesToMeshDelegate gltfMeshesToMesh, Assembly assembly) {
+			string fullFileName = $"{fileLocation}.glb"; // TODO glTF
+			using Stream? modelStream = GetAssetStream($"Models.{fullFileName}", assembly);
+
+			if (modelStream == null) { throw new Engine3Exception($"Failed to create asset stream at: Models.{fullFileName}"); }
+
+			ModelRoot modelRoot = ModelRoot.ReadGLB(modelStream); // more later
+			return gltfMeshesToMesh(modelRoot.LogicalMeshes);
+		}
+
+		[MustUseReturnValue]
+		public static Model LoadModel(string fileLocation, [RequireStaticDelegate] GLTFMeshToMeshDelegate gltfMeshToMesh, Assembly assembly, byte vertexStride) {
+			string fullFileName = $"{fileLocation}.glb"; // TODO glTF
+			using Stream? modelStream = GetAssetStream($"Models.{fullFileName}", assembly);
+
+			if (modelStream == null) { throw new Engine3Exception($"Failed to create asset stream at: Models.{fullFileName}"); }
+
+			ModelRoot modelRoot = ModelRoot.ReadGLB(modelStream);
+			IMeshDecoder<Material>[] meshDecoders = modelRoot.LogicalMeshes.Decode();
+
+			return new(meshDecoders.Select(static meshDecoder => meshDecoder.Primitives).SelectMany(pList => pList.Select(primitiveDecoder => gltfMeshToMesh(primitiveDecoder))).ToArray().ToArray(), vertexStride);
+		}
+
+		public delegate RenderMesh GLTFMeshesToMeshDelegate(IReadOnlyList<Mesh> gltfMesh);
+		public delegate RenderMesh GLTFMeshToMeshDelegate(IMeshPrimitiveDecoder<Material> gltfMesh);
 	}
 }

@@ -50,7 +50,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			}
 		}
 
-		public void CmdPushConstants<T>(VkPipelineLayout pipelineLayout, VkShaderStageFlagBits shaderStageFlags, uint offset, T data) where T : unmanaged =>
+		public void CmdPushConstants<T>(VkPipelineLayout pipelineLayout, VkShaderStageFlagBits shaderStageFlags, T data, uint offset) where T : unmanaged =>
 				Vk.CmdPushConstants(VkCommandBuffer, pipelineLayout, shaderStageFlags, offset, (uint)sizeof(T), &data);
 
 		public void CmdSetViewport(float x, float y, float width, float height, float minDepth, float maxDepth) => CmdSetViewport(new() { x = x, y = y, width = width, height = height, minDepth = minDepth, maxDepth = maxDepth, });
@@ -93,5 +93,13 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		public void CmdDrawIndexed(uint indexCount, uint instanceCount, uint firstIndex, int vertexOffset, uint firstInstance) =>
 				Vk.CmdDrawIndexed(VkCommandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+
+		public void CmdClearDepth(VkExtent2D extent) {
+			VkClearAttachment clearAttachment = new() { aspectMask = VkImageAspectFlagBits.ImageAspectDepthBit, clearValue = new() { depthStencil = new() { depth = 1, }, }, };
+			VkClearRect clearRect = new() { layerCount = 1, rect = new(new(), extent), };
+			CmdClearAttachments(clearAttachment, clearRect);
+		}
+
+		public void CmdClearAttachments(VkClearAttachment clearAttachment, VkClearRect clearRect) => Vk.CmdClearAttachments(VkCommandBuffer, 1, &clearAttachment, 1, &clearRect);
 	}
 }

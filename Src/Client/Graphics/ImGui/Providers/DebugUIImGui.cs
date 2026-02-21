@@ -43,7 +43,11 @@ namespace Engine3.Client.Graphics.ImGui.Providers {
 			if (ImGuiNet.Begin("Debug")) {
 				ImGuiH.IndentedCollapsingHeader("Performance", IndentAmount, ShowPerformance);
 				ImGuiH.IndentedCollapsingHeader("Input", IndentAmount, ShowInput);
-				AddExtraDebugUI?.Invoke(IndentAmount);
+
+				if (AddExtraDebugUI != null) {
+					ImGuiNet.Separator();
+					AddExtraDebugUI.Invoke(IndentAmount);
+				}
 			}
 
 			ImGuiNet.End();

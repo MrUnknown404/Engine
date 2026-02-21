@@ -1,4 +1,5 @@
 using System.Numerics;
+using JetBrains.Annotations;
 using OpenTK.Platform;
 
 namespace Engine3.Client {
@@ -24,56 +25,71 @@ namespace Engine3.Client {
 		}
 
 		public void Update() {
-			// lock check
-			if (shouldLockCursor) {
+			if (shouldLockCursor) { // lock check
 				if (KeyManager.IsKey(Key.LeftAlt)) {
 					if (isCursorLocked) { UnlockCursor(); }
 				} else if (!isCursorLocked) { LockCursor(); }
 			}
 
-			// # keyboard
-			Vector3 moveVector = new();
-			bool fastSpeed = false;
+			float rollDir = TranslateCamera();
+			RotateCamera(rollDir);
 
-			// movement
-			if (KeyManager.IsKey(Key.W)) { moveVector += Camera.Forward; }
-			if (KeyManager.IsKey(Key.A)) { moveVector += -Camera.Right; }
-			if (KeyManager.IsKey(Key.S)) { moveVector += -Camera.Forward; }
-			if (KeyManager.IsKey(Key.D)) { moveVector += Camera.Right; }
-			if (KeyManager.IsKey(Key.Space)) { moveVector += Vector3.UnitY; }
-			if (KeyManager.IsKey(Key.LeftControl)) { moveVector += -Vector3.UnitY; }
-			if (KeyManager.IsKey(Key.LeftShift)) { fastSpeed = true; }
+			return;
 
-			if (moveVector != Vector3.Zero) {
-				moveVector = Vector3.Normalize(moveVector);
-				Camera.Position += moveVector * (fastSpeed ? FastSpeed : Speed);
+			[MustUseReturnValue]
+			float TranslateCamera() {
+				Vector3 moveVector = new();
+				bool fastSpeed = false;
+				rollDir = 0;
+
+				if (KeyManager.IsKey(Key.W)) { moveVector += Camera.Forward; }
+				if (KeyManager.IsKey(Key.A)) { moveVector += Camera.Left; }
+				if (KeyManager.IsKey(Key.S)) { moveVector += Camera.Backwards; }
+				if (KeyManager.IsKey(Key.D)) { moveVector += Camera.Right; }
+				if (KeyManager.IsKey(Key.Space)) { moveVector += Camera.Up; }
+				if (KeyManager.IsKey(Key.LeftControl)) { moveVector += Camera.Down; }
+
+				if (KeyManager.IsKey(Key.Q)) { rollDir += -1; }
+				if (KeyManager.IsKey(Key.E)) { rollDir += 1; }
+
+				if (KeyManager.IsKey(Key.LeftShift)) { fastSpeed = true; }
+
+				if (moveVector != Vector3.Zero) { Camera.Position += Vector3.Normalize(moveVector) * (fastSpeed ? FastSpeed : Speed); }
+
+				return rollDir;
 			}
 
-			// # mouse
-			MousePosition = MouseManager.Position;
+			void RotateCamera(float rollDir) {
+				MousePosition = MouseManager.Position;
 
-			if (!isCursorLocked) {
+				if (!isCursorLocked) {
+					PreviousMousePosition = MousePosition;
+					return;
+				}
+
+				if (isFirstMove && PreviousMousePosition != MousePosition) {
+					PreviousMousePosition = MousePosition;
+					isFirstMove = false;
+				}
+
+				float mouseXOffset = MousePosition.X - PreviousMousePosition.X;
+				float mouseYOffset = MousePosition.Y - PreviousMousePosition.Y;
 				PreviousMousePosition = MousePosition;
-				return;
+
+				mouseXOffset *= Sensitivity;
+				mouseYOffset *= Sensitivity;
+
+				bool isUpsideDown = Camera.Up.Y < 0;
+
+				Quaternion qx = Quaternion.CreateFromAxisAngle(Vector3.UnitX, float.DegreesToRadians(mouseYOffset));
+				Quaternion qy = Quaternion.CreateFromAxisAngle(Vector3.UnitY, float.DegreesToRadians(isUpsideDown ? -mouseXOffset : mouseXOffset));
+				Quaternion q = Quaternion.Normalize(qx * Camera.Orientation * qy); // TODO roll
+
+				// TODO limit qx
+
+				Camera.Orientation = q;
+				// Camera.RollDegrees += rollDir;
 			}
-
-			if (isFirstMove && PreviousMousePosition != MousePosition) {
-				PreviousMousePosition = MousePosition;
-				isFirstMove = false;
-			}
-
-			// yaw/pitch
-			float mouseXOffset = MousePosition.X - PreviousMousePosition.X;
-			float mouseYOffset = MousePosition.Y - PreviousMousePosition.Y;
-			PreviousMousePosition = MousePosition;
-
-			mouseXOffset *= Sensitivity;
-			mouseYOffset *= Sensitivity;
-
-			Camera.YawDegrees += mouseXOffset;
-			Camera.PitchDegrees -= mouseYOffset;
-
-			if (Camera.PitchDegrees > MaxPitch || Camera.PitchDegrees < -MaxPitch) { Camera.PitchDegrees = Math.Clamp(Camera.PitchDegrees, -MaxPitch, MaxPitch); }
 		}
 
 		public void UnlockCursor() {

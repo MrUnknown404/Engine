@@ -12,9 +12,11 @@ namespace Engine3.Client.Graphics {
 
 		public bool WasDestroyed { get; private set; }
 
+		public event Action? OnSetupDoneEvent;
+
 		internal Renderer() { }
 
-		public abstract void Setup(); // TODO have engine call this?
+		protected internal abstract void Setup();
 		protected internal abstract void Render(float delta);
 
 		public abstract bool IsSameWindow(Window window);
@@ -36,6 +38,8 @@ namespace Engine3.Client.Graphics {
 		protected abstract void Cleanup();
 
 		internal abstract void CleanupImGui();
+
+		internal void InvokeOnSetupDoneEvent() => OnSetupDoneEvent?.Invoke();
 	}
 
 	public abstract class Renderer<TWindow, TBackend, TImGui> : Renderer where TWindow : Window where TBackend : EngineGraphicsBackend where TImGui : ImGuiBackend {

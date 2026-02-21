@@ -19,11 +19,9 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			PrintCreate();
 		}
 
-		public DescriptorSets AllocateDescriptorSet(DescriptorSetLayout descriptorSetLayout) => AllocateDescriptorSet(descriptorSetLayout.VkDescriptorSetLayout);
-
-		public DescriptorSets AllocateDescriptorSet(VkDescriptorSetLayout descriptorSetLayout) {
+		public DescriptorSets AllocateDescriptorSet(DescriptorSetLayout descriptorSetLayout) {
 			VkDescriptorSetLayout[] layouts = new VkDescriptorSetLayout[maxFramesInFlight];
-			for (int i = 0; i < layouts.Length; i++) { layouts[i] = descriptorSetLayout; }
+			for (int i = 0; i < layouts.Length; i++) { layouts[i] = descriptorSetLayout.VkDescriptorSetLayout; }
 
 			VkDescriptorSet[] descriptorSets = new VkDescriptorSet[maxFramesInFlight];
 			fixed (VkDescriptorSetLayout* layoutsPtr = layouts) {

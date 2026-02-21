@@ -8,67 +8,46 @@ namespace Engine3.Client {
 			get;
 			set {
 				field = value;
-				isDirectionVectorsDirty = true;
+				isViewDirty = true;
 			}
 		}
 
-		public Quaternion Orientation { // TODO impl https://www.opengl-tutorial.org/intermediate-tutorials/tutorial-17-quaternions/
+		public Quaternion Orientation {
 			get;
 			set {
 				field = value;
 				isDirectionVectorsDirty = true;
+				isViewDirty = true;
 			}
 		} = Quaternion.Identity;
 
-		[Obsolete]
-		public float PitchDegrees {
-			get;
-			set {
-				field = value;
-				if (field is >= 360 or <= -360) { field %= 360; }
-				isDirectionVectorsDirty = true;
-			}
-		}
-
-		[Obsolete]
-		public float YawDegrees {
-			get;
-			set {
-				field = value;
-				if (field is >= 360 or <= -360) { field %= 360; }
-				isDirectionVectorsDirty = true;
-			}
-		} = 90;
-
-		[Obsolete] public float PitchRadians => float.DegreesToRadians(PitchDegrees);
-		[Obsolete] public float YawRadians => float.DegreesToRadians(YawDegrees);
-
 		public Vector3 Forward {
 			get {
-				if (isDirectionVectorsDirty) {
-					RebuildVectors();
-					isDirectionVectorsDirty = false;
-				}
-
+				if (isDirectionVectorsDirty) { RebuildVectors(); }
 				return field;
 			}
 			private set;
-		}
+		} = Vector3.UnitZ;
 
 		public Vector3 Right {
 			get {
-				if (isDirectionVectorsDirty) {
-					RebuildVectors();
-					isDirectionVectorsDirty = false;
-				}
-
+				if (isDirectionVectorsDirty) { RebuildVectors(); }
 				return field;
 			}
 			private set;
-		}
+		} = Vector3.UnitX;
+
+		public Vector3 Up {
+			get {
+				if (isDirectionVectorsDirty) { RebuildVectors(); }
+				return field;
+			}
+			private set;
+		} = Vector3.UnitY;
 
 		public Vector3 Backwards => -Forward;
 		public Vector3 Left => -Right;
+		public Vector3 Down => -Up;
 
 		public bool UseLookAtPosition {
 			get;
@@ -108,8 +87,8 @@ namespace Engine3.Client {
 		public Matrix4x4 View {
 			get {
 				if (isViewDirty) {
-					field = Matrix4x4.CreateLookAt(Position, UseLookAtPosition ? LookAtPosition : Position + Forward, Vector3.UnitY);
-					isViewDirty = true;
+					field = UseLookAtPosition ? Matrix4x4.CreateLookAt(Position, LookAtPosition, Up) : Matrix4x4.Transform(Matrix4x4.CreateTranslation(-Position), Orientation);
+					isViewDirty = false;
 				}
 
 				return field;
@@ -204,11 +183,35 @@ namespace Engine3.Client {
 			PerspectiveFovDegrees = fov;
 		}
 
-		private void RebuildVectors() {
-			Vector3 forward = Vector3.Normalize(UseLookAtPosition ? LookAtPosition - Position : new(MathF.Cos(PitchRadians) * MathF.Cos(YawRadians), MathF.Sin(PitchRadians), MathF.Cos(PitchRadians) * MathF.Sin(YawRadians)));
+		private void RebuildVectors() { // TODO is my math wrong? why do i need to flip Y all over the place?
+			Vector3 forward = Vector3.Normalize(MultiplyQuaternion(Orientation, -Vector3.UnitZ));
+			Vector3 up = Vector3.Normalize(MultiplyQuaternion(Orientation, -Vector3.UnitY));
+			Vector3 right = Vector3.Cross(up, forward);
 
-			Forward = forward;
-			Right = Vector3.Normalize(Vector3.Cross(forward, Vector3.UnitY));
+			Forward = forward with { Y = -forward.Y, };
+			Right = right;
+			Up = up with { Y = -up.Y, };
+
+			isDirectionVectorsDirty = false;
+			isViewDirty = true;
+
+			return;
+
+			Vector3 MultiplyQuaternion(Quaternion q, Vector3 v) { // taken from stackoverflow (glm?) // TODO make extension?
+				Vector3 quatVector = new(q.X, -q.Y, q.Z); // why do i need -y? if i don't X is flipped?
+				Vector3 uv = Vector3.Cross(quatVector, v);
+				Vector3 uuv = Vector3.Cross(quatVector, uv);
+				return v + (uv * q.W + uuv) * 2;
+			}
+
+			// GLM_FUNC_QUALIFIER GLM_CONSTEXPR vec < 3, T, Q > operator*(qua < T, Q > const&q, vec < 3, T, Q > const&v)
+			// {
+			// 	vec < 3, T, Q > const QuatVector (q.x, q.y, q.z);
+			// 	vec < 3, T, Q > const uv (glm::cross(QuatVector, v));
+			// 	vec < 3, T, Q > const uuv (glm::cross(QuatVector, uv));
+			//
+			// 	return v + ((uv * q.w) + uuv) * static_cast<T>(2);
+			// }
 		}
 
 		public enum CameraTypes : byte {

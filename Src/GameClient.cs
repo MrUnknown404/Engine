@@ -36,6 +36,7 @@ namespace Engine3 {
 
 		private readonly List<Window> windows = new();
 		private readonly List<Renderer> renderers = new();
+		private readonly Queue<Renderer> setupRendererQueue = new();
 
 		public ushort TargetUps { get; init; } = 60;
 		public ushort TargetFps { get; init; }
@@ -173,10 +174,13 @@ namespace Engine3 {
 				// console end. VK/GL graphics below // TODO impl console rendering
 				if (GraphicsBackend.GraphicsBackend == Client.Graphics.GraphicsBackend.Console) { continue; }
 
+				TrySetupRenderers();
 				TryCloseWindows();
 				TryDestroyRenderers();
 
 				Render(time);
+
+				ImGuiH.ResetWidgetOffset();
 			}
 
 			return;
@@ -221,6 +225,18 @@ namespace Engine3 {
 				PerformanceMonitor.AddFrame();
 
 				PerformanceMonitor.CheckFrameTime();
+			}
+
+			void TrySetupRenderers() {
+				if (setupRendererQueue.Count != 0) {
+					Logger.Debug($"Found {setupRendererQueue.Count} renderers to setup...");
+
+					while (setupRendererQueue.TryDequeue(out Renderer? renderer)) {
+						renderer.Setup();
+						renderer.InvokeOnSetupDoneEvent();
+						Logger.Debug("Setup Renderer");
+					}
+				}
 			}
 
 			void TryCloseWindows() {
@@ -347,8 +363,16 @@ namespace Engine3 {
 			bool FindWindow(WindowHandle windowHandle, [NotNullWhen(true)] out Window? window) => (window = windows.Find(w => w.WindowHandle == windowHandle)) != null;
 		}
 
-		public void AddWindow<T>(T window) where T : Window => windows.Add(window);
-		public void AddRenderer<T>(T renderer) where T : Renderer => renderers.Add(renderer);
+		public void AddWindow<T>(T window) where T : Window {
+			Logger.Trace("Window added");
+			windows.Add(window);
+		}
+
+		public void AddRenderer<T>(T renderer) where T : Renderer {
+			Logger.Trace("Renderer added");
+			renderers.Add(renderer);
+			setupRendererQueue.Enqueue(renderer);
+		}
 
 		public void Shutdown() {
 			Logger.Debug("Shutdown called");

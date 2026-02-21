@@ -28,7 +28,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		public void Setup(TransferCommandPool transferCommandPool, VkFormat swapFormatImageFormat) {
 			ImGuiFragmentShaderConstants shaderConstants = ImGuiShaderConstants;
-			VkSpecializationMapEntry specializationMapEntry = new() { constantID = 0, size = sizeof(uint), offset = 0, };
+			VkSpecializationMapEntry specializationMapEntry = new() { constantID = 0, offset = 0, size = sizeof(uint), };
 			VkSpecializationInfo specializationInfo = new() { dataSize = (nuint)sizeof(ImGuiFragmentShaderConstants), mapEntryCount = 1, pMapEntries = &specializationMapEntry, pData = &shaderConstants, };
 
 			VulkanShader vertexShader = GraphicsResourceProvider.CreateShader($"{ImGuiAssetName} Vertex Shader", ImGuiAssetName, ShaderLanguage.Glsl, ShaderType.Vertex, Engine3.Assembly, specializationInfo);
@@ -122,7 +122,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 			graphicsCommandBuffer.CmdSetViewport(0, 0, (uint)drawData.DisplaySize.X, (uint)drawData.DisplaySize.Y, 0, 1);
 
-			graphicsCommandBuffer.CmdPushConstants(graphicsPipeline.Layout, VkShaderStageFlagBits.ShaderStageVertexBit, 0, new ImGuiPushConstants(new(-1), new(2f / drawData.DisplaySize.X, 2f / drawData.DisplaySize.Y)));
+			graphicsCommandBuffer.CmdPushConstants(graphicsPipeline.Layout, VkShaderStageFlagBits.ShaderStageVertexBit, new ImGuiPushConstants(new(-1), new(2f / drawData.DisplaySize.X, 2f / drawData.DisplaySize.Y)), 0);
 
 			graphicsCommandBuffer.CmdBindDescriptorSet(graphicsPipeline.Layout, descriptorSet.GetCurrent(frameIndex), VkShaderStageFlagBits.ShaderStageFragmentBit);
 

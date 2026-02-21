@@ -37,7 +37,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		public void Copy<T>(T data, byte frameIndex) where T : unmanaged => Buffer.MemoryCopy(&data, buffersMapped[frameIndex], sizeof(T), sizeof(T));
 
 		public void Copy<T>(ReadOnlySpan<T> data, byte frameIndex) where T : unmanaged {
-			fixed (void* dataPtr = data) { Buffer.MemoryCopy(dataPtr, buffersMapped[frameIndex], (ulong)data.Length, (ulong)data.Length); }
+			fixed (void* dataPtr = data) { Buffer.MemoryCopy(dataPtr, buffersMapped[frameIndex], BufferSize, (ulong)(data.Length * sizeof(T))); }
 		}
 
 		public void Copy<T>(ReadOnlySpan<T> data, byte frameIndex, ulong offset) where T : unmanaged {
