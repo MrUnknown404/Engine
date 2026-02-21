@@ -3,6 +3,7 @@ using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
+	// TODO handle this object's lifecycle differently. store in CommandPool & handle all lifecycle logic in there
 	public abstract unsafe class CommandBuffer : GraphicsResource<CommandBuffer, ulong> {
 		public VkCommandPool CommandPool { get; }
 		public VkCommandBuffer VkCommandBuffer { get; }
@@ -38,7 +39,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		protected override void Cleanup() {
 			VkCommandBuffer commandBuffers = VkCommandBuffer;
-			Vk.FreeCommandBuffers(logicalDevice, CommandPool, 1, &commandBuffers); // TODO move this into CommandPool & make bulk free method
+			Vk.FreeCommandBuffers(logicalDevice, CommandPool, 1, &commandBuffers);
 		}
 	}
 }

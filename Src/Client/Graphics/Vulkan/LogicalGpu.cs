@@ -76,8 +76,8 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public TextureSampler CreateSampler(TextureSampler.Settings settings) {
-			TextureSampler sampler = new(LogicalDevice, settings);
+		public TextureSampler CreateSampler(VulkanGraphicsBackend backend, TextureSampler.Settings settings) {
+			TextureSampler sampler = new(LogicalDevice, backend, settings);
 			samplerManager.Add(sampler);
 			return sampler;
 		}
@@ -184,8 +184,8 @@ namespace Engine3.Client.Graphics.Vulkan {
 			};
 
 			// TODO "It should be noted that in a real world application, you're not supposed to actually call vkAllocateMemory for every individual buffer.
-			// The right way to allocate memory for a large number of objects at the same time is to create a custom allocator that splits up a single allocation
-			// among many different objects by using the offset parameters that we've seen in many functions."
+			//  The right way to allocate memory for a large number of objects at the same time is to create a custom allocator that splits up a single allocation
+			//  among many different objects by using the offset parameters that we've seen in many functions."
 			VkDeviceMemory deviceMemory;
 			VkH.CheckIfSuccess(Vk.AllocateMemory(LogicalDevice, &memoryAllocateInfo, null, &deviceMemory), VulkanException.Reason.AllocateMemory);
 			return deviceMemory;

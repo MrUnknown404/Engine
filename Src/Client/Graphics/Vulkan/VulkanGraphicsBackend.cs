@@ -107,8 +107,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			return allDeviceExtensions.ToArray();
 		}
 
-		[Obsolete]
-		protected virtual bool IsPhysicalDeviceSuitable(VkPhysicalDeviceProperties physicalDeviceProperties, VkPhysicalDeviceFeatures physicalDeviceFeatures) { // TODO make parameter
+		protected virtual bool IsPhysicalDeviceSuitable(VkPhysicalDeviceProperties physicalDeviceProperties, VkPhysicalDeviceFeatures physicalDeviceFeatures) {
 			bool isValid = physicalDeviceProperties.deviceType is VkPhysicalDeviceType.PhysicalDeviceTypeIntegratedGpu or VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu or VkPhysicalDeviceType.PhysicalDeviceTypeVirtualGpu;
 
 			if (AllowEnableAnisotropy) { isValid &= physicalDeviceFeatures.samplerAnisotropy == Vk.True; }
@@ -116,8 +115,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			return isValid;
 		}
 
-		[Obsolete]
-		protected internal virtual int RateGpuSuitability(PhysicalGpu physicalGpu) { // TODO make parameter
+		protected internal virtual int RateGpuSuitability(PhysicalGpu physicalGpu) {
 			VkPhysicalDeviceProperties deviceProperties = physicalGpu.PhysicalDeviceProperties2.properties;
 			int score = 0;
 

@@ -59,6 +59,7 @@ namespace Engine3.Client {
 		public bool ShouldClose { get; private set; }
 		public bool WasResized { get; internal set; }
 		public bool WasDestroyed { get; private set; }
+		public bool IsHidden { get; private set; }
 
 		public event AttemptCloseWindow? TryCloseWindowEvent;
 		public event Action? OnCloseWindowEvent;
@@ -136,7 +137,27 @@ namespace Engine3.Client {
 
 		protected abstract void Cleanup();
 
-		public void InvokeOnResize(uint width, uint height) => OnResize?.Invoke(width, height);
+		internal void OnCloseEventArgs() => TryCloseWindow();
+
+		internal void OnResizeEventArgs(WindowResizeEventArgs resizeArgs) {
+			WasResized = true;
+			OnResize?.Invoke((uint)resizeArgs.NewClientSize.X, (uint)resizeArgs.NewClientSize.Y);
+		}
+
+		internal void OnModeChangeEventArgs(WindowModeChangeEventArgs modeArgs) {
+			IsHidden = modeArgs.NewMode switch {
+					WindowMode.Hidden or WindowMode.Minimized => true,
+					WindowMode.Normal or WindowMode.Maximized or WindowMode.WindowedFullscreen or WindowMode.ExclusiveFullscreen => false,
+					_ => throw new ArgumentOutOfRangeException(),
+			};
+		}
+
+		internal void OnKeyDownEventArgs(KeyDownEventArgs downArgs) => KeyManager.SetKey(downArgs.Key, true);
+		internal void OnKeyUpEventArgs(KeyUpEventArgs upArgs) => KeyManager.SetKey(upArgs.Key, false);
+		internal void OnMouseMoveEventArgs(MouseMoveEventArgs moveArgs) => MouseManager.Position = new(moveArgs.ClientPosition.X, moveArgs.ClientPosition.Y);
+		internal void OnMouseButtonDownEventArgs(MouseButtonDownEventArgs downArgs) => MouseManager.SetButton(downArgs.Button, true);
+		internal void OnMouseButtonUpEventArgs(MouseButtonUpEventArgs upArgs) => MouseManager.SetButton(upArgs.Button, false);
+		internal void OnScrollEventArgs(ScrollEventArgs scrollArgs) => MouseManager.ScrollDelta = scrollArgs.Delta.Y;
 
 		public delegate void AttemptCloseWindow(ref bool shouldCloseWindow);
 

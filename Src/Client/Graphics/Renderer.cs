@@ -9,6 +9,7 @@ namespace Engine3.Client.Graphics {
 
 		public bool CanRender { get; set; } = true;
 		public bool ShouldDestroy { get; protected set; }
+		public abstract bool IsHidden { get; }
 
 		public bool WasDestroyed { get; private set; }
 
@@ -46,6 +47,8 @@ namespace Engine3.Client.Graphics {
 		protected TBackend GraphicsBackend { get; }
 		protected TWindow Window { get; }
 		protected TImGui? ImGuiBackend { get; init; }
+
+		public override bool IsHidden => Window.IsHidden;
 
 		protected Renderer(TBackend graphicsBackend, TWindow window) {
 			GraphicsBackend = graphicsBackend;

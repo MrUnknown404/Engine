@@ -43,7 +43,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			for (int i = 0; i < MaxFramesInFlight; i++) { Frames[i] = new(logicalDevice, graphicsCommandBuffers[i], imageAvailableSemaphores[i], inFlightFences[i]); }
 		}
 
-		protected internal override void Setup() => ImGuiBackend?.Setup(TransferCommandPool, SwapChain.ImageFormat);
+		protected internal override void Setup() => ImGuiBackend?.Setup(GraphicsBackend, TransferCommandPool, SwapChain.ImageFormat);
 
 		/// <summary>
 		/// Wait for the previous frame to finish

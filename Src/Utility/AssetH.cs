@@ -36,8 +36,8 @@ namespace Engine3.Utility {
 		}
 
 		[MustUseReturnValue]
-		public static RenderMesh LoadMesh(string fileLocation, [RequireStaticDelegate] GLTFMeshesToMeshDelegate gltfMeshesToMesh, Assembly assembly) {
-			string fullFileName = $"{fileLocation}.glb"; // TODO glTF
+		public static RenderMesh LoadMesh(string fileLocation, [RequireStaticDelegate] GLTFMeshesToMeshDelegate gltfMeshesToMesh, Assembly assembly, GLTFFileType fileType = GLTFFileType.GLB) {
+			string fullFileName = $"{fileLocation}.{fileType.ToString().ToLower()}";
 			using Stream? modelStream = GetAssetStream($"Models.{fullFileName}", assembly);
 
 			if (modelStream == null) { throw new Engine3Exception($"Failed to create asset stream at: Models.{fullFileName}"); }
@@ -47,8 +47,8 @@ namespace Engine3.Utility {
 		}
 
 		[MustUseReturnValue]
-		public static Model LoadModel(string fileLocation, [RequireStaticDelegate] GLTFMeshToMeshDelegate gltfMeshToMesh, Assembly assembly, byte vertexStride) {
-			string fullFileName = $"{fileLocation}.glb"; // TODO glTF
+		public static Model LoadModel(string fileLocation, [RequireStaticDelegate] GLTFMeshToMeshDelegate gltfMeshToMesh, Assembly assembly, byte vertexStride, GLTFFileType fileType = GLTFFileType.GLB) {
+			string fullFileName = $"{fileLocation}.{fileType.ToString().ToLower()}";
 			using Stream? modelStream = GetAssetStream($"Models.{fullFileName}", assembly);
 
 			if (modelStream == null) { throw new Engine3Exception($"Failed to create asset stream at: Models.{fullFileName}"); }
@@ -61,5 +61,10 @@ namespace Engine3.Utility {
 
 		public delegate RenderMesh GLTFMeshesToMeshDelegate(IReadOnlyList<Mesh> gltfMesh);
 		public delegate RenderMesh GLTFMeshToMeshDelegate(IMeshPrimitiveDecoder<Material> gltfMesh);
+
+		public enum GLTFFileType {
+			GLTF,
+			GLB,
+		}
 	}
 }

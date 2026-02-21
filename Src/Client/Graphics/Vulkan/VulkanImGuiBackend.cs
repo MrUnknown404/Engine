@@ -26,7 +26,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			this.maxFramesInFlight = maxFramesInFlight;
 		}
 
-		public void Setup(TransferCommandPool transferCommandPool, VkFormat swapFormatImageFormat) {
+		public void Setup(VulkanGraphicsBackend backend, TransferCommandPool transferCommandPool, VkFormat swapFormatImageFormat) {
 			ImGuiFragmentShaderConstants shaderConstants = ImGuiShaderConstants;
 			VkSpecializationMapEntry specializationMapEntry = new() { constantID = 0, offset = 0, size = sizeof(uint), };
 			VkSpecializationInfo specializationInfo = new() { dataSize = (nuint)sizeof(ImGuiFragmentShaderConstants), mapEntryCount = 1, pMapEntries = &specializationMapEntry, pData = &shaderConstants, };
@@ -51,7 +51,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 				new($"{ImGuiAssetName} Graphics Pipeline", swapFormatImageFormat, [ vertexShader, fragmentShader, ], vertexAttributeDescriptions, vertexBindingDescriptions) {
 						DescriptorSetLayouts = [ descriptorSetLayout.VkDescriptorSetLayout, ],
 						PushConstantRanges = [ new() { stageFlags = VkShaderStageFlagBits.ShaderStageVertexBit, offset = 0, size = (uint)sizeof(ImGuiPushConstants), }, ],
-						EnableDepthTest = false,
+						FrontFace = VkFrontFace.FrontFaceClockwise, // ??
 						CullMode = VkCullModeFlagBits.CullModeNone, // TODO getting weird artifacts without this set. figure out why and what i should be using
 						SrcAlphaBlendFactor = VkBlendFactor.BlendFactorOneMinusSrcAlpha,
 				});
@@ -75,10 +75,11 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 			io.Fonts.ClearTexData(); // do i need to call this?
 
-			textureSampler = GraphicsResourceProvider.CreateSampler(new(VkFilter.FilterLinear, VkFilter.FilterLinear, physicalGpu.PhysicalDeviceProperties2.properties.limits) {
-					AddressMode = new(VkSamplerAddressMode.SamplerAddressModeClampToEdge, VkSamplerAddressMode.SamplerAddressModeClampToEdge, VkSamplerAddressMode.SamplerAddressModeClampToEdge),
-					BorderColor = VkBorderColor.BorderColorFloatOpaqueWhite,
-			});
+			textureSampler = GraphicsResourceProvider.CreateSampler(backend,
+				new(VkFilter.FilterLinear, VkFilter.FilterLinear, physicalGpu.PhysicalDeviceProperties2.properties.limits) {
+						AddressMode = new(VkSamplerAddressMode.SamplerAddressModeClampToEdge, VkSamplerAddressMode.SamplerAddressModeClampToEdge, VkSamplerAddressMode.SamplerAddressModeClampToEdge),
+						BorderColor = VkBorderColor.BorderColorFloatOpaqueWhite,
+				});
 
 			descriptorSet.UpdateDescriptorSet(0, fontImage.ImageView, textureSampler.Sampler);
 		}

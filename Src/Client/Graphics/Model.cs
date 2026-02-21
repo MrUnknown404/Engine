@@ -8,7 +8,7 @@ namespace Engine3.Client.Graphics {
 			RenderDataList = MakeRenderData(meshes, vertexStride);
 		}
 
-		public void Collect(out byte[] vertices, out uint[] indices) { // TODO cache
+		public void Collect(out byte[] vertices, out uint[] indices) { // TODO cache?
 			List<byte> vertexList = new();
 			List<uint> indexList = new();
 

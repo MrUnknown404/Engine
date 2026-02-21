@@ -72,12 +72,12 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			VkPipelineRenderingCreateInfo renderingCreateInfo = new() { colorAttachmentCount = 1, pColorAttachmentFormats = &swapChainImageFormat, depthAttachmentFormat = physicalGpu.FindDepthFormat(), };
 
 			VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = new() {
-					depthClampEnable = (int)Vk.False,
-					rasterizerDiscardEnable = (int)Vk.False,
+					rasterizerDiscardEnable = (int)(settings.EnableRasterizerDiscard ? Vk.True : Vk.False),
 					polygonMode = settings.PolygonMode,
-					lineWidth = 1,
 					cullMode = settings.CullMode,
 					frontFace = settings.FrontFace,
+					lineWidth = settings.LineWidth,
+					depthClampEnable = (int)(settings.EnableDepthClamp ? Vk.True : Vk.False),
 					depthBiasEnable = (int)(settings.EnableDepthBias ? Vk.True : Vk.False),
 					depthBiasConstantFactor = settings.DepthBiasConstantFactor,
 					depthBiasClamp = settings.DepthBiasClamp,
@@ -85,23 +85,23 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			};
 
 			VkPipelineMultisampleStateCreateInfo multisampleStateCreateInfo = new() {
-					sampleShadingEnable = (int)Vk.False,
-					rasterizationSamples = VkSampleCountFlagBits.SampleCount1Bit,
-					minSampleShading = 1,
+					sampleShadingEnable = (int)(settings.EnableSampleShading ? Vk.True : Vk.False),
+					rasterizationSamples = settings.RasterizationSamples,
+					minSampleShading = settings.MinSampleShading,
 					pSampleMask = null,
-					alphaToCoverageEnable = (int)Vk.False,
-					alphaToOneEnable = (int)Vk.False,
+					alphaToCoverageEnable = (int)(settings.EnableAlphaToCoverage ? Vk.True : Vk.False),
+					alphaToOneEnable = (int)(settings.EnableAlphaToOne ? Vk.True : Vk.False),
 			};
 
 			VkPipelineColorBlendAttachmentState colorBlendAttachmentState = new() {
-					colorWriteMask = VkColorComponentFlagBits.ColorComponentRBit | VkColorComponentFlagBits.ColorComponentGBit | VkColorComponentFlagBits.ColorComponentBBit | VkColorComponentFlagBits.ColorComponentABit,
 					blendEnable = (int)(settings.EnableBlend ? Vk.True : Vk.False),
+					colorWriteMask = settings.ColorComponentFlags,
+					colorBlendOp = settings.ColorBlendOp,
 					srcColorBlendFactor = settings.SrcColorBlendFactor,
 					dstColorBlendFactor = settings.DstColorBlendFactor,
-					colorBlendOp = settings.ColorBlendOp,
+					alphaBlendOp = settings.AlphaBlendOp,
 					srcAlphaBlendFactor = settings.SrcAlphaBlendFactor,
 					dstAlphaBlendFactor = settings.DstAlphaBlendFactor,
-					alphaBlendOp = settings.AlphaBlendOp,
 			};
 
 			VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = new() { logicOpEnable = (int)Vk.False, logicOp = VkLogicOp.LogicOpCopy, attachmentCount = 1, pAttachments = &colorBlendAttachmentState, };
@@ -114,10 +114,12 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 					depthTestEnable = (int)(settings.EnableDepthTest ? Vk.True : Vk.False),
 					depthWriteEnable = (int)(settings.EnableDepthWrite ? Vk.True : Vk.False),
 					depthCompareOp = settings.DepthCompareOp,
-					depthBoundsTestEnable = (int)Vk.False,
+					depthBoundsTestEnable = (int)(settings.EnableDepthBoundsTest ? Vk.True : Vk.False),
 					minDepthBounds = settings.MinDepthBounds,
 					maxDepthBounds = settings.MaxDepthBounds,
-					stencilTestEnable = (int)Vk.False,
+					stencilTestEnable = (int)(settings.EnableStencilTest ? Vk.True : Vk.False),
+					front = settings.StencilFront,
+					back = settings.StencilBack,
 			};
 
 			fixed (VkDynamicState* dynamicStatesPtr = settings.DynamicStates) {
@@ -162,6 +164,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			Vk.DestroyPipeline(logicalDevice, Pipeline, null);
 		}
 
+		[PublicAPI]
 		public class Settings {
 			public string DebugName { get; }
 			public VkFormat SwapChainImageFormat { get; }
@@ -169,29 +172,56 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			public VkVertexInputAttributeDescription[] VertexAttributeDescriptions { get; }
 			public VkVertexInputBindingDescription[] VertexBindingDescriptions { get; }
 
-			// TODO sort these
+			// Pipeline Input
 			public VkPrimitiveTopology Topology { get; init; } = VkPrimitiveTopology.PrimitiveTopologyTriangleList;
+
+			// Rasterization
+			public bool EnableRasterizerDiscard { get; init; }
 			public VkPolygonMode PolygonMode { get; init; } = VkPolygonMode.PolygonModeFill;
 			public VkCullModeFlagBits CullMode { get; init; } = VkCullModeFlagBits.CullModeBackBit;
-			public VkFrontFace FrontFace { get; init; } = VkFrontFace.FrontFaceClockwise; // TODO whats the 'default'?
-			public bool EnableBlend { get; init; } = true;
-			public VkBlendFactor SrcColorBlendFactor { get; init; } = VkBlendFactor.BlendFactorSrcAlpha;
-			public VkBlendFactor DstColorBlendFactor { get; init; } = VkBlendFactor.BlendFactorOneMinusSrcAlpha;
-			public VkBlendOp ColorBlendOp { get; init; } = VkBlendOp.BlendOpAdd;
-			public VkBlendFactor SrcAlphaBlendFactor { get; init; } = VkBlendFactor.BlendFactorOne;
-			public VkBlendFactor DstAlphaBlendFactor { get; init; } = VkBlendFactor.BlendFactorZero;
-			public VkBlendOp AlphaBlendOp { get; init; } = VkBlendOp.BlendOpAdd;
-			public VkDynamicState[] DynamicStates { get; init; } = [ VkDynamicState.DynamicStateViewport, VkDynamicState.DynamicStateScissor, ];
-			public bool EnableDepthTest { get; init; } = true;
-			public bool EnableDepthWrite { get; init; } = true;
-			public VkCompareOp DepthCompareOp { get; init; } = VkCompareOp.CompareOpLess;
-			public float MinDepthBounds { get; init; } = 0;
-			public float MaxDepthBounds { get; init; } = 1;
+			public VkFrontFace FrontFace { get; init; } = VkFrontFace.FrontFaceCounterClockwise;
+			public float LineWidth { get; init; } = 1;
+			public bool EnableDepthClamp { get; init; }
 			public bool EnableDepthBias { get; init; }
 			public float DepthBiasConstantFactor { get; init; }
 			public float DepthBiasClamp { get; init; }
 			public float DepthBiasSlopeFactor { get; init; }
 
+			// Multisampling
+			public bool EnableSampleShading { get; init; }
+			public VkSampleCountFlagBits RasterizationSamples { get; init; } = VkSampleCountFlagBits.SampleCount1Bit;
+			public float MinSampleShading { get; init; } = 1;
+			public bool EnableAlphaToCoverage { get; init; }
+			public bool EnableAlphaToOne { get; init; }
+
+			// Color Blend
+			public bool EnableBlend { get; init; } = true;
+			public VkColorComponentFlagBits ColorComponentFlags { get; init; } = VkColorComponentFlagBits.ColorComponentRBit |
+																				 VkColorComponentFlagBits.ColorComponentGBit |
+																				 VkColorComponentFlagBits.ColorComponentBBit |
+																				 VkColorComponentFlagBits.ColorComponentABit;
+			public VkBlendOp ColorBlendOp { get; init; } = VkBlendOp.BlendOpAdd;
+			public VkBlendFactor SrcColorBlendFactor { get; init; } = VkBlendFactor.BlendFactorSrcAlpha;
+			public VkBlendFactor DstColorBlendFactor { get; init; } = VkBlendFactor.BlendFactorOneMinusSrcAlpha;
+			public VkBlendOp AlphaBlendOp { get; init; } = VkBlendOp.BlendOpAdd;
+			public VkBlendFactor SrcAlphaBlendFactor { get; init; } = VkBlendFactor.BlendFactorOne;
+			public VkBlendFactor DstAlphaBlendFactor { get; init; } = VkBlendFactor.BlendFactorZero;
+
+			// Depth Stencil
+			public bool EnableDepthTest { get; init; }
+			public bool EnableDepthWrite { get; init; }
+			public VkCompareOp DepthCompareOp { get; init; } = VkCompareOp.CompareOpLess;
+			public bool EnableDepthBoundsTest { get; init; }
+			public float MinDepthBounds { get; init; } = 0;
+			public float MaxDepthBounds { get; init; } = 1;
+			public bool EnableStencilTest { get; init; }
+			public VkStencilOpState StencilFront { get; init; }
+			public VkStencilOpState StencilBack { get; init; }
+
+			// Dynamic State
+			public VkDynamicState[] DynamicStates { get; init; } = [ VkDynamicState.DynamicStateViewport, VkDynamicState.DynamicStateScissor, ];
+
+			// Resources
 			public VkDescriptorSetLayout[]? DescriptorSetLayouts { get; init; }
 			public VkPushConstantRange[]? PushConstantRanges { get; init; }
 

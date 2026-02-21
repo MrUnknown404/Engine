@@ -53,7 +53,7 @@ namespace Engine3.Client.Graphics.ImGui.Makers {
 					break;
 				case Camera.CameraTypes.Perspective:
 					float aspectRatio = obj.PerspectiveAspectRatio;
-					if (ImGuiNet.DragFloat("Aspect Ratio", ref aspectRatio, 0.05f, 0.001f, 100, null, ImGuiSliderFlags.Logarithmic)) { obj.PerspectiveAspectRatio = aspectRatio; } // TODO i don't know what realistic values are
+					if (ImGuiNet.DragFloat("Aspect Ratio", ref aspectRatio, 0.05f, 0.001f, 100, null, ImGuiSliderFlags.Logarithmic)) { obj.PerspectiveAspectRatio = aspectRatio; }
 
 					float fov = obj.PerspectiveFovDegrees;
 					if (ImGuiNet.DragFloat("Field Of View", ref fov, 0.05f, 1, 179, "%.3f\u00B0", ImGuiSliderFlags.Logarithmic)) { obj.PerspectiveFovDegrees = fov; }

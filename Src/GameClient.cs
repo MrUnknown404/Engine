@@ -218,7 +218,7 @@ namespace Engine3 {
 				float delta = 1 - (float)(updateTicksToWait - updateAccumulator) / updateTicksToWait;
 
 				PerformanceMonitor.StartTimingFrame();
-				foreach (Renderer renderer in renderers.Where(static pipeline => pipeline.CanRender)) { renderer.Render(delta); } // TODO check if window is minimized
+				foreach (Renderer renderer in renderers.Where(static renderer => renderer is { CanRender: true, IsHidden: false, })) { renderer.Render(delta); }
 				PerformanceMonitor.StopTimingFrame();
 
 				FrameIndex++;
@@ -281,94 +281,38 @@ namespace Engine3 {
 
 			return;
 
-			// TODO hate that i have to do this. let me have events per window. see if i can find a way to do that
 			void OnEventQueueOnEventRaised(PalHandle? palHandle, PlatformEventType platformEventType, EventArgs args) {
-				switch (args) {
-					case CloseEventArgs closeArgs: {
-						if (!FindWindow(closeArgs.Window, out Window? window)) {
-							Logger.Warn("Attempted to close an unknown window");
-							break;
-						}
-
-						window.TryCloseWindow();
-						break;
+				if (args is WindowEventArgs windowArgs) {
+					if (!FindWindow(windowArgs.Window, out Window? window)) {
+						Logger.Warn("EventQueue received on an unknown window");
+						return;
 					}
-					case WindowResizeEventArgs resizeArgs: {
-						if (!FindWindow(resizeArgs.Window, out Window? window)) {
-							Logger.Warn("Attempted to resize an unknown window");
-							break;
-						}
 
-						window.WasResized = true;
-						window.InvokeOnResize((uint)resizeArgs.NewClientSize.X, (uint)resizeArgs.NewClientSize.Y);
-						break;
+					switch (args) {
+						case CloseEventArgs: window.OnCloseEventArgs(); break;
+						case WindowResizeEventArgs resizeArgs: window.OnResizeEventArgs(resizeArgs); break;
+						case WindowModeChangeEventArgs modeArgs: window.OnModeChangeEventArgs(modeArgs); break;
+						case KeyDownEventArgs downArgs: window.OnKeyDownEventArgs(downArgs); break;
+						case KeyUpEventArgs upArgs: window.OnKeyUpEventArgs(upArgs); break;
+						case MouseMoveEventArgs moveArgs: window.OnMouseMoveEventArgs(moveArgs); break;
+						case MouseButtonDownEventArgs downArgs: window.OnMouseButtonDownEventArgs(downArgs); break;
+						case MouseButtonUpEventArgs upArgs: window.OnMouseButtonUpEventArgs(upArgs); break;
+						case ScrollEventArgs scrollArgs: window.OnScrollEventArgs(scrollArgs); break;
 					}
-					case KeyDownEventArgs downArgs: {
-						if (!FindWindow(downArgs.Window, out Window? window)) {
-							Logger.Warn("Attempted to provide input to an unknown window");
-							break;
-						}
-
-						window.KeyManager.SetKey(downArgs.Key, true);
-						break;
-					}
-					case KeyUpEventArgs upArgs: {
-						if (!FindWindow(upArgs.Window, out Window? window)) {
-							Logger.Warn("Attempted to provide input to an unknown window");
-							break;
-						}
-
-						window.KeyManager.SetKey(upArgs.Key, false);
-						break;
-					}
-					case MouseMoveEventArgs moveArgs: {
-						if (!FindWindow(moveArgs.Window, out Window? window)) {
-							Logger.Warn("Attempted to provide input to an unknown window");
-							break;
-						}
-
-						window.MouseManager.Position = new(moveArgs.ClientPosition.X, moveArgs.ClientPosition.Y);
-						break;
-					}
-					case MouseButtonDownEventArgs downArgs: {
-						if (!FindWindow(downArgs.Window, out Window? window)) {
-							Logger.Warn("Attempted to provide input to an unknown window");
-							break;
-						}
-
-						window.MouseManager.SetButton(downArgs.Button, true);
-						break;
-					}
-					case MouseButtonUpEventArgs upArgs: {
-						if (!FindWindow(upArgs.Window, out Window? window)) {
-							Logger.Warn("Attempted to provide input to an unknown window");
-							break;
-						}
-
-						window.MouseManager.SetButton(upArgs.Button, false);
-						break;
-					}
-					case ScrollEventArgs scrollArgs: {
-						if (!FindWindow(scrollArgs.Window, out Window? window)) {
-							Logger.Warn("Attempted to provide input to an unknown window");
-							break;
-						}
-
-						window.MouseManager.ScrollDelta = scrollArgs.Delta.Y;
-						break;
-					}
+				} else {
+					// ignored atm
 				}
 			}
 
 			bool FindWindow(WindowHandle windowHandle, [NotNullWhen(true)] out Window? window) => (window = windows.Find(w => w.WindowHandle == windowHandle)) != null;
 		}
 
-		public void AddWindow<T>(T window) where T : Window {
+		protected void AddWindow<T>(T window) where T : Window {
 			Logger.Trace("Window added");
 			windows.Add(window);
 		}
 
-		public void AddRenderer<T>(T renderer) where T : Renderer {
+		protected void AddRenderer<T>(T renderer) where T : Renderer {
 			Logger.Trace("Renderer added");
 			renderers.Add(renderer);
 			setupRendererQueue.Enqueue(renderer);

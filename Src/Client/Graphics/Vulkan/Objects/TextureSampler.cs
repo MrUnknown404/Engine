@@ -10,7 +10,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		private readonly VkDevice logicalDevice;
 
-		internal TextureSampler(VkDevice logicalDevice, Settings settings) {
+		internal TextureSampler(VkDevice logicalDevice, VulkanGraphicsBackend backend, Settings settings) {
 			this.logicalDevice = logicalDevice;
 
 			VkSamplerCreateInfo samplerCreateInfo = new() {
@@ -19,10 +19,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 					addressModeU = settings.AddressMode.U,
 					addressModeV = settings.AddressMode.V,
 					addressModeW = settings.AddressMode.W,
-					anisotropyEnable =
-							(int)(settings.AnisotropyEnable && (Engine3.GameInstance.GraphicsBackend as VulkanGraphicsBackend ?? throw new Engine3Exception("Wrong graphics api is in use")).AllowEnableAnisotropy ?
-									Vk.True :
-									Vk.False),
+					anisotropyEnable = (int)(settings.EnableAnisotropy && backend.AllowEnableAnisotropy ? Vk.True : Vk.False),
 					maxAnisotropy = settings.MaxAnisotropy,
 					borderColor = settings.BorderColor,
 					unnormalizedCoordinates = (int)(settings.NormalizedCoordinates ? Vk.False : Vk.True),
@@ -52,7 +49,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			public AddressMode AddressMode { get; init; }
 			public VkBorderColor BorderColor { get; init; } = VkBorderColor.BorderColorIntOpaqueBlack;
 			public bool NormalizedCoordinates { get; init; } = true;
-			public bool AnisotropyEnable { get; init; } = true;
+			public bool EnableAnisotropy { get; init; } = true;
 
 			public VkSamplerMipmapMode MipmapMode { get; private set; } = VkSamplerMipmapMode.SamplerMipmapModeLinear;
 			public float MipLodBias { get; private set; }
