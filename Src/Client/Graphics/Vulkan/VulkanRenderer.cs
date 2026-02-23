@@ -9,10 +9,10 @@ namespace Engine3.Client.Graphics.Vulkan {
 	public abstract unsafe class VulkanRenderer : Renderer<VulkanWindow, VulkanGraphicsBackend, VulkanImGuiBackend> {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-		protected SwapChain SwapChain { get; }
+		public SwapChain SwapChain { get; }
 
-		protected GraphicsCommandPool GraphicsCommandPool { get; }
-		protected TransferCommandPool TransferCommandPool { get; }
+		public GraphicsCommandPool GraphicsCommandPool { get; }
+		public TransferCommandPool TransferCommandPool { get; }
 
 		protected FrameData[] Frames { get; }
 		protected VkSemaphore[] RenderFinishedSemaphores { get; }
@@ -21,9 +21,9 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		protected byte FrameIndex { get; private set; }
 
-		protected SurfaceCapablePhysicalGpu PhysicalGpu => Window.SelectedGpu;
-		protected LogicalGpu LogicalGpu => Window.LogicalGpu;
-		protected byte MaxFramesInFlight => GraphicsBackend.MaxFramesInFlight;
+		public SurfaceCapablePhysicalGpu PhysicalGpu => Window.SelectedGpu;
+		public LogicalGpu LogicalGpu => Window.LogicalGpu;
+		public byte MaxFramesInFlight => GraphicsBackend.MaxFramesInFlight;
 
 		protected VulkanRenderer(VulkanGraphicsBackend graphicsBackend, VulkanWindow window) : base(graphicsBackend, window) {
 			SwapChain = new(window, window.SelectedGpu.PhysicalDevice, window.LogicalGpu.LogicalDevice, window.SelectedGpu.QueueFamilyIndices, window.Surface, graphicsBackend.PresentMode);

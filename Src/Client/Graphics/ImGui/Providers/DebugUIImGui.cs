@@ -66,28 +66,6 @@ namespace Engine3.Client.Graphics.ImGui.Providers {
 
 			return;
 
-			void ShowInput() {
-				ImGuiH.IndentedCollapsingHeader("Mouse", IndentAmount, ShowMouse);
-				ImGuiH.IndentedCollapsingHeader("Keyboard", IndentAmount, ShowKeyboard);
-			}
-
-			void ShowMouse() {
-				Vector2 position = mouseManager.Position;
-				ImGuiNet.InputFloat2("Position", ref position, "%.1f");
-				ImGuiH.HelpMarker("X/Y");
-
-				ImGuiNet.Text($"Scroll Delta: {mouseManager.ScrollDelta:F1}");
-
-				foreach (MouseButton button in Enum.GetValues<MouseButton>()) {
-					bool b = mouseManager.IsButton(button);
-					ImGuiNet.Checkbox($"{button}", ref b);
-				}
-			}
-
-			void ShowKeyboard() {
-				ImGuiNet.Text("Not implemented"); // TODO show keyboard. active first then all?
-			}
-
 			void ShowPerformance() {
 				if (!popoutUpdates && showAnyUpdates) {
 					ImGuiNet.SeparatorText("Update Info");
@@ -116,7 +94,7 @@ namespace Engine3.Client.Graphics.ImGui.Providers {
 				if (showUpdateTimeGraph) {
 					if (performanceMonitor.StoreTimesForGraph) {
 						float[] times = performanceMonitor.LastUpdateTimes;
-						if (times.Length != 0) { ImGuiNet.PlotLines("Frame Time Graph", ref times[0], times.Length); }
+						if (times.Length != 0) { ImGuiNet.PlotLines("Update Time Graph", ref times[0], times.Length); }
 					} else { ImGuiNet.Text($"{nameof(performanceMonitor.StoreTimesForGraph)} is false"); }
 				}
 
@@ -137,7 +115,7 @@ namespace Engine3.Client.Graphics.ImGui.Providers {
 				if (showFrameTimeGraph) {
 					if (performanceMonitor.StoreTimesForGraph) {
 						float[] times = performanceMonitor.LastFrameTimes;
-						if (times.Length != 0) { ImGuiNet.PlotLines("Update Time Graph", ref times[0], times.Length); }
+						if (times.Length != 0) { ImGuiNet.PlotLines("Frame Time Graph", ref times[0], times.Length); }
 					} else { ImGuiNet.Text($"{nameof(performanceMonitor.StoreTimesForGraph)} is false"); }
 				}
 
@@ -178,6 +156,28 @@ namespace Engine3.Client.Graphics.ImGui.Providers {
 				ImGuiNet.Checkbox("Show Backend Settings", ref showBackendSettings);
 				ImGuiNet.Checkbox("Popout Updates", ref popoutUpdates);
 				ImGuiNet.Checkbox("Popout Frames", ref popoutFrames);
+			}
+
+			void ShowInput() {
+				ImGuiH.IndentedCollapsingHeader("Mouse", IndentAmount, ShowMouse);
+				ImGuiH.IndentedCollapsingHeader("Keyboard", IndentAmount, ShowKeyboard);
+			}
+
+			void ShowMouse() {
+				Vector2 position = mouseManager.Position;
+				ImGuiNet.InputFloat2("Position", ref position, "%.1f");
+				ImGuiH.HelpMarker("X/Y");
+
+				ImGuiNet.Text($"Scroll Delta: {mouseManager.ScrollDelta:F1}");
+
+				foreach (MouseButton button in Enum.GetValues<MouseButton>()) {
+					bool b = mouseManager.IsButton(button);
+					ImGuiNet.Checkbox($"{button}", ref b);
+				}
+			}
+
+			void ShowKeyboard() {
+				ImGuiNet.Text("Not implemented"); // TODO show keyboard. active first then all?
 			}
 		}
 

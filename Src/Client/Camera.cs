@@ -76,6 +76,8 @@ namespace Engine3.Client {
 							_ => throw new ArgumentOutOfRangeException(),
 					};
 
+					if (FlipY) { field = field with { M22 = -field.M22, }; }
+
 					isProjectionDirty = false;
 				}
 
@@ -147,6 +149,8 @@ namespace Engine3.Client {
 				isProjectionDirty = true;
 			}
 		}
+
+		public bool FlipY { get; init; } = true;
 
 		private bool isProjectionDirty = true;
 		private bool isViewDirty = true;
