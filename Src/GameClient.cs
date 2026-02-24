@@ -13,7 +13,6 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 using Silk.NET.Core.Loader;
 using Silk.NET.Shaderc;
 using StbiSharp;
-using MouseMoveEventArgs = OpenTK.Platform.MouseMoveEventArgs;
 using Window = Engine3.Client.Window;
 
 #if DEBUG
@@ -90,6 +89,20 @@ namespace Engine3 {
 
 			if (GraphicsBackend is { GraphicsBackend: not Client.Graphics.GraphicsBackend.Console, GraphicsApiHints: null, }) { throw new Engine3Exception($"GraphicsApiHints cannot be null with GraphicsApi: {GraphicsBackend}"); }
 
+			SetupEngine(settings);
+
+			SetupDone();
+
+			GameLoop();
+			Logger.Info("GameLoop exited");
+
+			Shutdown();
+		}
+
+		protected abstract void Update();
+		protected abstract void Cleanup();
+
+		private void SetupEngine(StartupSettings settings) {
 			Logger.Info("Setting up engine...");
 			Logger.Debug($"- Engine Version: {Engine3.Version}");
 			Logger.Debug($"- Game Version: {Version}");
@@ -101,27 +114,6 @@ namespace Engine3 {
 			Shaderc.GetSpvVersion(ref spvVersion, ref spvRevision);
 			Logger.Debug($"- SpirV Version: {(spvVersion & 16711680) >> 16}.{(spvVersion & 65280) >> 8} - {spvRevision}");
 
-			SetupEngine(settings);
-
-			wasSetup = true;
-
-			Logger.Debug("Setup finished. Invoking events then entering loop");
-			OnSetupFinishedEvent?.Invoke();
-
-			GameLoop();
-
-			Logger.Info("GameLoop exited");
-			OnShutdownEvent?.Invoke();
-
-			Logger.Debug("Cleaning up everything...");
-			CleanupEverything();
-			Environment.Exit(0);
-		}
-
-		protected abstract void Update();
-		protected abstract void Cleanup();
-
-		private void SetupEngine(StartupSettings settings) {
 			settings.Print();
 
 #if DEBUG
@@ -132,22 +124,32 @@ namespace Engine3 {
 			Stbi.SetFlipVerticallyOnLoad(settings.StbiFlipOnLoad);
 
 			Logger.Info("Setting up Toolkit...");
-			SetupToolkit(new() {
-					ApplicationName = Name,
-					Logger = new TkLogger(),
-					FeatureFlags = GraphicsBackend.GraphicsBackend switch {
-							Client.Graphics.GraphicsBackend.OpenGL => ToolkitFlags.EnableOpenGL,
-							Client.Graphics.GraphicsBackend.Vulkan => ToolkitFlags.EnableVulkan,
-							Client.Graphics.GraphicsBackend.Console => ToolkitFlags.None,
-							_ => throw new ArgumentOutOfRangeException(),
-					},
-			}, GraphicsBackend.GraphicsBackend == Client.Graphics.GraphicsBackend.Console);
 
-			OnSetupToolkitEvent?.Invoke();
+			if (GraphicsBackend.GraphicsBackend != Client.Graphics.GraphicsBackend.Console) {
+				SetupToolkit(new() {
+						ApplicationName = Name,
+						Logger = new TkLogger(),
+						FeatureFlags = GraphicsBackend.GraphicsBackend switch {
+								Client.Graphics.GraphicsBackend.OpenGL => ToolkitFlags.EnableOpenGL,
+								Client.Graphics.GraphicsBackend.Vulkan => ToolkitFlags.EnableVulkan,
+								Client.Graphics.GraphicsBackend.Console => ToolkitFlags.None,
+								_ => throw new ArgumentOutOfRangeException(),
+						},
+				});
+
+				OnSetupToolkitEvent?.Invoke();
+			}
 
 			Logger.Debug($"Setting up {Enum.GetName(GraphicsBackend.GraphicsBackend)}...");
 			GraphicsBackend.Setup(this);
 			WasGraphicsSetup = true;
+		}
+
+		private void SetupDone() {
+			wasSetup = true;
+
+			Logger.Debug("Setup finished. Invoking events then entering loop");
+			OnSetupFinishedEvent?.Invoke();
 		}
 
 		private void EngineUpdate() { }
@@ -162,24 +164,30 @@ namespace Engine3 {
 			long updateAccumulator = 0;
 			long lastFrameTime = 0;
 
+			Logger.Debug("Entering loop...");
+
 			while (shouldRunGameLoop) {
 				if (GraphicsBackend.GraphicsBackend != Client.Graphics.GraphicsBackend.Console) { Toolkit.Window.ProcessEvents(false); }
 				if (requestShutdown) { shouldRunGameLoop = false; } // TODO check more?
 
 				if (!shouldRunGameLoop) { break; } // Early exit
 
+				// update
 				long time = PerformanceMonitor.GetTimeDifference(ref currentTime);
 				Update(time);
 
 				// console end. VK/GL graphics below // TODO impl console rendering
 				if (GraphicsBackend.GraphicsBackend == Client.Graphics.GraphicsBackend.Console) { continue; }
 
+				// try clean
 				TrySetupRenderers();
 				TryCloseWindows();
 				TryDestroyRenderers();
 
+				// render
 				Render(time);
 
+				// reset
 				ImGuiH.ResetWidgetOffset();
 			}
 
@@ -274,8 +282,8 @@ namespace Engine3 {
 			}
 		}
 
-		private void SetupToolkit(ToolkitOptions toolkitOptions, bool isConsole) {
-			if (!isConsole) { EventQueue.EventRaised += OnEventQueueOnEventRaised; }
+		private void SetupToolkit(ToolkitOptions toolkitOptions) {
+			EventQueue.EventRaised += OnEventQueueOnEventRaised;
 
 			Toolkit.Init(toolkitOptions);
 
@@ -318,9 +326,22 @@ namespace Engine3 {
 			setupRendererQueue.Enqueue(renderer);
 		}
 
-		public void Shutdown() {
-			Logger.Debug("Shutdown called");
+		public void RequestShutdown() {
+			Logger.Debug("Requested shutdown");
 			requestShutdown = true;
+		}
+
+		private void Shutdown() {
+			Logger.Debug("Shutdown started");
+			OnShutdownEvent?.Invoke();
+
+			Logger.Debug("Cleaning up everything...");
+			CleanupEverything();
+
+			Logger.Info("Shutting down logger. Goodbye!");
+			LogManager.Shutdown();
+
+			Environment.Exit(0);
 		}
 
 		private void CleanupEverything() {
@@ -342,8 +363,7 @@ namespace Engine3 {
 			Logger.Debug("Cleaning up graphics...");
 			GraphicsBackend.Cleanup();
 
-			Logger.Info("Goodbye!");
-			LogManager.Shutdown();
+			Logger.Debug("Cleaning up done");
 		}
 
 		private void CleanupEngine() => Shaderc.Dispose();

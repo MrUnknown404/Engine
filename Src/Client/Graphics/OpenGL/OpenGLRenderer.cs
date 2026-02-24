@@ -26,43 +26,33 @@ namespace Engine3.Client.Graphics.OpenGL {
 			GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 			GL.ClearColor(Window.ClearColor);
 
-			Toolkit.OpenGL.SetSwapInterval(GraphicsBackend.SwapInterval);
+			Toolkit.OpenGL.SetSwapInterval(GraphicsBackend.Settings.SwapInterval);
 
 			EmptyVao = new(GL.CreateVertexArray());
 			GL.BindVertexArray(EmptyVao.Value.Handle); // Some hardware requires vao to be bound even if it's not in use
 			Logger.Debug($"EmptyVao has ShaderHandle: {EmptyVao.Value.Handle}");
 		}
 
-		protected internal override void Render(float delta) {
-			Window.MakeContextCurrent();
+		protected override void PrepareRender() => Window.MakeContextCurrent(); // for now this can go here since it's called first
+		protected override void TryCleanupResources() => ResourceProvider.TryCleanupResources();
+		protected override bool TryNextFrame() => true;
 
-			ResourceProvider.TryCleanup(); // TODO don't destroy every frame?
-
-			// clear
+		protected override void BeginFrame() {
 			GL.ClearColor(Window.ClearColor);
 			GL.Clear(ClearBufferMask);
 
-			// resize
 			if (Window.WasResized) {
 				Toolkit.Window.GetFramebufferSize(Window.WindowHandle, out Vector2i frameBufferSize);
 				GL.Viewport(0, 0, frameBufferSize.X, frameBufferSize.Y);
 				Window.WasResized = false;
 			}
 
-			// copy
-			CopyBuffers(delta);
-
-			// draw
-			DrawFrame(); // TODO do i want to store/restore state? // what if i made a gl state object and stored each pipeline's state?
-
-			if (TryImGuiNewFrame(out ImDrawDataPtr? imDrawData)) { ImGuiBackend!.DrawFrame(imDrawData.Value); } // ImGuiBackend shouldn't be null if TryImGuiNewFrame returned true
-
-			// end
-			Toolkit.OpenGL.SwapBuffers(Window.GLContextHandle);
+			// TODO do i want to store/restore state? // what if i made a gl state object and stored each pipeline's state?
 		}
 
-		protected abstract void CopyBuffers(float delta);
-		protected abstract void DrawFrame();
+		protected override void DrawImGuiFrame(ImDrawDataPtr imDrawData) => ImGuiBackend!.DrawFrame(imDrawData); // shouldn't be null if this is called
+
+		protected override void EndFrame() => Toolkit.OpenGL.SwapBuffers(Window.GLContextHandle);
 
 		protected override void PrepareCleanup() => Window.MakeContextCurrent();
 		protected override void Cleanup() => ResourceProvider.CleanupAll();

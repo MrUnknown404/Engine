@@ -55,18 +55,47 @@ namespace Engine3.Client.Graphics {
 			Window = window;
 		}
 
-		public override bool IsSameWindow(Window window) => Window == window;
+		protected internal override void Render(float delta) {
+			PrepareRender();
+			TryCleanupResources(); // TODO don't destroy every frame?
 
-		protected bool TryImGuiNewFrame([NotNullWhen(true)] out ImDrawDataPtr? imDrawData) {
-			if (ImGuiBackend != null && ImGuiBackend.NewFrame(out ImDrawDataPtr drawData)) {
-				ImGuiBackend.UpdateBuffers(drawData);
-				imDrawData = drawData;
-				return true;
+			if (!TryNextFrame()) { return; }
+
+			bool shouldImGui = TryImGuiNewFrame(out ImDrawDataPtr? imDrawData); // backend won't be null if true
+
+			CopyBuffers(delta);
+			if (shouldImGui) { ImGuiBackend!.UpdateBuffers(imDrawData!.Value); } // annotation doesn't work
+
+			BeginFrame();
+
+			DrawFrame();
+			if (shouldImGui) { DrawImGuiFrame(imDrawData!.Value); } // annotation doesn't work
+
+			EndFrame();
+
+			return;
+
+			bool TryImGuiNewFrame([NotNullWhen(true)] out ImDrawDataPtr? imDrawData) {
+				if (ImGuiBackend != null && ImGuiBackend.NewFrame(out ImDrawDataPtr drawData)) {
+					imDrawData = drawData;
+					return true;
+				}
+
+				imDrawData = null;
+				return false;
 			}
-
-			imDrawData = null;
-			return false;
 		}
+
+		protected abstract void PrepareRender();
+		protected abstract void TryCleanupResources();
+		protected abstract bool TryNextFrame();
+		protected abstract void CopyBuffers(float delta);
+		protected abstract void BeginFrame();
+		protected abstract void DrawFrame();
+		protected abstract void DrawImGuiFrame(ImDrawDataPtr imDrawData);
+		protected abstract void EndFrame();
+
+		public override bool IsSameWindow(Window window) => Window == window;
 
 		internal override void CleanupImGui() => ImGuiBackend?.Cleanup();
 	}

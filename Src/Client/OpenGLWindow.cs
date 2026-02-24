@@ -19,7 +19,7 @@ namespace Engine3.Client {
 
 #if DEBUG
 			Logger.Debug("- Debug callbacks enabled");
-			CreateDebugMessageCallback(graphicsBackend.DisabledCallbackIds);
+			CreateDebugMessageCallback(graphicsBackend.Settings.DisabledCallbackIds);
 #endif
 		}
 

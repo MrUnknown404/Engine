@@ -9,36 +9,12 @@ using OpenTK.Core.Native;
 using OpenTK.Graphics;
 using OpenTK.Graphics.Vulkan;
 using OpenTK.Platform;
-using USharpLibs.Common.Utils;
 
 namespace Engine3.Client.Graphics.Vulkan {
 	public unsafe class VulkanGraphicsBackend : EngineGraphicsBackend {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-		public string[] RequiredValidationLayers { get; init; } = Array.Empty<string>();
-		public string[] RequiredInstanceExtensions { get; init; } = Array.Empty<string>();
-		public string[] RequiredDeviceExtensions { get; init; } = Array.Empty<string>();
-
-		public VkDebugUtilsMessageSeverityFlagBitsEXT EnabledDebugMessageSeverities { get; init; } = VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityVerboseBitExt |
-																									 VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityInfoBitExt |
-																									 VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityWarningBitExt |
-																									 VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityErrorBitExt;
-
-		public VkDebugUtilsMessageTypeFlagBitsEXT EnabledDebugMessageTypes { get; init; } = VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeGeneralBitExt |
-																							VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeValidationBitExt |
-																							VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypePerformanceBitExt;
-
-		public VkPresentModeKHR PresentMode { get; init; } = VkPresentModeKHR.PresentModeImmediateKhr;
-
-		public byte MaxFramesInFlight {
-			get;
-			init {
-				if (MaxFramesInFlight == 0) { throw new Engine3VulkanException($"{nameof(MaxFramesInFlight)} cannot be zero"); }
-				field = value;
-			}
-		} = 2;
-
-		public bool AllowEnableAnisotropy { get; init; } = true;
+		public VulkanGraphicsBackendSettings Settings { get; init; } = new();
 
 		public VkInstance? VkInstance { get; private set; }
 		public PhysicalGpu[] PhysicalGpus { get; private set; } = Array.Empty<PhysicalGpu>();
@@ -50,7 +26,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		public VulkanGraphicsBackend(VulkanGraphicsApiHints graphicsApiHints) : base(GraphicsBackend.Vulkan, graphicsApiHints) { }
 
 		protected internal override void Setup(GameClient gameClient) {
-			PrintSettings();
+			Settings.Print();
 
 			Logger.Debug("Loading Vulkan library...");
 			VKLoader.Init();
@@ -76,11 +52,11 @@ namespace Engine3.Client.Graphics.Vulkan {
 			Logger.Info("Created Vulkan instance");
 
 #if DEBUG
-			vkDebugMessenger = CreateDebugMessenger(VkInstance.Value, EnabledDebugMessageSeverities, EnabledDebugMessageTypes);
+			vkDebugMessenger = CreateDebugMessenger(VkInstance.Value, Settings.EnabledDebugMessageSeverities, Settings.EnabledDebugMessageTypes);
 			Logger.Debug("Created Vulkan Debug Messenger");
 #endif
 
-			PhysicalGpus = GetPhysicalGpus(VkInstance.Value, IsPhysicalDeviceSuitable, RequiredDeviceExtensions);
+			PhysicalGpus = GetPhysicalGpus(VkInstance.Value, IsPhysicalDeviceSuitable, Settings.RequiredDeviceExtensions);
 			Logger.Debug("Created Physical Gpus");
 			PrintPhysicalGpus(Engine3.Debug);
 		}
@@ -88,7 +64,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		public string[] GetAllRequiredValidationLayers() {
 			HashSet<string> allRequiredValidationLayers = new();
 			allRequiredValidationLayers.UnionWith(Engine3.RequiredValidationLayers);
-			allRequiredValidationLayers.UnionWith(RequiredValidationLayers);
+			allRequiredValidationLayers.UnionWith(Settings.RequiredValidationLayers);
 			return allRequiredValidationLayers.ToArray();
 		}
 
@@ -96,21 +72,21 @@ namespace Engine3.Client.Graphics.Vulkan {
 			HashSet<string> allInstanceExtensions = new();
 			allInstanceExtensions.UnionWith(Toolkit.Vulkan.GetRequiredInstanceExtensions().ToArray()); // no span support??
 			allInstanceExtensions.UnionWith(Engine3.RequiredInstanceExtensions);
-			allInstanceExtensions.UnionWith(RequiredInstanceExtensions);
+			allInstanceExtensions.UnionWith(Settings.RequiredInstanceExtensions);
 			return allInstanceExtensions.ToArray();
 		}
 
 		public string[] GetAllRequiredDeviceExtensions() {
 			HashSet<string> allDeviceExtensions = new();
 			allDeviceExtensions.UnionWith(Engine3.RequiredDeviceExtensions);
-			allDeviceExtensions.UnionWith(RequiredDeviceExtensions);
+			allDeviceExtensions.UnionWith(Settings.RequiredDeviceExtensions);
 			return allDeviceExtensions.ToArray();
 		}
 
 		protected virtual bool IsPhysicalDeviceSuitable(VkPhysicalDeviceProperties physicalDeviceProperties, VkPhysicalDeviceFeatures physicalDeviceFeatures) {
 			bool isValid = physicalDeviceProperties.deviceType is VkPhysicalDeviceType.PhysicalDeviceTypeIntegratedGpu or VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu or VkPhysicalDeviceType.PhysicalDeviceTypeVirtualGpu;
 
-			if (AllowEnableAnisotropy) { isValid &= physicalDeviceFeatures.samplerAnisotropy == Vk.True; }
+			if (Settings.AllowEnableAnisotropy) { isValid &= physicalDeviceFeatures.samplerAnisotropy == Vk.True; }
 
 			return isValid;
 		}
@@ -137,18 +113,6 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 			Vk.DestroyInstance(vkInstance, null);
 			VkInstance = null;
-		}
-
-		private void PrintSettings() {
-			Logger.Trace("Vulkan Graphics Backend Settings");
-			Logger.Trace($"- {nameof(RequiredValidationLayers)}: {RequiredValidationLayers.ElementsAsString()}");
-			Logger.Trace($"- {nameof(RequiredInstanceExtensions)}: {RequiredInstanceExtensions.ElementsAsString()}");
-			Logger.Trace($"- {nameof(RequiredDeviceExtensions)}: {RequiredDeviceExtensions.ElementsAsString()}");
-			Logger.Trace($"- {nameof(EnabledDebugMessageSeverities)}: {EnabledDebugMessageSeverities}");
-			Logger.Trace($"- {nameof(EnabledDebugMessageTypes)}: {EnabledDebugMessageTypes}");
-			Logger.Trace($"- {nameof(PresentMode)}: {PresentMode}");
-			Logger.Trace($"- {nameof(MaxFramesInFlight)}: {MaxFramesInFlight}");
-			Logger.Trace($"- {nameof(AllowEnableAnisotropy)}: {AllowEnableAnisotropy}");
 		}
 
 		private void PrintPhysicalGpus(bool verbose) {
@@ -178,7 +142,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 #if DEBUG
 			IntPtr requiredValidationLayersPtr = MarshalTk.StringArrayToCoTaskMemAnsi(requiredValidationLayers);
 
-			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(EnabledDebugMessageSeverities, EnabledDebugMessageTypes);
+			VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(Settings.EnabledDebugMessageSeverities, Settings.EnabledDebugMessageTypes);
 #endif
 
 			VkInstanceCreateInfo instanceCreateInfo = new() {

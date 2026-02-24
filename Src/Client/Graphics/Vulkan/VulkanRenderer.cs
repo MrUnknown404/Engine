@@ -23,66 +23,51 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		public SurfaceCapablePhysicalGpu PhysicalGpu => Window.SelectedGpu;
 		public LogicalGpu LogicalGpu => Window.LogicalGpu;
-		public byte MaxFramesInFlight => GraphicsBackend.MaxFramesInFlight;
+		public byte MaxFramesInFlight => GraphicsBackend.Settings.MaxFramesInFlight;
+
+		private FrameData frameData;
+		private uint swapChainImageIndex;
+		private GraphicsCommandBuffer graphicsCommandBuffer;
 
 		protected VulkanRenderer(VulkanGraphicsBackend graphicsBackend, VulkanWindow window) : base(graphicsBackend, window) {
-			SwapChain = new(window, window.SelectedGpu.PhysicalDevice, window.LogicalGpu.LogicalDevice, window.SelectedGpu.QueueFamilyIndices, window.Surface, graphicsBackend.PresentMode);
-			Logger.Debug("Created swap chain");
+			SwapChain = new(window, window.SelectedGpu.PhysicalDevice, window.LogicalGpu.LogicalDevice, window.SelectedGpu.QueueFamilyIndices, window.Surface, graphicsBackend.Settings.PresentMode);
+			Logger.Trace("Created swap chain");
 
-			GraphicsCommandPool = LogicalGpu.CreateGraphicsCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit, Window.SelectedGpu.QueueFamilyIndices.GraphicsFamily);
-			TransferCommandPool = LogicalGpu.CreateTransferCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit, Window.SelectedGpu.QueueFamilyIndices.TransferFamily);
-			RenderFinishedSemaphores = LogicalGpu.CreateSemaphores((uint)SwapChain.Images.Length);
+			GraphicsCommandPool = LogicalGpu.CreateGraphicsCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit, window.SelectedGpu.QueueFamilyIndices.GraphicsFamily);
+			TransferCommandPool = LogicalGpu.CreateTransferCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit, window.SelectedGpu.QueueFamilyIndices.TransferFamily);
+			Logger.Trace("Created command pools");
 
 			GraphicsCommandBuffer[] graphicsCommandBuffers = GraphicsCommandPool.CreateCommandBuffers(MaxFramesInFlight);
+			Logger.Trace("Created command buffers");
+
+			RenderFinishedSemaphores = LogicalGpu.CreateSemaphores((uint)SwapChain.Images.Length);
 			VkSemaphore[] imageAvailableSemaphores = LogicalGpu.CreateSemaphores(MaxFramesInFlight);
 			VkFence[] inFlightFences = LogicalGpu.CreateFences(MaxFramesInFlight);
+			Logger.Trace("Created synchronization objects");
 
 			VkDevice logicalDevice = LogicalGpu.LogicalDevice;
 
 			Frames = new FrameData[MaxFramesInFlight];
 			for (int i = 0; i < MaxFramesInFlight; i++) { Frames[i] = new(logicalDevice, graphicsCommandBuffers[i], imageAvailableSemaphores[i], inFlightFences[i]); }
+
+			frameData = Frames[0];
+			graphicsCommandBuffer = graphicsCommandBuffers[0];
 		}
 
-		protected internal override void Setup() => ImGuiBackend?.Setup(GraphicsBackend, TransferCommandPool, SwapChain.ImageFormat);
+		protected internal override void Setup() => ImGuiBackend?.Setup(GraphicsBackend.Settings, TransferCommandPool, SwapChain.ImageFormat);
 
-		/// <summary>
-		/// Wait for the previous frame to finish
-		/// Acquire an image from the swap chain
-		/// Record a command buffer which draws the scene onto that image
-		/// Submit the recorded command buffer
-		/// Present the swap chain image
-		/// </summary>
-		protected internal override void Render(float delta) {
-			LogicalGpu.TryCleanupResources(); // TODO don't destroy every frame?
+		protected override void PrepareRender() { }
+		protected override void TryCleanupResources() => LogicalGpu.TryCleanupResources();
 
-			FrameData frameData = Frames[FrameIndex];
-			if (AcquireNextImage(frameData, out uint swapChainImageIndex)) {
-				// copy buffers
-				CopyBuffers(delta);
+		protected override bool TryNextFrame() {
+			frameData = Frames[FrameIndex];
 
-				// draw
-				BeginFrame(frameData, swapChainImageIndex);
-
-				GraphicsCommandBuffer graphicsCommandBuffer = frameData.GraphicsCommandBuffer;
-				RecordCommandBuffer(graphicsCommandBuffer);
-
-				// update imgui buffers then draw
-				if (TryImGuiNewFrame(out ImDrawDataPtr? imDrawData)) { ImGuiBackend!.RecordCommandBuffer(graphicsCommandBuffer, FrameIndex, imDrawData.Value); } // ImGuiBackend shouldn't be null if TryImGuiNewFrame returned true
-
-				// end
-				EndFrame(frameData, swapChainImageIndex);
-				SubmitQueue(frameData.ImageAvailableSemaphore, [ graphicsCommandBuffer.VkCommandBuffer, ], swapChainImageIndex, frameData.InFlightFence);
-				PresentFrame(swapChainImageIndex);
-			}
-		}
-
-		protected virtual bool AcquireNextImage(FrameData frameData, out uint swapChainImageIndex) {
 			VkDevice logicalDevice = LogicalGpu.LogicalDevice;
 			VkFence inFlightFence = frameData.InFlightFence;
 
-			// not sure if i'm supposed to wait for all fences or just the current one. vulkan-tutorial.com & vkguide.dev differ. i should probably read the docs
-			// vulkan-tutorial.com waits for all
-			// vkguide.dev waits for current
+			// TODO not sure if i'm supposed to wait for all fences or just the current one. vulkan-tutorial.com & vkguide.dev differ. i should probably read the docs
+			//  vulkan-tutorial.com waits for all
+			//  vkguide.dev waits for current
 			Vk.WaitForFences(logicalDevice, 1, &inFlightFence, (int)Vk.True, ulong.MaxValue);
 
 			VkResult result = SwapChain.AcquireNextImage(frameData.ImageAvailableSemaphore, out swapChainImageIndex);
@@ -97,17 +82,8 @@ namespace Engine3.Client.Graphics.Vulkan {
 			return true;
 		}
 
-		/// <summary>
-		/// Order of what vulkan methods are called here
-		/// <code>
-		/// vkResetCommandBuffer
-		/// vkBeginCommandBuffer
-		/// vkCmdPipelineBarrier (Begin)
-		/// vkCmdBeginRendering
-		/// </code>
-		/// </summary>
-		protected virtual void BeginFrame(FrameData frameData, uint swapChainImageIndex) {
-			GraphicsCommandBuffer graphicsCommandBuffer = frameData.GraphicsCommandBuffer;
+		protected override void BeginFrame() {
+			graphicsCommandBuffer = frameData.GraphicsCommandBuffer;
 
 			graphicsCommandBuffer.ResetCommandBuffer();
 
@@ -119,35 +95,31 @@ namespace Engine3.Client.Graphics.Vulkan {
 			graphicsCommandBuffer.CmdBeginRendering(SwapChain.Extent, SwapChain.ImageViews[swapChainImageIndex], DepthImage?.Image.ImageView, Window.ClearColor.ToVkClearColorValue(), new(1, 0));
 		}
 
-		protected abstract void RecordCommandBuffer(GraphicsCommandBuffer graphicsCommandBuffer);
+		protected override void DrawFrame() => RecordCommandBuffer(graphicsCommandBuffer);
 
-		protected virtual void CopyBuffers(float delta) { }
+		protected override void DrawImGuiFrame(ImDrawDataPtr imDrawData) => ImGuiBackend!.RecordCommandBuffer(graphicsCommandBuffer, FrameIndex, imDrawData); // shouldn't be null if this is called
 
-		/// <summary>
-		/// Order of what vulkan methods are called here
-		/// <code>
-		/// vkCmdEndRendering
-		/// vkCmdPipelineBarrier (End)
-		/// vkEndCommandBuffer
-		/// </code>
-		/// </summary>
-		protected virtual void EndFrame(FrameData frameData, uint swapChainImageIndex) {
-			GraphicsCommandBuffer graphicsCommandBuffer = frameData.GraphicsCommandBuffer;
-
+		protected override void EndFrame() {
 			graphicsCommandBuffer.CmdEndRendering();
 
 			VkImageMemoryBarrier2 imageMemoryBarrier2 = GetEndPipelineBarrierImageMemoryBarrier(SwapChain.Images[swapChainImageIndex]);
 			graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier2, });
 
 			VkH.CheckIfSuccess(graphicsCommandBuffer.EndCommandBuffer(), VulkanException.Reason.EndCommandBuffer);
+
+			SubmitQueue(frameData.ImageAvailableSemaphore, [ graphicsCommandBuffer.VkCommandBuffer, ], swapChainImageIndex, frameData.InFlightFence);
+
+			PresentFrame(swapChainImageIndex);
 		}
+
+		protected abstract void RecordCommandBuffer(GraphicsCommandBuffer graphicsCommandBuffer);
 
 		protected virtual void SubmitQueue(VkSemaphore waitSemaphore, VkCommandBuffer[] commandBuffers, uint swapChainImageIndex, VkFence fence) {
 			VkPipelineStageFlagBits* waitStages = stackalloc VkPipelineStageFlagBits[] { VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, };
 			VkSemaphore signalSemaphore = RenderFinishedSemaphores[swapChainImageIndex];
 
 			fixed (VkCommandBuffer* commandBuffersPtr = commandBuffers) {
-				VkSubmitInfo a = new() {
+				VkSubmitInfo submitInfo = new() {
 						waitSemaphoreCount = 1,
 						pWaitSemaphores = &waitSemaphore,
 						pWaitDstStageMask = waitStages,
@@ -157,7 +129,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 						pSignalSemaphores = &signalSemaphore,
 				};
 
-				Vk.QueueSubmit(LogicalGpu.GraphicsQueue, 1, &a, fence);
+				Vk.QueueSubmit(LogicalGpu.GraphicsQueue, 1, &submitInfo, fence);
 			}
 		}
 

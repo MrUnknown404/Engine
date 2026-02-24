@@ -12,6 +12,7 @@ I'll remove the entry when done
   - NLog doesn't print generic type names correctly. either fix or use something else
 - make code analyzer for minimum params count
 - code generator for making Vertex structs easier?
+- document way more
 
 ---
 

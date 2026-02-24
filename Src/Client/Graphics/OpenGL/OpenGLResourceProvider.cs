@@ -62,7 +62,7 @@ namespace Engine3.Client.Graphics.OpenGL {
 			imageManager.EnqueueDestroy(image);
 		}
 
-		public void TryCleanup() {
+		public void TryCleanupResources() {
 			programPipelineManager.TryCleanup();
 			shaderManager.TryCleanup();
 			bufferManager.TryCleanup();

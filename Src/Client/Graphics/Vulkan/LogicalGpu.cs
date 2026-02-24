@@ -76,8 +76,8 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		[MustUseReturnValue]
-		public TextureSampler CreateSampler(VulkanGraphicsBackend backend, TextureSampler.Settings settings) {
-			TextureSampler sampler = new(LogicalDevice, backend, settings);
+		public TextureSampler CreateSampler(VulkanGraphicsBackendSettings backendSettings, TextureSampler.Settings settings) {
+			TextureSampler sampler = new(LogicalDevice, backendSettings, settings);
 			samplerManager.Add(sampler);
 			return sampler;
 		}

@@ -26,7 +26,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			this.maxFramesInFlight = maxFramesInFlight;
 		}
 
-		public void Setup(VulkanGraphicsBackend backend, TransferCommandPool transferCommandPool, VkFormat swapFormatImageFormat) {
+		public void Setup(VulkanGraphicsBackendSettings backendSettings, TransferCommandPool transferCommandPool, VkFormat swapFormatImageFormat) {
 			ImGuiFragmentShaderConstants shaderConstants = ImGuiShaderConstants;
 			VkSpecializationMapEntry specializationMapEntry = new() { constantID = 0, offset = 0, size = sizeof(uint), };
 			VkSpecializationInfo specializationInfo = new() { dataSize = (nuint)sizeof(ImGuiFragmentShaderConstants), mapEntryCount = 1, pMapEntries = &specializationMapEntry, pData = &shaderConstants, };
@@ -75,7 +75,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 			io.Fonts.ClearTexData(); // do i need to call this?
 
-			textureSampler = GraphicsResourceProvider.CreateSampler(backend,
+			textureSampler = GraphicsResourceProvider.CreateSampler(backendSettings,
 				new(VkFilter.FilterLinear, VkFilter.FilterLinear, physicalGpu.PhysicalDeviceProperties2.properties.limits) {
 						AddressMode = new(VkSamplerAddressMode.SamplerAddressModeClampToEdge, VkSamplerAddressMode.SamplerAddressModeClampToEdge, VkSamplerAddressMode.SamplerAddressModeClampToEdge),
 						BorderColor = VkBorderColor.BorderColorFloatOpaqueWhite,
