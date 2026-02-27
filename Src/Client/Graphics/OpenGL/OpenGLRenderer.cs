@@ -42,7 +42,7 @@ namespace Engine3.Client.Graphics.OpenGL {
 			GL.Clear(ClearBufferMask);
 
 			if (Window.WasResized) {
-				Toolkit.Window.GetFramebufferSize(Window.WindowHandle, out Vector2i frameBufferSize);
+				Vector2i frameBufferSize = Window.GetFrameBufferSize();
 				GL.Viewport(0, 0, frameBufferSize.X, frameBufferSize.Y);
 				Window.WasResized = false;
 			}

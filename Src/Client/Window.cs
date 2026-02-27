@@ -1,12 +1,14 @@
 using System.Diagnostics.CodeAnalysis;
 using Engine3.Client.Graphics;
 using Engine3.Exceptions;
+using JetBrains.Annotations;
 using NLog;
 using OpenTK.Mathematics;
 using OpenTK.Platform;
 
 namespace Engine3.Client {
-	public abstract class Window : IEquatable<Window> {
+	[PublicAPI]
+	public abstract class Window : IEquatable<Window> { // TODO remove graphics specific versions of this class
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		[SuppressMessage("ReSharper", "InconsistentNaming")]
@@ -50,21 +52,24 @@ namespace Engine3.Client {
 		public static CursorHandle ArrowNSCursorHandle => arrowNSCursorHandle.Value;
 		public static CursorHandle ArrowFourWayCursorHandle => arrowFourWayCursorHandle.Value;
 
-		public WindowHandle WindowHandle { get; }
+		public WindowHandle WindowHandle { get; } // TODO protected
 		public Color4<Rgba> ClearColor { get; set; } = new(0, 0, 0, 1);
 
-		public KeyManager KeyManager { get; } = new();
+		public KeyboardManager KeyboardManager { get; } = new();
 		public MouseManager MouseManager { get; } = new();
 
 		public bool ShouldClose { get; private set; }
-		public bool WasResized { get; internal set; }
+		/// <summary> Whether or not the window was resized &amp; needs to be handled. </summary>
+		public bool WasResized { get; internal set; } // TODO there should be a proper way of handling this. atm it's handled per renderer which will cause problems if anyone wants to build their own
 		public bool WasDestroyed { get; private set; }
 		public bool IsHidden { get; private set; }
 
-		public event AttemptCloseWindow? TryCloseWindowEvent;
+		/// <summary> Called when we request a window close. Setting shouldCloseWindow to false will ignore the request </summary>
+		public event AttemptCloseWindowDelegate? TryCloseWindowEvent;
+		/// <summary> Called when a window is to be closed on the next frame </summary>
 		public event Action? OnCloseWindowEvent;
 		public event Action? BeforeDestroyEvent;
-		public event Action<uint, uint>? OnResize;
+		public event OnWindowResizeDelegate? OnResize;
 
 		protected Window(EngineGraphicsBackend graphicsBackend, string title, uint width, uint height) {
 			if (graphicsBackend.GraphicsBackend == GraphicsBackend.Console) { throw new Engine3Exception("Cannot create a window when graphics api is set to console"); }
@@ -75,6 +80,7 @@ namespace Engine3.Client {
 			Toolkit.Window.SetSize(WindowHandle, new((int)width, (int)height));
 		}
 
+		/// <summary> Attempts to close the window. The application can decide whether or not to honor this request. If successful the window will close on the next frame </summary>
 		public void TryCloseWindow() {
 			if (WasDestroyed) { return; }
 
@@ -84,6 +90,7 @@ namespace Engine3.Client {
 			if (shouldClose) { CloseWindow(); }
 		}
 
+		/// <summary> Forces the window to be destroyed next frame </summary>
 		public void CloseWindow() {
 			if (WasDestroyed) { return; }
 
@@ -92,10 +99,10 @@ namespace Engine3.Client {
 			ShouldClose = true;
 		}
 
-		public void LockCursor() => SetCursorMode(CursorCaptureMode.Locked);
-		public void ConfineCursor() => SetCursorMode(CursorCaptureMode.Confined);
-		public void FreeCursor() => SetCursorMode(CursorCaptureMode.Normal);
-		public void SetCursorMode(CursorCaptureMode cursorCaptureMode) => Toolkit.Window.SetCursorCaptureMode(WindowHandle, cursorCaptureMode);
+		public void LockCursorCapture() => SetCursorCaptureMode(CursorCaptureMode.Locked);
+		public void ConfineCursorCapture() => SetCursorCaptureMode(CursorCaptureMode.Confined);
+		public void FreeCursorCapture() => SetCursorCaptureMode(CursorCaptureMode.Normal);
+		public void SetCursorCaptureMode(CursorCaptureMode cursorCaptureMode) => Toolkit.Window.SetCursorCaptureMode(WindowHandle, cursorCaptureMode);
 
 		public void Show() => SetWindowMode(WindowMode.Normal);
 		public void Hide() => SetWindowMode(WindowMode.Hidden);
@@ -103,7 +110,14 @@ namespace Engine3.Client {
 
 		public void HideCursor() => SetCursor(null);
 		public void DefaultCursor() => SetCursor(DefaultCursorHandle);
+
+		/// <param name="cursor"> The new <see cref="CursorHandle"/> to use or null to hide the cursor </param>
 		public void SetCursor(CursorHandle? cursor) => Toolkit.Window.SetCursor(WindowHandle, cursor);
+
+		public Vector2i GetFrameBufferSize() {
+			Toolkit.Window.GetFramebufferSize(WindowHandle, out Vector2i frameBufferSize);
+			return frameBufferSize;
+		}
 
 		internal void Destroy() {
 			if (WasDestroyed) {
@@ -152,14 +166,15 @@ namespace Engine3.Client {
 			};
 		}
 
-		internal void OnKeyDownEventArgs(KeyDownEventArgs downArgs) => KeyManager.SetKey(downArgs.Key, true);
-		internal void OnKeyUpEventArgs(KeyUpEventArgs upArgs) => KeyManager.SetKey(upArgs.Key, false);
+		internal void OnKeyDownEventArgs(KeyDownEventArgs downArgs) => KeyboardManager.SetKey(downArgs.Key, true);
+		internal void OnKeyUpEventArgs(KeyUpEventArgs upArgs) => KeyboardManager.SetKey(upArgs.Key, false);
 		internal void OnMouseMoveEventArgs(MouseMoveEventArgs moveArgs) => MouseManager.Position = new(moveArgs.ClientPosition.X, moveArgs.ClientPosition.Y);
 		internal void OnMouseButtonDownEventArgs(MouseButtonDownEventArgs downArgs) => MouseManager.SetButton(downArgs.Button, true);
 		internal void OnMouseButtonUpEventArgs(MouseButtonUpEventArgs upArgs) => MouseManager.SetButton(upArgs.Button, false);
 		internal void OnScrollEventArgs(ScrollEventArgs scrollArgs) => MouseManager.ScrollDelta = scrollArgs.Delta.Y;
 
-		public delegate void AttemptCloseWindow(ref bool shouldCloseWindow);
+		public delegate void AttemptCloseWindowDelegate(ref bool shouldCloseWindow);
+		public delegate void OnWindowResizeDelegate(uint width, uint height);
 
 		public bool Equals(Window? other) => other != null && WindowHandle.Equals(other.WindowHandle); // TODO replace with our own window id
 		public override bool Equals(object? obj) => obj is Window window && Equals(window);

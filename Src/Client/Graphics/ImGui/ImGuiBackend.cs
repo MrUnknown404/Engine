@@ -41,7 +41,8 @@ namespace Engine3.Client.Graphics.ImGui {
 			window.OnResize += (_, _) => {
 				ImGuiNet.SetCurrentContext(Context);
 				ImGuiIOPtr io = ImGuiNet.GetIO();
-				Toolkit.Window.GetFramebufferSize(window.WindowHandle, out Vector2i frameBufferSize);
+
+				Vector2i frameBufferSize = window.GetFrameBufferSize();
 				io.DisplaySize = new(frameBufferSize.X, frameBufferSize.Y); // TODO should this be window size or framebuffer size?
 			};
 

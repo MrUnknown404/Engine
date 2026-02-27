@@ -150,7 +150,7 @@ namespace Engine3.Client {
 			}
 		}
 
-		public bool FlipY { get; init; } = true;
+		public bool FlipY { get; set; } = true;
 
 		private bool isProjectionDirty = true;
 		private bool isViewDirty = true;

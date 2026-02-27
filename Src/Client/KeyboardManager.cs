@@ -1,10 +1,10 @@
 using OpenTK.Platform;
 
 namespace Engine3.Client {
-	public class KeyManager {
+	public class KeyboardManager {
 		private readonly Dictionary<Key, bool> keys = new();
 
-		internal KeyManager() {
+		internal KeyboardManager() {
 			foreach (Key key in Enum.GetValues<Key>()) { keys[key] = false; }
 		}
 

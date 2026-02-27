@@ -20,7 +20,7 @@ namespace Engine3.Client.Graphics.OpenGL.Objects {
 #if DEBUG
 			checked { GL.NamedBufferStorage((int)BufferHandle, (nint)BufferSize, IntPtr.Zero, bufferStorageMask); }
 #else
-			GL.NamedBufferStorage((int)ShaderHandle, (nint)BufferSize, IntPtr.Zero, bufferStorageMask);
+			GL.NamedBufferStorage((int)BufferHandle, (nint)BufferSize, IntPtr.Zero, bufferStorageMask);
 #endif
 
 			PrintCreate();
@@ -30,7 +30,7 @@ namespace Engine3.Client.Graphics.OpenGL.Objects {
 #if DEBUG
 			checked { GL.NamedBufferSubData((int)BufferHandle, (nint)offset, sizeof(T) * data.Length, data); }
 #else
-			GL.NamedBufferSubData((int)ShaderHandle, (nint)offset, sizeof(T) * data.Length, data);
+			GL.NamedBufferSubData((int)BufferHandle, (nint)offset, sizeof(T) * data.Length, data);
 #endif
 		}
 
@@ -38,7 +38,7 @@ namespace Engine3.Client.Graphics.OpenGL.Objects {
 #if DEBUG
 			checked { GL.NamedBufferSubData((int)BufferHandle, (nint)offset, (nint)bufferSize, data); }
 #else
-			GL.NamedBufferSubData((int)ShaderHandle, (nint)offset, (nint)bufferSize, data);
+			GL.NamedBufferSubData((int)BufferHandle, (nint)offset, (nint)bufferSize, data);
 #endif
 		}
 

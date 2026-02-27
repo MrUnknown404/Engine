@@ -4,11 +4,13 @@ using LogLevel = OpenTK.Core.Utility.LogLevel;
 
 namespace Engine3.Utility {
 	public class TkLogger : ILogger {
-		public static LogLevel FilterStatic { get; set; } = LogLevel.Warning;
-
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
+		public static LogLevel FilterStatic { get; set; } = LogLevel.Warning;
+
 		public LogLevel Filter { get => FilterStatic; set => FilterStatic = value; }
+
+		internal TkLogger() { }
 
 		public void LogInternal(string str, LogLevel level, string filePath, int lineNumber, string member) {
 			if (level < Filter) { return; }

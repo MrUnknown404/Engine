@@ -1,7 +1,7 @@
 using Engine3.Client.Graphics.Vulkan.Objects;
 
 namespace Engine3.Client.Graphics.Vulkan {
-	public abstract class VulkanNodeRenderer : VulkanRenderer {
+	public class VulkanNodeRenderer : VulkanRenderer {
 		private readonly List<VulkanRecorderNode> nodes = new();
 
 		protected VulkanNodeRenderer(VulkanGraphicsBackend graphicsBackend, VulkanWindow window) : base(graphicsBackend, window) { }

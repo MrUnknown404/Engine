@@ -13,6 +13,7 @@ I'll remove the entry when done
 - make code analyzer for minimum params count
 - code generator for making Vertex structs easier?
 - document way more
+- add multithreading 
 
 ---
 

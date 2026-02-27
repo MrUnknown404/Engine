@@ -17,7 +17,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		protected FrameData[] Frames { get; }
 		protected VkSemaphore[] RenderFinishedSemaphores { get; }
 
-		protected virtual DepthImage? DepthImage => null;
+		protected virtual DepthImage? DepthImage => null; // TODO automate creating this
 
 		protected byte FrameIndex { get; private set; }
 

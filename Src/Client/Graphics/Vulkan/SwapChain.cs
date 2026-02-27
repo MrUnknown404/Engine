@@ -4,7 +4,6 @@ using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics.Vulkan;
 using OpenTK.Mathematics;
-using OpenTK.Platform;
 
 namespace Engine3.Client.Graphics.Vulkan {
 	public unsafe class SwapChain : GraphicsResource<SwapChain, ulong> {
@@ -24,8 +23,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		public SwapChain(VulkanWindow window, VkPhysicalDevice physicalDevice, VkDevice logicalDevice, QueueFamilyIndices queueFamilyIndices, VkSurfaceKHR surface, VkPresentModeKHR presentMode) {
 			this.window = window;
 
-			Toolkit.Window.GetFramebufferSize(window.WindowHandle, out Vector2i framebufferSize);
-			CreateSwapChain(physicalDevice, logicalDevice, surface, queueFamilyIndices, framebufferSize, out VkSwapchainKHR vkSwapChain, out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat, presentMode);
+			CreateSwapChain(physicalDevice, logicalDevice, surface, queueFamilyIndices, window.GetFrameBufferSize(), out VkSwapchainKHR vkSwapChain, out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat, presentMode);
 
 			VkSwapChain = vkSwapChain;
 			ImageFormat = swapChainImageFormat;
@@ -40,8 +38,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 			Vk.DeviceWaitIdle(logicalDevice);
 
-			Toolkit.Window.GetFramebufferSize(window.WindowHandle, out Vector2i framebufferSize);
-			CreateSwapChain(window.SelectedGpu.PhysicalDevice, logicalDevice, window.Surface, window.SelectedGpu.QueueFamilyIndices, framebufferSize, out VkSwapchainKHR vkSwapChain, out VkExtent2D swapChainExtent,
+			CreateSwapChain(window.SelectedGpu.PhysicalDevice, logicalDevice, window.Surface, window.SelectedGpu.QueueFamilyIndices, window.GetFrameBufferSize(), out VkSwapchainKHR vkSwapChain, out VkExtent2D swapChainExtent,
 				out VkFormat swapChainImageFormat, presentMode, oldSwapChain: VkSwapChain);
 
 			Logger.Debug("Recreated swap chain");

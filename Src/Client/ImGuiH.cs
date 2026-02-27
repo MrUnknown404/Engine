@@ -11,17 +11,21 @@ namespace Engine3.Client {
 		private static IntPtr nativeClipboardText;
 		private static int widgetOffset;
 
+		/// <summary> Appends the current widget offset to the end of the given string then increments widget offset </summary>
 		[MustUseReturnValue]
-		public static string OffsetWidgetName(string name) {
+		public static string AppendOffset(string name) {
 			name = $"{name}##{name}_{widgetOffset}";
 			widgetOffset++;
 			return name;
 		}
 
+		/// <summary> Pushes ImGui ID with the current widget offset then increments </summary>
+		/// <remarks> See <see cref="ImGui.PushID(int)"/> </remarks>
 		public static void PushOffset() => ImGuiNet.PushID(widgetOffset++);
 
 		internal static void ResetWidgetOffset() => widgetOffset = 0;
 
+		/// <summary> Runs <see cref="ImGui.CollapsingHeader(string, ImGuiTreeNodeFlags)"/> with the contents indented </summary>
 		public static void IndentedCollapsingHeader(string label, float indent, Action drawFunc, ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags.None) {
 			if (ImGuiNet.CollapsingHeader(label, nodeFlags)) {
 				ImGuiNet.Indent(indent);
@@ -32,6 +36,7 @@ namespace Engine3.Client {
 			}
 		}
 
+		/// <summary> Creates a hoverable help marker to show a tooltip </summary>
 		public static void HelpMarker(string tooltip, bool sameLine = true) {
 			if (sameLine) { ImGuiNet.SameLine(); }
 

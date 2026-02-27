@@ -51,6 +51,7 @@ namespace Engine3.Exceptions {
 		public enum Reason : uint {
 			Unknown = 0,
 
+			// Misc
 			GetSwapChainImages,
 			AcquireNextImage,
 			BeginCommandBuffer,

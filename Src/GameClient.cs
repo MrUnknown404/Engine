@@ -37,8 +37,12 @@ namespace Engine3 {
 		private readonly List<Renderer> renderers = new();
 		private readonly Queue<Renderer> setupRendererQueue = new();
 
-		public ushort TargetUps { get; init; } = 60;
+		/// <summary> The amount of updates per second to aim for </summary>
+		/// <exception cref="Engine3Exception"> Thrown if value was set to zero </exception>
+		public ushort TargetUps { get => field; init => field = TargetUps != 0 ? value : throw new Engine3Exception($"{nameof(TargetUps)} must be above zero"); } = 60;
+		/// <summary> The amount of frames per second to aim for. If zero, framerate will be uncapped </summary>
 		public ushort TargetFps { get; init; }
+		/// <summary> The maximum amount of frames to skip while updating before rendering anyways. Set to zero to disable </summary>
 		public byte MaxFrameSkip { get; init; } = 5;
 
 		public ulong UpdateIndex { get; private set; }
@@ -55,8 +59,11 @@ namespace Engine3 {
 		private bool shouldRunGameLoop = true;
 		private bool requestShutdown;
 
+		/// <summary> Called after <see cref="SetupEngine"/> is done and ready to enter the gameloop </summary>
 		public event Action? OnSetupFinishedEvent;
+		/// <summary> Called after OpenTK <see cref="Toolkit"/> was set up </summary>
 		public event Action? OnSetupToolkitEvent;
+		/// <summary> Called at the start of <see cref="Shutdown"/> & before <see cref="CleanupEverything"/> </summary>
 		public event Action? OnShutdownEvent;
 
 		protected GameClient(string name, IPackableVersion version, EngineGraphicsBackend graphicsBackend) {
@@ -74,6 +81,11 @@ namespace Engine3 {
 			}
 		}
 
+		/// <summary> Call to start your game. Some things may need to be set before this is run </summary>
+		/// <param name="gameClient"> Your game instance </param>
+		/// <param name="settings"> Engine startup settings </param>
+		/// <typeparam name="T"> The type of your game instance </typeparam>
+		/// <exception cref="Engine3Exception"> Thrown if an error occurs </exception>
 		public void Start<T>(T gameClient, StartupSettings settings) where T : GameClient {
 			if (wasSetup) { throw new Engine3Exception("Attempted to call #Start twice"); }
 
@@ -198,7 +210,7 @@ namespace Engine3 {
 				PerformanceMonitor.AddUpdateAccumulator(time);
 
 				int frameSkip = 0;
-				while (updateAccumulator >= updateTicksToWait && frameSkip < MaxFrameSkip) {
+				while (updateAccumulator >= updateTicksToWait && (MaxFrameSkip == 0 || frameSkip < MaxFrameSkip)) {
 					PerformanceMonitor.StartTimingUpdate();
 					EngineUpdate();
 					this.Update();
@@ -211,7 +223,7 @@ namespace Engine3 {
 
 					PerformanceMonitor.CheckUpdateTime();
 
-					if (frameSkip >= MaxFrameSkip) { Logger.Warn($"FrameSkip hit max. ({MaxFrameSkip})"); }
+					if (MaxFrameSkip != 0 && frameSkip >= MaxFrameSkip) { Logger.Warn($"FrameSkip hit max. ({MaxFrameSkip})"); }
 				}
 			}
 
@@ -326,6 +338,7 @@ namespace Engine3 {
 			setupRendererQueue.Enqueue(renderer);
 		}
 
+		/// <summary> Requests shutdown. Program will shut down on the next update </summary>
 		public void RequestShutdown() {
 			Logger.Debug("Requested shutdown");
 			requestShutdown = true;

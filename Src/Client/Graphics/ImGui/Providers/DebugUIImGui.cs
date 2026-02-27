@@ -10,7 +10,7 @@ namespace Engine3.Client.Graphics.ImGui.Providers {
 
 		private readonly GameClient game;
 		private readonly PerformanceMonitor performanceMonitor;
-		private readonly KeyManager keyManager;
+		private readonly KeyboardManager keyboardManager;
 		private readonly MouseManager mouseManager;
 
 		private bool showUpdateIndex;
@@ -32,7 +32,7 @@ namespace Engine3.Client.Graphics.ImGui.Providers {
 		public DebugUIImGui(GameClient game, Window window) {
 			this.game = game;
 			performanceMonitor = game.PerformanceMonitor;
-			keyManager = window.KeyManager;
+			keyboardManager = window.KeyboardManager;
 			mouseManager = window.MouseManager;
 		}
 
@@ -134,8 +134,8 @@ namespace Engine3.Client.Graphics.ImGui.Providers {
 				ImGuiNet.Text($"Calculate Min/Max/Avg: {performanceMonitor.CalculateMinMaxAverage}");
 				ImGuiNet.Text($"Min/Max/Avg Sample Time: {performanceMonitor.MinMaxAverageSampleTime} seconds");
 				ImGuiNet.Text($"Store Times For Graph: {performanceMonitor.StoreTimesForGraph}");
-				ImGuiNet.Text($"Update Time Graph Size: {performanceMonitor.UpdateTimeGraphSize}");
-				ImGuiNet.Text($"Frame Time Graph Size: {performanceMonitor.FrameTimeGraphSize}");
+				ImGuiNet.Text($"Update Time Graph Size: {performanceMonitor.LastUpdateTimeSize}");
+				ImGuiNet.Text($"Frame Time Graph Size: {performanceMonitor.LastFrameTimeSize}");
 			}
 
 			void ShowToggles() {
