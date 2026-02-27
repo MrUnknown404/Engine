@@ -1,3 +1,6 @@
+using Engine3.Client.Graphics;
+using Engine3.Client.Graphics.DataStructs;
+using Engine3.Client.Graphics.Vertex;
 using Engine3.Utility.Extensions;
 using Engine3.Utility.Versions;
 using JetBrains.Annotations;
@@ -54,11 +57,25 @@ namespace Engine3.Debug {
 		}
 
 		private static void AddDefaultStructs() {
+			// versions
 			AddStruct<Version4>();
 			AddStruct<Version4<ushort>>();
 			AddStruct<Version4Char>();
 			AddStruct<Version4Char<ushort>>();
 			AddStruct<Version4Interweaved>();
+
+			// vertices
+			AddStruct<VertexXyz>();
+			AddStruct<VertexXyzUv>();
+			AddStruct<VertexXyzRgb>();
+			AddStruct<VertexXyzUvRgb>();
+
+			// materials
+			AddStruct<Material>();
+
+			//
+			AddStruct<ProjectionView>();
+			AddStruct<ProjectionModel>();
 		}
 
 		public static void AddStruct<T>() where T : struct => TryAdd(typeof(T).ToReadableName(), $"{TypeLayout.GetLayout<T>()}");

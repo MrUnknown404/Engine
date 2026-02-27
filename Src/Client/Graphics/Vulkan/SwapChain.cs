@@ -167,7 +167,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 						preTransform = surfaceTransform ?? surfaceCapabilities.currentTransform,
 						compositeAlpha = VkCompositeAlphaFlagBitsKHR.CompositeAlphaOpaqueBitKhr,
 						presentMode = presentMode,
-						clipped = (int)Vk.True,
+						clipped = VkH.True,
 						oldSwapchain = oldSwapChain ?? VkSwapchainKHR.Zero,
 				};
 

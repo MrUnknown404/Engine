@@ -31,7 +31,7 @@ namespace Engine3.Utility {
 			Stream? textureStream = GetAssetStream($"Textures.{fullFileName}", assembly);
 
 			if (textureStream == null) {
-				Logger.Error($"Failed to create asset stream at: Textures.{fullFileName}");
+				Logger.Error($"Failed to create asset stream at: Textures.{fullFileName} in Assembly: {assembly.GetName()}");
 				textureStream = GetAssetStream($"Textures.{MissingTextureName}", Engine3.Assembly) ?? throw new NullReferenceException("Could not find default texture");
 			}
 
@@ -55,7 +55,7 @@ namespace Engine3.Utility {
 			string fullFileName = $"{fileLocation}.{fileType.ToString().ToLower()}";
 			using Stream? modelStream = GetAssetStream($"Models.{fullFileName}", assembly);
 
-			if (modelStream == null) { throw new Engine3Exception($"Failed to create asset stream at: Models.{fullFileName}"); }
+			if (modelStream == null) { throw new Engine3Exception($"Failed to create asset stream at: Models.{fullFileName} in Assembly: {assembly.GetName()}"); }
 
 			ModelRoot modelRoot = ModelRoot.ReadGLB(modelStream); // more later
 			return gltfMeshesToMesh(modelRoot.LogicalMeshes);
@@ -74,7 +74,7 @@ namespace Engine3.Utility {
 			string fullFileName = $"{fileLocation}.{fileType.ToString().ToLower()}";
 			using Stream? modelStream = GetAssetStream($"Models.{fullFileName}", assembly);
 
-			if (modelStream == null) { throw new Engine3Exception($"Failed to create asset stream at: Models.{fullFileName}"); }
+			if (modelStream == null) { throw new Engine3Exception($"Failed to create asset stream at: Models.{fullFileName} in Assembly: {assembly.GetName()}"); }
 
 			ModelRoot modelRoot = ModelRoot.ReadGLB(modelStream);
 			IMeshDecoder<Material>[] meshDecoders = modelRoot.LogicalMeshes.Decode();

@@ -5,8 +5,8 @@ using ImGuiNET;
 using NLog;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Client.Graphics.Vulkan {
-	public abstract unsafe class VulkanRenderer : Renderer<VulkanWindow, VulkanGraphicsBackend, VulkanImGuiBackend> {
+namespace Engine3.Client.Graphics.Vulkan.Renderers {
+	public abstract unsafe class VulkanRendererBase : Renderer<VulkanWindow, VulkanImGuiBackend> {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public SwapChain SwapChain { get; }
@@ -23,13 +23,15 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 		public SurfaceCapablePhysicalGpu PhysicalGpu => Window.SelectedGpu;
 		public LogicalGpu LogicalGpu => Window.LogicalGpu;
-		public byte MaxFramesInFlight => GraphicsBackend.Settings.MaxFramesInFlight;
+		public byte MaxFramesInFlight { get; }
 
 		private FrameData frameData;
 		private uint swapChainImageIndex;
 		private GraphicsCommandBuffer graphicsCommandBuffer;
 
-		protected VulkanRenderer(VulkanGraphicsBackend graphicsBackend, VulkanWindow window) : base(graphicsBackend, window) {
+		protected VulkanRendererBase(VulkanGraphicsBackend graphicsBackend, VulkanWindow window) : base(window) {
+			MaxFramesInFlight = graphicsBackend.Settings.MaxFramesInFlight;
+
 			SwapChain = new(window, window.SelectedGpu.PhysicalDevice, window.LogicalGpu.LogicalDevice, window.SelectedGpu.QueueFamilyIndices, window.Surface, graphicsBackend.Settings.PresentMode);
 			Logger.Trace("Created swap chain");
 
@@ -54,7 +56,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			graphicsCommandBuffer = graphicsCommandBuffers[0];
 		}
 
-		protected internal override void Setup() => ImGuiBackend?.Setup(GraphicsBackend.Settings, TransferCommandPool, SwapChain.ImageFormat);
+		protected internal override void Setup() => ImGuiBackend?.Setup(TransferCommandPool, SwapChain.ImageFormat);
 
 		protected override void PrepareRender() { }
 		protected override void TryCleanupResources() => LogicalGpu.TryCleanupResources();
@@ -68,7 +70,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			// TODO not sure if i'm supposed to wait for all fences or just the current one. vulkan-tutorial.com & vkguide.dev differ. i should probably read the docs
 			//  vulkan-tutorial.com waits for all
 			//  vkguide.dev waits for current
-			Vk.WaitForFences(logicalDevice, 1, &inFlightFence, (int)Vk.True, ulong.MaxValue);
+			Vk.WaitForFences(logicalDevice, 1, &inFlightFence, VkH.True, ulong.MaxValue);
 
 			VkResult result = SwapChain.AcquireNextImage(frameData.ImageAvailableSemaphore, out swapChainImageIndex);
 
@@ -107,12 +109,12 @@ namespace Engine3.Client.Graphics.Vulkan {
 
 			VkH.CheckIfSuccess(graphicsCommandBuffer.EndCommandBuffer(), VulkanException.Reason.EndCommandBuffer);
 
-			SubmitQueue(frameData.ImageAvailableSemaphore, [ graphicsCommandBuffer.VkCommandBuffer, ], swapChainImageIndex, frameData.InFlightFence);
+			SubmitQueue(frameData.ImageAvailableSemaphore, [ graphicsCommandBuffer.VkCommandBuffer, ], swapChainImageIndex, frameData.InFlightFence); //
 
 			PresentFrame(swapChainImageIndex);
 		}
 
-		protected abstract void RecordCommandBuffer(GraphicsCommandBuffer graphicsCommandBuffer);
+		protected abstract void RecordCommandBuffer(GraphicsCommandBuffer commandBuffer);
 
 		protected virtual void SubmitQueue(VkSemaphore waitSemaphore, VkCommandBuffer[] commandBuffers, uint swapChainImageIndex, VkFence fence) {
 			VkPipelineStageFlagBits* waitStages = stackalloc VkPipelineStageFlagBits[] { VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, };

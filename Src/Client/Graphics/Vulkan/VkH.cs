@@ -5,6 +5,9 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan {
 	public static partial class VkH {
+		public const int True = (int)Vk.True;
+		public const int False = (int)Vk.False;
+
 		/// <summary>
 		/// Helper method for extracting version information out of a packed uint following Vulkan's Version Specification.<br/><br/>
 		/// The variant is packed into bits 31-29.<br/>

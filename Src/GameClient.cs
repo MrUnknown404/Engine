@@ -39,7 +39,7 @@ namespace Engine3 {
 
 		/// <summary> The amount of updates per second to aim for </summary>
 		/// <exception cref="Engine3Exception"> Thrown if value was set to zero </exception>
-		public ushort TargetUps { get => field; init => field = TargetUps != 0 ? value : throw new Engine3Exception($"{nameof(TargetUps)} must be above zero"); } = 60;
+		public ushort TargetUps { get; init => field = TargetUps != 0 ? value : throw new Engine3Exception($"{nameof(TargetUps)} must be above zero"); } = 60;
 		/// <summary> The amount of frames per second to aim for. If zero, framerate will be uncapped </summary>
 		public ushort TargetFps { get; init; }
 		/// <summary> The maximum amount of frames to skip while updating before rendering anyways. Set to zero to disable </summary>
@@ -164,7 +164,9 @@ namespace Engine3 {
 			OnSetupFinishedEvent?.Invoke();
 		}
 
-		private void EngineUpdate() { }
+		private void EngineUpdate() {
+			foreach (Renderer renderer in renderers.Where(static r => r is { WasDestroyed: false, })) { renderer.Update(); }
+		}
 
 		private void GameLoop() {
 			const long TicksPerSecond = 1000000000; // Stopwatch.Frequency;

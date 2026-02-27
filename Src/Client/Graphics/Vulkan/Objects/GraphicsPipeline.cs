@@ -72,29 +72,29 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			VkPipelineRenderingCreateInfo renderingCreateInfo = new() { colorAttachmentCount = 1, pColorAttachmentFormats = &swapChainImageFormat, depthAttachmentFormat = physicalGpu.FindDepthFormat(), };
 
 			VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = new() {
-					rasterizerDiscardEnable = (int)(settings.EnableRasterizerDiscard ? Vk.True : Vk.False),
+					rasterizerDiscardEnable = settings.EnableRasterizerDiscard ? VkH.True : VkH.False,
 					polygonMode = settings.PolygonMode,
 					cullMode = settings.CullMode,
 					frontFace = settings.FrontFace,
 					lineWidth = settings.LineWidth,
-					depthClampEnable = (int)(settings.EnableDepthClamp ? Vk.True : Vk.False),
-					depthBiasEnable = (int)(settings.EnableDepthBias ? Vk.True : Vk.False),
+					depthClampEnable = settings.EnableDepthClamp ? VkH.True : VkH.False,
+					depthBiasEnable = settings.EnableDepthBias ? VkH.True : VkH.False,
 					depthBiasConstantFactor = settings.DepthBiasConstantFactor,
 					depthBiasClamp = settings.DepthBiasClamp,
 					depthBiasSlopeFactor = settings.DepthBiasSlopeFactor,
 			};
 
 			VkPipelineMultisampleStateCreateInfo multisampleStateCreateInfo = new() {
-					sampleShadingEnable = (int)(settings.EnableSampleShading ? Vk.True : Vk.False),
+					sampleShadingEnable = settings.EnableSampleShading ? VkH.True : VkH.False,
 					rasterizationSamples = settings.RasterizationSamples,
 					minSampleShading = settings.MinSampleShading,
 					pSampleMask = null,
-					alphaToCoverageEnable = (int)(settings.EnableAlphaToCoverage ? Vk.True : Vk.False),
-					alphaToOneEnable = (int)(settings.EnableAlphaToOne ? Vk.True : Vk.False),
+					alphaToCoverageEnable = settings.EnableAlphaToCoverage ? VkH.True : VkH.False,
+					alphaToOneEnable = settings.EnableAlphaToOne ? VkH.True : VkH.False,
 			};
 
 			VkPipelineColorBlendAttachmentState colorBlendAttachmentState = new() {
-					blendEnable = (int)(settings.EnableBlend ? Vk.True : Vk.False),
+					blendEnable = settings.EnableBlend ? VkH.True : VkH.False,
 					colorWriteMask = settings.ColorComponentFlags,
 					colorBlendOp = settings.ColorBlendOp,
 					srcColorBlendFactor = settings.SrcColorBlendFactor,
@@ -104,20 +104,20 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 					dstAlphaBlendFactor = settings.DstAlphaBlendFactor,
 			};
 
-			VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = new() { logicOpEnable = (int)Vk.False, logicOp = VkLogicOp.LogicOpCopy, attachmentCount = 1, pAttachments = &colorBlendAttachmentState, };
+			VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = new() { logicOpEnable = VkH.False, logicOp = VkLogicOp.LogicOpCopy, attachmentCount = 1, pAttachments = &colorBlendAttachmentState, };
 			// colorBlendStateCreateInfo.blendConstants[0] = 0; // is there a better way of initializing this?
 			// colorBlendStateCreateInfo.blendConstants[1] = 0;
 			// colorBlendStateCreateInfo.blendConstants[2] = 0;
 			// colorBlendStateCreateInfo.blendConstants[3] = 0;
 
 			VkPipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo = new() {
-					depthTestEnable = (int)(settings.EnableDepthTest ? Vk.True : Vk.False),
-					depthWriteEnable = (int)(settings.EnableDepthWrite ? Vk.True : Vk.False),
+					depthTestEnable = settings.EnableDepthTest ? VkH.True : VkH.False,
+					depthWriteEnable = settings.EnableDepthWrite ? VkH.True : VkH.False,
 					depthCompareOp = settings.DepthCompareOp,
-					depthBoundsTestEnable = (int)(settings.EnableDepthBoundsTest ? Vk.True : Vk.False),
+					depthBoundsTestEnable = settings.EnableDepthBoundsTest ? VkH.True : VkH.False,
 					minDepthBounds = settings.MinDepthBounds,
 					maxDepthBounds = settings.MaxDepthBounds,
-					stencilTestEnable = (int)(settings.EnableStencilTest ? Vk.True : Vk.False),
+					stencilTestEnable = settings.EnableStencilTest ? VkH.True : VkH.False,
 					front = settings.StencilFront,
 					back = settings.StencilBack,
 			};
@@ -167,13 +167,13 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		[PublicAPI]
 		public class Settings {
 			public string DebugName { get; }
-			public VkFormat SwapChainImageFormat { get; }
-			public VulkanShader[] Shaders { get; }
-			public VkVertexInputAttributeDescription[] VertexAttributeDescriptions { get; }
-			public VkVertexInputBindingDescription[] VertexBindingDescriptions { get; }
 
 			// Pipeline Input
 			public VkPrimitiveTopology Topology { get; init; } = VkPrimitiveTopology.PrimitiveTopologyTriangleList;
+			public VkVertexInputAttributeDescription[] VertexAttributeDescriptions { get; }
+			public VkVertexInputBindingDescription[] VertexBindingDescriptions { get; }
+			public VulkanShader[] Shaders { get; }
+			public VkFormat SwapChainImageFormat { get; }
 
 			// Rasterization
 			public bool EnableRasterizerDiscard { get; init; }
@@ -212,7 +212,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			public bool EnableDepthWrite { get; init; }
 			public VkCompareOp DepthCompareOp { get; init; } = VkCompareOp.CompareOpLess;
 			public bool EnableDepthBoundsTest { get; init; }
-			public float MinDepthBounds { get; init; } = 0;
+			public float MinDepthBounds { get; init; }
 			public float MaxDepthBounds { get; init; } = 1;
 			public bool EnableStencilTest { get; init; }
 			public VkStencilOpState StencilFront { get; init; }

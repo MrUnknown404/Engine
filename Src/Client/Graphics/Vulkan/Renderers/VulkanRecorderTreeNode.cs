@@ -1,6 +1,6 @@
 using Engine3.Client.Graphics.Vulkan.Objects;
 
-namespace Engine3.Client.Graphics.Vulkan {
+namespace Engine3.Client.Graphics.Vulkan.Renderers {
 	public abstract class VulkanRecorderTreeNode : VulkanRecorderNode {
 		private readonly List<VulkanRecorderTreeNode> children = new();
 

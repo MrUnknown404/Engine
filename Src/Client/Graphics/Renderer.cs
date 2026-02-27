@@ -18,6 +18,8 @@ namespace Engine3.Client.Graphics {
 		internal Renderer() { }
 
 		protected internal abstract void Setup();
+
+		protected internal virtual void Update() { }
 		protected internal abstract void Render(float delta);
 
 		public abstract bool IsSameWindow(Window window);
@@ -38,25 +40,22 @@ namespace Engine3.Client.Graphics {
 		protected abstract void PrepareCleanup();
 		protected abstract void Cleanup();
 
+		[SuppressMessage("ReSharper", "MemberCanBeProtected.Global")]
 		internal abstract void CleanupImGui();
 
 		internal void InvokeOnSetupDoneEvent() => OnSetupDoneEvent?.Invoke();
 	}
 
-	public abstract class Renderer<TWindow, TBackend, TImGui> : Renderer where TWindow : Window where TBackend : EngineGraphicsBackend where TImGui : ImGuiBackend {
-		protected TBackend GraphicsBackend { get; }
+	public abstract class Renderer<TWindow, TImGui> : Renderer where TWindow : Window where TImGui : ImGuiBackend {
 		protected TWindow Window { get; }
 		protected TImGui? ImGuiBackend { get; init; }
 
 		public override bool IsHidden => Window.IsHidden;
 
-		protected Renderer(TBackend graphicsBackend, TWindow window) {
-			GraphicsBackend = graphicsBackend;
-			Window = window;
-		}
+		protected Renderer(TWindow window) => Window = window;
 
 		protected internal override void Render(float delta) {
-			PrepareRender();
+			PrepareRender(); // opengl needs context bound (if multi windowed). i could just put it in TryCleanup but i'd rather it be separate
 			TryCleanupResources(); // TODO don't destroy every frame?
 
 			if (!TryNextFrame()) { return; }

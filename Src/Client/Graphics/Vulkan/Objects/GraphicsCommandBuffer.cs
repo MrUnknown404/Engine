@@ -36,6 +36,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		public void CmdEndRendering() => Vk.CmdEndRendering(VkCommandBuffer);
 
+		public void CmdBindGraphicsPipeline(GraphicsPipeline graphicsPipeline) => CmdBindGraphicsPipeline(graphicsPipeline.Pipeline);
 		public void CmdBindGraphicsPipeline(VkPipeline graphicsPipeline) => Vk.CmdBindPipeline(VkCommandBuffer, VkPipelineBindPoint.PipelineBindPointGraphics, graphicsPipeline);
 
 		public void CmdBindDescriptorSet(VkPipelineLayout pipelineLayout, VkDescriptorSet descriptorSet, VkShaderStageFlagBits shaderStageFlags) {
@@ -53,13 +54,23 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		public void CmdPushConstants<T>(VkPipelineLayout pipelineLayout, VkShaderStageFlagBits shaderStageFlags, T data, uint offset) where T : unmanaged =>
 				Vk.CmdPushConstants(VkCommandBuffer, pipelineLayout, shaderStageFlags, offset, (uint)sizeof(T), &data);
 
-		public void CmdSetViewport(float x, float y, float width, float height, float minDepth, float maxDepth) => CmdSetViewport(new() { x = x, y = y, width = width, height = height, minDepth = minDepth, maxDepth = maxDepth, });
-		public void CmdSetViewport(VkViewport viewport) => Vk.CmdSetViewport(VkCommandBuffer, 0, 1, &viewport);
+		public void CmdSetViewport(float x, float y, float width, float height, float minDepth, float maxDepth, uint firstViewport = 0) =>
+				CmdSetViewport(new() { x = x, y = y, width = width, height = height, minDepth = minDepth, maxDepth = maxDepth, }, firstViewport);
 
-		public void CmdSetScissor(int x, int y, uint width, uint height) => CmdSetScissor(new() { offset = new(x, y), extent = new(width, height), });
-		public void CmdSetScissor(int x, int y, VkExtent2D extent) => CmdSetScissor(new() { offset = new(x, y), extent = extent, });
-		public void CmdSetScissor(VkOffset2D offset, uint width, uint height) => CmdSetScissor(new() { offset = offset, extent = new(width, height), });
-		public void CmdSetScissor(VkRect2D scissor) => Vk.CmdSetScissor(VkCommandBuffer, 0, 1, &scissor);
+		public void CmdSetViewport(VkViewport viewport, uint firstViewport = 0) => Vk.CmdSetViewport(VkCommandBuffer, firstViewport, 1, &viewport);
+
+		public void CmdSetViewports(VkViewport[] viewports, uint firstViewport = 0) {
+			fixed (VkViewport* viewportsPtr = viewports) { Vk.CmdSetViewport(VkCommandBuffer, firstViewport, (uint)viewports.Length, viewportsPtr); }
+		}
+
+		public void CmdSetScissor(int x, int y, uint width, uint height, uint firstScissor = 0) => CmdSetScissor(new() { offset = new(x, y), extent = new(width, height), }, firstScissor);
+		public void CmdSetScissor(int x, int y, VkExtent2D extent, uint firstScissor = 0) => CmdSetScissor(new() { offset = new(x, y), extent = extent, }, firstScissor);
+		public void CmdSetScissor(VkOffset2D offset, uint width, uint height, uint firstScissor = 0) => CmdSetScissor(new() { offset = offset, extent = new(width, height), }, firstScissor);
+		public void CmdSetScissor(VkRect2D scissor, uint firstScissor = 0) => Vk.CmdSetScissor(VkCommandBuffer, firstScissor, 1, &scissor);
+
+		public void CmdSetScissors(VkRect2D[] scissors, uint firstScissor = 0) {
+			fixed (VkRect2D* scissorPtr = scissors) { Vk.CmdSetScissor(VkCommandBuffer, firstScissor, (uint)scissors.Length, scissorPtr); }
+		}
 
 		public void CmdBindVertexBuffer(VulkanBuffer buffer, uint firstBinding, ulong offset = 0) => CmdBindVertexBuffer(buffer.Buffer, firstBinding, offset);
 		public void CmdBindVertexBuffer(VkBuffer buffer, uint firstBinding, ulong offset = 0) => Vk.CmdBindVertexBuffers(VkCommandBuffer, firstBinding, 1, &buffer, &offset);
@@ -93,6 +104,10 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		public void CmdDrawIndexed(uint indexCount, uint instanceCount, uint firstIndex, int vertexOffset, uint firstInstance) =>
 				Vk.CmdDrawIndexed(VkCommandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+
+		public void CmdDrawIndirect(VkBuffer buffer, ulong offset, uint drawCount, uint stride) => Vk.CmdDrawIndirect(VkCommandBuffer, buffer, offset, drawCount, stride);
+
+		public void CmdDrawIndexedIndirect(VkBuffer buffer, ulong offset, uint drawCount, uint stride) => Vk.CmdDrawIndexedIndirect(VkCommandBuffer, buffer, offset, drawCount, stride);
 
 		public void CmdClearDepth(VkExtent2D extent) {
 			VkClearAttachment clearAttachment = new() { aspectMask = VkImageAspectFlagBits.ImageAspectDepthBit, clearValue = new() { depthStencil = new() { depth = 1, }, }, };

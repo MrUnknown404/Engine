@@ -10,7 +10,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		private readonly VkDevice logicalDevice;
 
-		internal TextureSampler(VkDevice logicalDevice, VulkanGraphicsBackendSettings backendSettings, Settings settings) {
+		internal TextureSampler(VkDevice logicalDevice, Settings settings) {
 			this.logicalDevice = logicalDevice;
 
 			VkSamplerCreateInfo samplerCreateInfo = new() {
@@ -19,11 +19,11 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 					addressModeU = settings.AddressMode.U,
 					addressModeV = settings.AddressMode.V,
 					addressModeW = settings.AddressMode.W,
-					anisotropyEnable = (int)(settings.EnableAnisotropy && backendSettings.AllowEnableAnisotropy ? Vk.True : Vk.False),
+					anisotropyEnable = settings.EnableAnisotropy && ((VulkanGraphicsBackend)Engine3.GameInstance.GraphicsBackend).Settings.AllowEnableAnisotropy ? VkH.True : VkH.False,
 					maxAnisotropy = settings.MaxAnisotropy,
 					borderColor = settings.BorderColor,
-					unnormalizedCoordinates = (int)(settings.NormalizedCoordinates ? Vk.False : Vk.True),
-					compareEnable = (int)Vk.False,
+					unnormalizedCoordinates = settings.NormalizedCoordinates ? VkH.False : VkH.True,
+					compareEnable = VkH.False,
 					compareOp = VkCompareOp.CompareOpAlways,
 					mipmapMode = settings.MipmapMode,
 					mipLodBias = settings.MipLodBias,

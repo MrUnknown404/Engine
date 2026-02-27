@@ -5,8 +5,8 @@ using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using OpenTK.Platform;
 
-namespace Engine3.Client.Graphics.OpenGL {
-	public abstract class OpenGLRenderer : Renderer<OpenGLWindow, OpenGLGraphicsBackend, OpenGLImGuiBackend>, IGraphicsResourceProvider {
+namespace Engine3.Client.Graphics.OpenGL.Renderers {
+	public abstract class OpenGLRendererBase : Renderer<OpenGLWindow, OpenGLImGuiBackend>, IGraphicsResourceProvider {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		protected OpenGLResourceProvider ResourceProvider { get; } = new();
@@ -14,7 +14,9 @@ namespace Engine3.Client.Graphics.OpenGL {
 
 		public ClearBufferMask ClearBufferMask { get; set; } = ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit;
 
-		protected OpenGLRenderer(OpenGLGraphicsBackend graphicsBackend, OpenGLWindow window) : base(graphicsBackend, window) { }
+		private readonly int swapInterval;
+
+		protected OpenGLRendererBase(OpenGLGraphicsBackend graphicsBackend, OpenGLWindow window) : base(window) => swapInterval = graphicsBackend.Settings.SwapInterval;
 
 		protected internal override void Setup() {
 			Window.MakeContextCurrent();
@@ -26,7 +28,7 @@ namespace Engine3.Client.Graphics.OpenGL {
 			GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 			GL.ClearColor(Window.ClearColor);
 
-			Toolkit.OpenGL.SetSwapInterval(GraphicsBackend.Settings.SwapInterval);
+			Toolkit.OpenGL.SetSwapInterval(swapInterval);
 
 			EmptyVao = new(GL.CreateVertexArray());
 			GL.BindVertexArray(EmptyVao.Value.Handle); // Some hardware requires vao to be bound even if it's not in use

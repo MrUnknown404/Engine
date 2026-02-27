@@ -1,0 +1,52 @@
+using Engine3.Client.Graphics.Vulkan.Objects;
+using OpenTK.Graphics.Vulkan;
+
+namespace Engine3.Client.Graphics.Vulkan.Renderers {
+	public class VulkanRenderPassRenderer : VulkanRendererBase { // should be eventually be "bindless". we'll see how that goes...
+		private readonly List<VulkanRenderPass> renderPasses = new();
+		private readonly List<VulkanRenderPass> renderPassesWithUpdates = new();
+
+		public bool CreateInitialViewport { get; set; } = true;
+		public bool CreateInitialScissor { get; set; } = true;
+
+		public VulkanRenderPassRenderer(VulkanGraphicsBackend graphicsBackend, VulkanWindow window) : base(graphicsBackend, window) { }
+
+		public void AddRenderPass(VulkanRenderPass renderPass) {
+			renderPasses.Add(renderPass);
+			if (renderPass.ShouldUpdate) { renderPassesWithUpdates.Add(renderPass); }
+		}
+
+		public void SortRenderPasses(IComparer<VulkanRenderPass> comparer) {
+			renderPasses.Sort(comparer);
+			renderPassesWithUpdates.Sort(comparer);
+		}
+
+		protected override void CopyBuffers(float delta) {
+			foreach (VulkanRenderPass renderPass in renderPasses) { renderPass.CopyBuffers(delta, FrameIndex); }
+		}
+
+		protected override void RecordCommandBuffer(GraphicsCommandBuffer commandBuffer) {
+			if (CreateInitialViewport) { commandBuffer.CmdSetViewport(0, 0, SwapChain.Extent.width, SwapChain.Extent.height, 0, 1); }
+			if (CreateInitialScissor) { commandBuffer.CmdSetScissor(0, 0, SwapChain.Extent); }
+
+			foreach (VulkanRenderPass renderPass in renderPasses) {
+				if (!renderPass.ShouldRender || renderPass.VertexBuffer is null || renderPass.IndexBuffer is null) { continue; }
+
+				commandBuffer.CmdBindGraphicsPipeline(renderPass.GraphicsPipeline.Pipeline);
+				commandBuffer.CmdBindVertexBuffer(renderPass.VertexBuffer, renderPass.VertexFirstBinding, renderPass.VertexOffset);
+				commandBuffer.CmdBindIndexBuffer(renderPass.IndexBuffer, renderPass.IndexBuffer.BufferSize, VkIndexType.IndexTypeUint32, renderPass.IndexOffset);
+
+				renderPass.RecordCommandBuffer(commandBuffer, FrameIndex);
+			}
+		}
+
+		protected override void OnSwapchainInvalid() {
+			base.OnSwapchainInvalid();
+			foreach (VulkanRenderPass renderPass in renderPasses) { renderPass.OnSwapchainInvalid(SwapChain); }
+		}
+
+		protected internal override void Update() {
+			foreach (VulkanRenderPass renderPass in renderPassesWithUpdates) { renderPass.Update(); }
+		}
+	}
+}
