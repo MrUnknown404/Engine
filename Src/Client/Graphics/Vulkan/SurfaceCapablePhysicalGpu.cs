@@ -21,11 +21,12 @@ namespace Engine3.Client.Graphics.Vulkan {
 				queueCreateInfos.Add(new() { queueFamilyIndex = queueFamily, queueCount = 1, pQueuePriorities = &queuePriority, });
 			}
 
+			// TODO allow these to be editable
 			VkPhysicalDeviceVulkan11Features physicalDeviceVulkan11Features = new() { shaderDrawParameters = VkH.True, }; // atm i'm not using some of these. but i may?
-			VkPhysicalDeviceVulkan12Features physicalDeviceVulkan12Features = new() { pNext = &physicalDeviceVulkan11Features, };
+			VkPhysicalDeviceVulkan12Features physicalDeviceVulkan12Features = new() { pNext = &physicalDeviceVulkan11Features, drawIndirectCount = VkH.True, };
 			VkPhysicalDeviceVulkan13Features physicalDeviceVulkan13Features = new() { pNext = &physicalDeviceVulkan12Features, synchronization2 = VkH.True, dynamicRendering = VkH.True, };
 			VkPhysicalDeviceVulkan14Features physicalDeviceVulkan14Features = new() { pNext = &physicalDeviceVulkan13Features, };
-			VkPhysicalDeviceFeatures physicalDeviceFeatures = new() { samplerAnisotropy = VkH.True, };
+			VkPhysicalDeviceFeatures physicalDeviceFeatures = new() { samplerAnisotropy = VkH.True, multiDrawIndirect = VkH.True, };
 
 			IntPtr requiredDeviceExtensionsPtr = MarshalTk.StringArrayToCoTaskMemAnsi(requiredDeviceExtensions);
 #if DEBUG

@@ -1,5 +1,6 @@
 using System.Numerics;
 using Engine3.Utility;
+using ImGuiNET;
 using OpenTK.Platform;
 
 namespace Engine3.Client.Graphics.ImGui.Providers {
@@ -41,7 +42,7 @@ namespace Engine3.Client.Graphics.ImGui.Providers {
 			bool showAnyFrames = showFrameIndex || showFps || showFrameTime || showMinMaxAvgFrameTime;
 
 			if (ImGuiNet.Begin("Debug")) {
-				ImGuiH.IndentedCollapsingHeader("Performance", IndentAmount, ShowPerformance);
+				ImGuiH.IndentedCollapsingHeader("Performance", IndentAmount, ShowPerformance, ImGuiTreeNodeFlags.DefaultOpen);
 				ImGuiH.IndentedCollapsingHeader("Input", IndentAmount, ShowInput);
 
 				if (AddExtraDebugUI != null) {

@@ -7,7 +7,7 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan {
 	[PublicAPI]
-	public sealed unsafe class LogicalGpu : GraphicsResource<LogicalGpu, ulong>, IGraphicsResourceProvider {
+	public sealed unsafe class LogicalGpu : GraphicsResource<LogicalGpu, ulong>, IGraphicsResourceProvider { // TODO cleanup all these vulkan classes
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public VkDevice LogicalDevice { get; }
@@ -260,7 +260,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 		}
 
 		public void EnqueueDestroy(DescriptorBuffers descriptorBuffers) {
-			Logger.Trace($"Requesting to destroy {nameof(DescriptorBuffers)}");
+			Logger.Trace($"Requesting to destroy {nameof(DescriptorBuffers)} ({descriptorBuffers.GetBuffer(0).Handle:X16})");
 			descriptorBufferManager.EnqueueDestroy(descriptorBuffers);
 		}
 

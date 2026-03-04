@@ -14,8 +14,6 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		public VkDescriptorSet GetCurrent(byte frameIndex) => descriptorSets[frameIndex];
 
-		// TODO make UpdateDescriptorSets method
-
 		public void UpdateDescriptorSet(uint binding, DescriptorBuffers descriptorBuffers) {
 			VkWriteDescriptorSet* writeDescriptorSets = stackalloc VkWriteDescriptorSet[maxFramesInFlight];
 			VkDescriptorBufferInfo* bufferInfos = stackalloc VkDescriptorBufferInfo[maxFramesInFlight];

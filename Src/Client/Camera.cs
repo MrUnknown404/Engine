@@ -188,7 +188,7 @@ namespace Engine3.Client {
 		}
 
 		private void RebuildVectors() { // TODO is my math wrong? why do i need to flip Y all over the place?
-			Vector3 forward = Vector3.Normalize(MultiplyQuaternion(Orientation, -Vector3.UnitZ));
+			Vector3 forward = Vector3.Normalize(MultiplyQuaternion(Orientation, -Vector3.UnitZ)); // flipping z seems to be the cause of the weirdness
 			Vector3 up = Vector3.Normalize(MultiplyQuaternion(Orientation, -Vector3.UnitY));
 			Vector3 right = Vector3.Cross(up, forward);
 
@@ -202,7 +202,7 @@ namespace Engine3.Client {
 			return;
 
 			Vector3 MultiplyQuaternion(Quaternion q, Vector3 v) { // taken from stackoverflow (glm?) // TODO make extension?
-				Vector3 quatVector = new(q.X, -q.Y, q.Z); // why do i need -y? if i don't X is flipped?
+				Vector3 quatVector = new(q.X, -q.Y, q.Z);
 				Vector3 uv = Vector3.Cross(quatVector, v);
 				Vector3 uuv = Vector3.Cross(quatVector, uv);
 				return v + (uv * q.W + uuv) * 2;

@@ -48,10 +48,12 @@ namespace Engine3.Client.Graphics.Vulkan {
 			VkPhysicalDeviceFeatures features = PhysicalDeviceFeatures2.features;
 
 			StringBuilder limitsStringBuilder = new();
-			limitsStringBuilder.Append($"MaxSamplerAnisotropy: {limits.maxSamplerAnisotropy}");
+			limitsStringBuilder.Append($"MaxSamplerAnisotropy: {limits.maxSamplerAnisotropy}, ");
+			limitsStringBuilder.Append($"MaxDrawIndirectCount: {limits.maxDrawIndirectCount}");
 
 			StringBuilder featuresStringBuilder = new();
-			featuresStringBuilder.Append($"SamplerAnisotropy: {VkBoolToBool(features.samplerAnisotropy)}");
+			featuresStringBuilder.Append($"SamplerAnisotropy: {VkBoolToBool(features.samplerAnisotropy)}, ");
+			featuresStringBuilder.Append($"MultiDrawIndirect: {VkBoolToBool(features.multiDrawIndirect)}");
 
 			// TODO PhysicalDeviceMemoryProperties2
 			// TODO ExtensionProperties

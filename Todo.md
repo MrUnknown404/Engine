@@ -23,6 +23,7 @@ I'll remove the entry when done
 - read https://github.com/KhronosGroup/Vulkan-ValidationLayers/blob/main/docs/debug_printf.md
 - read https://docs.vulkan.org/samples/latest/samples/extensions/descriptor_indexing/README.html
 - read https://docs.vulkan.org/guide/latest/buffer_device_address.html
+- read https://github.com/SaschaWillems/Vulkan/blob/master/examples/indirectdraw/README.md#preparing-the-indirect-draw
 - fix white screen while resizing. is it possible to show the last swap image and scale then present?
 - what's the best way of swapping images? do i use vkUpdateDescriptorSets or bind a different set? or something else?
 - use stackalloc more when appropriate
