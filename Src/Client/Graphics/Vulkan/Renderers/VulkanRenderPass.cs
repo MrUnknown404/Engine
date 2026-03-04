@@ -2,6 +2,12 @@ using Engine3.Client.Graphics.Vulkan.Objects;
 
 namespace Engine3.Client.Graphics.Vulkan.Renderers {
 	public abstract class VulkanRenderPass {
+		protected VulkanResourceProvider GraphicsResourceProvider { get; }
+		protected TransferCommandPool TransferCommandPool { get; }
+		protected SurfaceCapablePhysicalGpu PhysicalGpu { get; }
+		protected LogicalGpu LogicalGpu { get; }
+		protected byte MaxFramesInFlight { get; }
+
 		public GraphicsPipeline GraphicsPipeline { get; }
 
 		public VulkanBuffer? VertexBuffer { get; protected set; }
@@ -14,10 +20,12 @@ namespace Engine3.Client.Graphics.Vulkan.Renderers {
 		public virtual bool ShouldRender { get; set; } = true;
 		protected internal bool ShouldUpdate { get; protected init; }
 
-		protected LogicalGpu LogicalGpu { get; }
-
-		protected VulkanRenderPass(LogicalGpu logicalGpu, GraphicsPipeline graphicsPipeline) {
-			LogicalGpu = logicalGpu;
+		protected VulkanRenderPass(VulkanRenderPassRenderer renderer, GraphicsPipeline graphicsPipeline) {
+			GraphicsResourceProvider = renderer.GraphicsResourceProvider;
+			TransferCommandPool = renderer.TransferCommandPool;
+			PhysicalGpu = renderer.PhysicalGpu;
+			LogicalGpu = renderer.LogicalGpu;
+			MaxFramesInFlight = renderer.MaxFramesInFlight;
 			GraphicsPipeline = graphicsPipeline;
 		}
 

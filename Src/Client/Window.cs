@@ -55,6 +55,8 @@ namespace Engine3.Client {
 		public WindowHandle WindowHandle { get; } // TODO protected
 		public Color4<Rgba> ClearColor { get; set; } = new(0, 0, 0, 1);
 
+		public abstract IGraphicsResourceProvider GraphicsResourceProvider { get; }
+
 		public KeyboardManager KeyboardManager { get; } = new();
 		public MouseManager MouseManager { get; } = new();
 

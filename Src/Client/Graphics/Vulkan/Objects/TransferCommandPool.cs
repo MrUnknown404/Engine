@@ -5,12 +5,13 @@ using StbiSharp;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
 	public sealed unsafe class TransferCommandPool : CommandPool {
-		internal TransferCommandPool(LogicalGpu logicalGpu, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) : base(logicalGpu, commandPoolCreateFlags, queueFamilyIndex) { }
+		internal TransferCommandPool(LogicalGpu logicalGpu, VulkanResourceProvider graphicsResourceProvider, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) : base(logicalGpu, graphicsResourceProvider,
+			commandPoolCreateFlags, queueFamilyIndex) { }
 
 		[MustUseReturnValue]
 		public TransferCommandBuffer CreateCommandBuffer(VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
 			TransferCommandBuffer commandBuffer = new(LogicalGpu.LogicalDevice, VkCommandPool, level);
-			LogicalGpu.AddCommandBuffer(commandBuffer);
+			GraphicsResourceProvider.AddCommandBuffer(commandBuffer);
 			return commandBuffer;
 		}
 
@@ -23,7 +24,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		}
 
 		public void CopyToBuffer(VulkanBuffer dstBuffer, void* data, ulong size, ulong offset = 0) {
-			VulkanBuffer stagingBuffer = LogicalGpu.CreateBuffer("Temporary Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
+			VulkanBuffer stagingBuffer = GraphicsResourceProvider.CreateBuffer("Temporary Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
 				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, size);
 
 			stagingBuffer.Copy(data, size);
@@ -36,8 +37,8 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 			transferCommandBuffer.SubmitQueue(LogicalGpu.TransferQueue);
 
-			LogicalGpu.EnqueueDestroy(transferCommandBuffer);
-			LogicalGpu.EnqueueDestroy(stagingBuffer);
+			GraphicsResourceProvider.EnqueueDestroy(transferCommandBuffer);
+			GraphicsResourceProvider.EnqueueDestroy(stagingBuffer);
 		}
 
 		public void CopyToBuffers<T>(CopyBufferInfo[] copyBufferInfo, ReadOnlySpan<T> data) where T : unmanaged {
@@ -49,7 +50,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		}
 
 		public void CopyToBuffers(CopyBufferInfo[] copyBufferInfo, void* data, ulong size) {
-			VulkanBuffer stagingBuffer = LogicalGpu.CreateBuffer("Temporary Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
+			VulkanBuffer stagingBuffer = GraphicsResourceProvider.CreateBuffer("Temporary Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
 				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, size);
 
 			stagingBuffer.Copy(data, size);
@@ -64,8 +65,8 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 			transferCommandBuffer.SubmitQueue(LogicalGpu.TransferQueue);
 
-			LogicalGpu.EnqueueDestroy(transferCommandBuffer);
-			LogicalGpu.EnqueueDestroy(stagingBuffer);
+			GraphicsResourceProvider.EnqueueDestroy(transferCommandBuffer);
+			GraphicsResourceProvider.EnqueueDestroy(stagingBuffer);
 		}
 
 		public void CopyToBuffers(CopyDataToBufferInfo[] copyDataToBufferInfo) {
@@ -77,7 +78,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 			ulong bufferSize = (ulong)newData.Count;
 
-			VulkanBuffer stagingBuffer = LogicalGpu.CreateBuffer("Temporary Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
+			VulkanBuffer stagingBuffer = GraphicsResourceProvider.CreateBuffer("Temporary Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
 				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, bufferSize);
 
 			stagingBuffer.Copy(CollectionsMarshal.AsSpan(newData));
@@ -94,8 +95,8 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 			transferCommandBuffer.SubmitQueue(LogicalGpu.TransferQueue);
 
-			LogicalGpu.EnqueueDestroy(transferCommandBuffer);
-			LogicalGpu.EnqueueDestroy(stagingBuffer);
+			GraphicsResourceProvider.EnqueueDestroy(transferCommandBuffer);
+			GraphicsResourceProvider.EnqueueDestroy(stagingBuffer);
 		}
 
 		public void CopyToImage(VulkanImage image, QueueFamilyIndices queueFamilyIndices, VkQueue transferQueue, StbiImage stbiImage) =>
@@ -106,7 +107,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		}
 
 		public void CopyToImage(VulkanImage image, QueueFamilyIndices queueFamilyIndices, VkQueue transferQueue, uint width, uint height, byte channels, void* data) {
-			VulkanBuffer stagingBuffer = LogicalGpu.CreateBuffer("Temporary Image Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
+			VulkanBuffer stagingBuffer = GraphicsResourceProvider.CreateBuffer("Temporary Image Staging Buffer", VkBufferUsageFlagBits.BufferUsageTransferSrcBit,
 				VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, width * height * channels);
 
 			stagingBuffer.Copy(data, width * height * channels);
@@ -121,8 +122,8 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			transferCommandBuffer.EndCommandBuffer();
 			transferCommandBuffer.SubmitQueue(transferQueue);
 
-			LogicalGpu.EnqueueDestroy(transferCommandBuffer);
-			LogicalGpu.EnqueueDestroy(stagingBuffer);
+			GraphicsResourceProvider.EnqueueDestroy(transferCommandBuffer);
+			GraphicsResourceProvider.EnqueueDestroy(stagingBuffer);
 		}
 
 		public class CopyBufferInfo {

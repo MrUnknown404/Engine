@@ -13,6 +13,8 @@ namespace Engine3.Client.Graphics.ImGui {
 
 		protected const string ImGuiAssetName = "ImGui";
 
+		protected abstract IGraphicsResourceProvider GraphicsResourceProvider { get; }
+
 		public nint Context { get; }
 		public bool ShowDebugUI { get; set; }
 		public IImGuiProvider? DebugUIImGui { get; init; }
@@ -221,12 +223,5 @@ namespace Engine3.Client.Graphics.ImGui {
 		}
 
 		private void OnEventQueueOnEventRaised(PalHandle? palHandle, PlatformEventType platformEventType, EventArgs args) => ImGuiH.EventQueue_EventRaised(this, args);
-	}
-
-	public abstract class ImGuiBackend<TResourceProvider> : ImGuiBackend where TResourceProvider : IGraphicsResourceProvider {
-		protected TResourceProvider GraphicsResourceProvider { get; }
-
-		internal ImGuiBackend(Window window, GraphicsBackend graphicsBackend, TResourceProvider graphicsResourceProvider, params IImGuiProvider[] imGuiProviders) : base(window, graphicsBackend, imGuiProviders) =>
-				GraphicsResourceProvider = graphicsResourceProvider;
 	}
 }

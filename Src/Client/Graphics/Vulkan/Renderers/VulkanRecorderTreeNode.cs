@@ -4,6 +4,8 @@ namespace Engine3.Client.Graphics.Vulkan.Renderers {
 	public abstract class VulkanRecorderTreeNode : VulkanRecorderNode {
 		private readonly List<VulkanRecorderTreeNode> children = new();
 
+		protected VulkanRecorderTreeNode(VulkanNodeRenderer renderer) : base(renderer) { }
+
 		public void AddChild(VulkanRecorderTreeNode child) => children.Add(child);
 
 		protected internal override void RecordCommandBuffer(GraphicsCommandBuffer commandBuffer, byte frameIndex) {

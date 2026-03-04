@@ -15,18 +15,21 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		private readonly VulkanBuffer[] buffers;
 		private readonly void*[] buffersMapped;
-		private readonly LogicalGpu logicalGpu;
+		private readonly VulkanResourceProvider graphicsResourceProvider;
 
-		internal DescriptorBuffers(string debugName, LogicalGpu logicalGpu, ulong bufferSize, byte maxFramesInFlight, VkBufferUsageFlagBits bufferUsageFlags, VkDescriptorType descriptorType) : base(debugName) {
+		internal DescriptorBuffers(string debugName, VulkanResourceProvider graphicsResourceProvider, ulong bufferSize, byte maxFramesInFlight, VkBufferUsageFlagBits bufferUsageFlags,
+			VkDescriptorType descriptorType) : base(debugName) {
 			BufferSize = bufferSize;
 			DescriptorType = descriptorType;
-			this.logicalGpu = logicalGpu;
+			this.graphicsResourceProvider = graphicsResourceProvider;
 
 			buffers = new VulkanBuffer[maxFramesInFlight];
 			buffersMapped = new void*[maxFramesInFlight];
 
 			for (int i = 0; i < maxFramesInFlight; i++) {
-				VulkanBuffer buffer = logicalGpu.CreateBuffer($"{debugName}[{i}]", bufferUsageFlags, VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit, bufferSize);
+				VulkanBuffer buffer = graphicsResourceProvider.CreateBuffer($"{debugName}[{i}]", bufferUsageFlags, VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit,
+					bufferSize);
+
 				buffers[i] = buffer;
 				buffersMapped[i] = buffer.MapMemory(bufferSize);
 			}
@@ -53,7 +56,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		public VkBuffer GetBuffer(byte index) => buffers[index].Buffer;
 
 		protected override void Cleanup() {
-			foreach (VulkanBuffer buffer in buffers) { logicalGpu.EnqueueDestroy(buffer); }
+			foreach (VulkanBuffer buffer in buffers) { graphicsResourceProvider.EnqueueDestroy(buffer); }
 		}
 	}
 }

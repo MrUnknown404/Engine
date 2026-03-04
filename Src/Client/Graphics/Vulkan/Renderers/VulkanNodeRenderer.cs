@@ -4,7 +4,7 @@ namespace Engine3.Client.Graphics.Vulkan.Renderers {
 	public class VulkanNodeRenderer : VulkanRendererBase {
 		private readonly List<VulkanRecorderNode> nodes = new();
 
-		protected VulkanNodeRenderer(VulkanGraphicsBackend graphicsBackend, VulkanWindow window) : base(graphicsBackend, window) { }
+		protected VulkanNodeRenderer(VulkanGraphicsBackend graphicsBackend, VulkanWindow window, bool createDepthImage) : base(graphicsBackend, window, createDepthImage) { }
 
 		protected void AddNode(VulkanRecorderNode node) => nodes.Add(node);
 

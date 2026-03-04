@@ -6,11 +6,13 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		public VkCommandPool VkCommandPool { get; }
 
 		protected LogicalGpu LogicalGpu { get; }
+		protected VulkanResourceProvider GraphicsResourceProvider { get; }
 
 		protected override ulong Handle => VkCommandPool.Handle;
 
-		protected CommandPool(LogicalGpu logicalGpu, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) {
+		protected CommandPool(LogicalGpu logicalGpu, VulkanResourceProvider graphicsResourceProvider, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) {
 			LogicalGpu = logicalGpu;
+			GraphicsResourceProvider = graphicsResourceProvider;
 
 			VkCommandPoolCreateInfo commandPoolCreateInfo = new() { flags = commandPoolCreateFlags, queueFamilyIndex = queueFamilyIndex, };
 			VkCommandPool commandPool;

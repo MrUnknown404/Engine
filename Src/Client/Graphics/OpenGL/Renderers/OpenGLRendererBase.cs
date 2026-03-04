@@ -9,14 +9,19 @@ namespace Engine3.Client.Graphics.OpenGL.Renderers {
 	public abstract class OpenGLRendererBase : Renderer<OpenGLWindow, OpenGLImGuiBackend>, IGraphicsResourceProvider {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-		protected OpenGLResourceProvider ResourceProvider { get; } = new();
+		public sealed override OpenGLResourceProvider GraphicsResourceProvider { get; }
+
 		protected VertexArrayHandle? EmptyVao { get; private set; }
 
 		public ClearBufferMask ClearBufferMask { get; set; } = ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit;
 
 		private readonly int swapInterval;
 
-		protected OpenGLRendererBase(OpenGLGraphicsBackend graphicsBackend, OpenGLWindow window) : base(window) => swapInterval = graphicsBackend.Settings.SwapInterval;
+		protected OpenGLRendererBase(OpenGLGraphicsBackend graphicsBackend, OpenGLWindow window) : base(window) {
+			GraphicsResourceProvider = window.GraphicsResourceProvider;
+
+			swapInterval = graphicsBackend.Settings.SwapInterval;
+		}
 
 		protected internal override void Setup() {
 			Window.MakeContextCurrent();
@@ -36,7 +41,7 @@ namespace Engine3.Client.Graphics.OpenGL.Renderers {
 		}
 
 		protected override void PrepareRender() => Window.MakeContextCurrent(); // for now this can go here since it's called first
-		protected override void TryCleanupResources() => ResourceProvider.TryCleanupResources();
+		protected override void TryCleanupResources() => GraphicsResourceProvider.TryCleanupResources();
 		protected override bool TryNextFrame() => true;
 
 		protected override void BeginFrame() {
@@ -57,6 +62,6 @@ namespace Engine3.Client.Graphics.OpenGL.Renderers {
 		protected override void EndFrame() => Toolkit.OpenGL.SwapBuffers(Window.GLContextHandle);
 
 		protected override void PrepareCleanup() => Window.MakeContextCurrent();
-		protected override void Cleanup() => ResourceProvider.CleanupAll();
+		protected override void Cleanup() => GraphicsResourceProvider.CleanupAll();
 	}
 }

@@ -9,6 +9,8 @@ namespace Engine3.Client {
 	public class OpenGLWindow : Window {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
+		public override OpenGLResourceProvider GraphicsResourceProvider { get; } = new();
+
 		public OpenGLContextHandle GLContextHandle { get; }
 
 		public OpenGLWindow(OpenGLGraphicsBackend graphicsBackend, string title, uint width, uint height) : base(graphicsBackend, title, width, height) {

@@ -13,6 +13,8 @@ namespace Engine3.Client.Graphics.OpenGL {
 		private readonly ResourceManager<OpenGLBuffer> bufferManager = new();
 		private readonly ResourceManager<OpenGLImage> imageManager = new();
 
+		internal OpenGLResourceProvider() { }
+
 		[MustUseReturnValue]
 		public ProgramPipeline CreateProgramPipeline(string debugName, OpenGLShader? vert, OpenGLShader? frag, OpenGLShader? geom = null, OpenGLShader? tessEval = null, OpenGLShader? tessCtrl = null) {
 			ProgramPipeline programPipeline = new(debugName, vert, frag, geom, tessEval, tessCtrl);

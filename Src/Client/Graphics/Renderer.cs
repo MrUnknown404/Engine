@@ -50,6 +50,8 @@ namespace Engine3.Client.Graphics {
 		protected TWindow Window { get; }
 		protected TImGui? ImGuiBackend { get; init; }
 
+		public abstract IGraphicsResourceProvider GraphicsResourceProvider { get; }
+
 		public override bool IsHidden => Window.IsHidden;
 
 		protected Renderer(TWindow window) => Window = window;

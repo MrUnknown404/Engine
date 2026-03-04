@@ -10,6 +10,8 @@ namespace Engine3.Client {
 	public unsafe class VulkanWindow : Window {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
+		public override VulkanResourceProvider GraphicsResourceProvider { get; }
+
 		public VkSurfaceKHR Surface { get; }
 		public SurfaceCapablePhysicalGpu SelectedGpu { get; }
 		public LogicalGpu LogicalGpu { get; }
@@ -31,9 +33,14 @@ namespace Engine3.Client {
 
 			LogicalGpu = SelectedGpu.CreateLogicalGpu(graphicsBackend.GetAllRequiredDeviceExtensions(), graphicsBackend.GetAllRequiredValidationLayers());
 			Logger.Debug("Created logical gpu");
+
+			GraphicsResourceProvider = new VulkanResourceProvider(SelectedGpu, LogicalGpu);
 		}
 
 		protected override void Cleanup() {
+			Vk.DeviceWaitIdle(LogicalGpu.LogicalDevice);
+
+			GraphicsResourceProvider.Cleanup();
 			LogicalGpu.Destroy();
 			Vk.DestroySurfaceKHR(vkInstance, Surface, null);
 		}

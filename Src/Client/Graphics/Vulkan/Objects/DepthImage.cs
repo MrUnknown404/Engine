@@ -7,26 +7,26 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		public VulkanImage Image { get; private set; }
 
 		private readonly SurfaceCapablePhysicalGpu physicalGpu;
-		private readonly LogicalGpu logicalGpu;
+		private readonly VulkanResourceProvider graphicsResourceProvider;
 		private readonly TransferCommandPool transferCommandPool;
 		private readonly VkQueue transferQueue;
 		private readonly VkFormat depthFormat;
 
-		internal DepthImage(SurfaceCapablePhysicalGpu physicalGpu, LogicalGpu logicalGpu, TransferCommandPool transferCommandPool, VkQueue transferQueue, VkExtent2D extent) {
+		internal DepthImage(SurfaceCapablePhysicalGpu physicalGpu, VulkanResourceProvider graphicsResourceProvider, TransferCommandPool transferCommandPool, VkQueue transferQueue, VkExtent2D extent) {
 			this.physicalGpu = physicalGpu;
-			this.logicalGpu = logicalGpu;
+			this.graphicsResourceProvider = graphicsResourceProvider;
 			this.transferCommandPool = transferCommandPool;
 			this.transferQueue = transferQueue;
 			depthFormat = physicalGpu.FindDepthFormat();
 
-			Image = logicalGpu.CreateImage("Depth Image", extent.width, extent.height, depthFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageDepthStencilAttachmentBit,
+			Image = graphicsResourceProvider.CreateImage("Depth Image", extent.width, extent.height, depthFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageDepthStencilAttachmentBit,
 				VkImageAspectFlagBits.ImageAspectDepthBit);
 		}
 
 		public void Recreate(VkExtent2D extent) {
-			logicalGpu.EnqueueDestroy(Image);
+			graphicsResourceProvider.EnqueueDestroy(Image);
 
-			Image = logicalGpu.CreateImage(Image.DebugName, extent.width, extent.height, depthFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageDepthStencilAttachmentBit,
+			Image = graphicsResourceProvider.CreateImage(Image.DebugName, extent.width, extent.height, depthFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageDepthStencilAttachmentBit,
 				VkImageAspectFlagBits.ImageAspectDepthBit);
 
 			TransferCommandBuffer transferCommandBuffer = transferCommandPool.CreateCommandBuffer();
@@ -37,7 +37,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			transferCommandBuffer.EndCommandBuffer();
 			transferCommandBuffer.SubmitQueue(transferQueue);
 
-			logicalGpu.EnqueueDestroy(transferCommandBuffer);
+			graphicsResourceProvider.EnqueueDestroy(transferCommandBuffer);
 
 			WasDestroyed = false;
 		}

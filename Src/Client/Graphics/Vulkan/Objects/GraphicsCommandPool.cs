@@ -4,7 +4,8 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
 	public sealed unsafe class GraphicsCommandPool : CommandPool {
-		internal GraphicsCommandPool(LogicalGpu logicalGpu, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) : base(logicalGpu, commandPoolCreateFlags, queueFamilyIndex) { }
+		internal GraphicsCommandPool(LogicalGpu logicalGpu, VulkanResourceProvider graphicsResourceProvider, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) : base(logicalGpu, graphicsResourceProvider,
+			commandPoolCreateFlags, queueFamilyIndex) { }
 
 		[MustUseReturnValue]
 		public GraphicsCommandBuffer[] CreateCommandBuffers(uint count, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
@@ -18,16 +19,16 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			for (int i = 0; i < commandBuffers.Length; i++) {
 				GraphicsCommandBuffer commandBuffer = new(LogicalGpu.LogicalDevice, VkCommandPool, commandBuffers[i]);
 				buffers[i] = commandBuffer;
-				LogicalGpu.AddCommandBuffer(commandBuffer);
+				GraphicsResourceProvider.AddCommandBuffer(commandBuffer);
 			}
 
 			return buffers;
 		}
 
 		[MustUseReturnValue]
-		public GraphicsCommandBuffer CreateGraphicsCommandBuffer(VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
+		public GraphicsCommandBuffer CreateCommandBuffer(VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
 			GraphicsCommandBuffer commandBuffer = new(LogicalGpu.LogicalDevice, VkCommandPool, level);
-			LogicalGpu.AddCommandBuffer(commandBuffer);
+			GraphicsResourceProvider.AddCommandBuffer(commandBuffer);
 			return new GraphicsCommandBuffer(LogicalGpu.LogicalDevice, VkCommandPool, level);
 		}
 	}

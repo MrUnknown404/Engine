@@ -9,7 +9,7 @@ namespace Engine3.Client.Graphics.Vulkan.Renderers {
 		public bool CreateInitialViewport { get; set; } = true;
 		public bool CreateInitialScissor { get; set; } = true;
 
-		public VulkanRenderPassRenderer(VulkanGraphicsBackend graphicsBackend, VulkanWindow window) : base(graphicsBackend, window) { }
+		public VulkanRenderPassRenderer(VulkanGraphicsBackend graphicsBackend, VulkanWindow window, bool createDepthImage) : base(graphicsBackend, window, createDepthImage) { }
 
 		public void AddRenderPass(VulkanRenderPass renderPass) {
 			renderPasses.Add(renderPass);

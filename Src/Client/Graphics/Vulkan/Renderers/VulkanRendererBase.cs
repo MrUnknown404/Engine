@@ -9,6 +9,8 @@ namespace Engine3.Client.Graphics.Vulkan.Renderers {
 	public abstract unsafe class VulkanRendererBase : Renderer<VulkanWindow, VulkanImGuiBackend> {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
+		public sealed override VulkanResourceProvider GraphicsResourceProvider { get; }
+
 		public SwapChain SwapChain { get; }
 
 		public GraphicsCommandPool GraphicsCommandPool { get; }
@@ -16,10 +18,9 @@ namespace Engine3.Client.Graphics.Vulkan.Renderers {
 
 		protected FrameData[] Frames { get; }
 		protected VkSemaphore[] RenderFinishedSemaphores { get; }
-
-		protected virtual DepthImage? DepthImage => null; // TODO automate creating this
-
 		protected byte FrameIndex { get; private set; }
+
+		protected DepthImage? DepthImage { get; }
 
 		public SurfaceCapablePhysicalGpu PhysicalGpu => Window.SelectedGpu;
 		public LogicalGpu LogicalGpu => Window.LogicalGpu;
@@ -29,14 +30,15 @@ namespace Engine3.Client.Graphics.Vulkan.Renderers {
 		private uint swapChainImageIndex;
 		private GraphicsCommandBuffer graphicsCommandBuffer;
 
-		protected VulkanRendererBase(VulkanGraphicsBackend graphicsBackend, VulkanWindow window) : base(window) {
+		protected VulkanRendererBase(VulkanGraphicsBackend graphicsBackend, VulkanWindow window, bool createDepthImage) : base(window) {
+			GraphicsResourceProvider = window.GraphicsResourceProvider;
 			MaxFramesInFlight = graphicsBackend.Settings.MaxFramesInFlight;
 
 			SwapChain = new(window, window.SelectedGpu.PhysicalDevice, window.LogicalGpu.LogicalDevice, window.SelectedGpu.QueueFamilyIndices, window.Surface, graphicsBackend.Settings.PresentMode);
 			Logger.Trace("Created swap chain");
 
-			GraphicsCommandPool = LogicalGpu.CreateGraphicsCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit, window.SelectedGpu.QueueFamilyIndices.GraphicsFamily);
-			TransferCommandPool = LogicalGpu.CreateTransferCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit, window.SelectedGpu.QueueFamilyIndices.TransferFamily);
+			GraphicsCommandPool = GraphicsResourceProvider.CreateGraphicsCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit, window.SelectedGpu.QueueFamilyIndices.GraphicsFamily);
+			TransferCommandPool = GraphicsResourceProvider.CreateTransferCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit, window.SelectedGpu.QueueFamilyIndices.TransferFamily);
 			Logger.Trace("Created command pools");
 
 			GraphicsCommandBuffer[] graphicsCommandBuffers = GraphicsCommandPool.CreateCommandBuffers(MaxFramesInFlight);
@@ -54,12 +56,14 @@ namespace Engine3.Client.Graphics.Vulkan.Renderers {
 
 			frameData = Frames[0];
 			graphicsCommandBuffer = graphicsCommandBuffers[0];
+
+			if (createDepthImage) { DepthImage = LogicalGpu.CreateDepthImage(GraphicsResourceProvider, TransferCommandPool, SwapChain.Extent); }
 		}
 
 		protected internal override void Setup() => ImGuiBackend?.Setup(TransferCommandPool, SwapChain.ImageFormat);
 
 		protected override void PrepareRender() { }
-		protected override void TryCleanupResources() => LogicalGpu.TryCleanupResources();
+		protected override void TryCleanupResources() => GraphicsResourceProvider.TryCleanupResources();
 
 		protected override bool TryNextFrame() {
 			frameData = Frames[FrameIndex];

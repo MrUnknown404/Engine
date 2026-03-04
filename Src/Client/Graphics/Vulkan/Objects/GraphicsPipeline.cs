@@ -11,20 +11,18 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		protected override ulong Handle => Pipeline.Handle;
 
-		private readonly VkDevice logicalDevice;
+		private readonly LogicalGpu logicalGpu;
 
-		internal GraphicsPipeline(SurfaceCapablePhysicalGpu physicalGpu, VkDevice logicalDevice, Settings settings) : base(settings.DebugName) {
-			Pipeline = CreateGraphicsPipeline(physicalGpu, logicalDevice, settings, out VkPipelineLayout layout);
-			Layout = layout;
-			this.logicalDevice = logicalDevice;
+		internal GraphicsPipeline(SurfaceCapablePhysicalGpu physicalGpu, LogicalGpu logicalGpu, Settings settings) : base(settings.DebugName) {
+			Layout = CreateLayout(logicalGpu, settings);
+			Pipeline = CreateGraphicsPipeline(physicalGpu, logicalGpu, settings, Layout);
+			this.logicalGpu = logicalGpu;
 
 			PrintCreate();
 		}
 
 		[MustUseReturnValue]
-		private static VkPipeline CreateGraphicsPipeline(SurfaceCapablePhysicalGpu physicalGpu, VkDevice logicalDevice, Settings settings, out VkPipelineLayout pipelineLayout) {
-			byte* entryPointName = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference("main"u8));
-
+		private static VkPipelineLayout CreateLayout(LogicalGpu logicalGpu, Settings settings) {
 			fixed (VkDescriptorSetLayout* descriptorSetLayoutsPtr = settings.DescriptorSetLayouts) {
 				fixed (VkPushConstantRange* pushConstantRangesPtr = settings.PushConstantRanges) {
 					VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = new();
@@ -40,10 +38,15 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 					}
 
 					VkPipelineLayout tempPipelineLayout;
-					VkH.CheckIfSuccess(Vk.CreatePipelineLayout(logicalDevice, &pipelineLayoutCreateInfo, null, &tempPipelineLayout), VulkanException.Reason.CreatePipelineLayout);
-					pipelineLayout = tempPipelineLayout;
+					VkH.CheckIfSuccess(Vk.CreatePipelineLayout(logicalGpu.LogicalDevice, &pipelineLayoutCreateInfo, null, &tempPipelineLayout), VulkanException.Reason.CreatePipelineLayout);
+					return tempPipelineLayout;
 				}
 			}
+		}
+
+		[MustUseReturnValue]
+		private static VkPipeline CreateGraphicsPipeline(SurfaceCapablePhysicalGpu physicalGpu, LogicalGpu logicalGpu, Settings settings, VkPipelineLayout pipelineLayout) {
+			byte* entryPointName = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference("main"u8));
 
 			VkPipelineShaderStageCreateInfo* shaderStageCreateInfos = stackalloc VkPipelineShaderStageCreateInfo[settings.Shaders.Length];
 			for (int i = 0; i < settings.Shaders.Length; i++) {
@@ -152,7 +155,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 						};
 
 						VkPipeline graphicsPipeline;
-						VkH.CheckIfSuccess(Vk.CreateGraphicsPipelines(logicalDevice, VkPipelineCache.Zero, 1, &pipelineCreateInfo, null, &graphicsPipeline), VulkanException.Reason.CreateGraphicsPipeline);
+						VkH.CheckIfSuccess(Vk.CreateGraphicsPipelines(logicalGpu.LogicalDevice, VkPipelineCache.Zero, 1, &pipelineCreateInfo, null, &graphicsPipeline), VulkanException.Reason.CreateGraphicsPipeline);
 						return graphicsPipeline;
 					}
 				}
@@ -160,6 +163,8 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 		}
 
 		protected override void Cleanup() {
+			VkDevice logicalDevice = logicalGpu.LogicalDevice;
+
 			Vk.DestroyPipelineLayout(logicalDevice, Layout, null);
 			Vk.DestroyPipeline(logicalDevice, Pipeline, null);
 		}

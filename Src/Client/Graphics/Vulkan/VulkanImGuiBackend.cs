@@ -8,8 +8,10 @@ using OpenTK.Graphics.Vulkan;
 namespace Engine3.Client.Graphics.Vulkan {
 	// TODO allow uint indices. edit: i think imgui was compiled for 16 bit indices. don't know if i can change that
 
-	public unsafe class VulkanImGuiBackend : ImGuiBackend<LogicalGpu> {
+	public unsafe class VulkanImGuiBackend : ImGuiBackend {
 		public ImGuiFragmentShaderConstants ImGuiShaderConstants { get; init; } = new(true);
+
+		protected sealed override VulkanResourceProvider GraphicsResourceProvider { get; }
 
 		private GraphicsPipeline graphicsPipeline = null!;
 		private DescriptorSets descriptorSet = null!;
@@ -19,11 +21,14 @@ namespace Engine3.Client.Graphics.Vulkan {
 		private VulkanBuffer indexBuffer = null!; // ^
 
 		private readonly SurfaceCapablePhysicalGpu physicalGpu;
+		private readonly LogicalGpu logicalGpu;
 		private readonly byte maxFramesInFlight;
 
-		public VulkanImGuiBackend(VulkanWindow window, byte maxFramesInFlight, params IImGuiProvider[] imGuiProviders) : base(window, GraphicsBackend.Vulkan, window.LogicalGpu, imGuiProviders) {
+		public VulkanImGuiBackend(VulkanWindow window, byte maxFramesInFlight, params IImGuiProvider[] imGuiProviders) : base(window, GraphicsBackend.Vulkan, imGuiProviders) {
 			physicalGpu = window.SelectedGpu;
+			logicalGpu = window.LogicalGpu;
 			this.maxFramesInFlight = maxFramesInFlight;
+			GraphicsResourceProvider = window.GraphicsResourceProvider;
 		}
 
 		public void Setup(TransferCommandPool transferCommandPool, VkFormat swapFormatImageFormat) {
@@ -37,7 +42,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			DescriptorSetLayout descriptorSetLayout = GraphicsResourceProvider.CreateDescriptorSetLayout([ new(VkDescriptorType.DescriptorTypeCombinedImageSampler, VkShaderStageFlagBits.ShaderStageFragmentBit, 0), ]);
 
 			DescriptorPool descriptorPool = GraphicsResourceProvider.CreateDescriptorPool([ VkDescriptorType.DescriptorTypeUniformBuffer, VkDescriptorType.DescriptorTypeCombinedImageSampler, ], 1, maxFramesInFlight);
-			descriptorSet = descriptorPool.AllocateDescriptorSet(descriptorSetLayout);
+			descriptorSet = descriptorPool.AllocateDescriptorSets(descriptorSetLayout);
 
 			VkVertexInputAttributeDescription[] vertexAttributeDescriptions = [
 					new() { binding = 0, location = 0, format = VkFormat.FormatR32g32Sfloat, offset = 0, }, //
@@ -71,7 +76,7 @@ namespace Engine3.Client.Graphics.Vulkan {
 			io.Fonts.GetTexDataAsRGBA32(out byte* fontData, out int fontImageWidth, out int fontImageHeight, out int texChannels);
 
 			fontImage = GraphicsResourceProvider.CreateImage($"{ImGuiAssetName} Font Image", (uint)fontImageWidth, (uint)fontImageHeight, VkFormat.FormatR8g8b8a8Unorm);
-			transferCommandPool.CopyToImage(fontImage, physicalGpu.QueueFamilyIndices, GraphicsResourceProvider.TransferQueue, (uint)fontImageWidth, (uint)fontImageHeight, (byte)texChannels, fontData);
+			transferCommandPool.CopyToImage(fontImage, physicalGpu.QueueFamilyIndices, logicalGpu.TransferQueue, (uint)fontImageWidth, (uint)fontImageHeight, (byte)texChannels, fontData);
 
 			io.Fonts.ClearTexData(); // do i need to call this?
 

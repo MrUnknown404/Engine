@@ -18,88 +18,93 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		protected override ulong Handle => ShaderModule.Handle;
 
-		private readonly VkDevice logicalDevice;
+		private readonly LogicalGpu logicalGpu;
 
-		// TODO settings class?
-		internal VulkanShader(string debugName, VkDevice logicalDevice, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, VkSpecializationInfo? specializationInfo, Assembly assembly) : base(debugName) {
-			ShaderModule = CreateShaderModule(logicalDevice, fileLocation, shaderLang, shaderType, assembly);
+		internal VulkanShader(string debugName, LogicalGpu logicalGpu, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, VkSpecializationInfo? specializationInfo, Assembly assembly) : base(debugName) {
+			ShaderModule = CreateShaderModule(logicalGpu, fileLocation, shaderLang, shaderType, assembly);
 			ShaderType = shaderType;
 			SpecializationInfo = specializationInfo;
-			this.logicalDevice = logicalDevice;
+			this.logicalGpu = logicalGpu;
 
 			PrintCreate();
 		}
 
-		protected override void Cleanup() => Vk.DestroyShaderModule(logicalDevice, ShaderModule, null);
+		protected override void Cleanup() => Vk.DestroyShaderModule(logicalGpu.LogicalDevice, ShaderModule, null);
 
 		[MustUseReturnValue]
-		private static VkShaderModule CreateShaderModule(VkDevice logicalDevice, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {
+		private static VkShaderModule CreateShaderModule(LogicalGpu logicalGpu, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, Assembly assembly) {
 			string fullFileName = $"{GraphicsBackend.Vulkan}.{fileLocation}.{shaderType.FileExtension}.{shaderLang.FileExtension}";
 
 			using Stream? shaderStream = AssetH.GetAssetStream($"Shaders.{fullFileName}", assembly);
 			if (shaderStream == null) { throw new Engine3Exception($"Failed to create asset stream at Shaders.{fullFileName}"); }
 
-			switch (shaderLang) {
-				case ShaderLanguage.Glsl or ShaderLanguage.Hlsl: {
-					Shaderc shaderc = Engine3.GameInstance.Shaderc;
+			return shaderLang switch {
+					ShaderLanguage.Glsl or ShaderLanguage.Hlsl => CompileShaderModule(),
+					ShaderLanguage.SpirV => LoadShaderModule(),
+					_ => throw new ArgumentOutOfRangeException(nameof(shaderLang), shaderLang, null),
+			};
 
-					Compiler* compiler = shaderc.CompilerInitialize();
-					CompileOptions* options = shaderc.CompileOptionsInitialize();
+			VkShaderModule CompileShaderModule() {
+				Shaderc shaderc = Engine3.GameInstance.Shaderc;
 
-					shaderc.CompileOptionsSetSourceLanguage(options, shaderLang switch {
-							ShaderLanguage.Glsl => SourceLanguage.Glsl,
-							ShaderLanguage.Hlsl => SourceLanguage.Hlsl,
-							ShaderLanguage.SpirV => throw new UnreachableException(),
-							_ => throw new NotImplementedException(),
-					});
+				Compiler* compiler = shaderc.CompilerInitialize();
+				CompileOptions* options = shaderc.CompileOptionsInitialize();
 
-					using StreamReader streamReader = new(shaderStream);
-					string source = streamReader.ReadToEnd();
-					byte* sourcePtr = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(Encoding.UTF8.GetBytes(source)));
-					byte* shaderNamePtr = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(Encoding.UTF8.GetBytes(fullFileName)));
-					ShaderKind shaderKind = shaderType switch {
-							ShaderType.Fragment => ShaderKind.FragmentShader,
-							ShaderType.Vertex => ShaderKind.VertexShader,
-							ShaderType.Geometry => ShaderKind.GeometryShader,
-							ShaderType.TessEvaluation => ShaderKind.TessEvaluationShader,
-							ShaderType.TessControl => ShaderKind.TessControlShader,
-							ShaderType.Compute => ShaderKind.ComputeShader,
-							_ => throw new ArgumentOutOfRangeException(nameof(shaderType), shaderType, null),
-					};
+				shaderc.CompileOptionsSetSourceLanguage(options, shaderLang switch {
+						ShaderLanguage.Glsl => SourceLanguage.Glsl,
+						ShaderLanguage.Hlsl => SourceLanguage.Hlsl,
+						ShaderLanguage.SpirV => throw new UnreachableException(),
+						_ => throw new NotImplementedException(),
+				});
 
-					CompilationResult* compilationResult = shaderc.CompileIntoSpv(compiler, sourcePtr, (nuint)source.Length, shaderKind, shaderNamePtr, "main", options);
-					shaderc.CompileOptionsRelease(options);
+				using StreamReader streamReader = new(shaderStream);
 
-					CompilationStatus status = shaderc.ResultGetCompilationStatus(compilationResult);
-					shaderc.CompilerRelease(compiler);
+				string source = streamReader.ReadToEnd();
+				byte* sourcePtr = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(Encoding.UTF8.GetBytes(source)));
+				byte* shaderNamePtr = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(Encoding.UTF8.GetBytes(fullFileName)));
+				ShaderKind shaderKind = shaderType switch {
+						ShaderType.Fragment => ShaderKind.FragmentShader,
+						ShaderType.Vertex => ShaderKind.VertexShader,
+						ShaderType.Geometry => ShaderKind.GeometryShader,
+						ShaderType.TessEvaluation => ShaderKind.TessEvaluationShader,
+						ShaderType.TessControl => ShaderKind.TessControlShader,
+						ShaderType.Compute => ShaderKind.ComputeShader,
+						_ => throw new ArgumentOutOfRangeException(nameof(shaderType), shaderType, null),
+				};
 
-					if (status != CompilationStatus.Success) {
-						string errorMessage = shaderc.ResultGetErrorMessageS(compilationResult);
-						shaderc.ResultRelease(compilationResult);
-						throw new Engine3Exception($"Failed to compile {shaderType} shader: {fileLocation}. {errorMessage}");
-					}
+				CompilationResult* compilationResult = shaderc.CompileIntoSpv(compiler, sourcePtr, (nuint)source.Length, shaderKind, shaderNamePtr, "main", options);
+				shaderc.CompileOptionsRelease(options);
 
-					VkShaderModuleCreateInfo shaderModuleCreateInfo = new() { codeSize = shaderc.ResultGetLength(compilationResult), pCode = (uint*)shaderc.ResultGetBytes(compilationResult), };
-					VkShaderModule shaderModule;
-					VkResult result = Vk.CreateShaderModule(logicalDevice, &shaderModuleCreateInfo, null, &shaderModule);
+				CompilationStatus status = shaderc.ResultGetCompilationStatus(compilationResult);
+				shaderc.CompilerRelease(compiler);
 
+				if (status != CompilationStatus.Success) {
+					string errorMessage = shaderc.ResultGetErrorMessageS(compilationResult);
 					shaderc.ResultRelease(compilationResult);
+					throw new Engine3Exception($"Failed to compile {shaderType} shader: {fileLocation}. {errorMessage}");
+				}
 
-					VkH.CheckIfSuccess(result, VulkanException.Reason.CreateShaderModule);
+				VkShaderModuleCreateInfo shaderModuleCreateInfo = new() { codeSize = shaderc.ResultGetLength(compilationResult), pCode = (uint*)shaderc.ResultGetBytes(compilationResult), };
+				VkShaderModule shaderModule;
+				VkResult result = Vk.CreateShaderModule(logicalGpu.LogicalDevice, &shaderModuleCreateInfo, null, &shaderModule);
+
+				shaderc.ResultRelease(compilationResult);
+
+				VkH.CheckIfSuccess(result, VulkanException.Reason.CreateShaderModule);
+
+				return shaderModule;
+			}
+
+			VkShaderModule LoadShaderModule() {
+				using BinaryReader reader = new(shaderStream);
+				byte[] data = reader.ReadBytes((int)shaderStream.Length);
+
+				fixed (byte* shaderCodePtr = data) {
+					VkShaderModuleCreateInfo shaderModuleCreateInfo = new() { codeSize = (UIntPtr)data.Length, pCode = (uint*)shaderCodePtr, };
+					VkShaderModule shaderModule;
+					VkH.CheckIfSuccess(Vk.CreateShaderModule(logicalGpu.LogicalDevice, &shaderModuleCreateInfo, null, &shaderModule), VulkanException.Reason.CreateShaderModule);
 					return shaderModule;
 				}
-				case ShaderLanguage.SpirV: {
-					using BinaryReader reader = new(shaderStream);
-					byte[] data = reader.ReadBytes((int)shaderStream.Length);
-
-					fixed (byte* shaderCodePtr = data) {
-						VkShaderModuleCreateInfo shaderModuleCreateInfo = new() { codeSize = (UIntPtr)data.Length, pCode = (uint*)shaderCodePtr, };
-						VkShaderModule shaderModule;
-						VkH.CheckIfSuccess(Vk.CreateShaderModule(logicalDevice, &shaderModuleCreateInfo, null, &shaderModule), VulkanException.Reason.CreateShaderModule);
-						return shaderModule;
-					}
-				}
-				default: throw new ArgumentOutOfRangeException(nameof(shaderLang), shaderLang, null);
 			}
 		}
 	}

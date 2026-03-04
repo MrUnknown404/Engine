@@ -8,11 +8,19 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 
 		protected override ulong Handle => Sampler.Handle;
 
-		private readonly VkDevice logicalDevice;
+		private readonly LogicalGpu logicalGpu;
 
-		internal TextureSampler(VkDevice logicalDevice, Settings settings) {
-			this.logicalDevice = logicalDevice;
+		internal TextureSampler(LogicalGpu logicalGpu, Settings settings) {
+			this.logicalGpu = logicalGpu;
+			Sampler = CreateSampler(logicalGpu, settings);
 
+			PrintCreate();
+		}
+
+		protected override void Cleanup() => Vk.DestroySampler(logicalGpu.LogicalDevice, Sampler, null);
+
+		[MustUseReturnValue]
+		private static VkSampler CreateSampler(LogicalGpu logicalGpu, Settings settings) {
 			VkSamplerCreateInfo samplerCreateInfo = new() {
 					minFilter = settings.MinFilter,
 					magFilter = settings.MagFilter,
@@ -32,13 +40,9 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			};
 
 			VkSampler textureSampler;
-			VkH.CheckIfSuccess(Vk.CreateSampler(logicalDevice, &samplerCreateInfo, null, &textureSampler), VulkanException.Reason.CreateTextureSampler);
-			Sampler = textureSampler;
-
-			PrintCreate();
+			VkH.CheckIfSuccess(Vk.CreateSampler(logicalGpu.LogicalDevice, &samplerCreateInfo, null, &textureSampler), VulkanException.Reason.CreateTextureSampler);
+			return textureSampler;
 		}
-
-		protected override void Cleanup() => Vk.DestroySampler(logicalDevice, Sampler, null);
 
 		[PublicAPI]
 		public class Settings {

@@ -4,12 +4,12 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 	public unsafe class DescriptorSets {
 		private readonly VkDescriptorSet[] descriptorSets;
 		private readonly byte maxFramesInFlight;
-		private readonly VkDevice logicalDevice;
+		private readonly LogicalGpu logicalGpu;
 
-		internal DescriptorSets(VkDevice logicalDevice, VkDescriptorSet[] descriptorSets, byte maxFramesInFlight) {
+		internal DescriptorSets(LogicalGpu logicalGpu, VkDescriptorSet[] descriptorSets, byte maxFramesInFlight) {
 			this.descriptorSets = descriptorSets;
 			this.maxFramesInFlight = maxFramesInFlight;
-			this.logicalDevice = logicalDevice;
+			this.logicalGpu = logicalGpu;
 		}
 
 		public VkDescriptorSet GetCurrent(byte frameIndex) => descriptorSets[frameIndex];
@@ -23,7 +23,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 				writeDescriptorSets[i] = new() { dstBinding = binding, dstSet = descriptorSets[i], descriptorType = descriptorBuffers.DescriptorType, descriptorCount = 1, pBufferInfo = &bufferInfos[i], };
 			}
 
-			Vk.UpdateDescriptorSets(logicalDevice, maxFramesInFlight, writeDescriptorSets, 0, null);
+			Vk.UpdateDescriptorSets(logicalGpu.LogicalDevice, maxFramesInFlight, writeDescriptorSets, 0, null);
 		}
 
 		public void UpdateDescriptorSet(uint binding, VkImageView imageView, VkSampler textureSampler) {
@@ -34,7 +34,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 				writeDescriptorSets[i] = new() { dstBinding = binding, dstSet = descriptorSets[i], descriptorType = VkDescriptorType.DescriptorTypeCombinedImageSampler, descriptorCount = 1, pImageInfo = &imageInfo, };
 			}
 
-			Vk.UpdateDescriptorSets(logicalDevice, maxFramesInFlight, writeDescriptorSets, 0, null);
+			Vk.UpdateDescriptorSets(logicalGpu.LogicalDevice, maxFramesInFlight, writeDescriptorSets, 0, null);
 		}
 	}
 }

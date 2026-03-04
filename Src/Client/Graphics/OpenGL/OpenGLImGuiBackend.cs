@@ -5,7 +5,9 @@ using ImGuiNET;
 using OpenTK.Graphics.OpenGL;
 
 namespace Engine3.Client.Graphics.OpenGL {
-	public unsafe class OpenGLImGuiBackend : ImGuiBackend<OpenGLResourceProvider> {
+	public unsafe class OpenGLImGuiBackend : ImGuiBackend {
+		protected sealed override OpenGLResourceProvider GraphicsResourceProvider { get; }
+
 		private OpenGLShader vertexShader = null!;
 		private OpenGLShader fragmentShader = null!;
 		private ProgramPipeline programPipeline = null!;
@@ -15,7 +17,7 @@ namespace Engine3.Client.Graphics.OpenGL {
 
 		private OpenGLImage fontImage = null!;
 
-		public OpenGLImGuiBackend(Window window, params IImGuiProvider[] imGuiProviders) : base(window, GraphicsBackend.OpenGL, new(), imGuiProviders) { }
+		public OpenGLImGuiBackend(OpenGLWindow window, params IImGuiProvider[] imGuiProviders) : base(window, GraphicsBackend.OpenGL, imGuiProviders) => GraphicsResourceProvider = window.GraphicsResourceProvider;
 
 		public void Setup() {
 			ImGuiNet.SetCurrentContext(Context);
