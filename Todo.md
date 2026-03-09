@@ -11,9 +11,10 @@ I'll remove the entry when done
   - multiple files or single file?
   - NLog doesn't print generic type names correctly. either fix or use something else
 - make code analyzer for minimum params count
-- code generator for making Vertex structs easier?
+- code generator for making vertex structs easier?
 - document way more
 - add multithreading 
+- way of viewing Vulkan/Opengl objects with ImGui
 
 ---
 

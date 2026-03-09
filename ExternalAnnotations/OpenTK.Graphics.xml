@@ -105,4 +105,5 @@
 			<argument>Use 'Vk.BindImageMemory2()' for Vulkan 1.1+</argument>
 		</attribute>
 	</member>
+	<!-- TODO see if i can add the entirety of linq to this to force ZLinq use
 </assembly>

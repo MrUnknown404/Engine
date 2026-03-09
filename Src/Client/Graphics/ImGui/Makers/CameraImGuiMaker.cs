@@ -5,58 +5,58 @@ namespace Engine3.Client.Graphics.ImGui.Makers {
 	public class CameraImGuiMaker : IImGuiMaker<Camera> {
 		private CameraImGuiMaker() { }
 
-		public static void ShowImGui(Camera obj) {
+		public static void ShowImGui(Camera camera) {
 			// transform
 			ImGuiNet.SeparatorText("Transform");
 
-			Vector3 position = obj.Position;
-			if (ImGuiNet.DragFloat3("Position", ref position, 0.1f / 2f)) { obj.Position = position; } // why x2?
+			Vector3 position = camera.Position;
+			if (ImGuiNet.DragFloat3("Position", ref position, 0.1f / 2f)) { camera.Position = position; } // why x2?
 			ImGuiH.HelpMarker("X/Y/Z");
 
-			Vector4 orientation = obj.Orientation.AsVector4();
-			if (ImGuiNet.DragFloat4("Orientation", ref orientation, 0.1f / 2f)) { obj.Orientation = new(orientation.X, orientation.Y, orientation.Z, orientation.W); } // why x2?
+			Vector4 orientation = camera.Orientation.AsVector4();
+			if (ImGuiNet.DragFloat4("Orientation", ref orientation, 0.1f / 2f)) { camera.Orientation = new(orientation.X, orientation.Y, orientation.Z, orientation.W); } // why x2?
 			ImGuiH.HelpMarker("X/Y/Z/W");
 
-			Vector3 forward = obj.Forward;
+			Vector3 forward = camera.Forward;
 			ImGuiNet.InputFloat3("Forward", ref forward, null, ImGuiInputTextFlags.ReadOnly);
 			ImGuiH.HelpMarker("X/Y/Z");
 
-			Vector3 right = obj.Right;
+			Vector3 right = camera.Right;
 			ImGuiNet.InputFloat3("Right", ref right, null, ImGuiInputTextFlags.ReadOnly);
 			ImGuiH.HelpMarker("X/Y/Z");
 
-			Vector3 up = obj.Up;
+			Vector3 up = camera.Up;
 			ImGuiNet.InputFloat3("Up", ref up, null, ImGuiInputTextFlags.ReadOnly);
 			ImGuiH.HelpMarker("X/Y/Z");
 
 			// look at
 			ImGuiNet.Separator();
 
-			bool useLookAtPosition = obj.UseLookAtPosition;
-			if (ImGuiNet.Checkbox("Use Look At Position", ref useLookAtPosition)) { obj.UseLookAtPosition = useLookAtPosition; }
+			bool useLookAtPosition = camera.UseLookAtPosition;
+			if (ImGuiNet.Checkbox("Use Look At Position", ref useLookAtPosition)) { camera.UseLookAtPosition = useLookAtPosition; }
 
-			Vector3 lookAtPosition = obj.LookAtPosition;
-			if (ImGuiNet.DragFloat3("Look At Position", ref lookAtPosition, 0.1f / 2f)) { obj.LookAtPosition = lookAtPosition; }
+			Vector3 lookAtPosition = camera.LookAtPosition;
+			if (ImGuiNet.DragFloat3("Look At Position", ref lookAtPosition, 0.1f / 2f)) { camera.LookAtPosition = lookAtPosition; }
 			ImGuiH.HelpMarker("X/Y/Z");
 
 			// camera type & type specific values
 			ImGuiNet.Separator();
 
-			ImGuiNet.Text($"Camera Type: {obj.CameraType}");
-			switch (obj.CameraType) {
+			ImGuiNet.Text($"Camera Type: {camera.CameraType}");
+			switch (camera.CameraType) {
 				case Camera.CameraTypes.Orthographic:
-					float width = obj.OrthographicWidth;
-					if (ImGuiNet.DragFloat("Width", ref width, 0.1f / 2f, 0.001f, ushort.MaxValue)) { obj.OrthographicWidth = width; }
+					float width = camera.OrthographicWidth;
+					if (ImGuiNet.DragFloat("Width", ref width, 0.1f / 2f, 0.001f, ushort.MaxValue)) { camera.OrthographicWidth = width; }
 
-					float height = obj.OrthographicHeight;
-					if (ImGuiNet.DragFloat("Height", ref height, 0.1f / 2f, 0.001f, ushort.MaxValue)) { obj.OrthographicHeight = height; }
+					float height = camera.OrthographicHeight;
+					if (ImGuiNet.DragFloat("Height", ref height, 0.1f / 2f, 0.001f, ushort.MaxValue)) { camera.OrthographicHeight = height; }
 					break;
 				case Camera.CameraTypes.Perspective:
-					float aspectRatio = obj.PerspectiveAspectRatio;
-					if (ImGuiNet.DragFloat("Aspect Ratio", ref aspectRatio, 0.05f, 0.001f, 100, null, ImGuiSliderFlags.Logarithmic)) { obj.PerspectiveAspectRatio = aspectRatio; }
+					float aspectRatio = camera.PerspectiveAspectRatio;
+					if (ImGuiNet.DragFloat("Aspect Ratio", ref aspectRatio, 0.05f, 0.001f, 100, null, ImGuiSliderFlags.Logarithmic)) { camera.PerspectiveAspectRatio = aspectRatio; }
 
-					float fov = obj.PerspectiveFovDegrees;
-					if (ImGuiNet.DragFloat("Field Of View", ref fov, 0.05f, 1, 179, "%.3f\u00B0", ImGuiSliderFlags.Logarithmic)) { obj.PerspectiveFovDegrees = fov; }
+					float fov = camera.PerspectiveFovDegrees;
+					if (ImGuiNet.DragFloat("Field Of View", ref fov, 0.05f, 1, 179, "%.3f\u00B0", ImGuiSliderFlags.Logarithmic)) { camera.PerspectiveFovDegrees = fov; }
 					break;
 				default: throw new ArgumentOutOfRangeException();
 			}
@@ -64,13 +64,13 @@ namespace Engine3.Client.Graphics.ImGui.Makers {
 			// near/far plane
 			const float NearFarPadding = 0.01f;
 
-			float nearPlane = obj.NearPlane;
-			if (ImGuiNet.DragFloat("Near Plane", ref nearPlane, 10f, 0.0001f, ushort.MaxValue - NearFarPadding, "%.4f", ImGuiSliderFlags.Logarithmic)) { obj.NearPlane = nearPlane; }
+			float nearPlane = camera.NearPlane;
+			if (ImGuiNet.DragFloat("Near Plane", ref nearPlane, 10f, 0.0001f, ushort.MaxValue - NearFarPadding, "%.4f", ImGuiSliderFlags.Logarithmic)) { camera.NearPlane = nearPlane; }
 
-			float farPlane = obj.FarPlane;
-			if (ImGuiNet.DragFloat("Far Plane", ref farPlane, 10f, nearPlane + NearFarPadding, ushort.MaxValue, null, ImGuiSliderFlags.Logarithmic)) { obj.FarPlane = farPlane; }
+			float farPlane = camera.FarPlane;
+			if (ImGuiNet.DragFloat("Far Plane", ref farPlane, 10f, nearPlane + NearFarPadding, ushort.MaxValue, null, ImGuiSliderFlags.Logarithmic)) { camera.FarPlane = farPlane; }
 
-			if (nearPlane + NearFarPadding > obj.FarPlane) { obj.FarPlane = nearPlane + NearFarPadding; }
+			if (nearPlane + NearFarPadding > camera.FarPlane) { camera.FarPlane = nearPlane + NearFarPadding; }
 		}
 	}
 }
