@@ -15,6 +15,8 @@ I'll remove the entry when done
 - document way more
 - add multithreading 
 - way of viewing Vulkan/Opengl objects with ImGui
+- see if i can use https://github.com/Auburn/FastNoise2 later (https://github.com/Auburn/FastNoise2Bindings)
+- make noise visualization tools
 
 ---
 
