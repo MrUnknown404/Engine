@@ -51,7 +51,7 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			}
 		}
 
-		public void CmdPushConstants<T>(VkPipelineLayout pipelineLayout, VkShaderStageFlagBits shaderStageFlags, T data, uint offset) where T : unmanaged =>
+		public void CmdPushConstants<T>(VkPipelineLayout pipelineLayout, VkShaderStageFlagBits shaderStageFlags, T data, uint offset = 0) where T : unmanaged =>
 				Vk.CmdPushConstants(VkCommandBuffer, pipelineLayout, shaderStageFlags, offset, (uint)sizeof(T), &data);
 
 		public void CmdSetViewport(float x, float y, float width, float height, float minDepth, float maxDepth, uint firstViewport = 0) =>

@@ -29,12 +29,11 @@ namespace Engine3.Client.Graphics.Vulkan.Renderers {
 			if (CreateInitialViewport) { commandBuffer.CmdSetViewport(0, 0, SwapChain.Extent.width, SwapChain.Extent.height, 0, 1); }
 			if (CreateInitialScissor) { commandBuffer.CmdSetScissor(0, 0, SwapChain.Extent); }
 
-			foreach (VulkanRenderPass renderPass in renderPasses) {
-				if (!renderPass.ShouldRender || renderPass.VertexBuffer is null || renderPass.IndexBuffer is null) { continue; }
-
+			foreach (VulkanRenderPass renderPass in renderPasses.Where(static r => r.ShouldRender)) {
 				commandBuffer.CmdBindGraphicsPipeline(renderPass.GraphicsPipeline.Pipeline);
-				commandBuffer.CmdBindVertexBuffer(renderPass.VertexBuffer, renderPass.VertexFirstBinding, renderPass.VertexOffset);
-				commandBuffer.CmdBindIndexBuffer(renderPass.IndexBuffer, renderPass.IndexBuffer.BufferSize, VkIndexType.IndexTypeUint32, renderPass.IndexOffset);
+
+				if (renderPass.VertexBuffer != null) { commandBuffer.CmdBindVertexBuffer(renderPass.VertexBuffer, renderPass.VertexFirstBinding, renderPass.VertexOffset); }
+				if (renderPass.IndexBuffer != null) { commandBuffer.CmdBindIndexBuffer(renderPass.IndexBuffer, renderPass.IndexBuffer.BufferSize, VkIndexType.IndexTypeUint32, renderPass.IndexOffset); }
 
 				renderPass.RecordCommandBuffer(commandBuffer, FrameIndex);
 			}

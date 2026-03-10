@@ -2,7 +2,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Client.Graphics.Vertex {
+namespace Engine3.Client.Graphics.VertexLayouts {
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
 	public readonly record struct VertexXyzUvRgb {
 		public float X { get; init; }

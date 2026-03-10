@@ -1,7 +1,7 @@
 using System.Numerics;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Client.Graphics.Vertex {
+namespace Engine3.Client.Graphics.VertexLayouts {
 	public readonly unsafe record struct VertexXyz {
 		public float X { get; init; }
 		public float Y { get; init; }

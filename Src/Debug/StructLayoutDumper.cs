@@ -1,6 +1,6 @@
 using Engine3.Client.Graphics;
 using Engine3.Client.Graphics.DataStructs;
-using Engine3.Client.Graphics.Vertex;
+using Engine3.Client.Graphics.VertexLayouts;
 using Engine3.Utility.Extensions;
 using Engine3.Utility.Versions;
 using JetBrains.Annotations;
