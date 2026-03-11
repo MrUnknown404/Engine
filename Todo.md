@@ -17,6 +17,7 @@ I'll remove the entry when done
 - way of viewing Vulkan/Opengl objects with ImGui
 - see if i can use https://github.com/Auburn/FastNoise2 later (https://github.com/Auburn/FastNoise2Bindings)
 - make noise visualization tools
+- create pool system for graphics resources
 
 ---
 
