@@ -1,47 +1,58 @@
 using System.Numerics;
 using Engine3.Client.Graphics.ImGui;
 using Engine3.Client.Graphics.OpenGL.Objects;
+using Engine3.Client.Graphics.Vulkan;
 using ImGuiNET;
 using OpenTK.Graphics.OpenGL;
 
-namespace Engine3.Client.Graphics.OpenGL {
-	public unsafe class OpenGLImGuiBackend : ImGuiBackend {
+namespace Engine3.Client.Graphics.OpenGL.Renderers {
+	public unsafe class OpenGLImGuiRenderer : ImGuiRenderer {
 		protected sealed override OpenGLResourceProvider GraphicsResourceProvider { get; }
 
-		private OpenGLShader vertexShader = null!;
-		private OpenGLShader fragmentShader = null!;
-		private ProgramPipeline programPipeline = null!;
+		private readonly OpenGLShader vertexShader;
+		private readonly OpenGLShader fragmentShader;
+		private readonly ProgramPipeline programPipeline;
 
-		private OpenGLBuffer vertexBuffer = null!; // Frames-in-flight? i think i read somewhere i should? look into
-		private OpenGLBuffer indexBuffer = null!; // Frames-in-flight?
+		private readonly OpenGLImage fontImage;
 
-		private OpenGLImage fontImage = null!;
+		private OpenGLBuffer vertexBuffer;
+		private OpenGLBuffer indexBuffer;
 
-		public OpenGLImGuiBackend(OpenGLWindow window, params IImGuiProvider[] imGuiProviders) : base(window, GraphicsBackend.OpenGL, imGuiProviders) => GraphicsResourceProvider = window.GraphicsResourceProvider;
+		public OpenGLImGuiRenderer(ImGuiBackend imGuiBackend, OpenGLRendererBase renderer) : base(imGuiBackend) {
+			GraphicsResourceProvider = renderer.GraphicsResourceProvider;
 
-		public void Setup() {
-			ImGuiNet.SetCurrentContext(Context);
-			ImGuiIOPtr io = ImGuiNet.GetIO();
+			CreatePipeline(GraphicsResourceProvider, out vertexShader, out fragmentShader, out programPipeline);
+			CreateBuffers(GraphicsResourceProvider, out vertexBuffer, out indexBuffer);
+			CreateFont(imGuiBackend, GraphicsResourceProvider, out fontImage);
+		}
 
-			vertexShader = GraphicsResourceProvider.CreateShader($"{ImGuiAssetName} Vertex Shader", ImGuiAssetName, ShaderType.Vertex, Engine3.Assembly);
-			fragmentShader = GraphicsResourceProvider.CreateShader($"{ImGuiAssetName} Fragment Shader", ImGuiAssetName, ShaderType.Fragment, Engine3.Assembly);
-			programPipeline = GraphicsResourceProvider.CreateProgramPipeline($"{ImGuiAssetName} Program Pipeline", vertexShader, fragmentShader);
+		private static void CreatePipeline(OpenGLResourceProvider graphicsResourceProvider, out OpenGLShader vertexShader, out OpenGLShader fragmentShader, out ProgramPipeline programPipeline) {
+			vertexShader = graphicsResourceProvider.CreateShader($"{ImGuiAssetName} Vertex Shader", ImGuiAssetName, ShaderType.Vertex, Engine3.Assembly);
+			fragmentShader = graphicsResourceProvider.CreateShader($"{ImGuiAssetName} Fragment Shader", ImGuiAssetName, ShaderType.Fragment, Engine3.Assembly);
+			programPipeline = graphicsResourceProvider.CreateProgramPipeline($"{ImGuiAssetName} Program Pipeline", vertexShader, fragmentShader);
 
-			// GraphicsResourceProvider.EnqueueDestroy(vertexShader); // see OpenGLRenderer1
+			// GraphicsResourceProvider.EnqueueDestroy(vertexShader); // TODO RenderDoc gives an error when i destroy these but it renders fine. i think i'm doing something wrong?
 			// GraphicsResourceProvider.EnqueueDestroy(fragmentShader);
+		}
 
-			vertexBuffer = GraphicsResourceProvider.CreateBuffer($"{ImGuiAssetName} Vertex Buffer", BufferStorageMask.DynamicStorageBit, 1);
-			indexBuffer = GraphicsResourceProvider.CreateBuffer($"{ImGuiAssetName} Index Buffer", BufferStorageMask.DynamicStorageBit, 1);
+		private static void CreateBuffers(OpenGLResourceProvider graphicsResourceProvider, out OpenGLBuffer vertexBuffer, out OpenGLBuffer indexBuffer) {
+			vertexBuffer = graphicsResourceProvider.CreateBuffer($"{ImGuiAssetName} Vertex Buffer", BufferStorageMask.DynamicStorageBit, 1);
+			indexBuffer = graphicsResourceProvider.CreateBuffer($"{ImGuiAssetName} Index Buffer", BufferStorageMask.DynamicStorageBit, 1);
+		}
+
+		private static void CreateFont(ImGuiBackend imGuiBackend, OpenGLResourceProvider graphicsResourceProvider, out OpenGLImage fontImage) {
+			ImGuiNet.SetCurrentContext(imGuiBackend.Context);
+			ImGuiIOPtr io = ImGuiNet.GetIO();
 
 			io.Fonts.GetTexDataAsRGBA32(out byte* fontData, out int fontImageWidth, out int fontImageHeight, out _);
 
-			fontImage = GraphicsResourceProvider.CreateImage($"{ImGuiAssetName} Font Image");
+			fontImage = graphicsResourceProvider.CreateImage($"{ImGuiAssetName} Font Image");
 			fontImage.Copy(fontData, (uint)fontImageWidth, (uint)fontImageHeight);
 
 			io.Fonts.ClearTexData(); // do i need to call this?
 		}
 
-		public override void UpdateBuffers(ImDrawDataPtr drawData) {
+		protected internal override void CopyBuffers(ImDrawDataPtr drawData) {
 			if (drawData.TotalVtxCount > (uint)(vertexBuffer.BufferSize / (uint)sizeof(ImDrawVert))) {
 				GraphicsResourceProvider.EnqueueDestroy(vertexBuffer);
 				vertexBuffer = GraphicsResourceProvider.CreateBuffer(vertexBuffer.DebugName, BufferStorageMask.DynamicStorageBit, (ulong)(drawData.TotalVtxCount * sizeof(ImDrawVert)));
@@ -55,7 +66,7 @@ namespace Engine3.Client.Graphics.OpenGL {
 			// do i copy just when the data is different? i feel like i should but i don't know how to check that easily
 		}
 
-		public void DrawFrame(ImDrawDataPtr drawData) {
+		protected internal override void DrawFrame(ImDrawDataPtr drawData) {
 			bool cullFace;
 			bool depthTest;
 			bool stencilTest;

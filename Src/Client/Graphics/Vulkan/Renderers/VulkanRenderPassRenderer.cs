@@ -2,6 +2,7 @@ using Engine3.Client.Graphics.Vulkan.Objects;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Renderers {
+	// TODO this doesn't work well if i ever want to edit a renderpass (pipeline. fixed easily?) or use multiple pipelines (design change)
 	public class VulkanRenderPassRenderer : VulkanRendererBase { // should be eventually be "bindless". we'll see how that goes...
 		private readonly List<VulkanRenderPass> renderPasses = new();
 		private readonly List<VulkanRenderPass> renderPassesWithUpdates = new();

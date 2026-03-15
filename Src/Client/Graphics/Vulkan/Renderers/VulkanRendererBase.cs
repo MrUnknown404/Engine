@@ -1,15 +1,12 @@
 using Engine3.Client.Graphics.Vulkan.Objects;
 using Engine3.Exceptions;
 using Engine3.Utility.Extensions;
-using ImGuiNET;
 using NLog;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Renderers {
-	public abstract unsafe class VulkanRendererBase : Renderer<VulkanWindow, VulkanImGuiBackend> {
+	public abstract unsafe class VulkanRendererBase : Renderer<VulkanWindow, VulkanResourceProvider> {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-
-		public sealed override VulkanResourceProvider GraphicsResourceProvider { get; }
 
 		public SwapChain SwapChain { get; }
 
@@ -26,12 +23,10 @@ namespace Engine3.Client.Graphics.Vulkan.Renderers {
 		public LogicalGpu LogicalGpu => Window.LogicalGpu;
 		public byte MaxFramesInFlight { get; }
 
-		private FrameData frameData;
+		private FrameData currentFrame;
 		private uint swapChainImageIndex;
-		private GraphicsCommandBuffer graphicsCommandBuffer;
 
-		protected VulkanRendererBase(VulkanGraphicsBackend graphicsBackend, VulkanWindow window, bool createDepthImage) : base(window) {
-			GraphicsResourceProvider = window.GraphicsResourceProvider;
+		protected VulkanRendererBase(VulkanGraphicsBackend graphicsBackend, VulkanWindow window, bool createDepthImage) : base(window, _3DGraphicsApi.Vulkan) {
 			MaxFramesInFlight = graphicsBackend.Settings.MaxFramesInFlight;
 
 			SwapChain = new(window, window.SelectedGpu.PhysicalDevice, window.LogicalGpu.LogicalDevice, window.SelectedGpu.QueueFamilyIndices, window.Surface, graphicsBackend.Settings.PresentMode);
@@ -54,29 +49,26 @@ namespace Engine3.Client.Graphics.Vulkan.Renderers {
 			Frames = new FrameData[MaxFramesInFlight];
 			for (int i = 0; i < MaxFramesInFlight; i++) { Frames[i] = new(logicalDevice, graphicsCommandBuffers[i], imageAvailableSemaphores[i], inFlightFences[i]); }
 
-			frameData = Frames[0];
-			graphicsCommandBuffer = graphicsCommandBuffers[0];
+			currentFrame = Frames[0];
 
 			if (createDepthImage) { DepthImage = LogicalGpu.CreateDepthImage(GraphicsResourceProvider, TransferCommandPool, SwapChain.Extent); }
 		}
-
-		protected internal override void Setup() => ImGuiBackend?.Setup(TransferCommandPool, SwapChain.ImageFormat);
 
 		protected override void PrepareRender() { }
 		protected override void TryCleanupResources() => GraphicsResourceProvider.TryCleanupResources();
 
 		protected override bool TryNextFrame() {
-			frameData = Frames[FrameIndex];
+			currentFrame = Frames[FrameIndex];
 
 			VkDevice logicalDevice = LogicalGpu.LogicalDevice;
-			VkFence inFlightFence = frameData.InFlightFence;
+			VkFence inFlightFence = currentFrame.InFlightFence;
 
 			// TODO not sure if i'm supposed to wait for all fences or just the current one. vulkan-tutorial.com & vkguide.dev differ. i should probably read the docs
 			//  vulkan-tutorial.com waits for all
 			//  vkguide.dev waits for current
 			Vk.WaitForFences(logicalDevice, 1, &inFlightFence, VkH.True, ulong.MaxValue);
 
-			VkResult result = SwapChain.AcquireNextImage(frameData.ImageAvailableSemaphore, out swapChainImageIndex);
+			VkResult result = SwapChain.AcquireNextImage(currentFrame.ImageAvailableSemaphore, out swapChainImageIndex);
 
 			if (result == VkResult.ErrorOutOfDateKhr) {
 				OnSwapchainInvalid();
@@ -89,7 +81,7 @@ namespace Engine3.Client.Graphics.Vulkan.Renderers {
 		}
 
 		protected override void BeginFrame() {
-			graphicsCommandBuffer = frameData.GraphicsCommandBuffer;
+			GraphicsCommandBuffer graphicsCommandBuffer = currentFrame.GraphicsCommandBuffer;
 
 			graphicsCommandBuffer.ResetCommandBuffer();
 
@@ -101,11 +93,14 @@ namespace Engine3.Client.Graphics.Vulkan.Renderers {
 			graphicsCommandBuffer.CmdBeginRendering(SwapChain.Extent, SwapChain.ImageViews[swapChainImageIndex], DepthImage?.Image.ImageView, Window.ClearColor.ToVkClearColorValue(), new(1, 0));
 		}
 
-		protected override void DrawFrame() => RecordCommandBuffer(graphicsCommandBuffer);
-
-		protected override void DrawImGuiFrame(ImDrawDataPtr imDrawData) => ImGuiBackend!.RecordCommandBuffer(graphicsCommandBuffer, FrameIndex, imDrawData); // shouldn't be null if this is called
+		protected override void DrawFrame() {
+			GraphicsCommandBuffer graphicsCommandBuffer = currentFrame.GraphicsCommandBuffer;
+			RecordCommandBuffer(graphicsCommandBuffer);
+		}
 
 		protected override void EndFrame() {
+			GraphicsCommandBuffer graphicsCommandBuffer = currentFrame.GraphicsCommandBuffer;
+
 			graphicsCommandBuffer.CmdEndRendering();
 
 			VkImageMemoryBarrier2 imageMemoryBarrier2 = GetEndPipelineBarrierImageMemoryBarrier(SwapChain.Images[swapChainImageIndex]);
@@ -113,7 +108,7 @@ namespace Engine3.Client.Graphics.Vulkan.Renderers {
 
 			VkH.CheckIfSuccess(graphicsCommandBuffer.EndCommandBuffer(), VulkanException.Reason.EndCommandBuffer);
 
-			SubmitQueue(frameData.ImageAvailableSemaphore, [ graphicsCommandBuffer.VkCommandBuffer, ], swapChainImageIndex, frameData.InFlightFence); //
+			SubmitQueue(currentFrame.ImageAvailableSemaphore, [ graphicsCommandBuffer.VkCommandBuffer, ], swapChainImageIndex, currentFrame.InFlightFence);
 
 			PresentFrame(swapChainImageIndex);
 		}
@@ -160,6 +155,8 @@ namespace Engine3.Client.Graphics.Vulkan.Renderers {
 			SwapChain.Recreate();
 			DepthImage?.Recreate(SwapChain.Extent);
 		}
+
+		protected override void SetImGuiFrameData() => ((VulkanImGuiRenderer)ImGuiRenderer!).SetFrameData(currentFrame.GraphicsCommandBuffer, FrameIndex);
 
 		protected override void PrepareCleanup() => Vk.DeviceWaitIdle(LogicalGpu.LogicalDevice);
 

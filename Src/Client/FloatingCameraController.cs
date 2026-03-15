@@ -1,12 +1,9 @@
 using System.Numerics;
 using JetBrains.Annotations;
-using NLog;
 using OpenTK.Platform;
 
 namespace Engine3.Client {
 	public class FloatingCameraController : CameraController {
-		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-
 		public float SensitivityX { get; set; } = 0.25f;
 		public float SensitivityY { get; set; } = 0.25f;
 		public float MaxPitch { get; set; } = 89;

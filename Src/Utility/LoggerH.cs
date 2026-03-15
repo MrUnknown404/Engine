@@ -48,7 +48,7 @@ namespace Engine3.Utility {
 		public static LogLevel ConsoleLogLevel {
 			get;
 			set {
-				if (wasSetup) { Logger.Warn($"{nameof(LogLayout)} must be set before #{nameof(Setup)} is called"); }
+				if (wasSetup) { Logger.Warn($"{nameof(ConsoleLogLevel)} must be set before #{nameof(Setup)} is called"); }
 				field = value;
 			}
 		} = LogLevel.Debug;
@@ -56,10 +56,18 @@ namespace Engine3.Utility {
 		public static LogLevel FileLogLevel {
 			get;
 			set {
-				if (wasSetup) { Logger.Warn($"{nameof(LogLayout)} must be set before #{nameof(Setup)} is called"); }
+				if (wasSetup) { Logger.Warn($"{nameof(FileLogLevel)} must be set before #{nameof(Setup)} is called"); }
 				field = value;
 			}
 		} = LogLevel.Debug;
+
+		public static bool MakeLogFile {
+			get;
+			set {
+				if (wasSetup) { Logger.Warn($"{nameof(MakeLogFile)} must be set before #{nameof(Setup)} is called"); }
+				field = value;
+			}
+		} = true;
 
 		private static bool wasSetup;
 
@@ -78,7 +86,7 @@ namespace Engine3.Utility {
 				s.AddCallSiteHiddenClassType(typeof(LoggerH)); // i'll need this later
 			})*/.LoadConfiguration(b => {
 				if (!isConsole) { b.ForLogger().FilterMinLevel(ConsoleLogLevel).WriteToColoredConsole(layout: LogLayout); }
-				b.ForLogger().FilterMinLevel(FileLogLevel).WriteToFile(fileName: $"{LogFolder}/{DateTime.Now.ToString(LogDateFormat)}.{LogFileType}", layout: LogLayout, maxArchiveFiles: MaxFiles - 1);
+				if (MakeLogFile) { b.ForLogger().FilterMinLevel(FileLogLevel).WriteToFile(fileName: $"{LogFolder}/{DateTime.Now.ToString(LogDateFormat)}.{LogFileType}", layout: LogLayout, maxArchiveFiles: MaxFiles - 1); }
 			});
 
 			AppDomain.CurrentDomain.UnhandledException += static (_, args) => Logger.Error((Exception)args.ExceptionObject, "Uncaught Exception: ");

@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Engine3.Client;
 using Engine3.Client.Graphics;
+using Engine3.Client.Graphics.Console;
 using Engine3.Client.Graphics.OpenGL;
 using Engine3.Exceptions;
 using Engine3.Utility;
@@ -35,7 +36,6 @@ namespace Engine3 {
 
 		private readonly List<Window> windows = new();
 		private readonly List<Renderer> renderers = new();
-		private readonly Queue<Renderer> setupRendererQueue = new();
 
 		/// <summary> The amount of updates per second to aim for </summary>
 		/// <exception cref="Engine3Exception"> Thrown if value was set to zero </exception>
@@ -55,8 +55,9 @@ namespace Engine3 {
 		private readonly Queue<Window> windowCloseQueue = new();
 		private readonly Queue<Renderer> renderersCloseQueue = new();
 
+		public bool ShouldRunGameLoop { get; private set; } = true;
+
 		private bool wasSetup;
-		private bool shouldRunGameLoop = true;
 		private bool requestShutdown;
 
 		/// <summary> Called after <see cref="SetupEngine"/> is done and ready to enter the gameloop </summary>
@@ -178,23 +179,27 @@ namespace Engine3 {
 			long updateAccumulator = 0;
 			long lastFrameTime = 0;
 
+			bool isConsole = GraphicsBackend.GraphicsBackend == Client.Graphics.GraphicsBackend.Console;
+
 			Logger.Debug("Entering loop...");
 
-			while (shouldRunGameLoop) {
-				if (GraphicsBackend.GraphicsBackend != Client.Graphics.GraphicsBackend.Console) { Toolkit.Window.ProcessEvents(false); }
-				if (requestShutdown) { shouldRunGameLoop = false; } // TODO check more?
+			while (ShouldRunGameLoop) {
+				if (!isConsole) { Toolkit.Window.ProcessEvents(false); }
+				if (requestShutdown) { ShouldRunGameLoop = false; } // check more?
 
-				if (!shouldRunGameLoop) { break; } // Early exit
+				if (!ShouldRunGameLoop) { break; } // Early exit
 
 				// update
 				long time = PerformanceMonitor.GetTimeDifference(ref currentTime);
 				Update(time);
 
 				// console end. VK/GL graphics below // TODO impl console rendering
-				if (GraphicsBackend.GraphicsBackend == Client.Graphics.GraphicsBackend.Console) { continue; }
+				if (isConsole) {
+					Render(time);
+					continue;
+				}
 
 				// try clean
-				TrySetupRenderers();
 				TryCloseWindows();
 				TryDestroyRenderers();
 
@@ -240,25 +245,21 @@ namespace Engine3 {
 				float delta = 1 - (float)(updateTicksToWait - updateAccumulator) / updateTicksToWait;
 
 				PerformanceMonitor.StartTimingFrame();
-				foreach (Renderer renderer in renderers.Where(static renderer => renderer is { CanRender: true, IsHidden: false, })) { renderer.Render(delta); }
+
+				if (!isConsole) {
+					foreach (Renderer renderer in renderers.Where(static renderer => renderer is { CanRender: true, IsHidden: false, })) { renderer.Render(delta); }
+				} else {
+					ConsoleGraphicsBackend backend = (ConsoleGraphicsBackend)GraphicsBackend;
+					backend.UpdateBuffer(delta);
+					backend.RenderBuffer();
+				}
+
 				PerformanceMonitor.StopTimingFrame();
 
 				FrameIndex++;
 				PerformanceMonitor.AddFrame();
 
 				PerformanceMonitor.CheckFrameTime();
-			}
-
-			void TrySetupRenderers() {
-				if (setupRendererQueue.Count != 0) {
-					Logger.Debug($"Found {setupRendererQueue.Count} renderers to setup...");
-
-					while (setupRendererQueue.TryDequeue(out Renderer? renderer)) {
-						renderer.Setup();
-						renderer.InvokeOnSetupDoneEvent();
-						Logger.Debug("Setup Renderer");
-					}
-				}
 			}
 
 			void TryCloseWindows() {
@@ -330,14 +331,23 @@ namespace Engine3 {
 		}
 
 		protected void AddWindow<T>(T window) where T : Window {
+			if (GraphicsBackend.GraphicsBackend == Client.Graphics.GraphicsBackend.Console) {
+				Logger.Warn("Cannot add windows when using Console graphics api");
+				return;
+			}
+
 			Logger.Trace("Window added");
 			windows.Add(window);
 		}
 
 		protected void AddRenderer<T>(T renderer) where T : Renderer {
+			if (GraphicsBackend.GraphicsBackend == Client.Graphics.GraphicsBackend.Console) {
+				Logger.Warn("Cannot add renderers when using Console graphics api");
+				return;
+			}
+
 			Logger.Trace("Renderer added");
 			renderers.Add(renderer);
-			setupRendererQueue.Enqueue(renderer);
 		}
 
 		/// <summary> Requests shutdown. Program will shut down on the next update </summary>

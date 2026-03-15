@@ -37,7 +37,7 @@ namespace Engine3.Client.Graphics.ImGui.Providers {
 			mouseManager = window.MouseManager;
 		}
 
-		public void ShowImGui() {
+		public void ShowImGui() { // TODO clean this up
 			bool showAnyUpdates = showUpdateIndex || showUps || showUpdateTime || showMinMaxAvgUpdateTime;
 			bool showAnyFrames = showFrameIndex || showFps || showFrameTime || showMinMaxAvgFrameTime;
 
@@ -178,7 +178,22 @@ namespace Engine3.Client.Graphics.ImGui.Providers {
 			}
 
 			void ShowKeyboard() {
-				ImGuiNet.Text("Not implemented"); // TODO show keyboard. active first then all?
+				ImGuiH.IndentedCollapsingHeader("Active Keys", IndentAmount, ShowActiveKeys);
+				ImGuiH.IndentedCollapsingHeader("Inactive Keys", IndentAmount, ShowInactiveKeys);
+			}
+
+			void ShowActiveKeys() {
+				foreach (Key key in Enum.GetValues<Key>()) {
+					bool isKey = keyboardManager.IsKey(key);
+					if (isKey) { ImGuiNet.Checkbox($"{key}", ref isKey); }
+				}
+			}
+
+			void ShowInactiveKeys() {
+				foreach (Key key in Enum.GetValues<Key>()) {
+					bool isKey = keyboardManager.IsKey(key);
+					if (!isKey) { ImGuiNet.Checkbox($"{key}", ref isKey); }
+				}
 			}
 		}
 

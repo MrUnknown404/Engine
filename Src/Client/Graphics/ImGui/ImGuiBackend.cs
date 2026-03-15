@@ -3,21 +3,18 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Engine3.Exceptions;
 using ImGuiNET;
+using JetBrains.Annotations;
 using NLog;
 using OpenTK.Mathematics;
 using OpenTK.Platform;
 
 namespace Engine3.Client.Graphics.ImGui {
-	public abstract unsafe class ImGuiBackend {
+	public unsafe class ImGuiBackend {
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-
-		protected const string ImGuiAssetName = "ImGui";
-
-		protected abstract IGraphicsResourceProvider GraphicsResourceProvider { get; }
 
 		public nint Context { get; }
 		public bool ShowDebugUI { get; set; }
-		public IImGuiProvider? DebugUIImGui { get; init; }
+		public IImGuiProvider? DebugUIImGui { get; set; }
 
 		internal nint MouseWindowID { private get; set; }
 		internal int MousePendingLeaveFrame { private get; set; }
@@ -32,7 +29,7 @@ namespace Engine3.Client.Graphics.ImGui {
 		private nint nextFreeWindowId = 1;
 		private ImGuiMouseCursor currentCursorType;
 
-		internal ImGuiBackend(Window window, GraphicsBackend graphicsBackend, params IImGuiProvider[] imGuiProviders) {
+		public ImGuiBackend(Window window, _3DGraphicsApi graphicsBackend, params IImGuiProvider[] imGuiProviders) {
 			this.imGuiProviders.AddRange(imGuiProviders);
 
 			Logger.Debug("Setting up ImGui...");
@@ -84,6 +81,7 @@ namespace Engine3.Client.Graphics.ImGui {
 			EventQueue.EventRaised += OnEventQueueOnEventRaised;
 		}
 
+		[MustUseReturnValue]
 		public bool NewFrame(out ImDrawDataPtr imDrawData) {
 			ImGuiNet.SetCurrentContext(Context);
 			ImGuiIOPtr io = ImGuiNet.GetIO();
@@ -125,10 +123,8 @@ namespace Engine3.Client.Graphics.ImGui {
 			return imDrawData is { Valid: true, CmdListsCount: > 0, };
 		}
 
-		public abstract void UpdateBuffers(ImDrawDataPtr drawData);
-
-		public bool IsOwner(WindowHandle windowHandle) => window.WindowHandle == windowHandle;
-		public nint GetWindowId(WindowHandle windowHandle) => windowToId[windowHandle];
+		[MustUseReturnValue] public bool IsOwner(WindowHandle windowHandle) => window.WindowHandle == windowHandle;
+		[MustUseReturnValue] public nint GetWindowId(WindowHandle windowHandle) => windowToId[windowHandle];
 
 		private void AddWindow(Window window) {
 			nint windowId = freeWindowIdList.TryDequeue(out nint tempWindowId) ? tempWindowId : nextFreeWindowId++;
