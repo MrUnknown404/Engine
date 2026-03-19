@@ -2,8 +2,6 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects {
 	public class DepthImage {
-		public bool WasDestroyed { get; private set; }
-
 		public VulkanImage Image { get; private set; }
 
 		private readonly SurfaceCapablePhysicalGpu physicalGpu;
@@ -38,8 +36,6 @@ namespace Engine3.Client.Graphics.Vulkan.Objects {
 			transferCommandBuffer.SubmitQueue(transferQueue);
 
 			graphicsResourceProvider.EnqueueDestroy(transferCommandBuffer);
-
-			WasDestroyed = false;
 		}
 	}
 }

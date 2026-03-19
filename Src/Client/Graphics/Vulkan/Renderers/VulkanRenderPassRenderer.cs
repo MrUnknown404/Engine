@@ -17,6 +17,11 @@ namespace Engine3.Client.Graphics.Vulkan.Renderers {
 			if (renderPass.ShouldUpdate) { renderPassesWithUpdates.Add(renderPass); }
 		}
 
+		public void RemoveRenderPass(VulkanRenderPass renderPass) {
+			renderPasses.Remove(renderPass);
+			if (renderPass.ShouldUpdate) { renderPassesWithUpdates.Remove(renderPass); }
+		}
+
 		public void SortRenderPasses(IComparer<VulkanRenderPass> comparer) {
 			renderPasses.Sort(comparer);
 			renderPassesWithUpdates.Sort(comparer);
