@@ -1,11 +1,10 @@
 using System.Numerics;
-using System.Runtime.InteropServices;
+using Engine3.Client.Graphics.Vulkan;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.VertexLayouts;
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly record struct VertexXyzUv {
+public readonly record struct VertexXyzUv : IVulkanVertex {
 	public float X { get; init; }
 	public float Y { get; init; }
 	public float Z { get; init; }

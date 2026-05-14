@@ -1,8 +1,9 @@
+using Engine3.Client.Graphics.Vulkan;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.VertexLayouts;
 
-public readonly unsafe record struct VertexXyzUvNormal {
+public readonly unsafe record struct VertexXyzUvNormal : IVulkanVertex {
 	public float X { get; init; }
 	public float Y { get; init; }
 	public float Z { get; init; }

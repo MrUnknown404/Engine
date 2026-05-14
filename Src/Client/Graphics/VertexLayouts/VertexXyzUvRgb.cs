@@ -1,11 +1,10 @@
 using System.Numerics;
-using System.Runtime.InteropServices;
+using Engine3.Client.Graphics.Vulkan;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.VertexLayouts;
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly record struct VertexXyzUvRgb {
+public readonly record struct VertexXyzUvRgb : IVulkanVertex {
 	public float X { get; init; }
 	public float Y { get; init; }
 	public float Z { get; init; }
@@ -32,9 +31,7 @@ public readonly record struct VertexXyzUvRgb {
 
 	public VertexXyzUvRgb(Vector3 position, Vector2 uvs, Vector3 color) : this(position.X, position.Y, position.Z, uvs.X, uvs.Y, color.X, color.Y, color.Z) { }
 
-	public static unsafe VkVertexInputBindingDescription[] GetBindingDescriptions(uint binding = 0) => [
-			new() { binding = binding, stride = (uint)sizeof(VertexXyzUvRgb), inputRate = VkVertexInputRate.VertexInputRateVertex, },
-	];
+	public static unsafe VkVertexInputBindingDescription[] GetBindingDescriptions(uint binding = 0) => [ new() { binding = binding, stride = (uint)sizeof(VertexXyzUvRgb), inputRate = VkVertexInputRate.VertexInputRateVertex, }, ];
 
 	public static VkVertexInputAttributeDescription[] GetAttributeDescriptions(uint binding = 0) => [
 			new() { binding = binding, location = 0, format = VkFormat.FormatR32g32b32Sfloat, offset = 0, }, //

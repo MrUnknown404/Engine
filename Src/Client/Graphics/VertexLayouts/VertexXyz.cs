@@ -1,9 +1,10 @@
 using System.Numerics;
+using Engine3.Client.Graphics.Vulkan;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.VertexLayouts;
 
-public readonly unsafe record struct VertexXyz {
+public readonly unsafe record struct VertexXyz : IVulkanVertex {
 	public float X { get; init; }
 	public float Y { get; init; }
 	public float Z { get; init; }
