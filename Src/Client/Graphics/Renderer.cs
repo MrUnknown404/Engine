@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Engine3.Client.Graphics.ImGui;
 using Engine3.Client.Graphics.OpenGL.Renderers;
-using Engine3.Client.Graphics.Vulkan;
 using Engine3.Client.Graphics.Vulkan.Renderers;
 using Engine3.Exceptions;
 using ImGuiNET;

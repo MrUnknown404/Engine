@@ -103,8 +103,7 @@ public sealed unsafe class GraphicsCommandBuffer : CommandBuffer {
 
 	public void CmdDrawIndexed(uint indexCount) => CmdDrawIndexed(indexCount, 1, 0, 0, 0);
 
-	public void CmdDrawIndexed(uint indexCount, uint instanceCount, uint firstIndex, int vertexOffset, uint firstInstance) =>
-			Vk.CmdDrawIndexed(VkCommandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+	public void CmdDrawIndexed(uint indexCount, uint instanceCount, uint firstIndex, int vertexOffset, uint firstInstance) => Vk.CmdDrawIndexed(VkCommandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 
 	public void CmdDrawIndirect(VkBuffer buffer, ulong offset, uint drawCount, uint stride) => Vk.CmdDrawIndirect(VkCommandBuffer, buffer, offset, drawCount, stride);
 

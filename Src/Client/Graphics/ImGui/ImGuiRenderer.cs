@@ -1,7 +1,6 @@
-using Engine3.Client.Graphics.ImGui;
 using ImGuiNET;
 
-namespace Engine3.Client.Graphics.Vulkan;
+namespace Engine3.Client.Graphics.ImGui;
 
 public abstract class ImGuiRenderer {
 	protected const string ImGuiAssetName = "ImGui";

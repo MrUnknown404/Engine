@@ -1,7 +1,6 @@
 using System.Numerics;
 using Engine3.Client.Graphics.ImGui;
 using Engine3.Client.Graphics.OpenGL.Objects;
-using Engine3.Client.Graphics.Vulkan;
 using ImGuiNET;
 using OpenTK.Graphics.OpenGL;
 

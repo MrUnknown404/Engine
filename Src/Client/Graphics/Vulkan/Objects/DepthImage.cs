@@ -20,6 +20,16 @@ public class DepthImage {
 
 		Image = graphicsResourceProvider.CreateImage("Depth Image", extent.width, extent.height, depthFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageDepthStencilAttachmentBit,
 			VkImageAspectFlagBits.ImageAspectDepthBit);
+
+		TransferCommandBuffer transferCommandBuffer = transferCommandPool.CreateCommandBuffer();
+		transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
+
+		transferCommandBuffer.TransitionImageLayout(physicalGpu.QueueFamilyIndices, Image.Image, depthFormat, VkImageLayout.ImageLayoutUndefined, VkImageLayout.ImageLayoutDepthStencilAttachmentOptimal);
+
+		transferCommandBuffer.EndCommandBuffer();
+		transferCommandBuffer.SubmitQueue(transferQueue);
+
+		graphicsResourceProvider.EnqueueDestroy(transferCommandBuffer);
 	}
 
 	public void Recreate(VkExtent2D extent) {

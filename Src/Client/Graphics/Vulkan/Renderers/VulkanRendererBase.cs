@@ -153,6 +153,8 @@ public abstract unsafe class VulkanRendererBase : Renderer<VulkanWindow, VulkanR
 	protected void IncrementFrameIndex() => FrameIndex = (byte)((FrameIndex + 1) % MaxFramesInFlight);
 
 	protected virtual void OnSwapchainInvalid() {
+		Logger.Trace("Swapchain is invalid. Recreating...");
+
 		SwapChain.Recreate();
 		DepthImage?.Recreate(SwapChain.Extent);
 	}
