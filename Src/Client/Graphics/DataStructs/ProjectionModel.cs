@@ -1,13 +1,13 @@
 using System.Numerics;
 
-namespace Engine3.Client.Graphics.DataStructs {
-	public readonly record struct ProjectionModel {
-		public Matrix4x4 Projection { get; init; } = Matrix4x4.Identity;
-		public Matrix4x4 Model { get; init; } = Matrix4x4.Identity;
+namespace Engine3.Client.Graphics.DataStructs;
 
-		public ProjectionModel(Matrix4x4 projection, Matrix4x4 model) {
-			Model = model;
-			Projection = projection;
-		}
+public readonly record struct ProjectionModel {
+	public Matrix4x4 Projection { get; init; } = Matrix4x4.Identity;
+	public Matrix4x4 Model { get; init; } = Matrix4x4.Identity;
+
+	public ProjectionModel(Matrix4x4 projection, Matrix4x4 model) {
+		Model = model;
+		Projection = projection;
 	}
 }

@@ -3,21 +3,21 @@ using System.Reflection;
 using Engine3.Exceptions;
 using Engine3.Utility.Versions;
 
-namespace Engine3 {
-	public static partial class Engine3 {
-		public static Assembly Assembly => typeof(Engine3).Assembly;
+namespace Engine3;
 
-		public const string Name = nameof(Engine3);
-		public static Version4Interweaved Version { get; } = new(0, 0, 0);
+public static partial class Engine3 {
+	public static Assembly Assembly => typeof(Engine3).Assembly;
 
-		public const bool Debug =
+	public const string Name = nameof(Engine3);
+	public static Version4Interweaved Version { get; } = new(0, 0, 0);
+
+	public const bool Debug =
 #if DEBUG
-				true;
+			true;
 #else
 				false;
 #endif
 
-		[field: MaybeNull]
-		public static GameClient GameInstance { get => field ?? throw new Engine3Exception($"Attempted to get {nameof(GameInstance)} too early. Must call {nameof(GameClient)}#{nameof(GameClient.Start)} first"); internal set; }
-	}
+	[field: MaybeNull]
+	public static GameClient GameInstance { get => field ?? throw new Engine3Exception($"Attempted to get {nameof(GameInstance)} too early. Must call {nameof(GameClient)}#{nameof(GameClient.Start)} first"); internal set; }
 }

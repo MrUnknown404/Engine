@@ -1,3 +1,3 @@
-namespace Engine3.Client.Graphics {
-	public interface IGraphicsResourceProvider;
-}
+namespace Engine3.Client.Graphics;
+
+public interface IGraphicsResourceProvider;

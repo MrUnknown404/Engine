@@ -1,29 +1,29 @@
 using System.Numerics;
 using JetBrains.Annotations;
 
-namespace Engine3.Utility {
-	[PublicAPI]
-	public class Transform3D : ITransform<Transform3D>, IEquatable<Transform3D> {
-		public static Transform3D Zero => new();
+namespace Engine3.Utility;
 
-		public Vector3 Position { get; set; }
-		public Vector3 Scale { get; set; }
-		public Quaternion Rotation { get; set; }
+[PublicAPI]
+public class Transform3D : ITransform<Transform3D>, IEquatable<Transform3D> {
+	public static Transform3D Zero => new();
 
-		public Matrix4x4 CreateMatrix() {
-			Matrix4x4 matrix = Matrix4x4.Identity;
-			matrix *= Matrix4x4.CreateTranslation(Position);
-			matrix *= Matrix4x4.Transform(matrix, Rotation);
-			matrix *= Matrix4x4.CreateScale(Scale);
-			return matrix;
-		}
+	public Vector3 Position { get; set; }
+	public Vector3 Scale { get; set; }
+	public Quaternion Rotation { get; set; }
 
-		public bool Equals(Transform3D? other) => other != null && Position.Equals(other.Position) && Scale.Equals(other.Scale) && Rotation == other.Rotation;
-		public override bool Equals(object? obj) => obj is Transform3D transform && Equals(transform);
-
-		public override int GetHashCode() => HashCode.Combine(Position, Scale, Rotation);
-
-		public static bool operator ==(Transform3D? left, Transform3D? right) => Equals(left, right);
-		public static bool operator !=(Transform3D? left, Transform3D? right) => !Equals(left, right);
+	public Matrix4x4 CreateMatrix() {
+		Matrix4x4 matrix = Matrix4x4.Identity;
+		matrix *= Matrix4x4.CreateTranslation(Position);
+		matrix *= Matrix4x4.Transform(matrix, Rotation);
+		matrix *= Matrix4x4.CreateScale(Scale);
+		return matrix;
 	}
+
+	public bool Equals(Transform3D? other) => other != null && Position.Equals(other.Position) && Scale.Equals(other.Scale) && Rotation == other.Rotation;
+	public override bool Equals(object? obj) => obj is Transform3D transform && Equals(transform);
+
+	public override int GetHashCode() => HashCode.Combine(Position, Scale, Rotation);
+
+	public static bool operator ==(Transform3D? left, Transform3D? right) => Equals(left, right);
+	public static bool operator !=(Transform3D? left, Transform3D? right) => !Equals(left, right);
 }

@@ -2,44 +2,44 @@ using Engine3.Exceptions;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Client.Graphics.Vulkan.Objects {
-	// TODO handle this object's lifecycle differently. store in CommandPool & handle all lifecycle logic in there
-	public abstract unsafe class CommandBuffer : GraphicsResource<CommandBuffer, ulong> {
-		public VkCommandPool CommandPool { get; }
-		public VkCommandBuffer VkCommandBuffer { get; }
+namespace Engine3.Client.Graphics.Vulkan.Objects;
 
-		protected override ulong Handle => VkCommandBuffer.Handle;
+// TODO handle this object's lifecycle differently. store in CommandPool & handle all lifecycle logic in there
+public abstract unsafe class CommandBuffer : GraphicsResource<CommandBuffer, ulong> {
+	public VkCommandPool CommandPool { get; }
+	public VkCommandBuffer VkCommandBuffer { get; }
 
-		private readonly VkDevice logicalDevice;
+	protected override ulong Handle => VkCommandBuffer.Handle;
 
-		protected CommandBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBuffer commandBuffer) {
-			this.logicalDevice = logicalDevice;
-			CommandPool = commandPool;
-			VkCommandBuffer = commandBuffer;
-		}
+	private readonly VkDevice logicalDevice;
 
-		public void ResetCommandBuffer() => Vk.ResetCommandBuffer(VkCommandBuffer, 0);
+	protected CommandBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBuffer commandBuffer) {
+		this.logicalDevice = logicalDevice;
+		CommandPool = commandPool;
+		VkCommandBuffer = commandBuffer;
+	}
 
-		public VkResult BeginCommandBuffer(VkCommandBufferUsageFlagBits bufferUsageFlags) {
-			VkCommandBufferBeginInfo commandBufferBeginInfo = new() { flags = bufferUsageFlags, };
-			return Vk.BeginCommandBuffer(VkCommandBuffer, &commandBufferBeginInfo);
-		}
+	public void ResetCommandBuffer() => Vk.ResetCommandBuffer(VkCommandBuffer, 0);
 
-		public VkResult EndCommandBuffer() => Vk.EndCommandBuffer(VkCommandBuffer);
+	public VkResult BeginCommandBuffer(VkCommandBufferUsageFlagBits bufferUsageFlags) {
+		VkCommandBufferBeginInfo commandBufferBeginInfo = new() { flags = bufferUsageFlags, };
+		return Vk.BeginCommandBuffer(VkCommandBuffer, &commandBufferBeginInfo);
+	}
 
-		public void CmdPipelineBarrier(VkDependencyInfo dependencyInfo) => Vk.CmdPipelineBarrier2(VkCommandBuffer, &dependencyInfo);
+	public VkResult EndCommandBuffer() => Vk.EndCommandBuffer(VkCommandBuffer);
 
-		[MustUseReturnValue]
-		protected static VkCommandBuffer CreateCommandBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
-			VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = commandPool, level = level, commandBufferCount = 1, };
-			VkCommandBuffer commandBuffers;
-			VkH.CheckIfSuccess(Vk.AllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, &commandBuffers), VulkanException.Reason.AllocateCommandBuffer);
-			return commandBuffers;
-		}
+	public void CmdPipelineBarrier(VkDependencyInfo dependencyInfo) => Vk.CmdPipelineBarrier2(VkCommandBuffer, &dependencyInfo);
 
-		protected override void Cleanup() {
-			VkCommandBuffer commandBuffers = VkCommandBuffer;
-			Vk.FreeCommandBuffers(logicalDevice, CommandPool, 1, &commandBuffers);
-		}
+	[MustUseReturnValue]
+	protected static VkCommandBuffer CreateCommandBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBufferLevel level = VkCommandBufferLevel.CommandBufferLevelPrimary) {
+		VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = commandPool, level = level, commandBufferCount = 1, };
+		VkCommandBuffer commandBuffers;
+		VkH.CheckIfSuccess(Vk.AllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, &commandBuffers), VulkanException.Reason.AllocateCommandBuffer);
+		return commandBuffers;
+	}
+
+	protected override void Cleanup() {
+		VkCommandBuffer commandBuffers = VkCommandBuffer;
+		Vk.FreeCommandBuffers(logicalDevice, CommandPool, 1, &commandBuffers);
 	}
 }

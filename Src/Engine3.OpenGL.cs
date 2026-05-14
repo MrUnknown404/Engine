@@ -1,3 +1,3 @@
-namespace Engine3 {
-	public static partial class Engine3;
-}
+namespace Engine3;
+
+public static partial class Engine3;

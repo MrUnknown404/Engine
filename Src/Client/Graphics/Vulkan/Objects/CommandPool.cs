@@ -1,29 +1,29 @@
 using Engine3.Exceptions;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Client.Graphics.Vulkan.Objects {
-	public unsafe class CommandPool : GraphicsResource<CommandPool, ulong> {
-		public VkCommandPool VkCommandPool { get; }
+namespace Engine3.Client.Graphics.Vulkan.Objects;
 
-		protected LogicalGpu LogicalGpu { get; }
-		protected VulkanResourceProvider GraphicsResourceProvider { get; }
+public unsafe class CommandPool : GraphicsResource<CommandPool, ulong> {
+	public VkCommandPool VkCommandPool { get; }
 
-		protected override ulong Handle => VkCommandPool.Handle;
+	protected LogicalGpu LogicalGpu { get; }
+	protected VulkanResourceProvider GraphicsResourceProvider { get; }
 
-		protected CommandPool(LogicalGpu logicalGpu, VulkanResourceProvider graphicsResourceProvider, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) {
-			LogicalGpu = logicalGpu;
-			GraphicsResourceProvider = graphicsResourceProvider;
+	protected override ulong Handle => VkCommandPool.Handle;
 
-			VkCommandPoolCreateInfo commandPoolCreateInfo = new() { flags = commandPoolCreateFlags, queueFamilyIndex = queueFamilyIndex, };
-			VkCommandPool commandPool;
-			VkH.CheckIfSuccess(Vk.CreateCommandPool(logicalGpu.LogicalDevice, &commandPoolCreateInfo, null, &commandPool), VulkanException.Reason.CreateCommandPool);
-			VkCommandPool = commandPool;
+	protected CommandPool(LogicalGpu logicalGpu, VulkanResourceProvider graphicsResourceProvider, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamilyIndex) {
+		LogicalGpu = logicalGpu;
+		GraphicsResourceProvider = graphicsResourceProvider;
 
-			PrintCreate();
-		}
+		VkCommandPoolCreateInfo commandPoolCreateInfo = new() { flags = commandPoolCreateFlags, queueFamilyIndex = queueFamilyIndex, };
+		VkCommandPool commandPool;
+		VkH.CheckIfSuccess(Vk.CreateCommandPool(logicalGpu.LogicalDevice, &commandPoolCreateInfo, null, &commandPool), VulkanException.Reason.CreateCommandPool);
+		VkCommandPool = commandPool;
 
-		protected sealed override void PrintCreate() => base.PrintCreate();
-
-		protected override void Cleanup() => Vk.DestroyCommandPool(LogicalGpu.LogicalDevice, VkCommandPool, null);
+		PrintCreate();
 	}
+
+	protected sealed override void PrintCreate() => base.PrintCreate();
+
+	protected override void Cleanup() => Vk.DestroyCommandPool(LogicalGpu.LogicalDevice, VkCommandPool, null);
 }

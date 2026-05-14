@@ -2,60 +2,60 @@ using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Client.Graphics.Vulkan.Objects {
-	[PublicAPI]
-	public sealed unsafe class VulkanBuffer : NamedGraphicsResource<VulkanBuffer, ulong> {
-		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+namespace Engine3.Client.Graphics.Vulkan.Objects;
 
-		public VkBuffer Buffer { get; }
-		public VkDeviceMemory BufferMemory { get; }
-		public ulong BufferSize { get; }
+[PublicAPI]
+public sealed unsafe class VulkanBuffer : NamedGraphicsResource<VulkanBuffer, ulong> {
+	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-		protected override ulong Handle => Buffer.Handle;
+	public VkBuffer Buffer { get; }
+	public VkDeviceMemory BufferMemory { get; }
+	public ulong BufferSize { get; }
 
-		private readonly LogicalGpu logicalGpu;
+	protected override ulong Handle => Buffer.Handle;
 
-		internal VulkanBuffer(string debugName, LogicalGpu logicalGpu, VkBuffer buffer, VkDeviceMemory bufferMemory, ulong bufferSize) : base(debugName) {
-			Buffer = buffer;
-			BufferMemory = bufferMemory;
-			BufferSize = bufferSize;
-			this.logicalGpu = logicalGpu;
+	private readonly LogicalGpu logicalGpu;
 
-			PrintCreate();
-		}
+	internal VulkanBuffer(string debugName, LogicalGpu logicalGpu, VkBuffer buffer, VkDeviceMemory bufferMemory, ulong bufferSize) : base(debugName) {
+		Buffer = buffer;
+		BufferMemory = bufferMemory;
+		BufferSize = bufferSize;
+		this.logicalGpu = logicalGpu;
 
-		public void Copy<T>(ReadOnlySpan<T> data, ulong offset = 0) where T : unmanaged {
-			fixed (T* dataPtr = data) { Copy(dataPtr, (ulong)(data.Length * sizeof(T)), offset); }
-		}
+		PrintCreate();
+	}
 
-		public void Copy(ReadOnlySpan<byte> data, ulong offset = 0) {
-			fixed (byte* dataPtr = data) { Copy(dataPtr, (ulong)data.Length, offset); }
-		}
+	public void Copy<T>(ReadOnlySpan<T> data, ulong offset = 0) where T : unmanaged {
+		fixed (T* dataPtr = data) { Copy(dataPtr, (ulong)(data.Length * sizeof(T)), offset); }
+	}
 
-		public void Copy(void* data, ulong bufferSize, ulong offset = 0) {
-			void* dstPtr = MapMemory(bufferSize, offset);
-			System.Buffer.MemoryCopy(data, dstPtr, bufferSize, bufferSize);
-			UnmapMemory();
-		}
+	public void Copy(ReadOnlySpan<byte> data, ulong offset = 0) {
+		fixed (byte* dataPtr = data) { Copy(dataPtr, (ulong)data.Length, offset); }
+	}
 
-		[MustUseReturnValue]
-		public void* MapMemory(ulong bufferSize, ulong offset = 0) {
-			VkMemoryMapInfo memoryMapInfo = new() { memory = BufferMemory, size = bufferSize, offset = offset, };
-			void* dstPtr;
-			Vk.MapMemory2(logicalGpu.LogicalDevice, &memoryMapInfo, &dstPtr);
-			return dstPtr;
-		}
+	public void Copy(void* data, ulong bufferSize, ulong offset = 0) {
+		void* dstPtr = MapMemory(bufferSize, offset);
+		System.Buffer.MemoryCopy(data, dstPtr, bufferSize, bufferSize);
+		UnmapMemory();
+	}
 
-		public void UnmapMemory() {
-			VkMemoryUnmapInfo memoryUnmapInfo = new() { memory = BufferMemory, };
-			Vk.UnmapMemory2(logicalGpu.LogicalDevice, &memoryUnmapInfo);
-		}
+	[MustUseReturnValue]
+	public void* MapMemory(ulong bufferSize, ulong offset = 0) {
+		VkMemoryMapInfo memoryMapInfo = new() { memory = BufferMemory, size = bufferSize, offset = offset, };
+		void* dstPtr;
+		Vk.MapMemory2(logicalGpu.LogicalDevice, &memoryMapInfo, &dstPtr);
+		return dstPtr;
+	}
 
-		protected override void Cleanup() {
-			VkDevice logicalDevice = logicalGpu.LogicalDevice;
+	public void UnmapMemory() {
+		VkMemoryUnmapInfo memoryUnmapInfo = new() { memory = BufferMemory, };
+		Vk.UnmapMemory2(logicalGpu.LogicalDevice, &memoryUnmapInfo);
+	}
 
-			Vk.DestroyBuffer(logicalDevice, Buffer, null);
-			Vk.FreeMemory(logicalDevice, BufferMemory, null);
-		}
+	protected override void Cleanup() {
+		VkDevice logicalDevice = logicalGpu.LogicalDevice;
+
+		Vk.DestroyBuffer(logicalDevice, Buffer, null);
+		Vk.FreeMemory(logicalDevice, BufferMemory, null);
 	}
 }

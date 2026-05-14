@@ -2,61 +2,62 @@ using System.Text;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Client.Graphics.Vulkan {
-	[PublicAPI]
-	public unsafe class PhysicalGpu : IEquatable<PhysicalGpu> {
-		public VkPhysicalDevice PhysicalDevice { get; }
-		public VkPhysicalDeviceProperties2 PhysicalDeviceProperties2 { get; }
-		public VkPhysicalDeviceFeatures2 PhysicalDeviceFeatures2 { get; }
-		public VkPhysicalDeviceMemoryProperties2 PhysicalDeviceMemoryProperties2 { get; }
-		public VkExtensionProperties[] ExtensionProperties { get; }
+namespace Engine3.Client.Graphics.Vulkan;
 
-		public string Name { get; }
+[PublicAPI]
+public unsafe class PhysicalGpu : IEquatable<PhysicalGpu> {
+	public VkPhysicalDevice PhysicalDevice { get; }
+	public VkPhysicalDeviceProperties2 PhysicalDeviceProperties2 { get; }
+	public VkPhysicalDeviceFeatures2 PhysicalDeviceFeatures2 { get; }
+	public VkPhysicalDeviceMemoryProperties2 PhysicalDeviceMemoryProperties2 { get; }
+	public VkExtensionProperties[] ExtensionProperties { get; }
 
-		internal PhysicalGpu(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2 physicalDeviceProperties2, VkPhysicalDeviceFeatures2 physicalDeviceFeatures2, VkExtensionProperties[] extensionProperties) {
-			PhysicalDevice = physicalDevice;
-			PhysicalDeviceProperties2 = physicalDeviceProperties2;
-			PhysicalDeviceFeatures2 = physicalDeviceFeatures2;
-			ExtensionProperties = extensionProperties;
+	public string Name { get; }
 
-			VkPhysicalDeviceMemoryProperties2 physicalDeviceMemoryProperties2 = new();
-			Vk.GetPhysicalDeviceMemoryProperties2(physicalDevice, &physicalDeviceMemoryProperties2);
-			PhysicalDeviceMemoryProperties2 = physicalDeviceMemoryProperties2;
+	internal PhysicalGpu(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2 physicalDeviceProperties2, VkPhysicalDeviceFeatures2 physicalDeviceFeatures2, VkExtensionProperties[] extensionProperties) {
+		PhysicalDevice = physicalDevice;
+		PhysicalDeviceProperties2 = physicalDeviceProperties2;
+		PhysicalDeviceFeatures2 = physicalDeviceFeatures2;
+		ExtensionProperties = extensionProperties;
 
-			VkPhysicalDeviceProperties.deviceNameInlineArray1 deviceNameArray = PhysicalDeviceProperties2.properties.deviceName;
-			ReadOnlySpan<byte> deviceNameSpan = deviceNameArray;
-			Name = Encoding.UTF8.GetString(deviceNameSpan[..deviceNameSpan.IndexOf((byte)0)]);
-		}
+		VkPhysicalDeviceMemoryProperties2 physicalDeviceMemoryProperties2 = new();
+		Vk.GetPhysicalDeviceMemoryProperties2(physicalDevice, &physicalDeviceMemoryProperties2);
+		PhysicalDeviceMemoryProperties2 = physicalDeviceMemoryProperties2;
 
-		public string GetSimpleDescription() {
-			VkPhysicalDeviceProperties deviceProperties = PhysicalDeviceProperties2.properties;
-			VkH.GetApiVersion(deviceProperties.apiVersion, out _, out byte major, out ushort minor, out ushort patch);
-			return $"{Name} - Api v{deviceProperties.apiVersion.ToString()} ({major}.{minor}.{patch})";
-		}
+		VkPhysicalDeviceProperties.deviceNameInlineArray1 deviceNameArray = PhysicalDeviceProperties2.properties.deviceName;
+		ReadOnlySpan<byte> deviceNameSpan = deviceNameArray;
+		Name = Encoding.UTF8.GetString(deviceNameSpan[..deviceNameSpan.IndexOf((byte)0)]);
+	}
 
-		public string[] GetVerboseDescription() {
-			const string PhysicalDeviceTypeEnumName = "PhysicalDeviceType";
-			const string VendorIdEnumName = "VendorId";
+	public string GetSimpleDescription() {
+		VkPhysicalDeviceProperties deviceProperties = PhysicalDeviceProperties2.properties;
+		VkH.GetApiVersion(deviceProperties.apiVersion, out _, out byte major, out ushort minor, out ushort patch);
+		return $"{Name} - Api v{deviceProperties.apiVersion.ToString()} ({major}.{minor}.{patch})";
+	}
 
-			VkPhysicalDeviceProperties deviceProperties = PhysicalDeviceProperties2.properties;
-			VkH.GetApiVersion(deviceProperties.apiVersion, out _, out byte major, out ushort minor, out ushort patch);
+	public string[] GetVerboseDescription() {
+		const string PhysicalDeviceTypeEnumName = "PhysicalDeviceType";
+		const string VendorIdEnumName = "VendorId";
 
-			uint vendorId = deviceProperties.vendorID;
-			string vendorIdName = (VkVendorId)vendorId is >= VkVendorId.VendorIdKhronos and <= VkVendorId.VendorIdMobileye ? $", ({((VkVendorId)vendorId).ToString()[VendorIdEnumName.Length..]})" : string.Empty;
+		VkPhysicalDeviceProperties deviceProperties = PhysicalDeviceProperties2.properties;
+		VkH.GetApiVersion(deviceProperties.apiVersion, out _, out byte major, out ushort minor, out ushort patch);
 
-			VkPhysicalDeviceLimits limits = deviceProperties.limits;
-			VkPhysicalDeviceFeatures features = PhysicalDeviceFeatures2.features;
+		uint vendorId = deviceProperties.vendorID;
+		string vendorIdName = (VkVendorId)vendorId is >= VkVendorId.VendorIdKhronos and <= VkVendorId.VendorIdMobileye ? $", ({((VkVendorId)vendorId).ToString()[VendorIdEnumName.Length..]})" : string.Empty;
 
-			StringBuilder limitsStringBuilder = new();
-			limitsStringBuilder.Append($"MaxSamplerAnisotropy: {limits.maxSamplerAnisotropy}, ");
-			limitsStringBuilder.Append($"MaxDrawIndirectCount: {limits.maxDrawIndirectCount}");
+		VkPhysicalDeviceLimits limits = deviceProperties.limits;
+		VkPhysicalDeviceFeatures features = PhysicalDeviceFeatures2.features;
 
-			StringBuilder featuresStringBuilder = new();
-			featuresStringBuilder.Append($"SamplerAnisotropy: {VkBoolToBool(features.samplerAnisotropy)}, ");
-			featuresStringBuilder.Append($"MultiDrawIndirect: {VkBoolToBool(features.multiDrawIndirect)}");
+		StringBuilder limitsStringBuilder = new();
+		limitsStringBuilder.Append($"MaxSamplerAnisotropy: {limits.maxSamplerAnisotropy}, ");
+		limitsStringBuilder.Append($"MaxDrawIndirectCount: {limits.maxDrawIndirectCount}");
 
-			// TODO PhysicalDeviceMemoryProperties2
-			// TODO ExtensionProperties
+		StringBuilder featuresStringBuilder = new();
+		featuresStringBuilder.Append($"SamplerAnisotropy: {VkBoolToBool(features.samplerAnisotropy)}, ");
+		featuresStringBuilder.Append($"MultiDrawIndirect: {VkBoolToBool(features.multiDrawIndirect)}");
+
+		// TODO PhysicalDeviceMemoryProperties2
+		// TODO ExtensionProperties
 
 			//@formatter:off
 			return [
@@ -74,17 +75,16 @@ namespace Engine3.Client.Graphics.Vulkan {
 				"- ]",
 				"]",
 			];
-			//@formatter:on
+		//@formatter:on
 
-			static bool VkBoolToBool(int vkBool) => vkBool == Vk.True;
-		}
-
-		public static bool operator ==(PhysicalGpu? left, PhysicalGpu? right) => Equals(left, right);
-		public static bool operator !=(PhysicalGpu? left, PhysicalGpu? right) => !Equals(left, right);
-
-		public bool Equals(PhysicalGpu? other) => other is not null && (other == this || PhysicalDevice.Handle.Equals(other.PhysicalDevice.Handle));
-		public override bool Equals(object? obj) => obj is PhysicalGpu gpu && Equals(gpu);
-
-		public override int GetHashCode() => PhysicalDevice.GetHashCode();
+		static bool VkBoolToBool(int vkBool) => vkBool == Vk.True;
 	}
+
+	public static bool operator ==(PhysicalGpu? left, PhysicalGpu? right) => Equals(left, right);
+	public static bool operator !=(PhysicalGpu? left, PhysicalGpu? right) => !Equals(left, right);
+
+	public bool Equals(PhysicalGpu? other) => other is not null && (other == this || PhysicalDevice.Handle.Equals(other.PhysicalDevice.Handle));
+	public override bool Equals(object? obj) => obj is PhysicalGpu gpu && Equals(gpu);
+
+	public override int GetHashCode() => PhysicalDevice.GetHashCode();
 }

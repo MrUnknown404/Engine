@@ -1,41 +1,41 @@
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Client.Graphics.Vulkan.Objects {
-	public class DepthImage {
-		public VulkanImage Image { get; private set; }
+namespace Engine3.Client.Graphics.Vulkan.Objects;
 
-		private readonly SurfaceCapablePhysicalGpu physicalGpu;
-		private readonly VulkanResourceProvider graphicsResourceProvider;
-		private readonly TransferCommandPool transferCommandPool;
-		private readonly VkQueue transferQueue;
-		private readonly VkFormat depthFormat;
+public class DepthImage {
+	public VulkanImage Image { get; private set; }
 
-		internal DepthImage(SurfaceCapablePhysicalGpu physicalGpu, VulkanResourceProvider graphicsResourceProvider, TransferCommandPool transferCommandPool, VkQueue transferQueue, VkExtent2D extent) {
-			this.physicalGpu = physicalGpu;
-			this.graphicsResourceProvider = graphicsResourceProvider;
-			this.transferCommandPool = transferCommandPool;
-			this.transferQueue = transferQueue;
-			depthFormat = physicalGpu.FindDepthFormat();
+	private readonly SurfaceCapablePhysicalGpu physicalGpu;
+	private readonly VulkanResourceProvider graphicsResourceProvider;
+	private readonly TransferCommandPool transferCommandPool;
+	private readonly VkQueue transferQueue;
+	private readonly VkFormat depthFormat;
 
-			Image = graphicsResourceProvider.CreateImage("Depth Image", extent.width, extent.height, depthFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageDepthStencilAttachmentBit,
-				VkImageAspectFlagBits.ImageAspectDepthBit);
-		}
+	internal DepthImage(SurfaceCapablePhysicalGpu physicalGpu, VulkanResourceProvider graphicsResourceProvider, TransferCommandPool transferCommandPool, VkQueue transferQueue, VkExtent2D extent) {
+		this.physicalGpu = physicalGpu;
+		this.graphicsResourceProvider = graphicsResourceProvider;
+		this.transferCommandPool = transferCommandPool;
+		this.transferQueue = transferQueue;
+		depthFormat = physicalGpu.FindDepthFormat();
 
-		public void Recreate(VkExtent2D extent) {
-			graphicsResourceProvider.EnqueueDestroy(Image);
+		Image = graphicsResourceProvider.CreateImage("Depth Image", extent.width, extent.height, depthFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageDepthStencilAttachmentBit,
+			VkImageAspectFlagBits.ImageAspectDepthBit);
+	}
 
-			Image = graphicsResourceProvider.CreateImage(Image.DebugName, extent.width, extent.height, depthFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageDepthStencilAttachmentBit,
-				VkImageAspectFlagBits.ImageAspectDepthBit);
+	public void Recreate(VkExtent2D extent) {
+		graphicsResourceProvider.EnqueueDestroy(Image);
 
-			TransferCommandBuffer transferCommandBuffer = transferCommandPool.CreateCommandBuffer();
-			transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
+		Image = graphicsResourceProvider.CreateImage(Image.DebugName, extent.width, extent.height, depthFormat, VkImageTiling.ImageTilingOptimal, VkImageUsageFlagBits.ImageUsageDepthStencilAttachmentBit,
+			VkImageAspectFlagBits.ImageAspectDepthBit);
 
-			transferCommandBuffer.TransitionImageLayout(physicalGpu.QueueFamilyIndices, Image.Image, depthFormat, VkImageLayout.ImageLayoutUndefined, VkImageLayout.ImageLayoutDepthStencilAttachmentOptimal);
+		TransferCommandBuffer transferCommandBuffer = transferCommandPool.CreateCommandBuffer();
+		transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
 
-			transferCommandBuffer.EndCommandBuffer();
-			transferCommandBuffer.SubmitQueue(transferQueue);
+		transferCommandBuffer.TransitionImageLayout(physicalGpu.QueueFamilyIndices, Image.Image, depthFormat, VkImageLayout.ImageLayoutUndefined, VkImageLayout.ImageLayoutDepthStencilAttachmentOptimal);
 
-			graphicsResourceProvider.EnqueueDestroy(transferCommandBuffer);
-		}
+		transferCommandBuffer.EndCommandBuffer();
+		transferCommandBuffer.SubmitQueue(transferQueue);
+
+		graphicsResourceProvider.EnqueueDestroy(transferCommandBuffer);
 	}
 }

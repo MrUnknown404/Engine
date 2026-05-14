@@ -1,50 +1,50 @@
-namespace Engine3.Client.Graphics {
-	public class Model {
-		public RenderData[] RenderDataList { get; }
-		private readonly RenderMesh[] meshes;
+namespace Engine3.Client.Graphics;
 
-		public Model(RenderMesh[] meshes, byte vertexStride) {
-			this.meshes = meshes;
-			RenderDataList = MakeRenderData(meshes, vertexStride);
+public class Model {
+	public RenderData[] RenderDataList { get; }
+	private readonly RenderMesh[] meshes;
+
+	public Model(RenderMesh[] meshes, byte vertexStride) {
+		this.meshes = meshes;
+		RenderDataList = MakeRenderData(meshes, vertexStride);
+	}
+
+	public void Collect(out byte[] vertices, out uint[] indices) { // TODO cache?
+		List<byte> vertexList = new();
+		List<uint> indexList = new();
+
+		foreach (RenderMesh mesh in meshes) {
+			vertexList.AddRange(mesh.Vertices);
+			indexList.AddRange(mesh.Indices);
 		}
 
-		public void Collect(out byte[] vertices, out uint[] indices) { // TODO cache?
-			List<byte> vertexList = new();
-			List<uint> indexList = new();
+		vertices = vertexList.ToArray();
+		indices = indexList.ToArray();
+	}
 
-			foreach (RenderMesh mesh in meshes) {
-				vertexList.AddRange(mesh.Vertices);
-				indexList.AddRange(mesh.Indices);
-			}
+	private static RenderData[] MakeRenderData(RenderMesh[] meshes, byte vertexStride) {
+		List<RenderData> renderData = new();
 
-			vertices = vertexList.ToArray();
-			indices = indexList.ToArray();
+		int vertexOffset = 0;
+
+		foreach (RenderMesh mesh in meshes) {
+			uint indicesLength = (uint)mesh.Indices.Length;
+
+			renderData.Add(new(indicesLength, vertexOffset) { Material = mesh.Material, });
+			vertexOffset += mesh.Vertices.Length / vertexStride;
 		}
 
-		private static RenderData[] MakeRenderData(RenderMesh[] meshes, byte vertexStride) {
-			List<RenderData> renderData = new();
+		return renderData.ToArray();
+	}
 
-			int vertexOffset = 0;
+	public class RenderData {
+		public uint IndexCount { get; }
+		public int VertexOffset { get; }
+		public Material? Material { get; init; }
 
-			foreach (RenderMesh mesh in meshes) {
-				uint indicesLength = (uint)mesh.Indices.Length;
-
-				renderData.Add(new(indicesLength, vertexOffset) { Material = mesh.Material, });
-				vertexOffset += mesh.Vertices.Length / vertexStride;
-			}
-
-			return renderData.ToArray();
-		}
-
-		public class RenderData {
-			public uint IndexCount { get; }
-			public int VertexOffset { get; }
-			public Material? Material { get; init; }
-
-			internal RenderData(uint indexCount, int vertexOffset) {
-				IndexCount = indexCount;
-				VertexOffset = vertexOffset;
-			}
+		internal RenderData(uint indexCount, int vertexOffset) {
+			IndexCount = indexCount;
+			VertexOffset = vertexOffset;
 		}
 	}
 }

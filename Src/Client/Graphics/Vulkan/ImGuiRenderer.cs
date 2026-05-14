@@ -1,16 +1,16 @@
 using Engine3.Client.Graphics.ImGui;
 using ImGuiNET;
 
-namespace Engine3.Client.Graphics.Vulkan {
-	public abstract class ImGuiRenderer {
-		protected const string ImGuiAssetName = "ImGui";
+namespace Engine3.Client.Graphics.Vulkan;
 
-		protected abstract IGraphicsResourceProvider GraphicsResourceProvider { get; }
-		protected ImGuiBackend ImGuiBackend { get; }
+public abstract class ImGuiRenderer {
+	protected const string ImGuiAssetName = "ImGui";
 
-		protected ImGuiRenderer(ImGuiBackend imGuiBackend) => ImGuiBackend = imGuiBackend;
+	protected abstract IGraphicsResourceProvider GraphicsResourceProvider { get; }
+	protected ImGuiBackend ImGuiBackend { get; }
 
-		protected internal abstract void CopyBuffers(ImDrawDataPtr drawData);
-		protected internal abstract void DrawFrame(ImDrawDataPtr drawData);
-	}
+	protected ImGuiRenderer(ImGuiBackend imGuiBackend) => ImGuiBackend = imGuiBackend;
+
+	protected internal abstract void CopyBuffers(ImDrawDataPtr drawData);
+	protected internal abstract void DrawFrame(ImDrawDataPtr drawData);
 }
