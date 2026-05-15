@@ -20,7 +20,7 @@ public unsafe class DescriptorSets {
 		VkDescriptorBufferInfo* bufferInfos = stackalloc VkDescriptorBufferInfo[maxFramesInFlight];
 
 		for (byte i = 0; i < maxFramesInFlight; i++) {
-			bufferInfos[i] = new() { buffer = descriptorBuffers.GetBuffer(i), range = descriptorBuffers.BufferSize, };
+			bufferInfos[i] = new() { buffer = descriptorBuffers.GetBuffer(i).Buffer, range = descriptorBuffers.BufferSize, };
 			writeDescriptorSets[i] = new() { dstBinding = binding, dstSet = descriptorSets[i], descriptorType = descriptorBuffers.DescriptorType, descriptorCount = 1, pBufferInfo = &bufferInfos[i], };
 		}
 

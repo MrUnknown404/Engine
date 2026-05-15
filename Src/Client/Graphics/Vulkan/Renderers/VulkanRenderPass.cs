@@ -39,6 +39,15 @@ public abstract class VulkanRenderPass {
 	protected internal abstract void RecordCommandBuffer(GraphicsCommandBuffer commandBuffer, byte frameIndex);
 	protected internal virtual void OnSwapchainInvalid(SwapChain swapChain) { }
 
+	protected VulkanBuffer TryResizeBuffer(VulkanBuffer buffer, ulong newBufferSize) {
+		if (newBufferSize > buffer.BufferSize) {
+			GraphicsResourceProvider.EnqueueDestroy(buffer);
+			buffer = GraphicsResourceProvider.CreateBuffer(buffer.DebugName, buffer.UsageFlags, buffer.MemoryPropertyFlags, newBufferSize);
+		}
+
+		return buffer;
+	}
+
 	public override bool Equals(object? obj) => obj is VulkanRenderPass renderPass && renderPass.DebugName == DebugName;
 	public override int GetHashCode() => DebugName.GetHashCode();
 }

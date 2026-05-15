@@ -88,7 +88,7 @@ public unsafe class VulkanResourceProvider : IGraphicsResourceProvider {
 		VkDeviceMemory bufferMemory = logicalGpu.CreateDeviceMemory(buffer, memoryPropertyFlags);
 		logicalGpu.BindBufferMemory(buffer, bufferMemory);
 
-		VulkanBuffer vulkanBuffer = new(debugName, logicalGpu, buffer, bufferMemory, bufferSize);
+		VulkanBuffer vulkanBuffer = new(debugName, logicalGpu, buffer, bufferMemory, bufferUsageFlags, memoryPropertyFlags, bufferSize);
 		bufferManager.Add(vulkanBuffer);
 		return vulkanBuffer;
 	}
@@ -176,7 +176,7 @@ public unsafe class VulkanResourceProvider : IGraphicsResourceProvider {
 	}
 
 	public void EnqueueDestroy(DescriptorBuffers descriptorBuffers) {
-		Logger.Trace($"Requesting to destroy {nameof(DescriptorBuffers)} ({descriptorBuffers.GetBuffer(0).Handle:X16})");
+		Logger.Trace($"Requesting to destroy {nameof(DescriptorBuffers)} ({descriptorBuffers.GetBuffer(0).Buffer.Handle:X16})");
 		descriptorsBufferManager.EnqueueDestroy(descriptorBuffers);
 	}
 

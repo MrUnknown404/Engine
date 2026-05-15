@@ -171,6 +171,8 @@ public class Camera {
 
 	[MustUseReturnValue]
 	public static Camera CreatePerspective(float aspectRatio, float fov, float nearPlane, float farPlane) {
+		if (nearPlane <= 0) { throw new ArgumentException("NearPlane cannot be less than 0"); }
+
 		Camera camera = new(nearPlane, farPlane);
 		camera.SetPerspective(aspectRatio, fov);
 		return camera;

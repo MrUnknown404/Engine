@@ -1,25 +1,27 @@
 using JetBrains.Annotations;
-using NLog;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Objects;
 
-[PublicAPI]
 public sealed unsafe class VulkanBuffer : NamedGraphicsResource<VulkanBuffer, ulong> {
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-
 	public VkBuffer Buffer { get; }
-	public VkDeviceMemory BufferMemory { get; }
+	public VkDeviceMemory Memory { get; }
+
+	public VkBufferUsageFlagBits UsageFlags { get; }
+	public VkMemoryPropertyFlagBits MemoryPropertyFlags { get; }
+
 	public ulong BufferSize { get; }
 
 	protected override ulong Handle => Buffer.Handle;
 
 	private readonly LogicalGpu logicalGpu;
 
-	internal VulkanBuffer(string debugName, LogicalGpu logicalGpu, VkBuffer buffer, VkDeviceMemory bufferMemory, ulong bufferSize) : base(debugName) {
+	internal VulkanBuffer(string debugName, LogicalGpu logicalGpu, VkBuffer buffer, VkDeviceMemory memory, VkBufferUsageFlagBits usageFlags, VkMemoryPropertyFlagBits memoryPropertyFlags, ulong bufferSize) : base(debugName) {
 		Buffer = buffer;
-		BufferMemory = bufferMemory;
+		Memory = memory;
 		BufferSize = bufferSize;
+		UsageFlags = usageFlags;
+		MemoryPropertyFlags = memoryPropertyFlags;
 		this.logicalGpu = logicalGpu;
 
 		PrintCreate();
@@ -41,14 +43,14 @@ public sealed unsafe class VulkanBuffer : NamedGraphicsResource<VulkanBuffer, ul
 
 	[MustUseReturnValue]
 	public void* MapMemory(ulong bufferSize, ulong offset = 0) {
-		VkMemoryMapInfo memoryMapInfo = new() { memory = BufferMemory, size = bufferSize, offset = offset, };
+		VkMemoryMapInfo memoryMapInfo = new() { memory = Memory, size = bufferSize, offset = offset, };
 		void* dstPtr;
 		Vk.MapMemory2(logicalGpu.LogicalDevice, &memoryMapInfo, &dstPtr);
 		return dstPtr;
 	}
 
 	public void UnmapMemory() {
-		VkMemoryUnmapInfo memoryUnmapInfo = new() { memory = BufferMemory, };
+		VkMemoryUnmapInfo memoryUnmapInfo = new() { memory = Memory, };
 		Vk.UnmapMemory2(logicalGpu.LogicalDevice, &memoryUnmapInfo);
 	}
 
@@ -56,6 +58,6 @@ public sealed unsafe class VulkanBuffer : NamedGraphicsResource<VulkanBuffer, ul
 		VkDevice logicalDevice = logicalGpu.LogicalDevice;
 
 		Vk.DestroyBuffer(logicalDevice, Buffer, null);
-		Vk.FreeMemory(logicalDevice, BufferMemory, null);
+		Vk.FreeMemory(logicalDevice, Memory, null);
 	}
 }

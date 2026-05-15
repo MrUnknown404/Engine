@@ -18,8 +18,8 @@ public sealed unsafe class DescriptorBuffers : NamedGraphicsResource<DescriptorB
 	private readonly void*[] buffersMapped;
 	private readonly VulkanResourceProvider graphicsResourceProvider;
 
-	internal DescriptorBuffers(string debugName, VulkanResourceProvider graphicsResourceProvider, ulong bufferSize, byte maxFramesInFlight, VkBufferUsageFlagBits bufferUsageFlags,
-		VkDescriptorType descriptorType) : base(debugName) {
+	internal DescriptorBuffers(string debugName, VulkanResourceProvider graphicsResourceProvider, ulong bufferSize, byte maxFramesInFlight, VkBufferUsageFlagBits bufferUsageFlags, VkDescriptorType descriptorType) :
+			base(debugName) {
 		BufferSize = bufferSize;
 		DescriptorType = descriptorType;
 		this.graphicsResourceProvider = graphicsResourceProvider;
@@ -54,7 +54,7 @@ public sealed unsafe class DescriptorBuffers : NamedGraphicsResource<DescriptorB
 #endif
 	}
 
-	public VkBuffer GetBuffer(byte index) => buffers[index].Buffer;
+	public VulkanBuffer GetBuffer(byte index) => buffers[index];
 
 	protected override void Cleanup() {
 		foreach (VulkanBuffer buffer in buffers) { graphicsResourceProvider.EnqueueDestroy(buffer); }
