@@ -167,6 +167,10 @@ public abstract class GameClient {
 		foreach (Renderer renderer in renderers.Where(static r => r is { WasDestroyed: false, })) { renderer.Update(); }
 	}
 
+	private void UpdateCleanup() {
+		foreach (Window window in windows) { window.MouseManager.ResetScroll(); }
+	}
+
 	private void GameLoop() {
 		const long TicksPerSecond = 1000000000; // Stopwatch.Frequency;
 
@@ -219,6 +223,7 @@ public abstract class GameClient {
 				PerformanceMonitor.StartTimingUpdate();
 				EngineUpdate();
 				this.Update();
+				UpdateCleanup();
 				PerformanceMonitor.StopTimingUpdate();
 
 				updateAccumulator -= updateTicksToWait;

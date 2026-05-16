@@ -174,7 +174,11 @@ public abstract class Window : IEquatable<Window> { // TODO remove graphics spec
 	internal void OnMouseMoveEventArgs(MouseMoveEventArgs moveArgs) => MouseManager.Position = new(moveArgs.ClientPosition.X, moveArgs.ClientPosition.Y);
 	internal void OnMouseButtonDownEventArgs(MouseButtonDownEventArgs downArgs) => MouseManager.SetButton(downArgs.Button, true);
 	internal void OnMouseButtonUpEventArgs(MouseButtonUpEventArgs upArgs) => MouseManager.SetButton(upArgs.Button, false);
-	internal void OnScrollEventArgs(ScrollEventArgs scrollArgs) => MouseManager.ScrollDelta = scrollArgs.Delta.Y;
+
+	internal void OnScrollEventArgs(ScrollEventArgs scrollArgs) {
+		MouseManager.ScrollDelta = scrollArgs.Delta.Y;
+		MouseManager.ScrollAmount = scrollArgs.Distance.Y;
+	}
 
 	public delegate void AttemptCloseWindowDelegate(ref bool shouldCloseWindow);
 	public delegate void OnWindowResizeDelegate(uint width, uint height);

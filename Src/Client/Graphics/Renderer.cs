@@ -62,8 +62,8 @@ public abstract class Renderer<TWindow, TResourceProvider> : Renderer where TWin
 		GraphicsResourceProvider = (TResourceProvider)window.GraphicsResourceProvider;
 	}
 
-	protected void CreateImGui(out ImGuiBackend imGuiBackend, out ImGuiRenderer imGuiRenderer) {
-		imGuiBackend = new(Window, GraphicsApi);
+	protected void CreateImGui(out ImGuiBackend imGuiBackend, out ImGuiRenderer imGuiRenderer, Action? showImGui = null) {
+		imGuiBackend = new(Window, GraphicsApi, showImGui);
 		imGuiRenderer = GraphicsApi switch {
 				_3DGraphicsApi.OpenGL => new OpenGLImGuiRenderer(imGuiBackend, this as OpenGLRendererBase ?? throw new Engine3Exception($"Renderer must be of type {nameof(OpenGLRendererBase)}")),
 				_3DGraphicsApi.Vulkan => new VulkanImGuiRenderer(imGuiBackend, this as VulkanRendererBase ?? throw new Engine3Exception($"Renderer must be of type {nameof(VulkanRendererBase)}")),

@@ -24,19 +24,17 @@ public unsafe class ImGuiBackend {
 	private readonly Window window;
 	private readonly Dictionary<WindowHandle, nint> windowToId = new();
 	private readonly Queue<nint> freeWindowIdList = new();
-
-	private readonly List<IImGuiProvider> imGuiProviders = new();
+	private readonly Action? showImGui;
 
 	private nint nextFreeWindowId = 1;
 	private ImGuiMouseCursor currentCursorType;
 
-	public ImGuiBackend(Window window, _3DGraphicsApi graphicsBackend, params IImGuiProvider[] imGuiProviders) {
-		this.imGuiProviders.AddRange(imGuiProviders);
-
+	public ImGuiBackend(Window window, _3DGraphicsApi graphicsBackend, Action? showImGui = null) {
 		Logger.Debug("Setting up ImGui...");
 
 		Context = ImGuiNet.CreateContext();
 		this.window = window;
+		this.showImGui = showImGui;
 
 		window.OnResize += (_, _) => {
 			ImGuiNet.SetCurrentContext(Context);
@@ -108,7 +106,7 @@ public unsafe class ImGuiBackend {
 			if (DebugUIImGui != null) { DebugUIImGui.ShowImGui(); } else { Logger.Warn("Trying to display DebugUI but we have no object"); }
 		}
 
-		foreach (IImGuiProvider imGuiProvider in imGuiProviders) { imGuiProvider.ShowImGui(); }
+		showImGui?.Invoke();
 
 		ImGuiNet.EndFrame();
 
