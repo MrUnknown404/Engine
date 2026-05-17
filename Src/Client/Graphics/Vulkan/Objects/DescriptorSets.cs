@@ -37,4 +37,26 @@ public unsafe class DescriptorSets {
 
 		Vk.UpdateDescriptorSets(logicalGpu.LogicalDevice, maxFramesInFlight, writeDescriptorSets, 0, null);
 	}
+
+	public void UpdateDescriptorSet(uint binding, VkImageView imageView) {
+		VkWriteDescriptorSet* writeDescriptorSets = stackalloc VkWriteDescriptorSet[maxFramesInFlight];
+		VkDescriptorImageInfo imageInfo = new() { imageView = imageView, imageLayout = VkImageLayout.ImageLayoutShaderReadOnlyOptimal, };
+
+		for (int i = 0; i < maxFramesInFlight; i++) {
+			writeDescriptorSets[i] = new() { dstBinding = binding, dstSet = descriptorSets[i], descriptorType = VkDescriptorType.DescriptorTypeSampledImage, descriptorCount = 1, pImageInfo = &imageInfo, };
+		}
+
+		Vk.UpdateDescriptorSets(logicalGpu.LogicalDevice, maxFramesInFlight, writeDescriptorSets, 0, null);
+	}
+
+	public void UpdateDescriptorSet(uint binding, VkSampler textureSampler) {
+		VkWriteDescriptorSet* writeDescriptorSets = stackalloc VkWriteDescriptorSet[maxFramesInFlight];
+		VkDescriptorImageInfo imageInfo = new() { sampler = textureSampler, };
+
+		for (int i = 0; i < maxFramesInFlight; i++) {
+			writeDescriptorSets[i] = new() { dstBinding = binding, dstSet = descriptorSets[i], descriptorType = VkDescriptorType.DescriptorTypeSampler, descriptorCount = 1, pImageInfo = &imageInfo, };
+		}
+
+		Vk.UpdateDescriptorSets(logicalGpu.LogicalDevice, maxFramesInFlight, writeDescriptorSets, 0, null);
+	}
 }

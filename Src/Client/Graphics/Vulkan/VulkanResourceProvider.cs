@@ -109,11 +109,14 @@ public unsafe class VulkanResourceProvider : IGraphicsResourceProvider {
 
 	[MustUseReturnValue]
 	public VulkanImage CreateImage(string debugName, uint width, uint height, VkFormat imageFormat, VkImageTiling imageTiling = VkImageTiling.ImageTilingOptimal,
-		VkImageUsageFlagBits usageFlags = VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits aspectMask = VkImageAspectFlagBits.ImageAspectColorBit) {
+		VkImageUsageFlagBits usageFlags = VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, VkComponentMapping? componentMapping = null) {
 		VkImage image = CreateImage(logicalGpu.LogicalDevice, imageFormat, imageTiling, usageFlags, width, height);
 		VkDeviceMemory imageMemory = logicalGpu.CreateDeviceMemory(image, VkMemoryPropertyFlagBits.MemoryPropertyDeviceLocalBit);
 		logicalGpu.BindImageMemory(image, imageMemory);
-		VkImageView imageView = CreateImageView(logicalGpu.LogicalDevice, image, imageFormat, aspectMask);
+
+		VkImageView imageView = CreateImageView(logicalGpu.LogicalDevice, image, imageFormat, aspectMask,
+			componentMapping ??
+			new() { r = VkComponentSwizzle.ComponentSwizzleIdentity, g = VkComponentSwizzle.ComponentSwizzleIdentity, b = VkComponentSwizzle.ComponentSwizzleIdentity, a = VkComponentSwizzle.ComponentSwizzleIdentity, });
 
 		VulkanImage vulkanImage = new(debugName, logicalGpu, image, imageMemory, imageView, imageFormat);
 		imageManager.Add(vulkanImage);
@@ -141,14 +144,12 @@ public unsafe class VulkanResourceProvider : IGraphicsResourceProvider {
 		}
 
 		[MustUseReturnValue]
-		static VkImageView CreateImageView(VkDevice logicalDevice, VkImage image, VkFormat imageFormat, VkImageAspectFlagBits aspectMask) {
+		static VkImageView CreateImageView(VkDevice logicalDevice, VkImage image, VkFormat imageFormat, VkImageAspectFlagBits aspectMask, VkComponentMapping componentMapping) {
 			VkImageViewCreateInfo createInfo = new() {
 					image = image,
 					viewType = VkImageViewType.ImageViewType2d,
 					format = imageFormat,
-					components = new() {
-							r = VkComponentSwizzle.ComponentSwizzleIdentity, g = VkComponentSwizzle.ComponentSwizzleIdentity, b = VkComponentSwizzle.ComponentSwizzleIdentity, a = VkComponentSwizzle.ComponentSwizzleIdentity,
-					},
+					components = componentMapping,
 					subresourceRange = new() { aspectMask = aspectMask, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 			};
 

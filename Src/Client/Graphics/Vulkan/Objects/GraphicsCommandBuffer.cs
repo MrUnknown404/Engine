@@ -40,14 +40,16 @@ public sealed unsafe class GraphicsCommandBuffer : CommandBuffer {
 	public void CmdBindGraphicsPipeline(GraphicsPipeline graphicsPipeline) => CmdBindGraphicsPipeline(graphicsPipeline.Pipeline);
 	public void CmdBindGraphicsPipeline(VkPipeline graphicsPipeline) => Vk.CmdBindPipeline(VkCommandBuffer, VkPipelineBindPoint.PipelineBindPointGraphics, graphicsPipeline);
 
-	public void CmdBindDescriptorSet(VkPipelineLayout pipelineLayout, VkDescriptorSet descriptorSet, VkShaderStageFlagBits shaderStageFlags) {
-		VkBindDescriptorSetsInfo bindDescriptorSetsInfo = new() { layout = pipelineLayout, descriptorSetCount = 1, pDescriptorSets = &descriptorSet, stageFlags = shaderStageFlags, };
+	public void CmdBindDescriptorSet(VkPipelineLayout pipelineLayout, VkDescriptorSet descriptorSet, VkShaderStageFlagBits shaderStageFlags, uint firstSet = 0) {
+		VkBindDescriptorSetsInfo bindDescriptorSetsInfo = new() { layout = pipelineLayout, descriptorSetCount = 1, pDescriptorSets = &descriptorSet, firstSet = firstSet, stageFlags = shaderStageFlags, };
 		Vk.CmdBindDescriptorSets2(VkCommandBuffer, &bindDescriptorSetsInfo);
 	}
 
-	public void CmdBindDescriptorSets(VkPipelineLayout pipelineLayout, VkDescriptorSet[] descriptorSets, VkShaderStageFlagBits shaderStageFlags) {
+	public void CmdBindDescriptorSets(VkPipelineLayout pipelineLayout, VkDescriptorSet[] descriptorSets, VkShaderStageFlagBits shaderStageFlags, uint firstSet = 0) {
 		fixed (VkDescriptorSet* descriptorSetsPtr = descriptorSets) {
-			VkBindDescriptorSetsInfo bindDescriptorSetsInfo = new() { layout = pipelineLayout, descriptorSetCount = (uint)descriptorSets.Length, pDescriptorSets = descriptorSetsPtr, stageFlags = shaderStageFlags, };
+			VkBindDescriptorSetsInfo bindDescriptorSetsInfo =
+					new() { layout = pipelineLayout, descriptorSetCount = (uint)descriptorSets.Length, pDescriptorSets = descriptorSetsPtr, firstSet = firstSet, stageFlags = shaderStageFlags, };
+
 			Vk.CmdBindDescriptorSets2(VkCommandBuffer, &bindDescriptorSetsInfo);
 		}
 	}

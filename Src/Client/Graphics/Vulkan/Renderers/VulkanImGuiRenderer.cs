@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Engine3.Client.Graphics.ImGui;
 using Engine3.Client.Graphics.Vulkan.Objects;
 using ImGuiNET;
+using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine3.Client.Graphics.Vulkan.Renderers;
@@ -12,11 +13,10 @@ public unsafe class VulkanImGuiRenderer : ImGuiRenderer {
 
 	protected sealed override VulkanResourceProvider GraphicsResourceProvider { get; }
 
-	private readonly DescriptorSets descriptorSets;
 	private readonly GraphicsPipeline graphicsPipeline;
 
-	private readonly VulkanImage fontImage;
-	private readonly TextureSampler textureSampler;
+	private readonly DescriptorSets samplerDescriptorSets;
+	private readonly DescriptorSetLayout imageDescriptorSetsLayout;
 
 	private VulkanBuffer vertexBuffer; // TODO Frames-in-flight? i think i read somewhere i should? look into
 	private VulkanBuffer indexBuffer; // ^
@@ -24,14 +24,28 @@ public unsafe class VulkanImGuiRenderer : ImGuiRenderer {
 	private GraphicsCommandBuffer graphicsCommandBuffer = null!;
 	private byte frameIndex;
 
+	private readonly Dictionary<nint, DescriptorSets> imageDescriptors = new();
+
 	public VulkanImGuiRenderer(ImGuiBackend imGuiBackend, VulkanRendererBase renderer) : base(imGuiBackend) {
 		GraphicsResourceProvider = renderer.GraphicsResourceProvider;
 
-		CreatePipeline(GraphicsResourceProvider, renderer.SwapChain.ImageFormat, renderer.MaxFramesInFlight, ImGuiShaderConstants, out graphicsPipeline, out descriptorSets);
+		CreatePipeline(GraphicsResourceProvider, renderer.SwapChain.ImageFormat, renderer.MaxFramesInFlight, ImGuiShaderConstants, out graphicsPipeline, out samplerDescriptorSets, out imageDescriptorSetsLayout);
 		CreateBuffers(GraphicsResourceProvider, out vertexBuffer, out indexBuffer);
-		CreateFont(imGuiBackend, GraphicsResourceProvider, renderer.PhysicalGpu, renderer.LogicalGpu, renderer.TransferCommandPool, out fontImage, out textureSampler);
+		CreateFont(imGuiBackend, GraphicsResourceProvider, renderer.PhysicalGpu, renderer.LogicalGpu, renderer.TransferCommandPool, out VulkanImage fontImage, out TextureSampler textureSampler);
 
-		descriptorSets.UpdateDescriptorSet(0, fontImage.ImageView, textureSampler.Sampler);
+		samplerDescriptorSets.UpdateDescriptorSet(0, textureSampler.Sampler);
+		_ = AddTexture(fontImage, renderer.MaxFramesInFlight);
+	}
+
+	[MustUseReturnValue]
+	public nint AddTexture(VulkanImage image, byte maxFramesInFlight) { // TODO add remove
+		DescriptorPool descriptorPool = GraphicsResourceProvider.CreateDescriptorPool([ VkDescriptorType.DescriptorTypeSampledImage, ], 1, maxFramesInFlight); // TODO use existing pool
+		DescriptorSets descriptorSets = descriptorPool.AllocateDescriptorSets(imageDescriptorSetsLayout);
+		descriptorSets.UpdateDescriptorSet(0, image.ImageView);
+
+		nint id = imageDescriptors.Count;
+		imageDescriptors[id] = descriptorSets;
+		return id;
 	}
 
 	internal void SetFrameData(GraphicsCommandBuffer graphicsCommandBuffer, byte frameIndex) {
@@ -79,13 +93,13 @@ public unsafe class VulkanImGuiRenderer : ImGuiRenderer {
 		graphicsCommandBuffer.CmdSetViewport(0, 0, (uint)drawData.DisplaySize.X, (uint)drawData.DisplaySize.Y, 0, 1);
 
 		graphicsCommandBuffer.CmdPushConstants(graphicsPipeline.Layout, VkShaderStageFlagBits.ShaderStageVertexBit, new ImGuiPushConstants(new(-1), new(2f / drawData.DisplaySize.X, 2f / drawData.DisplaySize.Y)));
-
-		graphicsCommandBuffer.CmdBindDescriptorSet(graphicsPipeline.Layout, descriptorSets.GetCurrent(frameIndex), VkShaderStageFlagBits.ShaderStageFragmentBit);
+		graphicsCommandBuffer.CmdBindDescriptorSet(graphicsPipeline.Layout, samplerDescriptorSets.GetCurrent(frameIndex), VkShaderStageFlagBits.ShaderStageFragmentBit);
 
 		graphicsCommandBuffer.CmdBindVertexBuffer(vertexBuffer, 0);
 		graphicsCommandBuffer.CmdBindIndexBuffer(indexBuffer, indexBuffer.BufferSize, VkIndexType.IndexTypeUint16);
 
 		Vector2 clipOff = drawData.DisplayPos;
+		VkDescriptorSet lastTexture = VkDescriptorSet.Zero;
 
 		int vertexOffset = 0;
 		uint indexOffset = 0;
@@ -102,6 +116,11 @@ public unsafe class VulkanImGuiRenderer : ImGuiRenderer {
 				if (clipMax.X <= clipMin.X || clipMax.Y <= clipMin.Y) { continue; }
 
 				graphicsCommandBuffer.CmdSetScissor((int)clipMin.X, (int)clipMin.Y, (uint)(clipMax.X - clipMin.X), (uint)(clipMax.Y - clipMin.Y));
+
+				VkDescriptorSet texture = imageDescriptors[drawCmd.TextureId].GetCurrent(frameIndex);
+				if (texture != lastTexture) { graphicsCommandBuffer.CmdBindDescriptorSet(graphicsPipeline.Layout, texture, VkShaderStageFlagBits.ShaderStageFragmentBit, 1); }
+				lastTexture = texture;
+
 				graphicsCommandBuffer.CmdDrawIndexed(drawCmd.ElemCount, 1, indexOffset, vertexOffset, 0);
 
 				indexOffset += drawCmd.ElemCount;
@@ -112,7 +131,7 @@ public unsafe class VulkanImGuiRenderer : ImGuiRenderer {
 	}
 
 	private static void CreatePipeline(VulkanResourceProvider graphicsResourceProvider, VkFormat swapFormatImageFormat, byte maxFramesInFlight, ImGuiFragmentShaderConstants imGuiShaderConstants,
-		out GraphicsPipeline graphicsPipeline, out DescriptorSets descriptorSets) {
+		out GraphicsPipeline graphicsPipeline, out DescriptorSets samplerDescriptorSet, out DescriptorSetLayout imageDescriptorSetLayout) {
 		ImGuiFragmentShaderConstants shaderConstants = imGuiShaderConstants;
 		VkSpecializationMapEntry specializationMapEntry = new() { constantID = 0, offset = 0, size = sizeof(uint), };
 		VkSpecializationInfo specializationInfo = new() { dataSize = (nuint)sizeof(ImGuiFragmentShaderConstants), mapEntryCount = 1, pMapEntries = &specializationMapEntry, pData = &shaderConstants, };
@@ -120,10 +139,12 @@ public unsafe class VulkanImGuiRenderer : ImGuiRenderer {
 		VulkanShader vertexShader = graphicsResourceProvider.CreateShader($"{ImGuiAssetName} Vertex Shader", ImGuiAssetName, ShaderLanguage.Glsl, ShaderType.Vertex, Engine3.Assembly, specializationInfo);
 		VulkanShader fragmentShader = graphicsResourceProvider.CreateShader($"{ImGuiAssetName} Fragment Shader", ImGuiAssetName, ShaderLanguage.Glsl, ShaderType.Fragment, Engine3.Assembly);
 
-		DescriptorSetLayout descriptorSetLayout = graphicsResourceProvider.CreateDescriptorSetLayout([ new(VkDescriptorType.DescriptorTypeCombinedImageSampler, VkShaderStageFlagBits.ShaderStageFragmentBit, 0), ]);
+		DescriptorSetLayout samplerDescriptorSetLayout = graphicsResourceProvider.CreateDescriptorSetLayout([ new(VkDescriptorType.DescriptorTypeSampler, VkShaderStageFlagBits.ShaderStageFragmentBit, 0), ]);
+		imageDescriptorSetLayout = graphicsResourceProvider.CreateDescriptorSetLayout([ new(VkDescriptorType.DescriptorTypeSampledImage, VkShaderStageFlagBits.ShaderStageFragmentBit, 0), ]);
 
-		DescriptorPool descriptorPool = graphicsResourceProvider.CreateDescriptorPool([ VkDescriptorType.DescriptorTypeUniformBuffer, VkDescriptorType.DescriptorTypeCombinedImageSampler, ], 1, maxFramesInFlight);
-		descriptorSets = descriptorPool.AllocateDescriptorSets(descriptorSetLayout);
+		DescriptorPool descriptorPool = graphicsResourceProvider.CreateDescriptorPool([ VkDescriptorType.DescriptorTypeSampler, ], 1, maxFramesInFlight);
+
+		samplerDescriptorSet = descriptorPool.AllocateDescriptorSets(samplerDescriptorSetLayout);
 
 		VkVertexInputAttributeDescription[] vertexAttributeDescriptions = [
 				new() { binding = 0, location = 0, format = VkFormat.FormatR32g32Sfloat, offset = 0, }, //
@@ -135,7 +156,7 @@ public unsafe class VulkanImGuiRenderer : ImGuiRenderer {
 
 		graphicsPipeline = graphicsResourceProvider.CreateGraphicsPipeline(
 			new($"{ImGuiAssetName} Graphics Pipeline", swapFormatImageFormat, [ vertexShader, fragmentShader, ], vertexAttributeDescriptions, vertexBindingDescriptions) {
-					DescriptorSetLayouts = [ descriptorSetLayout.VkDescriptorSetLayout, ],
+					DescriptorSetLayouts = [ samplerDescriptorSetLayout.VkDescriptorSetLayout, imageDescriptorSetLayout.VkDescriptorSetLayout, ],
 					PushConstantRanges = [ new() { stageFlags = VkShaderStageFlagBits.ShaderStageVertexBit, offset = 0, size = (uint)sizeof(ImGuiPushConstants), }, ],
 					FrontFace = VkFrontFace.FrontFaceClockwise, // ??
 					CullMode = VkCullModeFlagBits.CullModeNone, // TODO getting weird artifacts without this set. figure out why and what i should be using
