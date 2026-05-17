@@ -24,6 +24,11 @@ public static unsafe class ImGuiH {
 	/// <remarks> See <see cref="ImGui.PushID(int)"/> </remarks>
 	public static void PushOffset() => ImGuiNet.PushID(widgetOffset++);
 
+	public static void PopOffset() {
+		ImGuiNet.PopID();
+		widgetOffset--;
+	}
+
 	internal static void ResetWidgetOffset() => widgetOffset = 0;
 
 	/// <summary> Runs <see cref="ImGui.CollapsingHeader(string, ImGuiTreeNodeFlags)"/> with the contents indented </summary>
@@ -32,7 +37,7 @@ public static unsafe class ImGuiH {
 			ImGuiNet.Indent(indent);
 			PushOffset();
 			drawFunc();
-			ImGuiNet.PopID();
+			PopOffset();
 			ImGuiNet.Unindent(indent);
 		}
 	}
@@ -48,6 +53,24 @@ public static unsafe class ImGuiH {
 			ImGuiNet.PopTextWrapPos();
 			ImGuiNet.EndTooltip();
 		}
+	}
+
+	public static void DrawTableItem(string key, string value) {
+		ImGuiNet.TableNextRow();
+		ImGuiNet.TableSetColumnIndex(0);
+		ImGuiNet.Text(key);
+		ImGuiNet.TableSetColumnIndex(1);
+		ImGuiNet.Text(value);
+	}
+
+	public static void DrawTableItem(string key, string value0, string value1) {
+		ImGuiNet.TableNextRow();
+		ImGuiNet.TableSetColumnIndex(0);
+		ImGuiNet.Text(key);
+		ImGuiNet.TableSetColumnIndex(1);
+		ImGuiNet.Text(value0);
+		ImGuiNet.TableSetColumnIndex(2);
+		ImGuiNet.Text(value1);
 	}
 
 	internal static void EventQueue_EventRaised(ImGuiBackend imGuiBackend, EventArgs args) {

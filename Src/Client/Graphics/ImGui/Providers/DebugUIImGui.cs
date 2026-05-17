@@ -38,7 +38,7 @@ public class DebugUIImGui : IImGuiProvider {
 		mouseManager = window.MouseManager;
 	}
 
-	public void ShowImGui() { // TODO clean this up
+	public void ShowImGui() {
 		bool showAnyUpdates = showUpdateIndex || showUps || showUpdateTime || showMinMaxAvgUpdateTime;
 		bool showAnyFrames = showFrameIndex || showFps || showFrameTime || showMinMaxAvgFrameTime;
 
