@@ -171,6 +171,7 @@ public class DebugUIImGui : IImGuiProvider {
 			ImGuiH.HelpMarker("X/Y");
 
 			ImGuiNet.Text($"Scroll Delta: {mouseManager.ScrollDelta:F1}");
+			ImGuiNet.Text($"Scroll Amount: {mouseManager.ScrollAmount:F3}");
 
 			foreach (MouseButton button in Enum.GetValues<MouseButton>()) {
 				bool b = mouseManager.IsButton(button);

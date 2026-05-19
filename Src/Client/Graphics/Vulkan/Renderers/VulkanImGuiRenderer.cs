@@ -195,7 +195,8 @@ public unsafe class VulkanImGuiRenderer : ImGuiRenderer {
 
 	[StructLayout(LayoutKind.Explicit, Size = 4)] // i think this needs to be aligned to 4 bytes
 	public readonly record struct ImGuiFragmentShaderConstants {
-		[field: FieldOffset(0)] public bool UseFastLinearColorConversion { get; init; }
+		[field: FieldOffset(0)]
+		public bool UseFastLinearColorConversion { get; init; }
 
 		public ImGuiFragmentShaderConstants(bool useFastLinearColorConversion) => UseFastLinearColorConversion = useFastLinearColorConversion;
 	}
