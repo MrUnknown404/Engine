@@ -27,10 +27,10 @@ public abstract unsafe class VulkanRendererBase : Renderer<VulkanWindow, VulkanR
 	private FrameData currentFrame;
 	private uint swapChainImageIndex;
 
-	protected VulkanRendererBase(VulkanGraphicsBackend graphicsBackend, VulkanWindow window, bool createDepthImage) : base(window, _3DGraphicsApi.Vulkan) {
-		MaxFramesInFlight = graphicsBackend.Settings.MaxFramesInFlight;
+	protected VulkanRendererBase(VulkanBackend backend, VulkanWindow window, bool createDepthImage) : base(window, _3DGraphicsApi.Vulkan) {
+		MaxFramesInFlight = backend.Settings.MaxFramesInFlight;
 
-		SwapChain = new(window, window.SelectedGpu.PhysicalDevice, window.LogicalGpu.LogicalDevice, window.SelectedGpu.QueueFamilyIndices, window.Surface, graphicsBackend.Settings.PresentMode);
+		SwapChain = new(window, window.SelectedGpu.PhysicalDevice, window.LogicalGpu.LogicalDevice, window.SelectedGpu.QueueFamilyIndices, window.Surface, backend.Settings.PresentMode);
 		Logger.Trace("Created swap chain");
 
 		GraphicsCommandPool = GraphicsResourceProvider.CreateGraphicsCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit, window.SelectedGpu.QueueFamilyIndices.GraphicsFamily);

@@ -28,7 +28,7 @@ public sealed unsafe class TextureSampler : GraphicsResource<TextureSampler, ulo
 				addressModeU = settings.AddressMode.U,
 				addressModeV = settings.AddressMode.V,
 				addressModeW = settings.AddressMode.W,
-				anisotropyEnable = settings.EnableAnisotropy && ((VulkanGraphicsBackend)Engine3.GameInstance.GraphicsBackend).Settings.AllowEnableAnisotropy ? VkH.True : VkH.False,
+				anisotropyEnable = settings.EnableAnisotropy && ((VulkanBackend)Engine3.GameInstance.GraphicsBackend).Settings.AllowEnableAnisotropy ? VkH.True : VkH.False,
 				maxAnisotropy = settings.MaxAnisotropy,
 				borderColor = settings.BorderColor,
 				unnormalizedCoordinates = settings.NormalizedCoordinates ? VkH.False : VkH.True,

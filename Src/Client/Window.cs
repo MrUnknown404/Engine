@@ -74,16 +74,16 @@ public abstract class Window : IEquatable<Window> { // TODO remove graphics spec
 	public event Action? BeforeDestroyEvent;
 	public event OnWindowResizeDelegate? OnResize;
 
-	protected Window(EngineGraphicsBackend graphicsBackend, string title, uint width, uint height) {
-		if (graphicsBackend.GraphicsBackend == GraphicsBackend.Console) { throw new Engine3Exception("Cannot create a window when graphics api is set to console"); }
+	protected Window(EngineGraphicsBackend backend, string title, uint width, uint height) {
+		if (backend.GraphicsBackend == GraphicsBackend.Console) { throw new Engine3Exception("Cannot create a window when graphics api is set to console"); }
 
 		Logger.Info("Making new window...");
-		WindowHandle = Toolkit.Window.Create(graphicsBackend.GraphicsApiHints!); // if graphicsApi != GraphicsApi.Console then GraphicsApiHints shouldn't be null here
+		WindowHandle = Toolkit.Window.Create(backend.GraphicsApiHints!); // if graphicsApi != GraphicsApi.Console then GraphicsApiHints shouldn't be null here
 		Toolkit.Window.SetTitle(WindowHandle, title);
 		Toolkit.Window.SetSize(WindowHandle, new((int)width, (int)height));
 	}
 
-	/// <summary> Attempts to close the window. The application can decide whether or not to honor this request. If successful the window will close on the next frame </summary>
+	/// <summary> Attempts to close the window. The application can decide whether to honor this request. If successful the window will close on the next frame </summary>
 	public void TryCloseWindow() {
 		if (WasDestroyed) { return; }
 

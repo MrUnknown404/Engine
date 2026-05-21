@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -12,7 +13,7 @@ using OpenTK.Platform;
 
 namespace Engine3.Client.Graphics.Vulkan;
 
-public unsafe class VulkanGraphicsBackend : EngineGraphicsBackend {
+public unsafe class VulkanBackend : EngineGraphicsBackend {
 	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 	public VulkanSettings Settings { get; init; } = new();
@@ -24,7 +25,7 @@ public unsafe class VulkanGraphicsBackend : EngineGraphicsBackend {
 	private static VkDebugUtilsMessengerEXT? vkDebugMessenger;
 #endif
 
-	public VulkanGraphicsBackend(VulkanGraphicsApiHints graphicsApiHints) : base(GraphicsBackend.Vulkan, graphicsApiHints) { }
+	public VulkanBackend(VulkanGraphicsApiHints graphicsApiHints) : base(GraphicsBackend.Vulkan, graphicsApiHints) { }
 
 	protected internal override void Setup(GameClient gameClient) {
 		Settings.Print();
@@ -37,16 +38,26 @@ public unsafe class VulkanGraphicsBackend : EngineGraphicsBackend {
 		Logger.Debug($"- Version: {apiVersion} ({Vk.API_VERSION_MAJOR(apiVersion)}.{Vk.API_VERSION_MINOR(apiVersion)}.{Vk.API_VERSION_PATCH(apiVersion)})");
 
 #if DEBUG
-		VkLayerProperties[] availableLayerProperties = EnumerateInstanceLayerProperties();
-		if (availableLayerProperties.Length == 0) { throw new Engine3VulkanException("Could not find any instance layer properties"); }
-		if (!CheckSupportForRequiredValidationLayers(availableLayerProperties, GetAllRequiredValidationLayers())) { throw new Engine3VulkanException("Requested validation layers are not available"); }
+		{ // check for instance layer properties
+			VkLayerProperties[] availableLayerProperties = EnumerateInstanceLayerProperties();
+			if (availableLayerProperties.Length == 0) { throw new Engine3VulkanException("Could not find any instance layer properties"); }
+			if (!CheckSupportForValidationLayers(availableLayerProperties, GetAllRequiredValidationLayers(), out string[]? missingExtensions)) {
+				foreach (string missingExtension in missingExtensions) { Logger.Warn($"Layer \'{missingExtension}\' is not available"); } // TODO allow user to decide what to do for each missing
+				throw new Engine3VulkanException("Requested validation layers are not available");
+			}
+		}
 #endif
 
-		VkExtensionProperties[] instanceExtensionProperties = GetInstanceExtensionProperties();
-		if (instanceExtensionProperties.Length == 0) { throw new Engine3VulkanException("Could not find any instance extension properties"); }
-		if (!CheckSupportForRequiredInstanceExtensions(instanceExtensionProperties, GetAllRequiredInstanceExtensions())) { throw new Engine3VulkanException("Requested instance extensions are not available"); }
+		{ // check for instance extension properties
+			VkExtensionProperties[] instanceExtensionProperties = GetInstanceExtensionProperties();
+			if (instanceExtensionProperties.Length == 0) { throw new Engine3VulkanException("Could not find any instance extension properties"); }
+			if (!CheckSupportForInstanceExtensions(instanceExtensionProperties, GetAllRequiredInstanceExtensions(), out string[]? missingExtensions)) {
+				foreach (string missingExtension in missingExtensions) { Logger.Warn($"Extension \'{missingExtension}\' is not available"); } // TODO allow user to decide what to do for each missing
+				throw new Engine3VulkanException("Requested instance extensions are not available");
+			}
 
-		PrintInstanceExtensions(instanceExtensionProperties);
+			PrintInstanceExtensions(instanceExtensionProperties);
+		}
 
 		VkInstance = CreateVulkanInstance(gameClient.Name, gameClient.Version);
 		VKLoader.SetInstance(VkInstance.Value);
@@ -57,16 +68,16 @@ public unsafe class VulkanGraphicsBackend : EngineGraphicsBackend {
 		Logger.Debug("Created Vulkan Debug Messenger");
 #endif
 
-		PhysicalGpus = GetPhysicalGpus(VkInstance.Value, IsPhysicalDeviceSuitable, Settings.RequiredDeviceExtensions);
+		PhysicalGpus = GetPhysicalGpus(VkInstance.Value, IsPhysicalDeviceSuitable, GetAllRequiredDeviceExtensions());
 		Logger.Debug("Created Physical Gpus");
 		PrintPhysicalGpus(Engine3.Debug);
 	}
 
 	public string[] GetAllRequiredValidationLayers() {
-		HashSet<string> allRequiredValidationLayers = new();
-		allRequiredValidationLayers.UnionWith(Engine3.RequiredValidationLayers);
-		allRequiredValidationLayers.UnionWith(Settings.RequiredValidationLayers);
-		return allRequiredValidationLayers.ToArray();
+		HashSet<string> allValidationLayers = new();
+		allValidationLayers.UnionWith(Engine3.RequiredValidationLayers);
+		allValidationLayers.UnionWith(Settings.RequiredValidationLayers);
+		return allValidationLayers.ToArray();
 	}
 
 	public string[] GetAllRequiredInstanceExtensions() {
@@ -128,8 +139,7 @@ public unsafe class VulkanGraphicsBackend : EngineGraphicsBackend {
 
 	[MustUseReturnValue]
 	private VkInstance CreateVulkanInstance(string name, IPackableVersion version) {
-		string[] requiredInstanceExtensions = GetAllRequiredInstanceExtensions();
-		string[] requiredValidationLayers = GetAllRequiredValidationLayers();
+		string[] enabledExtensions = GetAllRequiredInstanceExtensions();
 
 		VkApplicationInfo applicationInfo = new() {
 				pApplicationName = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(Encoding.UTF8.GetBytes(name))),
@@ -139,10 +149,11 @@ public unsafe class VulkanGraphicsBackend : EngineGraphicsBackend {
 				apiVersion = Vk.MAKE_API_VERSION(0, 1, 4, 0),
 		};
 
-		IntPtr requiredExtensionsPtr = MarshalTk.StringArrayToCoTaskMemAnsi(requiredInstanceExtensions);
-#if DEBUG
-		IntPtr requiredValidationLayersPtr = MarshalTk.StringArrayToCoTaskMemAnsi(requiredValidationLayers);
+		IntPtr requiredExtensionsPtr = MarshalTk.StringArrayToCoTaskMemAnsi(enabledExtensions);
 
+#if DEBUG
+		string[] enabledLayers = GetAllRequiredValidationLayers();
+		IntPtr requiredValidationLayersPtr = MarshalTk.StringArrayToCoTaskMemAnsi(enabledLayers);
 		VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(Settings.EnabledDebugMessageSeverities, Settings.EnabledDebugMessageTypes);
 #endif
 
@@ -150,19 +161,19 @@ public unsafe class VulkanGraphicsBackend : EngineGraphicsBackend {
 				pApplicationInfo = &applicationInfo,
 #if DEBUG
 				pNext = &messengerCreateInfo,
-				enabledLayerCount = (uint)requiredValidationLayers.Length,
+				enabledLayerCount = (uint)enabledLayers.Length,
 				ppEnabledLayerNames = (byte**)requiredValidationLayersPtr,
 #endif
-				enabledExtensionCount = (uint)requiredInstanceExtensions.Length,
+				enabledExtensionCount = (uint)enabledExtensions.Length,
 				ppEnabledExtensionNames = (byte**)requiredExtensionsPtr,
 		};
 
 		VkInstance vkInstance;
 		VkResult result = Vk.CreateInstance(&instanceCreateInfo, null, &vkInstance);
 
-		MarshalTk.FreeStringArrayCoTaskMem(requiredExtensionsPtr, requiredInstanceExtensions.Length);
+		MarshalTk.FreeStringArrayCoTaskMem(requiredExtensionsPtr, enabledExtensions.Length);
 #if DEBUG
-		MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, requiredValidationLayers.Length);
+		MarshalTk.FreeStringArrayCoTaskMem(requiredValidationLayersPtr, enabledLayers.Length);
 #endif
 
 		VkH.CheckIfSuccess(result, VulkanException.Reason.CreateInstance);
@@ -184,11 +195,26 @@ public unsafe class VulkanGraphicsBackend : EngineGraphicsBackend {
 	}
 
 	[MustUseReturnValue]
-	private static bool CheckSupportForRequiredInstanceExtensions(VkExtensionProperties[] instanceExtensionProperties, string[] requiredInstanceExtensions) =>
-			requiredInstanceExtensions.All(wantedExtension => instanceExtensionProperties.Any(extensionProperties => {
-				ReadOnlySpan<byte> extensionName = extensionProperties.extensionName;
-				return Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)]) == wantedExtension;
-			}));
+	private static bool CheckSupportForInstanceExtensions(VkExtensionProperties[] instanceProperties, string[] wantedExtensions, [NotNullWhen(false)] out string[]? missingExtensions) {
+		List<string> missing = new();
+
+		foreach (string wantedExtension in wantedExtensions) {
+			bool found = false;
+
+			foreach (VkExtensionProperties properties in instanceProperties) {
+				ReadOnlySpan<byte> extensionName = properties.extensionName;
+				if (Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)]) == wantedExtension) {
+					found = true;
+					break;
+				}
+			}
+
+			if (!found) { missing.Add(wantedExtension); }
+		}
+
+		missingExtensions = missing.Count == 0 ? null : missing.ToArray();
+		return missing.Count == 0;
+	}
 
 	[MustUseReturnValue]
 	private static PhysicalGpu[] GetPhysicalGpus(VkInstance vkInstance, IsPhysicalDeviceSuitableDelegate isPhysicalDeviceSuitable, string[] requiredDeviceExtensions) {
@@ -233,8 +259,8 @@ public unsafe class VulkanGraphicsBackend : EngineGraphicsBackend {
 		}
 
 		[MustUseReturnValue]
-		static bool CheckDeviceExtensionSupport(VkExtensionProperties[] physicalDeviceExtensionProperties, string[] requiredDeviceExtensions) =>
-				requiredDeviceExtensions.All(wantedExtension => physicalDeviceExtensionProperties.Any(extensionProperties => {
+		static bool CheckDeviceExtensionSupport(VkExtensionProperties[] physicalDeviceExtensionProperties, string[] wantedExtensions) =>
+				wantedExtensions.All(wantedExtension => physicalDeviceExtensionProperties.Any(extensionProperties => {
 					ReadOnlySpan<byte> extensionName = extensionProperties.extensionName;
 					return Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)]) == wantedExtension;
 				}));
@@ -283,13 +309,6 @@ public unsafe class VulkanGraphicsBackend : EngineGraphicsBackend {
 	}
 
 	[MustUseReturnValue]
-	private static bool CheckSupportForRequiredValidationLayers(VkLayerProperties[] availableLayerProperties, string[] requiredValidationLayers) =>
-			requiredValidationLayers.All(wantedLayer => availableLayerProperties.Any(layerProperties => {
-				ReadOnlySpan<byte> layerName = layerProperties.layerName;
-				return Encoding.UTF8.GetString(layerName[..layerName.IndexOf((byte)0)]) == wantedLayer;
-			}));
-
-	[MustUseReturnValue]
 	private static VkLayerProperties[] EnumerateInstanceLayerProperties() {
 		uint layerCount;
 		Vk.EnumerateInstanceLayerProperties(&layerCount, null);
@@ -303,6 +322,27 @@ public unsafe class VulkanGraphicsBackend : EngineGraphicsBackend {
 		}
 	}
 
+	[MustUseReturnValue]
+	private static bool CheckSupportForValidationLayers(VkLayerProperties[] layerProperties, string[] wantedLayers, [NotNullWhen(false)] out string[]? missingExtensions) {
+		List<string> missing = new();
+
+		foreach (string wantedLayer in wantedLayers) {
+			bool found = false;
+
+			foreach (VkLayerProperties properties in layerProperties) {
+				ReadOnlySpan<byte> layerName = properties.layerName;
+				if (Encoding.UTF8.GetString(layerName[..layerName.IndexOf((byte)0)]) == wantedLayer) {
+					found = true;
+					break;
+				}
+			}
+
+			if (!found) { missing.Add(wantedLayer); }
+		}
+
+		missingExtensions = missing.Count == 0 ? null : missing.ToArray();
+		return missing.Count == 0;
+	}
 #endif
 
 	public delegate bool IsPhysicalDeviceSuitableDelegate(VkPhysicalDeviceProperties physicalDeviceProperties, VkPhysicalDeviceFeatures physicalDeviceFeatures);

@@ -11,7 +11,7 @@ public class VulkanRenderPassRenderer : VulkanRendererBase { // should be eventu
 	public bool CreateInitialViewport { get; set; } = true;
 	public bool CreateInitialScissor { get; set; } = true;
 
-	public VulkanRenderPassRenderer(VulkanGraphicsBackend graphicsBackend, VulkanWindow window, bool createDepthImage) : base(graphicsBackend, window, createDepthImage) { }
+	public VulkanRenderPassRenderer(VulkanBackend backend, VulkanWindow window, bool createDepthImage) : base(backend, window, createDepthImage) { }
 
 	public void AddRenderPass(VulkanRenderPass renderPass) {
 		renderPasses.Add(renderPass);

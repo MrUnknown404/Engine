@@ -13,7 +13,7 @@ public abstract class OpenGLRendererBase : Renderer<OpenGLWindow, OpenGLResource
 
 	public ClearBufferMask ClearBufferMask { get; set; } = ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit;
 
-	protected OpenGLRendererBase(OpenGLGraphicsBackend graphicsBackend, OpenGLWindow window) : base(window, _3DGraphicsApi.OpenGL) {
+	protected OpenGLRendererBase(OpenGLBackend backend, OpenGLWindow window) : base(window, _3DGraphicsApi.OpenGL) {
 		Window.MakeContextCurrent();
 
 		GL.Enable(EnableCap.CullFace);
@@ -21,7 +21,7 @@ public abstract class OpenGLRendererBase : Renderer<OpenGLWindow, OpenGLResource
 		GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 		GL.ClearColor(Window.ClearColor);
 
-		Toolkit.OpenGL.SetSwapInterval(graphicsBackend.Settings.SwapInterval);
+		Toolkit.OpenGL.SetSwapInterval(backend.Settings.SwapInterval);
 
 		EmptyVao = new(GL.CreateVertexArray());
 		GL.BindVertexArray(EmptyVao.Value.Handle); // Some hardware requires vao to be bound even if it's not in use

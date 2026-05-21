@@ -26,7 +26,8 @@ namespace Engine3;
 public abstract class GameClient {
 	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-	[field: MaybeNull] public Assembly Assembly { get => field ?? throw new Engine3Exception($"Attempted to get {nameof(GameClient)} Assembly too early. Must call {nameof(GameClient)}#{nameof(Start)} first"); private set; }
+	[field: MaybeNull]
+	public Assembly Assembly { get => field ?? throw new Engine3Exception($"Attempted to get {nameof(GameClient)} Assembly too early. Must call {nameof(GameClient)}#{nameof(Start)} first"); private set; }
 
 	internal Shaderc Shaderc { get; } = new(Shaderc.CreateDefaultContext(new ShadercSearchPathContainer().GetLibraryNames()));
 
@@ -72,7 +73,7 @@ public abstract class GameClient {
 		Version = version;
 		GraphicsBackend = graphicsBackend;
 
-		if (GraphicsBackend is OpenGLGraphicsBackend glBackend) {
+		if (GraphicsBackend is OpenGLBackend glBackend) {
 			OpenGLGraphicsApiHints graphicsApiHints = glBackend.GraphicsApiHints as OpenGLGraphicsApiHints ?? throw new NullReferenceException();
 			graphicsApiHints.Version = new(4, 6);
 			graphicsApiHints.Profile = OpenGLProfile.Core;
@@ -239,7 +240,7 @@ public abstract class GameClient {
 
 		void Render(long time) {
 			if (TargetFps != 0) {
-				while (Stopwatch.GetTimestamp() < lastFrameTime + frameTicksToWait) { Thread.Sleep(0); }
+				while (Stopwatch.GetTimestamp() < lastFrameTime + frameTicksToWait) { Thread.Sleep(1); }
 				lastFrameTime = Stopwatch.GetTimestamp();
 			}
 

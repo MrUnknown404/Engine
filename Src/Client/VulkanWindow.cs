@@ -19,20 +19,20 @@ public unsafe class VulkanWindow : Window {
 
 	private readonly VkInstance vkInstance;
 
-	public VulkanWindow(VulkanGraphicsBackend graphicsBackend, string title, uint width, uint height) : base(graphicsBackend, title, width, height) {
-		vkInstance = graphicsBackend.VkInstance ?? throw new NullReferenceException();
+	public VulkanWindow(VulkanBackend backend, string title, uint width, uint height) : base(backend, title, width, height) {
+		vkInstance = backend.VkInstance ?? throw new NullReferenceException();
 
 		Surface = CreateSurface(vkInstance, WindowHandle);
 		Logger.Debug("Created surface");
 
-		SurfaceCapablePhysicalGpu[] availableGpus = GetValidGpus(graphicsBackend.PhysicalGpus, Surface);
+		SurfaceCapablePhysicalGpu[] availableGpus = GetValidGpus(backend.PhysicalGpus, Surface);
 		if (availableGpus.Length == 0) { throw new Engine3VulkanException("Could not find any valid GPUs"); }
 		Logger.Debug("Obtained surface capable GPUs");
 
-		SelectedGpu = PickBestGpu(availableGpus, graphicsBackend.RateGpuSuitability);
+		SelectedGpu = PickBestGpu(availableGpus, backend.RateGpuSuitability);
 		Logger.Debug($"- Selected Gpu: {SelectedGpu.Name}");
 
-		LogicalGpu = SelectedGpu.CreateLogicalGpu(graphicsBackend.GetAllRequiredDeviceExtensions(), graphicsBackend.GetAllRequiredValidationLayers());
+		LogicalGpu = SelectedGpu.CreateLogicalGpu(backend.GetAllRequiredDeviceExtensions(), backend.GetAllRequiredValidationLayers());
 		Logger.Debug("Created logical gpu");
 
 		GraphicsResourceProvider = new VulkanResourceProvider(SelectedGpu, LogicalGpu);
@@ -109,7 +109,7 @@ public unsafe class VulkanWindow : Window {
 	}
 
 	[MustUseReturnValue]
-	private static SurfaceCapablePhysicalGpu PickBestGpu(SurfaceCapablePhysicalGpu[] physicalGpus, VulkanGraphicsBackend.RateGpuSuitabilityDelegate rateGpuSuitability) {
+	private static SurfaceCapablePhysicalGpu PickBestGpu(SurfaceCapablePhysicalGpu[] physicalGpus, VulkanBackend.RateGpuSuitabilityDelegate rateGpuSuitability) {
 		SurfaceCapablePhysicalGpu? bestDevice = null;
 		int bestDeviceScore = int.MinValue;
 

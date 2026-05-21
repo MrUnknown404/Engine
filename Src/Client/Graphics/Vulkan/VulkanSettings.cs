@@ -34,7 +34,7 @@ public class VulkanSettings {
 	public bool AllowEnableAnisotropy { get; init; } = true;
 
 	internal void Print() {
-		Logger.Trace("Vulkan Graphics Backend Settings");
+		Logger.Trace("Vulkan Backend Settings");
 		Logger.Trace($"- {nameof(RequiredValidationLayers)}: {RequiredValidationLayers.ElementsAsString()}");
 		Logger.Trace($"- {nameof(RequiredInstanceExtensions)}: {RequiredInstanceExtensions.ElementsAsString()}");
 		Logger.Trace($"- {nameof(RequiredDeviceExtensions)}: {RequiredDeviceExtensions.ElementsAsString()}");

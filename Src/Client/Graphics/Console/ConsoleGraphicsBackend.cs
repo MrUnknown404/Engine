@@ -59,7 +59,7 @@ public class ConsoleGraphicsBackend : EngineGraphicsBackend {
 
 		char[] row = new char[Width];
 		for (int y = 0; y < Height; y++) {
-			Buffer.BlockCopy(buffer, (y * width), row, 0, width);
+			Buffer.BlockCopy(buffer, y * width, row, 0, width);
 			System.Console.SetCursorPosition(0, y);
 			System.Console.Write(row);
 		}

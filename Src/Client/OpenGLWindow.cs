@@ -14,7 +14,7 @@ public class OpenGLWindow : Window {
 
 	public OpenGLContextHandle GLContextHandle { get; }
 
-	public OpenGLWindow(OpenGLGraphicsBackend graphicsBackend, string title, uint width, uint height) : base(graphicsBackend, title, width, height) {
+	public OpenGLWindow(OpenGLBackend backend, string title, uint width, uint height) : base(backend, title, width, height) {
 		Logger.Debug("Creating and setting OpenGL context...");
 		GLContextHandle = Toolkit.OpenGL.CreateFromWindow(WindowHandle);
 		MakeContextCurrent();
@@ -22,7 +22,7 @@ public class OpenGLWindow : Window {
 
 #if DEBUG
 		Logger.Debug("- Debug callbacks enabled");
-		CreateDebugMessageCallback(graphicsBackend.Settings.DisabledCallbackIds);
+		CreateDebugMessageCallback(backend.Settings.DisabledCallbackIds);
 #endif
 	}
 

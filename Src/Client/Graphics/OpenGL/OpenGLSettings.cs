@@ -10,7 +10,7 @@ public class OpenGLSettings {
 	public int SwapInterval { get; init; }
 
 	internal void Print() {
-		Logger.Trace("OpenGL Graphics Backend Settings");
+		Logger.Trace("OpenGL Backend Settings");
 		Logger.Trace($"- {nameof(DisabledCallbackIds)}: {DisabledCallbackIds.ElementsAsString()}");
 		Logger.Trace($"- {nameof(SwapInterval)}: {SwapInterval}");
 	}
