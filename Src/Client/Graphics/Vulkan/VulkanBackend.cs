@@ -75,7 +75,7 @@ public unsafe class VulkanBackend : EngineGraphicsBackend {
 
 	public string[] GetAllRequiredValidationLayers() {
 		HashSet<string> allValidationLayers = new();
-		allValidationLayers.UnionWith(Engine3.RequiredValidationLayers);
+		allValidationLayers.UnionWith(Engine3.VulkanDefaults.RequiredValidationLayers);
 		allValidationLayers.UnionWith(Settings.RequiredValidationLayers);
 		return allValidationLayers.ToArray();
 	}
@@ -83,14 +83,14 @@ public unsafe class VulkanBackend : EngineGraphicsBackend {
 	public string[] GetAllRequiredInstanceExtensions() {
 		HashSet<string> allInstanceExtensions = new();
 		allInstanceExtensions.UnionWith(Toolkit.Vulkan.GetRequiredInstanceExtensions().ToArray()); // no span support??
-		allInstanceExtensions.UnionWith(Engine3.RequiredInstanceExtensions);
+		allInstanceExtensions.UnionWith(Engine3.VulkanDefaults.RequiredInstanceExtensions);
 		allInstanceExtensions.UnionWith(Settings.RequiredInstanceExtensions);
 		return allInstanceExtensions.ToArray();
 	}
 
 	public string[] GetAllRequiredDeviceExtensions() {
 		HashSet<string> allDeviceExtensions = new();
-		allDeviceExtensions.UnionWith(Engine3.RequiredDeviceExtensions);
+		allDeviceExtensions.UnionWith(Engine3.VulkanDefaults.RequiredDeviceExtensions);
 		allDeviceExtensions.UnionWith(Settings.RequiredDeviceExtensions);
 		return allDeviceExtensions.ToArray();
 	}
@@ -145,7 +145,7 @@ public unsafe class VulkanBackend : EngineGraphicsBackend {
 				pApplicationName = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(Encoding.UTF8.GetBytes(name))),
 				applicationVersion = version.Packed,
 				pEngineName = (byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(Encoding.UTF8.GetBytes(Engine3.Name))),
-				engineVersion = Engine3.Version.Packed,
+				engineVersion = Engine3.Engine.Version.Packed,
 				apiVersion = Vk.MAKE_API_VERSION(0, 1, 4, 0),
 		};
 

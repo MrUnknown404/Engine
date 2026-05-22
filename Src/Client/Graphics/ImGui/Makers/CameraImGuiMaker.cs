@@ -3,9 +3,7 @@ using ImGuiNET;
 
 namespace Engine3.Client.Graphics.ImGui.Makers;
 
-public class CameraImGuiMaker : IImGuiMaker<Camera> {
-	private CameraImGuiMaker() { }
-
+public static class CameraImGuiMaker {
 	public static void ShowImGui(Camera camera) {
 		// transform
 		ImGuiNet.SeparatorText("Transform");

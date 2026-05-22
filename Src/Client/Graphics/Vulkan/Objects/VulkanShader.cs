@@ -46,7 +46,7 @@ public sealed unsafe class VulkanShader : NamedGraphicsResource<VulkanShader, ul
 		};
 
 		VkShaderModule CompileShaderModule() {
-			Shaderc shaderc = Engine3.GameInstance.Shaderc;
+			Shaderc shaderc = Engine3.Engine.Shaderc;
 
 			Compiler* compiler = shaderc.CompilerInitialize();
 			CompileOptions* options = shaderc.CompileOptionsInitialize();

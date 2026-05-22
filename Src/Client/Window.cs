@@ -53,7 +53,7 @@ public abstract class Window : IEquatable<Window> { // TODO remove graphics spec
 	public static CursorHandle ArrowNSCursorHandle => arrowNSCursorHandle.Value;
 	public static CursorHandle ArrowFourWayCursorHandle => arrowFourWayCursorHandle.Value;
 
-	public WindowHandle WindowHandle { get; } // TODO protected
+	public WindowHandle WindowHandle { get; }
 	public Color4<Rgba> ClearColor { get; set; } = new(0, 0, 0, 1);
 
 	public abstract IGraphicsResourceProvider GraphicsResourceProvider { get; }

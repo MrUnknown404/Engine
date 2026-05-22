@@ -136,8 +136,8 @@ public unsafe class VulkanImGuiRenderer : ImGuiRenderer {
 		VkSpecializationMapEntry specializationMapEntry = new() { constantID = 0, offset = 0, size = sizeof(uint), };
 		VkSpecializationInfo specializationInfo = new() { dataSize = (nuint)sizeof(ImGuiFragmentShaderConstants), mapEntryCount = 1, pMapEntries = &specializationMapEntry, pData = &shaderConstants, };
 
-		VulkanShader vertexShader = graphicsResourceProvider.CreateShader($"{ImGuiAssetName} Vertex Shader", ImGuiAssetName, ShaderLanguage.Glsl, ShaderType.Vertex, Engine3.Assembly, specializationInfo);
-		VulkanShader fragmentShader = graphicsResourceProvider.CreateShader($"{ImGuiAssetName} Fragment Shader", ImGuiAssetName, ShaderLanguage.Glsl, ShaderType.Fragment, Engine3.Assembly);
+		VulkanShader vertexShader = graphicsResourceProvider.CreateShader($"{ImGuiAssetName} Vertex Shader", ImGuiAssetName, ShaderLanguage.Glsl, ShaderType.Vertex, Engine3.Engine.Assembly, specializationInfo);
+		VulkanShader fragmentShader = graphicsResourceProvider.CreateShader($"{ImGuiAssetName} Fragment Shader", ImGuiAssetName, ShaderLanguage.Glsl, ShaderType.Fragment, Engine3.Engine.Assembly);
 
 		DescriptorSetLayout samplerDescriptorSetLayout = graphicsResourceProvider.CreateDescriptorSetLayout([ new(VkDescriptorType.DescriptorTypeSampler, VkShaderStageFlagBits.ShaderStageFragmentBit, 0), ]);
 		imageDescriptorSetLayout = graphicsResourceProvider.CreateDescriptorSetLayout([ new(VkDescriptorType.DescriptorTypeSampledImage, VkShaderStageFlagBits.ShaderStageFragmentBit, 0), ]);

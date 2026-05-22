@@ -27,8 +27,8 @@ public unsafe class OpenGLImGuiRenderer : ImGuiRenderer {
 	}
 
 	private static void CreatePipeline(OpenGLResourceProvider graphicsResourceProvider, out OpenGLShader vertexShader, out OpenGLShader fragmentShader, out ProgramPipeline programPipeline) {
-		vertexShader = graphicsResourceProvider.CreateShader($"{ImGuiAssetName} Vertex Shader", ImGuiAssetName, ShaderType.Vertex, Engine3.Assembly);
-		fragmentShader = graphicsResourceProvider.CreateShader($"{ImGuiAssetName} Fragment Shader", ImGuiAssetName, ShaderType.Fragment, Engine3.Assembly);
+		vertexShader = graphicsResourceProvider.CreateShader($"{ImGuiAssetName} Vertex Shader", ImGuiAssetName, ShaderType.Vertex, Engine3.Engine.Assembly);
+		fragmentShader = graphicsResourceProvider.CreateShader($"{ImGuiAssetName} Fragment Shader", ImGuiAssetName, ShaderType.Fragment, Engine3.Engine.Assembly);
 		programPipeline = graphicsResourceProvider.CreateProgramPipeline($"{ImGuiAssetName} Program Pipeline", vertexShader, fragmentShader);
 
 		// GraphicsResourceProvider.EnqueueDestroy(vertexShader); // TODO RenderDoc gives an error when i destroy these but it renders fine. i think i'm doing something wrong?

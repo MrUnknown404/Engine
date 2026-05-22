@@ -10,30 +10,17 @@ using Engine3.Utility;
 using Engine3.Utility.Versions;
 using NLog;
 using OpenTK.Platform;
-using OpenTK.Windowing.GraphicsLibraryFramework;
-using Silk.NET.Core.Loader;
-using Silk.NET.Shaderc;
-using StbiSharp;
 using Window = Engine3.Client.Window;
 
-#if DEBUG
-using Engine3.Debug;
-#endif
-
 namespace Engine3;
-// TODO call timeBeginPeriod/timeEndPeriod on windows https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-sleep
 
 public abstract class GameClient {
 	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-	[field: MaybeNull]
-	public Assembly Assembly { get => field ?? throw new Engine3Exception($"Attempted to get {nameof(GameClient)} Assembly too early. Must call {nameof(GameClient)}#{nameof(Start)} first"); private set; }
-
-	internal Shaderc Shaderc { get; } = new(Shaderc.CreateDefaultContext(new ShadercSearchPathContainer().GetLibraryNames()));
-
 	public string Name { get; }
 	public IPackableVersion Version { get; }
 	public EngineGraphicsBackend GraphicsBackend { get; }
+	public Assembly Assembly { get; }
 
 	private readonly List<Window> windows = new();
 	private readonly List<Renderer> renderers = new();
@@ -43,7 +30,7 @@ public abstract class GameClient {
 	public ushort TargetUps { get; init => field = TargetUps != 0 ? value : throw new Engine3Exception($"{nameof(TargetUps)} must be above zero"); } = 60;
 	/// <summary> The amount of frames per second to aim for. If zero, framerate will be uncapped </summary>
 	public ushort TargetFps { get; init; }
-	/// <summary> The maximum amount of frames to skip while updating before rendering anyways. Set to zero to disable </summary>
+	/// <summary> The maximum amount of frames to skip while updating before rendering anyway. Set to zero to disable </summary>
 	public byte MaxFrameSkip { get; init; } = 5;
 
 	public ulong UpdateIndex { get; private set; }
@@ -58,20 +45,18 @@ public abstract class GameClient {
 
 	public bool ShouldRunGameLoop { get; private set; } = true;
 
-	private bool wasSetup;
 	private bool requestShutdown;
 
-	/// <summary> Called after <see cref="SetupEngine"/> is done and ready to enter the gameloop </summary>
-	public event Action? OnSetupFinishedEvent;
-	/// <summary> Called after OpenTK <see cref="Toolkit"/> was set up </summary>
-	public event Action? OnSetupToolkitEvent;
-	/// <summary> Called at the start of <see cref="Shutdown"/> & before <see cref="CleanupEverything"/> </summary>
-	public event Action? OnShutdownEvent;
+	public event OnPreGraphicsSetupDelegate? OnPreGraphicsSetupEvent;
+	public event OnPostGraphicsSetupDelegate? OnPostGraphicsSetupEvent;
+	public event OnSetupFinishedDelegate? OnSetupFinishedEvent;
+	public event OnShutdownDelegate? OnShutdownEvent;
 
 	protected GameClient(string name, IPackableVersion version, EngineGraphicsBackend graphicsBackend) {
 		Name = name;
 		Version = version;
 		GraphicsBackend = graphicsBackend;
+		Assembly = Assembly.GetCallingAssembly();
 
 		if (GraphicsBackend is OpenGLBackend glBackend) {
 			OpenGLGraphicsApiHints graphicsApiHints = glBackend.GraphicsApiHints as OpenGLGraphicsApiHints ?? throw new NullReferenceException();
@@ -83,27 +68,26 @@ public abstract class GameClient {
 		}
 	}
 
-	/// <summary> Call to start your game. Some things may need to be set before this is run </summary>
-	/// <param name="settings"> Engine startup settings </param>
-	/// <exception cref="Engine3Exception"> Thrown if an error occurs </exception>
-	public void Start(StartupSettings settings) {
-		if (wasSetup) { throw new Engine3Exception("Attempted to call #Start twice"); }
-
-		Thread.CurrentThread.Name = settings.MainThreadName;
-
-		LoggerH.Setup(GraphicsBackend.GraphicsBackend == Client.Graphics.GraphicsBackend.Console);
-		Logger.Debug("Finished setting up NLog");
-
-		Assembly = Assembly.GetCallingAssembly();
-		Logger.Debug("Got instance assembly");
-
-		Engine3.GameInstance = this;
-
+	internal void Start() {
+		// validate
 		if (GraphicsBackend is { GraphicsBackend: not Client.Graphics.GraphicsBackend.Console, GraphicsApiHints: null, }) { throw new Engine3Exception($"GraphicsApiHints cannot be null with GraphicsApi: {GraphicsBackend}"); }
 
-		SetupEngine(settings);
+		// print
+		Logger.Info("Setting up game...");
+		Logger.Debug($"- Game Version: {Version}");
 
-		SetupDone();
+		// setup graphics
+		OnPreGraphicsSetupEvent?.Invoke();
+
+		Logger.Debug($"Setting up {Enum.GetName(GraphicsBackend.GraphicsBackend)}...");
+		GraphicsBackend.Setup(this);
+		WasGraphicsSetup = true;
+
+		OnPostGraphicsSetupEvent?.Invoke();
+
+		// setup done
+		Logger.Debug("Setup finished. Invoking events then entering loop");
+		OnSetupFinishedEvent?.Invoke();
 
 		GameLoop();
 		Logger.Info("GameLoop exited");
@@ -113,56 +97,6 @@ public abstract class GameClient {
 
 	protected abstract void Update();
 	protected abstract void Cleanup();
-
-	private void SetupEngine(StartupSettings settings) {
-		Logger.Info("Setting up engine...");
-		Logger.Debug($"- Engine Version: {Engine3.Version}");
-		Logger.Debug($"- Game Version: {Version}");
-		Logger.Debug($"- GLFW Version: {GLFW.GetVersionString()}"); // TODO i have no idea what window manager OpenTK uses. i see GLFW & SDL. but it looks like PAL is just using Win32 API/X11 API directly. help
-		Logger.Debug($"- ImGui Version: {ImGuiNet.GetVersion()}");
-		Logger.Debug($"- Graphics Api: {GraphicsBackend.GraphicsBackend}");
-
-		uint spvVersion = 0, spvRevision = 0;
-		Shaderc.GetSpvVersion(ref spvVersion, ref spvRevision);
-		Logger.Debug($"- SpirV Version: {(spvVersion & 16711680) >> 16}.{(spvVersion & 65280) >> 8} - {spvRevision}");
-
-		settings.Print();
-
-#if DEBUG
-		Logger.Debug("Writing dumps to file outputs...");
-		StructLayoutDumper.WriteDumpsToOutput();
-#endif
-
-		Stbi.SetFlipVerticallyOnLoad(settings.StbiFlipOnLoad);
-
-		Logger.Info("Setting up Toolkit...");
-
-		if (GraphicsBackend.GraphicsBackend != Client.Graphics.GraphicsBackend.Console) {
-			SetupToolkit(new() {
-					ApplicationName = Name,
-					Logger = new TkLogger(),
-					FeatureFlags = GraphicsBackend.GraphicsBackend switch {
-							Client.Graphics.GraphicsBackend.OpenGL => ToolkitFlags.EnableOpenGL,
-							Client.Graphics.GraphicsBackend.Vulkan => ToolkitFlags.EnableVulkan,
-							Client.Graphics.GraphicsBackend.Console => ToolkitFlags.None,
-							_ => throw new ArgumentOutOfRangeException(),
-					},
-			});
-
-			OnSetupToolkitEvent?.Invoke();
-		}
-
-		Logger.Debug($"Setting up {Enum.GetName(GraphicsBackend.GraphicsBackend)}...");
-		GraphicsBackend.Setup(this);
-		WasGraphicsSetup = true;
-	}
-
-	private void SetupDone() {
-		wasSetup = true;
-
-		Logger.Debug("Setup finished. Invoking events then entering loop");
-		OnSetupFinishedEvent?.Invoke();
-	}
 
 	private void EngineUpdate() {
 		foreach (Renderer renderer in renderers.Where(static r => r is { WasDestroyed: false, })) { renderer.Update(); }
@@ -301,39 +235,6 @@ public abstract class GameClient {
 		}
 	}
 
-	private void SetupToolkit(ToolkitOptions toolkitOptions) {
-		EventQueue.EventRaised += OnEventQueueOnEventRaised;
-
-		Toolkit.Init(toolkitOptions);
-
-		return;
-
-		void OnEventQueueOnEventRaised(PalHandle? palHandle, PlatformEventType platformEventType, EventArgs args) {
-			if (args is WindowEventArgs windowArgs) {
-				if (!FindWindow(windowArgs.Window, out Window? window)) {
-					Logger.Warn("EventQueue received on an unknown window");
-					return;
-				}
-
-				switch (args) {
-					case CloseEventArgs: window.OnCloseEventArgs(); break;
-					case WindowResizeEventArgs resizeArgs: window.OnResizeEventArgs(resizeArgs); break;
-					case WindowModeChangeEventArgs modeArgs: window.OnModeChangeEventArgs(modeArgs); break;
-					case KeyDownEventArgs downArgs: window.OnKeyDownEventArgs(downArgs); break;
-					case KeyUpEventArgs upArgs: window.OnKeyUpEventArgs(upArgs); break;
-					case MouseMoveEventArgs moveArgs: window.OnMouseMoveEventArgs(moveArgs); break;
-					case MouseButtonDownEventArgs downArgs: window.OnMouseButtonDownEventArgs(downArgs); break;
-					case MouseButtonUpEventArgs upArgs: window.OnMouseButtonUpEventArgs(upArgs); break;
-					case ScrollEventArgs scrollArgs: window.OnScrollEventArgs(scrollArgs); break;
-				}
-			} else {
-				// ignored atm
-			}
-		}
-
-		bool FindWindow(WindowHandle windowHandle, [NotNullWhen(true)] out Window? window) => (window = windows.Find(w => w.WindowHandle == windowHandle)) != null;
-	}
-
 	protected void AddWindow<T>(T window) where T : Window {
 		if (GraphicsBackend.GraphicsBackend == Client.Graphics.GraphicsBackend.Console) {
 			Logger.Warn("Cannot add windows when using Console graphics api");
@@ -354,6 +255,8 @@ public abstract class GameClient {
 		renderers.Add(renderer);
 	}
 
+	internal bool FindWindow(WindowHandle windowHandle, [NotNullWhen(true)] out Window? window) => (window = windows.Find(w => w.WindowHandle == windowHandle)) != null;
+
 	/// <summary> Requests shutdown. Program will shut down on the next update </summary>
 	public void RequestShutdown() {
 		Logger.Debug("Requested shutdown");
@@ -366,17 +269,9 @@ public abstract class GameClient {
 
 		Logger.Debug("Cleaning up everything...");
 		CleanupEverything();
-
-		Logger.Info("Shutting down logger. Goodbye!");
-		LogManager.Shutdown();
-
-		Environment.Exit(0);
 	}
 
 	private void CleanupEverything() {
-		Logger.Debug("Cleaning up engine...");
-		CleanupEngine();
-
 		Logger.Debug("Cleaning up instance...");
 		Cleanup();
 
@@ -395,28 +290,8 @@ public abstract class GameClient {
 		Logger.Debug("Cleaning up done");
 	}
 
-	private void CleanupEngine() => Shaderc.Dispose();
-
-	public sealed class StartupSettings {
-		[SuppressMessage("ReSharper", "MemberHidesStaticFromOuterClass")]
-		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-
-		public string MainThreadName { get; init; } = "Main";
-		public bool StbiFlipOnLoad { get; init; } = true;
-
-		internal void Print() {
-			Logger.Trace("Engine Startup Settings");
-			Logger.Trace($"- {nameof(MainThreadName)}: {MainThreadName}");
-			Logger.Trace($"- {nameof(StbiFlipOnLoad)}: {StbiFlipOnLoad}");
-		}
-	}
-
-	private class ShadercSearchPathContainer : SearchPathContainer {
-		public override string[] Linux => new[] { "libshaderc_shared.so", "libshaderc.so", };
-		public override string[] MacOS => new[] { "libshaderc_shared.dylib", };
-		public override string[] Android => new[] { "libshaderc_shared.so", };
-		public override string[] IOS => new[] { string.Empty, };
-		public override string[] Windows64 => new[] { "shaderc_shared.dll", };
-		public override string[] Windows86 => new[] { "shaderc_shared.dll", };
-	}
+	public delegate void OnPreGraphicsSetupDelegate();
+	public delegate void OnPostGraphicsSetupDelegate();
+	public delegate void OnSetupFinishedDelegate();
+	public delegate void OnShutdownDelegate();
 }

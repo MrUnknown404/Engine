@@ -33,7 +33,7 @@ public static class AssetH {
 
 		if (textureStream == null) {
 			Logger.Error($"Failed to create asset stream at: Textures.{fullFileName} in Assembly: {assembly.GetName()}");
-			textureStream = GetAssetStream($"Textures.{MissingTextureName}", Engine3.Assembly) ?? throw new NullReferenceException("Could not find default texture");
+			textureStream = GetAssetStream($"Textures.{MissingTextureName}", Engine3.Engine.Assembly) ?? throw new NullReferenceException("Could not find default texture");
 		}
 
 		byte[] data = new byte[textureStream.Length];

@@ -72,7 +72,7 @@ public static class LoggerH {
 
 	private static bool wasSetup;
 
-	internal static void Setup(bool isConsole) {
+	internal static void Setup(bool printToConsole) {
 		if (wasSetup) {
 			Logger.Warn($"Running {nameof(LoggerH)}#{nameof(Setup)} twice is not supported");
 			return;
@@ -86,11 +86,14 @@ public static class LoggerH {
 		LogManager.Setup() /*.SetupLogFactory(static s => {
 			s.AddCallSiteHiddenClassType(typeof(LoggerH)); // i'll need this later
 		})*/.LoadConfiguration(b => {
-			if (!isConsole) { b.ForLogger().FilterMinLevel(ConsoleLogLevel).WriteToColoredConsole(layout: LogLayout); }
+			if (printToConsole) { b.ForLogger().FilterMinLevel(ConsoleLogLevel).WriteToColoredConsole(layout: LogLayout); }
 			if (MakeLogFile) { b.ForLogger().FilterMinLevel(FileLogLevel).WriteToFile(fileName: $"{LogFolder}/{DateTime.Now.ToString(LogDateFormat)}.{LogFileType}", layout: LogLayout, maxArchiveFiles: MaxFiles - 1); }
 		});
 
-		AppDomain.CurrentDomain.UnhandledException += static (_, args) => Logger.Error((Exception)args.ExceptionObject, "Uncaught Exception: ");
+		AppDomain.CurrentDomain.UnhandledException += static (_, args) => {
+			Logger.Error((Exception)args.ExceptionObject, "Uncaught Exception: ");
+			LogManager.Flush();
+		};
 
 		wasSetup = true;
 	}

@@ -77,7 +77,7 @@ public unsafe class ImGuiBackend {
 
 		// InitMultiViewportSupport(mainWindowId, emptyVao);
 
-		EventQueue.EventRaised += OnEventQueueOnEventRaised;
+		EventQueue.EventRaised += OnEventRaised;
 	}
 
 	[MustUseReturnValue]
@@ -122,8 +122,11 @@ public unsafe class ImGuiBackend {
 		return imDrawData is { Valid: true, CmdListsCount: > 0, };
 	}
 
-	[MustUseReturnValue] public bool IsOwner(WindowHandle windowHandle) => window.WindowHandle == windowHandle;
-	[MustUseReturnValue] public nint GetWindowId(WindowHandle windowHandle) => windowToId[windowHandle];
+	[MustUseReturnValue]
+	public bool IsOwner(WindowHandle windowHandle) => window.WindowHandle == windowHandle;
+
+	[MustUseReturnValue]
+	public nint GetWindowId(WindowHandle windowHandle) => windowToId[windowHandle];
 
 	private void AddWindow(Window window) {
 		nint windowId = freeWindowIdList.TryDequeue(out nint tempWindowId) ? tempWindowId : nextFreeWindowId++;
@@ -214,8 +217,8 @@ public unsafe class ImGuiBackend {
 
 	public void Cleanup() {
 		ImGuiNet.DestroyPlatformWindows();
-		EventQueue.EventRaised -= OnEventQueueOnEventRaised;
+		EventQueue.EventRaised -= OnEventRaised;
 	}
 
-	private void OnEventQueueOnEventRaised(PalHandle? palHandle, PlatformEventType platformEventType, EventArgs args) => ImGuiH.EventQueue_EventRaised(this, args);
+	private void OnEventRaised(PalHandle? palHandle, PlatformEventType platformEventType, EventArgs args) => ImGuiH.EventQueue_EventRaised(this, args);
 }

@@ -1,9 +1,12 @@
-using System.Runtime.InteropServices;
 using Engine3.Client.Graphics.OpenGL;
 using NLog;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Platform;
+
+#if DEBUG
+using System.Runtime.InteropServices;
+#endif
 
 namespace Engine3.Client;
 
