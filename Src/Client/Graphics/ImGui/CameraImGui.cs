@@ -1,9 +1,9 @@
 using System.Numerics;
 using ImGuiNET;
 
-namespace Engine3.Client.Graphics.ImGui.Makers;
+namespace Engine3.Client.Graphics.ImGui;
 
-public static class CameraImGuiMaker {
+public static class CameraImGui {
 	public static void ShowImGui(Camera camera) {
 		// transform
 		ImGuiNet.SeparatorText("Transform");

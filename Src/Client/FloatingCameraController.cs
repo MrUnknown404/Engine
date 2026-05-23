@@ -27,7 +27,7 @@ public class FloatingCameraController : CameraController {
 
 	private bool isCursorLocked = true;
 
-	public FloatingCameraController(Window window, Camera camera) : base(window, camera) {
+	public FloatingCameraController(Window window, Camera camera) : base(window.KeyboardManager, window.MouseManager, camera) {
 		this.window = window;
 		LockCursor();
 	}

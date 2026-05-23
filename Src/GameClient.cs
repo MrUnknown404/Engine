@@ -1,9 +1,9 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using Engine3.Client;
 using Engine3.Client.Graphics;
 using Engine3.Client.Graphics.Console;
+using Engine3.Client.Graphics.ImGui;
 using Engine3.Client.Graphics.OpenGL;
 using Engine3.Exceptions;
 using Engine3.Utility;
@@ -174,7 +174,7 @@ public abstract class GameClient {
 
 		void Render(long time) {
 			if (TargetFps != 0) {
-				while (Stopwatch.GetTimestamp() < lastFrameTime + frameTicksToWait) { Thread.Sleep(1); }
+				while (Stopwatch.GetTimestamp() < lastFrameTime + frameTicksToWait) { Thread.Sleep(0); }
 				lastFrameTime = Stopwatch.GetTimestamp();
 			}
 

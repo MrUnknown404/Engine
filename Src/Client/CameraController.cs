@@ -5,9 +5,9 @@ public abstract class CameraController {
 	protected KeyboardManager KeyboardManager { get; }
 	protected MouseManager MouseManager { get; }
 
-	protected CameraController(Window window, Camera camera) {
+	protected CameraController(KeyboardManager keyboardManager, MouseManager mouseManager, Camera camera) {
 		Camera = camera;
-		KeyboardManager = window.KeyboardManager;
-		MouseManager = window.MouseManager;
+		KeyboardManager = keyboardManager;
+		MouseManager = mouseManager;
 	}
 }

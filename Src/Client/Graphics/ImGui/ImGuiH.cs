@@ -1,12 +1,11 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Engine3.Client.Graphics.ImGui;
 using ImGuiNET;
 using JetBrains.Annotations;
 using OpenTK.Mathematics;
 using OpenTK.Platform;
 
-namespace Engine3.Client;
+namespace Engine3.Client.Graphics.ImGui;
 
 public static unsafe class ImGuiH {
 	private static IntPtr nativeClipboardText;
