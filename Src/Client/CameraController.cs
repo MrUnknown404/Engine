@@ -10,4 +10,6 @@ public abstract class CameraController {
 		KeyboardManager = keyboardManager;
 		MouseManager = mouseManager;
 	}
+
+	public abstract void Update();
 }

@@ -32,7 +32,7 @@ public class FloatingCameraController : CameraController {
 		LockCursor();
 	}
 
-	public void Update() {
+	public override void Update() {
 		// lock check
 		if (KeyboardManager.IsKey(Key.LeftAlt)) {
 			if (isCursorLocked) { UnlockCursor(); }
