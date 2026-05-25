@@ -8,9 +8,8 @@
 		<WarningsAsErrors>nullable</WarningsAsErrors>
 		<RootNamespace>Engine3</RootNamespace>
 		<AssemblyName>Engine3</AssemblyName>
-		<DebugType>embedded</DebugType>
-		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
 	<!-- Includes -->
