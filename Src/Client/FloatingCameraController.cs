@@ -110,4 +110,6 @@ public class FloatingCameraController : CameraController {
 		isCursorLocked = true;
 		isFirstMove = true;
 	}
+
+	public override void Reset() => UnlockCursor();
 }

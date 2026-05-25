@@ -12,4 +12,5 @@ public abstract class CameraController {
 	}
 
 	public abstract void Update();
+	public abstract void Reset();
 }
