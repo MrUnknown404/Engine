@@ -72,7 +72,7 @@ public static class LoggerH {
 
 	private static bool wasSetup;
 
-	internal static void Setup(bool printToConsole) {
+	public static void Setup(bool printToConsole) {
 		if (wasSetup) {
 			Logger.Warn($"Running {nameof(LoggerH)}#{nameof(Setup)} twice is not supported");
 			return;

@@ -135,8 +135,6 @@ public sealed class Engine3 : IDisposable {
 	}
 
 	private void Cleanup() {
-		EventQueue.EventRaised -= OnEventRaised;
-
 		Logger.Debug("Cleaning up engine...");
 
 		Shaderc.Dispose();
@@ -149,7 +147,6 @@ public sealed class Engine3 : IDisposable {
 
 		if (GraphicsBackend != GraphicsBackend.Console) {
 			EventQueue.EventRaised -= OnEventRaised;
-
 			Toolkit.Uninit();
 		}
 
@@ -168,7 +165,7 @@ public sealed class Engine3 : IDisposable {
 		WasDestroyed = true;
 	}
 
-	private void OnEventRaised(PalHandle? palHandle, PlatformEventType platformEventType, EventArgs args) {
+	private void OnEventRaised(PalHandle? palHandle, PlatformEventType platformEventType, EventArgs args) { // TODO merge ImGUI events into here
 		if (args is WindowEventArgs windowArgs) {
 			if (!Game.FindWindow(windowArgs.Window, out Client.Window? window)) {
 				Logger.Warn("EventQueue received on an unknown window");
