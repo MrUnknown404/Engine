@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>Library</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<LangVersion>preview</LangVersion>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<WarningsAsErrors>nullable</WarningsAsErrors>
+		<RootNamespace>Engine3.Core</RootNamespace>
+		<AssemblyName>Engine3.Core</AssemblyName>
+		<DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
+
+	<!-- Includes -->
+	<ItemGroup>
+		<PackageReference Include="JetBrains.Annotations" Version="2025.2.4" PrivateAssets="all"/>
+		<PackageReference Include="NLog" Version="5.5.1"/>
+		<PackageReference Include="ObjectLayoutInspector" Version="0.1.4"/>
+		<PackageReference Include="ZLinq" Version="1.5.4"/>
+		<PackageReference Include="ZLinq.DropInGenerator" Version="1.5.4" PrivateAssets="all">
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+
+		<ProjectReference Include="..\..\USharpLibs-Common\USharpLibs-Common.csproj"/>
+
+		<EmbeddedResource Include="Assets\**"/>
+
+		<Compile Remove="Src/Debug/**/*.cs" Condition="'$(Configuration)' == 'Release'"/>
+	</ItemGroup>
+</Project>
