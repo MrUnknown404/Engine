@@ -1,4 +1,4 @@
-namespace Engine3.Exceptions;
+namespace Engine3.Utility.Exceptions;
 
 public interface IEnumException<T> {
 	public T ReasonEnum { get; }

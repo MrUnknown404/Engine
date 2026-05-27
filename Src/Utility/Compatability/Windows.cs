@@ -1,4 +1,4 @@
-namespace Engine3.Compatability;
+namespace Engine3.Utility.Compatability;
 
 public static class Windows {
 	// TODO call timeBeginPeriod/timeEndPeriod on windows https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-sleep

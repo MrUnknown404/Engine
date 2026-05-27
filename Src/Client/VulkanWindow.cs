@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Engine3.Client.Graphics.Vulkan;
-using Engine3.Exceptions;
+using Engine3.Utility.Exceptions;
 using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics.Vulkan;

@@ -1,4 +1,4 @@
-using Engine3.Exceptions;
+using Engine3.Utility.Exceptions;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 

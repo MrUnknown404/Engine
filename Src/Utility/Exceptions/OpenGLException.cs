@@ -1,4 +1,4 @@
-namespace Engine3.Exceptions;
+namespace Engine3.Utility.Exceptions;
 
 public class OpenGLException : Exception, IEnumException<OpenGLException.Reason> {
 	public Reason ReasonEnum { get; }

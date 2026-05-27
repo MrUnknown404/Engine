@@ -1,4 +1,4 @@
-namespace Engine3.Compatability;
+namespace Engine3.Utility.Compatability;
 
 public static class Linux {
 	internal static void Setup() { }

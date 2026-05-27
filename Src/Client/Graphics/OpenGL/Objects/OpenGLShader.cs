@@ -1,7 +1,7 @@
 using System.Numerics;
 using System.Reflection;
-using Engine3.Exceptions;
 using Engine3.Utility;
+using Engine3.Utility.Exceptions;
 using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics;

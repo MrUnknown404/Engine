@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
-using Engine3.Exceptions;
+using Engine3.Utility.Exceptions;
 using ImGuiNET;
 using JetBrains.Annotations;
 using NLog;

@@ -1,6 +1,6 @@
 using System.Reflection;
 using Engine3.Client.Graphics;
-using Engine3.Exceptions;
+using Engine3.Utility.Exceptions;
 using JetBrains.Annotations;
 using NLog;
 using SharpGLTF.Runtime;
@@ -14,7 +14,8 @@ namespace Engine3.Utility;
 public static class AssetH {
 	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-	[MustDisposeResource] internal static Stream? GetAssetStream(string path, Assembly assembly) => assembly.GetManifestResourceStream($"{assembly.GetName().Name}.Assets.{path}");
+	[MustDisposeResource]
+	internal static Stream? GetAssetStream(string path, Assembly assembly) => assembly.GetManifestResourceStream($"{assembly.GetName().Name}.Assets.{path}");
 
 	/// <summary> Loads an embedded image at the given location </summary>
 	/// <param name="fileLocation"> Where the image is </param>

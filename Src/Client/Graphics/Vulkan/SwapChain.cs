@@ -1,5 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using Engine3.Exceptions;
+using Engine3.Utility.Exceptions;
 using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics.Vulkan;
@@ -181,7 +181,8 @@ public unsafe class SwapChain : GraphicsResource<SwapChain, ulong> {
 
 		[MustUseReturnValue]
 		static VkSurfaceFormat2KHR? ChooseSwapSurfaceFormat(ReadOnlySpan<VkSurfaceFormat2KHR> availableFormats) =>
-				availableFormats.Where(static format => format.surfaceFormat is { format: VkFormat.FormatB8g8r8a8Srgb, colorSpace: VkColorSpaceKHR.ColorSpaceSrgbNonlinearKhr, }).Cast<VkSurfaceFormat2KHR?>().FirstOrDefault();
+				availableFormats.AsValueEnumerable().Where(static format => format.surfaceFormat is { format: VkFormat.FormatB8g8r8a8Srgb, colorSpace: VkColorSpaceKHR.ColorSpaceSrgbNonlinearKhr, }).Cast<VkSurfaceFormat2KHR?>()
+						.FirstOrDefault();
 
 		[MustUseReturnValue]
 		static VkExtent2D ChooseSwapExtent(Vector2i framebufferSize, VkSurfaceCapabilitiesKHR surfaceCapabilities) =>
@@ -216,10 +217,7 @@ public unsafe class SwapChain : GraphicsResource<SwapChain, ulong> {
 						viewType = VkImageViewType.ImageViewType2d,
 						format = imageFormat,
 						components = new() {
-								r = VkComponentSwizzle.ComponentSwizzleIdentity,
-								g = VkComponentSwizzle.ComponentSwizzleIdentity,
-								b = VkComponentSwizzle.ComponentSwizzleIdentity,
-								a = VkComponentSwizzle.ComponentSwizzleIdentity,
+								r = VkComponentSwizzle.ComponentSwizzleIdentity, g = VkComponentSwizzle.ComponentSwizzleIdentity, b = VkComponentSwizzle.ComponentSwizzleIdentity, a = VkComponentSwizzle.ComponentSwizzleIdentity,
 						},
 						subresourceRange = new() { aspectMask = aspectMask, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 				};

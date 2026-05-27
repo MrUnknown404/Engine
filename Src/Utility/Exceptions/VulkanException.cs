@@ -1,7 +1,7 @@
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine3.Exceptions;
+namespace Engine3.Utility.Exceptions;
 
 [PublicAPI]
 public class VulkanException : Exception, IEnumException<VulkanException.Reason> {

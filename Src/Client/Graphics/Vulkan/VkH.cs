@@ -1,4 +1,4 @@
-using Engine3.Exceptions;
+using Engine3.Utility.Exceptions;
 using Engine3.Utility.Versions;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;

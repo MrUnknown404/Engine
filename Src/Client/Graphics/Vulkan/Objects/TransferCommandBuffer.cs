@@ -1,5 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using Engine3.Exceptions;
+using Engine3.Utility.Exceptions;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
