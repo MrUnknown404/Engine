@@ -52,7 +52,7 @@ public abstract class Engine3 : IDisposable {
 	public bool WasInitialized { get; private set; }
 	public bool WasDestroyed { get; private set; }
 
-	protected bool shouldRunGameLoop = true;
+	private bool shouldRunGameLoop = true;
 
 	private readonly List<Renderer> renderers = new();
 	private readonly Queue<Renderer> renderersCloseQueue = new();
@@ -80,17 +80,15 @@ public abstract class Engine3 : IDisposable {
 		Logger.Debug("Finished setting up NLog. Hello World!");
 
 		// os compatability
-		if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
-			Windows.Setup();
-			Logger.Debug($"OS: {RuntimeInformation.OSDescription}");
-		} else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) {
-			Linux.Setup();
-			Logger.Debug($"OS: {RuntimeInformation.OSDescription}");
-		} else { Logger.Warn($"Unknown OS: {RuntimeInformation.OSDescription}"); }
+		if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) { Windows.Setup(); } else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) { Linux.Setup(); } else {
+			Logger.Warn($"Unknown OS: {RuntimeInformation.OSDescription}");
+		}
 
 		// TODO look into https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/10.0/sigterm-signal-handler
 
+		PrintSystemInfo();
 		PrintEngineSettings();
+
 		Logger.Info("Setting up engine...");
 
 #if DEBUG
@@ -254,6 +252,11 @@ public abstract class Engine3 : IDisposable {
 
 	protected virtual void UpdateCleanup() { }
 	protected virtual void RenderCleanup() { }
+
+	protected virtual void PrintSystemInfo() {
+		Logger.Debug("System Info");
+		Logger.Debug($"OS: {RuntimeInformation.OSDescription}");
+	}
 
 	protected virtual void PrintEngineSettings() {
 		Logger.Trace("Engine Settings");

@@ -33,7 +33,8 @@ public abstract class EngineGame {
 	}
 
 	protected internal abstract void Cleanup();
-	public void InvokeOnSetupFinished() => OnSetupFinishedEvent?.Invoke();
+
+	internal void InvokeOnSetupFinished() => OnSetupFinishedEvent?.Invoke();
 
 	public delegate void OnSetupFinishedDelegate();
 }

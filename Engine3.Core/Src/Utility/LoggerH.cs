@@ -43,7 +43,7 @@ public static class LoggerH {
 #if DEBUG
 		"[${processtime}] [${level}] [${callsite:includeNamespace=False}#${callsite-linenumber}] ${message:exceptionSeparator=:withexception=true}";
 #else
-			"[${processtime}] [${level}] ${message:exceptionSeparator=:withexception=true}";
+		"[${processtime}] [${level}] ${message:exceptionSeparator=:withexception=true}";
 #endif
 
 	public static LogLevel ConsoleLogLevel {
