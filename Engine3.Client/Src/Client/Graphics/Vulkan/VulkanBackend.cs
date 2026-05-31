@@ -22,23 +22,8 @@ public sealed unsafe class VulkanBackend : _3DGraphicsBackend {
 	public VkInstance? VkInstance { get; private set; }
 	public PhysicalGpu[] PhysicalGpus { get; private set; } = Array.Empty<PhysicalGpu>();
 
-	public IsPhysicalDeviceSuitableDelegate IsPhysicalDeviceSuitable { get; } = static (settings, physicalDeviceProperties, physicalDeviceFeatures) => {
-		bool isValid = physicalDeviceProperties.deviceType is VkPhysicalDeviceType.PhysicalDeviceTypeIntegratedGpu or VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu or VkPhysicalDeviceType.PhysicalDeviceTypeVirtualGpu;
-
-		if (settings.AllowEnableAnisotropy) { isValid &= physicalDeviceFeatures.samplerAnisotropy == Vk.True; }
-
-		return isValid;
-	};
-
-	public RateGpuSuitabilityDelegate RateGpuSuitability { get; } = static (settings, physicalGpu) => {
-		VkPhysicalDeviceProperties deviceProperties = physicalGpu.PhysicalDeviceProperties2.properties;
-		int score = 0;
-
-		if (deviceProperties.deviceType == VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu) { score += 1000; }
-		score += (int)deviceProperties.limits.maxImageDimension2D;
-
-		return score;
-	};
+	public IsPhysicalDeviceSuitableDelegate IsPhysicalDeviceSuitable { get; init; } = DefaultIsPhysicalDeviceSuitable;
+	public RateGpuSuitabilityDelegate RateGpuSuitability { get; init; } = DefaultRateGpuSuitability;
 
 #if DEBUG
 	private static VkDebugUtilsMessengerEXT? vkDebugMessenger;
@@ -345,6 +330,24 @@ public sealed unsafe class VulkanBackend : _3DGraphicsBackend {
 		return missing.Count == 0;
 	}
 #endif
+
+	public static bool DefaultIsPhysicalDeviceSuitable(VulkanSettings settings, VkPhysicalDeviceProperties physicalDeviceProperties, VkPhysicalDeviceFeatures physicalDeviceFeatures) {
+		bool isValid = physicalDeviceProperties.deviceType is VkPhysicalDeviceType.PhysicalDeviceTypeIntegratedGpu or VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu or VkPhysicalDeviceType.PhysicalDeviceTypeVirtualGpu;
+
+		if (settings.AllowEnableAnisotropy) { isValid &= physicalDeviceFeatures.samplerAnisotropy == Vk.True; }
+
+		return isValid;
+	}
+
+	public static int DefaultRateGpuSuitability(VulkanSettings settings, PhysicalGpu physicalGpu) {
+		VkPhysicalDeviceProperties deviceProperties = physicalGpu.PhysicalDeviceProperties2.properties;
+		int score = 0;
+
+		if (deviceProperties.deviceType == VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu) { score += 1000; }
+		score += (int)deviceProperties.limits.maxImageDimension2D;
+
+		return score;
+	}
 
 	public delegate bool IsPhysicalDeviceSuitableDelegate(VulkanSettings settings, VkPhysicalDeviceProperties physicalDeviceProperties, VkPhysicalDeviceFeatures physicalDeviceFeatures);
 	public delegate int RateGpuSuitabilityDelegate(VulkanSettings settings, PhysicalGpu physicalGpu);
