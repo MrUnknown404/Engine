@@ -31,6 +31,7 @@ public static unsafe class ImGuiH {
 
 	internal static void ResetWidgetOffset() => widgetOffset = 0;
 
+	// TODO i hate this method. fix it
 	/// <summary> Runs <see cref="ImGui.CollapsingHeader(string, ImGuiTreeNodeFlags)"/> with the contents indented </summary>
 	public static void IndentedCollapsingHeader(string label, float indent, Action drawFunc, ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags.None) {
 		if (ImGuiNet.CollapsingHeader(label, nodeFlags)) {
