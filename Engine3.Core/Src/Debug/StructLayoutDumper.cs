@@ -7,7 +7,7 @@ using ObjectLayoutInspector;
 namespace Engine3.Core.Debug;
 
 [PublicAPI]
-public static class StructLayoutDumper {
+public static class StructLayoutDumper { // TODO move into engine3 class
 	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 	public static string OutputFolder {
