@@ -11,6 +11,7 @@ public abstract class EngineGame {
 
 	public string Name { get; }
 	public IPackableVersion Version { get; }
+	public Engine3 Engine { get; }
 
 	[field: MaybeNull]
 	public Assembly Assembly { get => field ?? throw new Engine3Exception($"Attempted to get {nameof(EngineGame)} Assembly too early. Must call {nameof(Engine3)}#{nameof(Engine3.Start)} first"); internal set; } // set via engine
@@ -19,7 +20,8 @@ public abstract class EngineGame {
 
 	public event OnSetupFinishedDelegate? OnSetupFinishedEvent;
 
-	protected EngineGame(string name, IPackableVersion version) {
+	protected EngineGame(Engine3 engine, string name, IPackableVersion version) {
+		Engine = engine;
 		Name = name;
 		Version = version;
 	}
