@@ -1,5 +1,5 @@
 using System.Reflection;
-using Engine3.Client.Client.Graphics;
+using Engine3.Client.Graphics;
 using Engine3.Core.Utility.Exceptions;
 using JetBrains.Annotations;
 using NLog;

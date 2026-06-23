@@ -1,11 +1,12 @@
 using System.Diagnostics.CodeAnalysis;
-using Engine3.Client.Client.Graphics.DataStructs;
-using Engine3.Client.Client.Graphics.VertexLayouts;
-using Engine3.Client.Client.ImGui;
+using Engine3.Client.Graphics;
+using Engine3.Client.Graphics.DataStructs;
+using Engine3.Client.Graphics.ImGui;
+using Engine3.Client.Graphics.VertexLayouts;
 using Engine3.Client.Utility;
 using Engine3.Core;
-using Engine3.Core.Client;
 using Engine3.Core.Debug;
+using Engine3.Core.Graphics;
 using Engine3.Core.Utility.Exceptions;
 using ImGuiNET;
 using NLog;
@@ -16,8 +17,7 @@ using Silk.NET.Core.Loader;
 using Silk.NET.Shaderc;
 using StbiSharp;
 using GraphicsApi = Engine3.Core.Utility.GraphicsApi;
-using GraphicsBackend = Engine3.Client.Client.Graphics.GraphicsBackend;
-using Window = Engine3.Client.Client.Window;
+using Window = Engine3.Client.IO.Window;
 
 namespace Engine3.Client;
 
