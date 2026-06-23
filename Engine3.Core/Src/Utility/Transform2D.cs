@@ -1,7 +1,7 @@
 using System.Numerics;
 using JetBrains.Annotations;
 
-namespace Engine3.Client.Utility;
+namespace Engine3.Core.Utility;
 
 [PublicAPI]
 public class Transform2D : ITransform<Transform2D>, IEquatable<Transform2D> {
