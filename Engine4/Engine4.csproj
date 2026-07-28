@@ -6,33 +6,24 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<WarningsAsErrors>nullable</WarningsAsErrors>
-		<RootNamespace>Engine3</RootNamespace>
-		<AssemblyName>Engine3</AssemblyName>
-		<DebugType>embedded</DebugType>
-		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<RootNamespace>Engine4</RootNamespace>
+		<AssemblyName>Engine4</AssemblyName>
 		<DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
 	<!-- Includes -->
 	<ItemGroup>
-		<PackageReference Include="ImGui.NET" Version="1.91.6.1"/>
 		<PackageReference Include="JetBrains.Annotations" Version="2025.2.4" PrivateAssets="all"/>
 		<PackageReference Include="NLog" Version="5.5.1"/>
 		<PackageReference Include="ObjectLayoutInspector" Version="0.1.4"/>
-		<PackageReference Include="OpenTK" Version="5.0.0-pre.15"/>
-		<PackageReference Include="SharpGLTF.Runtime" Version="1.0.6" />
-		<PackageReference Include="Silk.NET.Shaderc" Version="2.22.0"/>
-		<PackageReference Include="StbiSharp" Version="1.2.1"/>
 		<PackageReference Include="ZLinq" Version="1.5.4"/>
-		<PackageReference Include="ZLinq.DropInGenerator" Version="1.5.4">
-			<PrivateAssets>all</PrivateAssets>
+		<PackageReference Include="ZLinq.DropInGenerator" Version="1.5.4" PrivateAssets="all">
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 
-		<ProjectReference Include="..\USharpLibs-Common\USharpLibs-Common.csproj"/>
+		<ProjectReference Include="..\..\USharpLibs-Common\USharpLibs-Common.csproj"/>
 
 		<EmbeddedResource Include="Assets\**"/>
-
-		<Compile Remove="Src/Debug/**/*.cs" Condition="'$(Configuration)' == 'Release'"/>
 	</ItemGroup>
 </Project>
