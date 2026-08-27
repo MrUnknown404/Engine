@@ -10,12 +10,11 @@ namespace Engine4.Graphics;
 
 public abstract class GameClient : Game {
 	public IGraphicsApiProvider? GraphicsProvider { get; } // null when GraphicsApi is None
-	public IEventHandler? EventHandler { get; }
 
 	internal List<Window> Windows { get; } = new(); // TODO cleanup/try to close
 	internal List<Renderer> Renderers { get; } = new(); // TODO cleanup
 
-	protected GameClient(Engine engine, IEventHandler? eventHandler) : base(engine) {
+	protected GameClient(Engine engine) : base(engine) {
 		GraphicsProvider = engine.GraphicsApi switch {
 				GraphicsApi.None => null,
 				GraphicsApi.OpenGL => new OpenGLGraphicsProvider(),
@@ -23,8 +22,6 @@ public abstract class GameClient : Game {
 				GraphicsApi.Software => new SoftwareGraphicsProvider(),
 				_ => throw new ArgumentOutOfRangeException(),
 		};
-
-		EventHandler = eventHandler;
 	}
 
 	[MustUseReturnValue]
