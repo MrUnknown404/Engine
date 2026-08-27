@@ -1,13 +1,9 @@
-using Engine4.IO;
-
 namespace Engine4;
 
 public abstract class Game {
 	public Engine Engine { get; }
 
 	public bool ShouldShutdown { get; set; }
-
-	internal List<IEventHandler> EventHandlers { get; } = new();
 
 	/// <summary> Called right at the start before anything is set up </summary>
 	public event Action? OnStartEvent;

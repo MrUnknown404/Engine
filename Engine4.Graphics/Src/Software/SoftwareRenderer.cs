@@ -3,7 +3,7 @@ using Engine4.Graphics.Rendering;
 namespace Engine4.Graphics.Software;
 
 public class SoftwareRenderer : Renderer {
-	public SoftwareRenderer(RenderTarget renderTarget, IGraphicsApiProvider graphicsProvider, params RenderPass[] renderPasses) : base(GraphicsApi.Software, renderTarget, graphicsProvider, renderPasses) { }
+	public SoftwareRenderer(RenderTarget renderTarget, SoftwareGraphicsProvider graphicsProvider, params RenderPass[] renderPasses) : base(GraphicsApi.Software, renderTarget, graphicsProvider, renderPasses) { }
 
 	public override bool BeginFrame() => throw new NotImplementedException(); // TODO
 	public override void UpdateBuffers(float delta) => throw new NotImplementedException(); // TODO

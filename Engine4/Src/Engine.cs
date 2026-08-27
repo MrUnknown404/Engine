@@ -14,6 +14,7 @@ public sealed class Engine : IDisposable {
 	public static Game? GameInstance { get; private set; }
 
 	public GraphicsApi GraphicsApi { get; }
+	public IEventHandler? EventHandler { get; }
 
 	public ushort TargetFps { get; init; }
 	public ushort TargetUps { get; init; }
@@ -23,11 +24,12 @@ public sealed class Engine : IDisposable {
 
 	private bool wasDisposed;
 
-	public Engine(string[] args, GraphicsApi graphicsApi) { // TODO process args
+	public Engine(string[] args, GraphicsApi graphicsApi, IEventHandler eventHandler) { // TODO process args
 		if (engineInstance != null) { throw new NullReferenceException(); }
 		EngineInstance = this;
 
 		GraphicsApi = graphicsApi;
+		EventHandler = eventHandler;
 	}
 
 	public void Start<T>(T game) where T : Game {
@@ -55,18 +57,9 @@ public sealed class Engine : IDisposable {
 		IsRunning = true;
 
 		while (IsRunning) {
-			foreach (IEventHandler eventHandler in game.EventHandlers) {
-				if (ValidateEventHandler(eventHandler)) {
-					eventHandler.ProcessEvents(); //
-				} else {
-					DeregisterEvent(eventHandler); // concurrent modification error
-				}
-			}
+			EventHandler?.ProcessEvents();
 
-			if (ShouldShutdown || game.ShouldShutdown) { // try early exit
-				IsRunning = false;
-				break;
-			}
+			if (ShouldShutdown || game.ShouldShutdown) { break; } // try early exit
 
 			float delta = 0;
 
@@ -77,6 +70,8 @@ public sealed class Engine : IDisposable {
 
 			Thread.Sleep(1); // TODO remove
 		}
+
+		IsRunning = false;
 	}
 
 	private void Update() { }

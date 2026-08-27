@@ -3,6 +3,7 @@ namespace Engine4.Graphics.Windowing;
 public class Window {
 	// TODO input is window specific
 	// TODO should windows be comparable?
+	// TODO opentk only?
 
 	public bool ShouldClose { get; set; } // TODO use
 
