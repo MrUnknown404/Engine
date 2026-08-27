@@ -1,4 +1,3 @@
-using Engine4.Graphics;
 using Engine4.IO;
 using JetBrains.Annotations;
 
@@ -13,9 +12,6 @@ public sealed class Engine : IDisposable {
 	public static Engine EngineInstance { get => engineInstance ?? throw new NullReferenceException(); private set => engineInstance = value; } // TODO exception
 	public static Game? GameInstance { get; private set; }
 
-	public GraphicsApi GraphicsApi { get; }
-	public IEventHandler? EventHandler { get; }
-
 	public ushort TargetFps { get; init; }
 	public ushort TargetUps { get; init; }
 
@@ -24,12 +20,9 @@ public sealed class Engine : IDisposable {
 
 	private bool wasDisposed;
 
-	public Engine(string[] args, GraphicsApi graphicsApi, IEventHandler eventHandler) { // TODO process args
+	public Engine(string[] args, IEventHandler eventHandler) { // TODO process args
 		if (engineInstance != null) { throw new NullReferenceException(); }
 		EngineInstance = this;
-
-		GraphicsApi = graphicsApi;
-		EventHandler = eventHandler;
 	}
 
 	public void Start<T>(T game) where T : Game {
@@ -42,6 +35,7 @@ public sealed class Engine : IDisposable {
 
 		// setup
 		Setup();
+		game.InternalSetup();
 		game.InvokeOnSetupEvent();
 		LateSetup();
 
@@ -52,14 +46,18 @@ public sealed class Engine : IDisposable {
 		Cleanup();
 	}
 
-	private void Setup() { }
+	private void Setup() {
+		// TODO load graphics apis
+		// TODO create graphics api providers
+	}
+
 	private void LateSetup() { }
 
 	private void GameLoop(Game game) {
 		IsRunning = true;
 
 		while (IsRunning) {
-			EventHandler?.ProcessEvents();
+			game.EventHandler?.ProcessEvents();
 
 			if (ShouldShutdown || game.ShouldShutdown) { break; } // try early exit
 

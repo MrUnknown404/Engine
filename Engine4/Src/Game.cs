@@ -1,7 +1,12 @@
+using Engine4.IO;
+
 namespace Engine4;
 
 public abstract class Game {
 	public Engine Engine { get; }
+	public string Name { get; }
+
+	protected internal IEventHandler? EventHandler { get; }
 
 	public bool ShouldShutdown { get; set; }
 
@@ -12,7 +17,13 @@ public abstract class Game {
 
 	public event ShouldShutdownDelegate? ShouldShutdownEvent;
 
-	protected Game(Engine engine) => Engine = engine;
+	protected Game(Engine engine, string name, IEventHandler? eventHandler) {
+		Engine = engine;
+		Name = name;
+		EventHandler = eventHandler;
+	}
+
+	protected internal abstract void InternalSetup();
 
 	protected internal abstract void Update();
 

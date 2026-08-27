@@ -7,6 +7,8 @@ public class Window {
 	// TODO should windows be comparable?
 	// TODO opentk only?
 
+	public GraphicsApi GraphicsApi { get; }
+
 	protected WindowHandle Handle { get; }
 
 	public bool ShouldClose { get; set; } // TODO use
@@ -15,7 +17,8 @@ public class Window {
 
 	public event Action? OnWindowClosedEvent; // TODO call
 
-	public Window(GraphicsApiHints graphicsApiHints, string title, ushort width, ushort height) {
+	internal Window(GraphicsApi graphicsApi, GraphicsApiHints graphicsApiHints, string title, ushort width, ushort height) {
+		GraphicsApi = graphicsApi;
 		Handle = Toolkit.Window.Create(graphicsApiHints);
 		Toolkit.Window.SetTitle(Handle, title);
 		Toolkit.Window.SetSize(Handle, new(width, height));
