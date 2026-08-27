@@ -1,3 +1,3 @@
 namespace Engine4.Graphics;
 
-public interface IGraphicsPipeline { }
+public interface IGraphicsPipeline;

@@ -1,0 +1,14 @@
+Core/Common/"" ?
+- math/data/utility/shared?
+
+Server
+- headless
+- requires network
+
+Client
+- windowing
+- rendering
+- input events
+
+Network
+- networking

@@ -1,4 +1,5 @@
 using Engine4.Graphics;
+using Engine4.IO;
 using JetBrains.Annotations;
 
 namespace Engine4;
@@ -8,6 +9,7 @@ namespace Engine4;
 [MustDisposeResource]
 public sealed class Engine : IDisposable {
 	private static Engine? engineInstance;
+
 	public static Engine EngineInstance { get => engineInstance ?? throw new NullReferenceException(); private set => engineInstance = value; } // TODO exception
 	public static Game? GameInstance { get; private set; }
 
@@ -34,26 +36,34 @@ public sealed class Engine : IDisposable {
 
 		game.InvokeOnStartEvent();
 
+		// setup
 		Setup();
 		game.InvokeOnSetupEvent();
-		SetupPostGame();
+		LateSetup();
 
+		// done
+		game.InvokeOnSetupDoneEvent();
 		GameLoop(game);
 
 		Cleanup();
 	}
 
 	private void Setup() { }
-	private void SetupPostGame() { }
+	private void LateSetup() { }
 
 	private void GameLoop(Game game) {
-		Action tryProcessEvents = GraphicsApi.TryProcessEvents;
-
 		IsRunning = true;
-		while (IsRunning) {
-			tryProcessEvents();
 
-			if (TryExitEarly(game)) {
+		while (IsRunning) {
+			foreach (IEventHandler eventHandler in game.EventHandlers) {
+				if (ValidateEventHandler(eventHandler)) {
+					eventHandler.ProcessEvents(); //
+				} else {
+					DeregisterEvent(eventHandler); // concurrent modification error
+				}
+			}
+
+			if (ShouldShutdown || game.ShouldShutdown) { // try early exit
 				IsRunning = false;
 				break;
 			}
@@ -67,10 +77,6 @@ public sealed class Engine : IDisposable {
 
 			Thread.Sleep(1); // TODO remove
 		}
-
-		return;
-
-		bool TryExitEarly(Game game) => ShouldShutdown || game.ShouldShutdown;
 	}
 
 	private void Update() { }

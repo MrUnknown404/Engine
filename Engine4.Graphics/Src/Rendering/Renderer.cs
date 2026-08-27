@@ -1,7 +1,8 @@
-namespace Engine4.Graphics;
+namespace Engine4.Graphics.Rendering;
 
 public abstract class Renderer {
 	public GraphicsApi GraphicsApi { get; }
+
 	protected RenderTarget RenderTarget { get; }
 	protected IGraphicsApiProvider GraphicsProvider { get; }
 
