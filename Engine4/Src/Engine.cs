@@ -36,6 +36,8 @@ public sealed class Engine : IDisposable {
 		if (GameInstance != null) { throw new NullReferenceException(); } // TODO exception
 		GameInstance = game;
 
+		// TODO init opentk if used. figure that out
+
 		game.InvokeOnStartEvent();
 
 		// setup
@@ -63,7 +65,7 @@ public sealed class Engine : IDisposable {
 
 			float delta = 0;
 
-			Update();
+			Update(game);
 			game.Update();
 
 			Render(delta);
@@ -74,7 +76,7 @@ public sealed class Engine : IDisposable {
 		IsRunning = false;
 	}
 
-	private void Update() { }
+	private void Update(Game game) { game.TryFreeResources(); }
 
 	private void Render(float delta) {
 		// copy data

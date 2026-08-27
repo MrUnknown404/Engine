@@ -22,6 +22,8 @@ public abstract class Game {
 		if (shouldShutdown) { ShouldShutdown = true; }
 	}
 
+	protected internal abstract void TryFreeResources();
+
 	internal void InvokeOnStartEvent() => OnStartEvent?.Invoke();
 	internal void InvokeOnSetupEvent() => OnSetupEvent?.Invoke();
 	internal void InvokeOnSetupDoneEvent() => OnSetupDoneEvent?.Invoke();

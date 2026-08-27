@@ -5,6 +5,7 @@ using Engine4.Graphics.Vulkan;
 using Engine4.Graphics.Windowing;
 using Engine4.IO;
 using JetBrains.Annotations;
+using OpenTK.Platform;
 
 namespace Engine4.Graphics;
 
@@ -14,7 +15,10 @@ public abstract class GameClient : Game {
 	internal List<Window> Windows { get; } = new(); // TODO cleanup/try to close
 	internal List<Renderer> Renderers { get; } = new(); // TODO cleanup
 
-	protected GameClient(Engine engine) : base(engine) {
+	private readonly GraphicsApiHints? graphicsApiHints;
+
+	protected GameClient(Engine engine, GraphicsApiHints? graphicsApiHints) : base(engine) {
+		this.graphicsApiHints = graphicsApiHints;
 		GraphicsProvider = engine.GraphicsApi switch {
 				GraphicsApi.None => null,
 				GraphicsApi.OpenGL => new OpenGLGraphicsProvider(),
@@ -25,13 +29,13 @@ public abstract class GameClient : Game {
 	}
 
 	[MustUseReturnValue]
-	protected Window CreateWindow() {
+	protected Window CreateWindow(string title, ushort width, ushort height) {
 		// TODO validate?
 
 		// TODO assuming windows are opentk only. this may change
 		if (Engine.EventHandler is not OpenTKEventHandler opentkEventHandler) { throw new Exception(); } // TODO exception
 
-		Window window = new();
+		Window window = new(graphicsApiHints ?? throw new Exception(), title, width, height); // TODO exception
 
 		Windows.Add(window);
 		opentkEventHandler.RegisterWindow(window); // TODO should this be render target
@@ -54,5 +58,9 @@ public abstract class GameClient : Game {
 		Renderers.Add(renderer);
 
 		return renderer;
+	}
+
+	protected override void TryFreeResources() {
+		foreach (Window window in Windows) { }
 	}
 }
