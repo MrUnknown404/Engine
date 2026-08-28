@@ -1,4 +1,3 @@
-using Engine4.IO;
 using JetBrains.Annotations;
 
 namespace Engine4;
@@ -20,7 +19,7 @@ public sealed class Engine : IDisposable {
 
 	private bool wasDisposed;
 
-	public Engine(string[] args, IEventHandler eventHandler) { // TODO process args
+	public Engine(string[] args) { // TODO process args
 		if (engineInstance != null) { throw new NullReferenceException(); }
 		EngineInstance = this;
 	}
@@ -28,8 +27,6 @@ public sealed class Engine : IDisposable {
 	public void Start<T>(T game) where T : Game {
 		if (GameInstance != null) { throw new NullReferenceException(); } // TODO exception
 		GameInstance = game;
-
-		// TODO init opentk if used. figure that out
 
 		game.InvokeOnStartEvent();
 
@@ -46,11 +43,7 @@ public sealed class Engine : IDisposable {
 		Cleanup();
 	}
 
-	private void Setup() {
-		// TODO load graphics apis
-		// TODO create graphics api providers
-	}
-
+	private void Setup() { }
 	private void LateSetup() { }
 
 	private void GameLoop(Game game) {

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>Library</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<LangVersion>preview</LangVersion>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<WarningsAsErrors>nullable</WarningsAsErrors>
+		<DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<PackageId>Engine4.Client</PackageId>
+	</PropertyGroup>
+
+	<!-- Includes -->
+	<ItemGroup>
+		<PackageReference Include="JetBrains.Annotations" Version="2025.2.4" PrivateAssets="all"/>
+		<PackageReference Include="OpenTK" Version="5.0.0-pre.16"/>
+		<PackageReference Include="ZLinq.DropInGenerator" Version="1.5.4" PrivateAssets="all">
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+
+		<ProjectReference Include="..\Engine4\Engine4.csproj"/>
+
+		<EmbeddedResource Include="Assets\**"/>
+	</ItemGroup>
+</Project>
