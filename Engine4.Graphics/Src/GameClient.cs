@@ -33,20 +33,14 @@ public abstract class GameClient : Game {
 	}
 
 	private void SetupToolkit(string appName) {
-		// TODO
-
 		ToolkitFlags toolkitFlags = ToolkitFlags.None;
 
 		if (EnabledGraphicsApis.HasFlagFast(GraphicsApis.OpenGL)) { toolkitFlags |= ToolkitFlags.EnableOpenGL; }
 		if (EnabledGraphicsApis.HasFlagFast(GraphicsApis.Vulkan)) { toolkitFlags |= ToolkitFlags.EnableVulkan; }
 
-		Toolkit.Event.EventRaised += OnOpenTkEvent;
+		Toolkit.Event.EventRaised += OnOpenTkEvent; // TODO cleanup
 
-		Toolkit.Init(new() { ApplicationName = appName, FeatureFlags = toolkitFlags, });
-
-		return;
-
-		void OnOpenTkEvent(EventArgs args) { } // TODO
+		Toolkit.Init(new() { ApplicationName = appName, FeatureFlags = toolkitFlags, }); // TODO cleanup
 	}
 
 	private void SetupGraphicsApis() {
@@ -95,11 +89,27 @@ public abstract class GameClient : Game {
 	}
 
 	protected override void TryFreeResources() {
-		foreach (Window window in Windows) {
+		for (int i = 0; i < Windows.Count; i++) {
+			Window window = Windows[i];
+
 			if (window.ShouldClose) {
+				// TODO check if window has an associated renderer. clean that first
+
 				window.Destroy();
-				Windows.Remove(window); // TODO fix
+				Windows.RemoveAt(i);
+				i--;
 			}
+		}
+	}
+
+	private void OnOpenTkEvent(EventArgs args) {
+		switch (args) { // TODO add more
+			case CloseEventArgs closeArgs:
+				if (closeArgs.Window.UserData is not Window window) { throw new Exception(); } // TODO exception
+
+				window.RequestClose();
+				break;
+			default: break;
 		}
 	}
 }
