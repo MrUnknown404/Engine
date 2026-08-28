@@ -1,7 +1,7 @@
 namespace Engine4.Graphics;
 
 [Flags]
-public enum GraphicsApis : byte {
+public enum GraphicsApis : byte { // what should this be called?
 	None = 0,
 	OpenGL = 1 << 0,
 	Vulkan = 1 << 1,

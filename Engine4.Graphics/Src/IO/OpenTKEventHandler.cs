@@ -1,12 +1,8 @@
-using Engine4.Graphics.Windowing;
+using Engine4.IO;
+using OpenTK.Platform;
 
-// ReSharper disable once CheckNamespace
-namespace Engine4.IO; // TODO ^^ handle that
+namespace Engine4.Graphics.IO;
 
 public class OpenTKEventHandler : IEventHandler {
-	public void ProcessEvents() {
-		//
-	}
-
-	public void RegisterWindow(Window window) => throw new NotImplementedException(); // TODO store
+	public void ProcessEvents() => Toolkit.Window.ProcessEvents(false);
 }

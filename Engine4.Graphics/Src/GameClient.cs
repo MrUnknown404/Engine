@@ -1,9 +1,9 @@
+using Engine4.Graphics.IO;
 using Engine4.Graphics.OpenGL;
 using Engine4.Graphics.Rendering;
 using Engine4.Graphics.Software;
 using Engine4.Graphics.Vulkan;
 using Engine4.Graphics.Windowing;
-using Engine4.IO;
 using JetBrains.Annotations;
 using OpenTK.Platform;
 
@@ -25,6 +25,8 @@ public abstract class GameClient : Game {
 		InitializeOpenTK = initializeOpenTK;
 	}
 
+	protected override void Update() { }
+
 	protected override void InternalSetup() {
 		if (InitializeOpenTK) { SetupToolkit(Name); }
 		SetupGraphicsApis();
@@ -38,7 +40,13 @@ public abstract class GameClient : Game {
 		if (EnabledGraphicsApis.HasFlagFast(GraphicsApis.OpenGL)) { toolkitFlags |= ToolkitFlags.EnableOpenGL; }
 		if (EnabledGraphicsApis.HasFlagFast(GraphicsApis.Vulkan)) { toolkitFlags |= ToolkitFlags.EnableVulkan; }
 
+		Toolkit.Event.EventRaised += OnOpenTkEvent;
+
 		Toolkit.Init(new() { ApplicationName = appName, FeatureFlags = toolkitFlags, });
+
+		return;
+
+		void OnOpenTkEvent(EventArgs args) { } // TODO
 	}
 
 	private void SetupGraphicsApis() {
@@ -54,7 +62,7 @@ public abstract class GameClient : Game {
 		// TODO validate?
 
 		// TODO assuming windows are opentk only. this may change
-		if (EventHandler is not OpenTKEventHandler opentkEventHandler) { throw new Exception(); } // TODO exception
+		if (EventHandler is not OpenTKEventHandler) { throw new Exception(); } // TODO exception
 
 		Window window = new(graphicsApi, graphicsApi switch {
 				GraphicsApi.None => throw new Exception(), // TODO exception
@@ -65,7 +73,6 @@ public abstract class GameClient : Game {
 		}, title, width, height); // TODO exception
 
 		Windows.Add(window);
-		opentkEventHandler.RegisterWindow(window); // TODO should this be render target
 
 		return window;
 	}
@@ -88,6 +95,11 @@ public abstract class GameClient : Game {
 	}
 
 	protected override void TryFreeResources() {
-		foreach (Window window in Windows) { }
+		foreach (Window window in Windows) {
+			if (window.ShouldClose) {
+				window.Destroy();
+				Windows.Remove(window); // TODO fix
+			}
+		}
 	}
 }

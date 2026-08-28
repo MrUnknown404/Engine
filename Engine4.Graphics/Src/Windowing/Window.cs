@@ -24,12 +24,19 @@ public class Window {
 		Toolkit.Window.SetSize(Handle, new(width, height));
 	}
 
-	public void Show() => throw new NotImplementedException(); // TODO
+	public void Hide() => Toolkit.Window.SetMode(Handle, WindowMode.Hidden);
+	public void Show() => Toolkit.Window.SetMode(Handle, WindowMode.Normal);
 
 	public void RequestClose() {
 		bool shouldClose = true;
 		TryCloseWindowEvent?.Invoke(ref shouldClose);
 		if (shouldClose) { ShouldClose = true; }
+	}
+
+	internal void Destroy() {
+		OnWindowClosedEvent?.Invoke();
+
+		// TODO cleanup
 	}
 
 	public delegate void TryCloseWindowDelegate(ref bool shouldClose);
