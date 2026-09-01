@@ -8,7 +8,7 @@ namespace Engine4;
 public sealed class Engine : IDisposable {
 	private static Engine? engineInstance;
 
-	public static Engine EngineInstance { get => engineInstance ?? throw new NullReferenceException(); private set => engineInstance = value; } // TODO exception
+	public static Engine EngineInstance { get => engineInstance ?? throw new NullReferenceException($"{nameof(EngineInstance)} does not exist yet"); private set => engineInstance = value; }
 	public static Game? GameInstance { get; private set; }
 
 	public ushort TargetFps { get; init; }
@@ -19,13 +19,17 @@ public sealed class Engine : IDisposable {
 
 	private bool wasDisposed;
 
-	public Engine(string[] args) { // TODO process args
+	public Engine(string[] args) {
 		if (engineInstance != null) { throw new NullReferenceException(); }
 		EngineInstance = this;
+
+		ProcessArgs(args);
 	}
 
+	private void ProcessArgs(string[] args) { } // TODO process args
+
 	public void Start<T>(T game) where T : Game {
-		if (GameInstance != null) { throw new NullReferenceException(); } // TODO exception
+		if (GameInstance != null) { throw new NullReferenceException(); } // TODO log and return
 		GameInstance = game;
 
 		game.InvokeOnStartEvent();
@@ -82,5 +86,9 @@ public sealed class Engine : IDisposable {
 		wasDisposed = true;
 	}
 
-	private void Cleanup() { } // TODO
+	private void Cleanup() {
+		// TODO cleanup engine
+
+		GameInstance?.Cleanup();
+	}
 }

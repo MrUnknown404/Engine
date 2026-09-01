@@ -34,6 +34,7 @@ public abstract class Game {
 	}
 
 	protected internal abstract void TryFreeResources();
+	protected internal abstract void Cleanup();
 
 	internal void InvokeOnStartEvent() => OnStartEvent?.Invoke();
 	internal void InvokeOnSetupEvent() => OnSetupEvent?.Invoke();
