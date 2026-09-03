@@ -13,6 +13,9 @@ public abstract class GameClient : Game2 {
 	protected sealed override Action? PollEvents => lazyPollEvents?.Value ?? null;
 
 	// windowing & graphics
+	private readonly List<Window> windows = new(); // TODO cleanup. allow removal
+	private readonly List<Renderer> renderers = new(); // TODO cleanup. allow removal
+
 	private GlfwHandler? glfwHandler;
 	private VulkanProvider? vulkanGraphicsProvider;
 	private readonly ConsoleGraphicsProvider consoleGraphicsProvider = new();
@@ -29,29 +32,36 @@ public abstract class GameClient : Game2 {
 		// TODO
 	}
 
-	protected Window CreateWindow(string title, ushort width, ushort height) {
-		// TODO
+	protected sealed override void Render(float delta) {
+		foreach (Renderer renderer in renderers) {
+			if (renderer.BeginFrame()) {
+				renderer.UpdateBuffers(delta);
+				renderer.DrawFrame();
+				renderer.EndFrame();
+				renderer.PresentFrame();
+			}
+		}
+	}
 
+	protected Window CreateWindow(string title, ushort width, ushort height) {
 		if (!IsGlfwEnabled) { throw new Exception(); } // TODO exception
 
 		Window window = new((glfwHandler ?? throw new Exception()).Glfw, title, width, height); // TODO exception
-		return window; // TODO cleanup
+		windows.Add(window);
+		return window;
 	}
 
 	protected Renderer CreateRenderer(RenderTarget renderTarget, params RenderPass[] renderPasses) {
 		Renderer renderer;
 
-		if (renderTarget is ConsoleRenderTarget consoleRenderTarget) {
-			// console (either vulkan or direct writing)
+		if (renderTarget is ConsoleRenderTarget { UseVulkan: false, } consoleRenderTarget) {
 			renderer = new ConsoleRenderer(consoleRenderTarget, consoleGraphicsProvider ?? throw new Exception(), renderPasses); // TODO exception
 		} else {
-			// vulkan window
 			renderer = new VulkanRenderer(renderTarget, vulkanGraphicsProvider ?? throw new Exception(), renderPasses); // TODO exception
 		}
 
-		// TODO
-
-		return renderer; // TODO cleanup
+		renderers.Add(renderer);
+		return renderer;
 	}
 
 	protected sealed override void SetupInternals() {

@@ -3,10 +3,10 @@ using Engine4.Client.Graphics;
 namespace Engine4.Client.Rendering;
 
 public abstract class Renderer {
-	protected RenderTarget RenderTarget { get; }
-	protected IGraphicsProvider GraphicsProvider { get; }
-
+	public IGraphicsProvider GraphicsProvider { get; }
 	public List<RenderPass> RenderPasses { get; }
+
+	protected RenderTarget RenderTarget { get; }
 
 	protected Renderer(RenderTarget renderTarget, IGraphicsProvider graphicsProvider, params RenderPass[] renderPasses) {
 		RenderTarget = renderTarget;
@@ -14,9 +14,9 @@ public abstract class Renderer {
 		RenderPasses = new(renderPasses);
 	}
 
-	public abstract bool BeginFrame();
-	public abstract void UpdateBuffers(float delta);
-	public abstract void DrawFrame();
-	public abstract void EndFrame();
-	public abstract void PresentFrame();
+	protected internal abstract bool BeginFrame();
+	protected internal abstract void UpdateBuffers(float delta);
+	protected internal abstract void DrawFrame();
+	protected internal abstract void EndFrame();
+	protected internal abstract void PresentFrame();
 }

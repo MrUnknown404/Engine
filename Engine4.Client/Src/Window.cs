@@ -21,7 +21,7 @@ public unsafe class Window {
 
 		// https://github.com/glfw/glfw/issues/1398
 		// TODO looks like wayland requires a buffer to "draw" the window
-		// glfw.CreateWindowSurface();
+		// glfw.CreateWindowSurface
 	}
 
 	public void Show() => glfw.ShowWindow(handle);

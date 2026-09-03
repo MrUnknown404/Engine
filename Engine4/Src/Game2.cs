@@ -52,6 +52,7 @@ public abstract class Game2 {
 
 	protected abstract void Setup();
 	protected abstract void Update();
+	protected abstract void Render(float delta);
 
 	private void GameLoop() {
 		// TODO
@@ -67,12 +68,8 @@ public abstract class Game2 {
 			InternalUpdate();
 			Update();
 
-			float delta; // TODO
-
-			// if (CanRender) { // begin render, copy data, render
-			// 	CopyData(delta);
-			// 	Render();
-			// }
+			float delta = 0; // TODO
+			Render(delta);
 
 			Thread.Sleep(1); // TODO remove
 		}
