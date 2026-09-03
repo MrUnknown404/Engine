@@ -62,13 +62,9 @@ public abstract class GameClient : GameCore {
 	}
 
 	protected Renderer CreateRenderer(RenderTarget renderTarget, params RenderPass[] renderPasses) {
-		Renderer renderer;
-
-		if (renderTarget is ConsoleRenderTarget { UseVulkan: false, } consoleRenderTarget) {
-			renderer = new ConsoleRenderer(consoleRenderTarget, consoleGraphicsProvider ?? throw new Exception(), renderPasses); // TODO exception
-		} else {
-			renderer = new VulkanRenderer(renderTarget, vulkanGraphicsProvider ?? throw new Exception(), renderPasses); // TODO exception
-		}
+		Renderer renderer = renderTarget is ConsoleRenderTarget { UseVulkan: false, } consoleRenderTarget ?
+				new ConsoleRenderer(consoleRenderTarget, consoleGraphicsProvider ?? throw new Exception(), renderPasses) : // TODO exception
+				new VulkanRenderer(renderTarget, vulkanGraphicsProvider ?? throw new Exception(), renderPasses); // TODO exception
 
 		renderers.Add(renderer);
 		return renderer;
@@ -78,7 +74,7 @@ public abstract class GameClient : GameCore {
 		// TODO
 
 		if (IsGlfwEnabled) {
-			GLFW.SetErrorCallback(ErrorCallback); // TODO untested
+			GLFW.SetErrorCallback(ErrorCallback);
 			GLFW.Init();
 		}
 	}

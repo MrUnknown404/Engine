@@ -4,7 +4,7 @@ namespace Engine4.Client.Rendering;
 
 public abstract class Renderer {
 	public IGraphicsProvider GraphicsProvider { get; }
-	public List<RenderPass> RenderPasses { get; }
+	public List<RenderPass> RenderPasses { get; } // TODO make sure this supports adding/removing at runtime
 
 	protected RenderTarget RenderTarget { get; }
 

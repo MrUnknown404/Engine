@@ -1,6 +1,6 @@
 namespace Engine4.Utility.Compatability;
 
-public static class Linux {
+public static class Linux { // TODO call
 	internal static void Setup() { }
 	internal static void Cleanup() { }
 }
