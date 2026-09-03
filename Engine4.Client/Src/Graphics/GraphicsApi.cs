@@ -2,7 +2,6 @@ namespace Engine4.Client.Graphics;
 
 public enum GraphicsApi : byte {
 	None = 0,
-	OpenGL,
 	Vulkan,
-	Software,
+	Console,
 }

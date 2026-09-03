@@ -1,7 +1,7 @@
-using Engine4.Client.Graphics;
-
 namespace Engine4.Client.Rendering;
 
 public class ConsoleRenderTarget : RenderTarget {
-	public ConsoleRenderTarget(GraphicsApi graphicsApi, IGraphicsApiProvider graphicsProvider) : base(graphicsApi, graphicsProvider) { }
+	public bool UseVulkan { get; }
+
+	public ConsoleRenderTarget(bool useVulkan) => UseVulkan = useVulkan;
 }

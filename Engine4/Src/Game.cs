@@ -2,6 +2,7 @@ using Engine4.IO;
 
 namespace Engine4;
 
+[Obsolete]
 public abstract class Game {
 	public Engine Engine { get; }
 	public string Name { get; }

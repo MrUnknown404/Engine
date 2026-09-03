@@ -1,33 +1,33 @@
-using Engine4.Client.Graphics;
+using Silk.NET.GLFW;
 
 namespace Engine4.Client;
 
-public class Window {
-	// TODO should windows be comparable?
+// TODO glfwWindowShouldClose(window)
 
-	public GraphicsApi GraphicsApi { get; }
-	public bool ShouldClose { get; set; }
+public unsafe class Window {
+	private readonly Glfw glfw;
+	private readonly WindowHandle* handle;
 
-	public event TryCloseWindowDelegate? TryCloseWindowEvent;
+	public Window(Glfw glfw, string title, ushort width, ushort height) {
+		this.glfw = glfw;
 
-	public event Action? OnWindowClosedEvent;
+		// TODO way of setting hints? or just setting values once window is created
 
-	internal Window(GraphicsApi graphicsApi, string title, ushort width, ushort height) { GraphicsApi = graphicsApi; }
+		glfw.WindowHint(WindowHintClientApi.ClientApi, ClientApi.NoApi);
+		glfw.WindowHint(WindowHintBool.Decorated, true);
 
-	public void Hide() => throw new NotImplementedException(); // TODO
-	public void Show() => throw new NotImplementedException(); // TODO
+		handle = glfw.CreateWindow(width, height, title, null, null);
+		glfw.DefaultWindowHints(); // reset hints
 
-	public void RequestClose() {
-		bool shouldClose = true;
-		TryCloseWindowEvent?.Invoke(ref shouldClose);
-		if (shouldClose) { ShouldClose = true; }
+		// https://github.com/glfw/glfw/issues/1398
+		// TODO looks like wayland requires a buffer to "draw" the window
+		// glfw.CreateWindowSurface();
 	}
 
-	internal void Destroy() {
-		OnWindowClosedEvent?.Invoke();
+	public void Show() => glfw.ShowWindow(handle);
+	public void Hide() => glfw.HideWindow(handle);
 
+	private void Cleanup() {
 		// TODO
 	}
-
-	public delegate void TryCloseWindowDelegate(ref bool shouldClose);
 }

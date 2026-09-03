@@ -4,6 +4,9 @@ public abstract class Game2 {
 	public string Name { get; }
 	// TODO more properties
 
+	public ushort TargetFps { get; init; }
+	public ushort TargetUps { get; init; }
+
 	// lifecycle
 	public bool IsRunning { get; private set; }
 	private bool shouldShutdown;

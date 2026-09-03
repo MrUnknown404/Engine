@@ -4,10 +4,7 @@ namespace Engine4;
 
 // TODO logging
 
-public class EngineSettings {
-	public bool InitializeGLFW { get; }
-}
-
+[Obsolete]
 [MustDisposeResource]
 public sealed class Engine : IDisposable {
 	private static Engine? engineInstance;

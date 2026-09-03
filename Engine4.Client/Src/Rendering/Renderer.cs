@@ -3,15 +3,12 @@ using Engine4.Client.Graphics;
 namespace Engine4.Client.Rendering;
 
 public abstract class Renderer {
-	public GraphicsApi GraphicsApi { get; }
-
 	protected RenderTarget RenderTarget { get; }
-	protected IGraphicsApiProvider GraphicsProvider { get; }
+	protected IGraphicsProvider GraphicsProvider { get; }
 
 	public List<RenderPass> RenderPasses { get; }
 
-	protected Renderer(GraphicsApi graphicsApi, RenderTarget renderTarget, IGraphicsApiProvider graphicsProvider, params RenderPass[] renderPasses) {
-		GraphicsApi = graphicsApi;
+	protected Renderer(RenderTarget renderTarget, IGraphicsProvider graphicsProvider, params RenderPass[] renderPasses) {
 		RenderTarget = renderTarget;
 		GraphicsProvider = graphicsProvider;
 		RenderPasses = new(renderPasses);

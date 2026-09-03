@@ -1,9 +1,11 @@
 using Engine4.Client.Rendering;
 
-namespace Engine4.Client.Graphics.Software;
+namespace Engine4.Client.Graphics.Console;
 
-public class SoftwareRenderer : Renderer {
-	internal SoftwareRenderer(RenderTarget renderTarget, SoftwareGraphicsProvider graphicsProvider, params RenderPass[] renderPasses) : base(GraphicsApi.Software, renderTarget, graphicsProvider, renderPasses) { }
+public class ConsoleRenderer : Renderer {
+	// this'll need to disable regular console output
+
+	public ConsoleRenderer(ConsoleRenderTarget renderTarget, IGraphicsProvider graphicsProvider, params RenderPass[] renderPasses) : base(renderTarget, graphicsProvider, renderPasses) { }
 
 	public override bool BeginFrame() => throw new NotImplementedException(); // TODO
 	public override void UpdateBuffers(float delta) => throw new NotImplementedException(); // TODO

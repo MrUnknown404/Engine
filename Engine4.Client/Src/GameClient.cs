@@ -1,90 +1,94 @@
-using Engine4.Client.Graphics;
-using Engine4.Client.Graphics.OpenGL;
-using Engine4.Client.Graphics.Software;
+using Engine4.Client.Graphics.Console;
 using Engine4.Client.Graphics.Vulkan;
+using Engine4.Client.IO;
 using Engine4.Client.Rendering;
-using JetBrains.Annotations;
 
 namespace Engine4.Client;
 
-public abstract class GameClient : Game {
-	internal NoGraphicsProvider? NoneGraphicsProvider { get; private set; }
-	internal OpenGLGraphicsProvider? OpenGLGraphicsProvider { get; private set; }
-	internal VulkanGraphicsProvider? VulkanGraphicsProvider { get; private set; }
-	internal SoftwareGraphicsProvider? SoftwareGraphicsProvider { get; private set; }
+public abstract class GameClient : Game2 {
+	public bool IsGlfwEnabled { get; } // allows windows
+	public bool IsVulkanEnabled { get; } // allows window/image render target
 
-	private List<Window> Windows { get; } = new(); // TODO cleanup
-	private List<Renderer> Renderers { get; } = new(); // TODO cleanup
+	private readonly Lazy<Action>? lazyPollEvents;
+	protected sealed override Action? PollEvents => lazyPollEvents?.Value ?? null;
 
-	protected readonly IReadOnlyList<Window> ReadonlyWindows;
+	// windowing & graphics
+	private GlfwHandler? glfwHandler;
+	private VulkanProvider? vulkanGraphicsProvider;
+	private readonly ConsoleGraphicsProvider consoleGraphicsProvider = new();
 
-	public GraphicsApis EnabledGraphicsApis { get; }
+	protected GameClient(string[] args, string name, bool useGlfw, bool useVulkan) : base(args, name) {
+		IsGlfwEnabled = useGlfw;
+		IsVulkanEnabled = useVulkan;
 
-	protected GameClient(Engine engine, string name, GraphicsApis enabledGraphicsApis) : base(engine, name, null) {
-		EnabledGraphicsApis = enabledGraphicsApis;
-		ReadonlyWindows = Windows.AsReadOnly();
+		if (useGlfw) { lazyPollEvents = new(() => (glfwHandler ?? throw new Exception()).Glfw.PollEvents); } // TODO exception
 	}
 
-	protected override void Update() { }
-
-	protected override void InternalSetup() { SetupGraphicsApis(); }
-
-	private void SetupGraphicsApis() {
-		if (EnabledGraphicsApis.HasFlagFast(GraphicsApis.OpenGL)) { OpenGLGraphicsProvider = new(); }
-		if (EnabledGraphicsApis.HasFlagFast(GraphicsApis.Vulkan)) { VulkanGraphicsProvider = new(); }
-		if (EnabledGraphicsApis.HasFlagFast(GraphicsApis.Software)) { SoftwareGraphicsProvider = new(); }
-
-		// TODO more
+	protected sealed override void InternalUpdate() {
+		base.InternalUpdate();
+		// TODO
 	}
 
-	[MustUseReturnValue]
-	protected Window CreateWindow(GraphicsApi graphicsApi, string title, ushort width, ushort height) {
-		// if (!InitializeOpenTK) { throw new Engine4Exception("Cannot create a new window if OpenTK is not initialized"); } TODO
+	protected Window CreateWindow(string title, ushort width, ushort height) {
+		// TODO
 
-		Window window = new(graphicsApi, title, width, height);
-		Windows.Add(window);
-		return window;
+		if (!IsGlfwEnabled) { throw new Exception(); } // TODO exception
+
+		Window window = new((glfwHandler ?? throw new Exception()).Glfw, title, width, height); // TODO exception
+		return window; // TODO cleanup
 	}
 
-	[MustUseReturnValue]
 	protected Renderer CreateRenderer(RenderTarget renderTarget, params RenderPass[] renderPasses) {
-		// TODO validate target and passes?
+		Renderer renderer;
 
-		Renderer renderer = renderTarget.GraphicsApi switch {
-				GraphicsApi.None => new EmptyRenderer(renderTarget, renderTarget.GraphicsProvider as NoGraphicsProvider ?? throw new Exception()), // TODO exception
-				GraphicsApi.OpenGL => new OpenGLRenderer(renderTarget, renderTarget.GraphicsProvider as OpenGLGraphicsProvider ?? throw new Exception(), renderPasses), // TODO exception
-				GraphicsApi.Vulkan => new VulkanRenderer(renderTarget, renderTarget.GraphicsProvider as VulkanGraphicsProvider ?? throw new Exception(), renderPasses), // TODO exception
-				GraphicsApi.Software => new SoftwareRenderer(renderTarget, renderTarget.GraphicsProvider as SoftwareGraphicsProvider ?? throw new Exception(), renderPasses), // TODO exception
-				_ => throw new ArgumentOutOfRangeException(),
-		};
-
-		Renderers.Add(renderer);
-
-		return renderer;
-	}
-
-	protected override void TryFreeResources() {
-		// windows
-		for (int i = 0; i < Windows.Count; i++) {
-			Window window = Windows[i];
-
-			if (window.ShouldClose) {
-				// TODO check if window has an associated renderer. clean that first
-
-				window.Destroy();
-				Windows.RemoveAt(i);
-				i--;
-			}
+		if (renderTarget is ConsoleRenderTarget consoleRenderTarget) {
+			// console (either vulkan or direct writing)
+			renderer = new ConsoleRenderer(consoleRenderTarget, consoleGraphicsProvider ?? throw new Exception(), renderPasses); // TODO exception
+		} else {
+			// vulkan window
+			renderer = new VulkanRenderer(renderTarget, vulkanGraphicsProvider ?? throw new Exception(), renderPasses); // TODO exception
 		}
+
+		// TODO
+
+		return renderer; // TODO cleanup
 	}
 
-	protected override void Cleanup() {
-		// TODO cleanup everything
+	protected sealed override void SetupInternals() {
+		base.SetupInternals();
 
-		// TODO cleanup windows
+		SetupWindowing();
+		SetupGraphics();
 
-		OpenGLGraphicsProvider?.Cleanup();
-		VulkanGraphicsProvider?.Cleanup();
-		SoftwareGraphicsProvider?.Cleanup();
+		// TODO
+	}
+
+	private void SetupWindowing() {
+		// TODO
+
+		if (IsGlfwEnabled) { glfwHandler = new(); }
+	}
+
+	private void SetupGraphics() {
+		// TODO
+
+		if (IsVulkanEnabled) { SetupVulkan(); }
+	}
+
+	private void SetupVulkan() {
+		// TODO
+
+		vulkanGraphicsProvider = new();
+	}
+
+	protected sealed override void InternalCleanup() {
+		base.InternalCleanup();
+
+		if (glfwHandler != null) {
+			glfwHandler.Cleanup();
+			glfwHandler = null;
+		}
+
+		// TODO
 	}
 }
