@@ -2,12 +2,8 @@ using Engine4.Client.Graphics;
 using Engine4.Client.Graphics.OpenGL;
 using Engine4.Client.Graphics.Software;
 using Engine4.Client.Graphics.Vulkan;
-using Engine4.Client.IO;
 using Engine4.Client.Rendering;
-using Engine4.Exceptions;
 using JetBrains.Annotations;
-using OpenTK.Platform;
-using GraphicsApi = Engine4.Client.Graphics.GraphicsApi;
 
 namespace Engine4.Client;
 
@@ -23,31 +19,15 @@ public abstract class GameClient : Game {
 	protected readonly IReadOnlyList<Window> ReadonlyWindows;
 
 	public GraphicsApis EnabledGraphicsApis { get; }
-	public bool InitializeOpenTK { get; }
 
-	protected GameClient(Engine engine, string name, GraphicsApis enabledGraphicsApis, bool initializeOpenTK) : base(engine, name, initializeOpenTK ? new OpenTKEventHandler() : null) {
+	protected GameClient(Engine engine, string name, GraphicsApis enabledGraphicsApis) : base(engine, name, null) {
 		EnabledGraphicsApis = enabledGraphicsApis;
-		InitializeOpenTK = initializeOpenTK;
 		ReadonlyWindows = Windows.AsReadOnly();
 	}
 
 	protected override void Update() { }
 
-	protected override void InternalSetup() {
-		if (InitializeOpenTK) { SetupToolkit(Name); }
-		SetupGraphicsApis();
-	}
-
-	private void SetupToolkit(string appName) {
-		ToolkitFlags toolkitFlags = ToolkitFlags.None;
-
-		if (EnabledGraphicsApis.HasFlagFast(GraphicsApis.OpenGL)) { toolkitFlags |= ToolkitFlags.EnableOpenGL; }
-		if (EnabledGraphicsApis.HasFlagFast(GraphicsApis.Vulkan)) { toolkitFlags |= ToolkitFlags.EnableVulkan; }
-
-		Toolkit.Event.EventRaised += OpenTKEventHandler.OnOpenTkEvent;
-
-		Toolkit.Init(new() { ApplicationName = appName, FeatureFlags = toolkitFlags, Logger = new OpenTkLogger(), });
-	}
+	protected override void InternalSetup() { SetupGraphicsApis(); }
 
 	private void SetupGraphicsApis() {
 		if (EnabledGraphicsApis.HasFlagFast(GraphicsApis.OpenGL)) { OpenGLGraphicsProvider = new(); }
@@ -59,18 +39,10 @@ public abstract class GameClient : Game {
 
 	[MustUseReturnValue]
 	protected Window CreateWindow(GraphicsApi graphicsApi, string title, ushort width, ushort height) {
-		if (!InitializeOpenTK) { throw new Engine4Exception("Cannot create a new window if OpenTK is not initialized"); }
+		// if (!InitializeOpenTK) { throw new Engine4Exception("Cannot create a new window if OpenTK is not initialized"); } TODO
 
-		Window window = new(graphicsApi, graphicsApi switch {
-				GraphicsApi.None => new NoGraphicsApiHints(), // TODO allow user control
-				GraphicsApi.OpenGL => new OpenGLGraphicsApiHints(), // ^
-				GraphicsApi.Vulkan => new VulkanGraphicsApiHints(), // ^
-				GraphicsApi.Software => new SoftwareGraphicsApiHints(), // ^
-				_ => throw new ArgumentOutOfRangeException(nameof(graphicsApi), graphicsApi, null),
-		}, title, width, height);
-
+		Window window = new(graphicsApi, title, width, height);
 		Windows.Add(window);
-
 		return window;
 	}
 
@@ -109,12 +81,7 @@ public abstract class GameClient : Game {
 	protected override void Cleanup() {
 		// TODO cleanup everything
 
-		if (InitializeOpenTK) {
-			// TODO cleanup windows
-
-			Toolkit.Event.EventRaised -= OpenTKEventHandler.OnOpenTkEvent;
-			Toolkit.Uninit();
-		}
+		// TODO cleanup windows
 
 		OpenGLGraphicsProvider?.Cleanup();
 		VulkanGraphicsProvider?.Cleanup();

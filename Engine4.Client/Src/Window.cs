@@ -1,5 +1,4 @@
-using OpenTK.Platform;
-using GraphicsApi = Engine4.Client.Graphics.GraphicsApi;
+using Engine4.Client.Graphics;
 
 namespace Engine4.Client;
 
@@ -9,23 +8,14 @@ public class Window {
 	public GraphicsApi GraphicsApi { get; }
 	public bool ShouldClose { get; set; }
 
-	private readonly WindowHandle handle;
-
 	public event TryCloseWindowDelegate? TryCloseWindowEvent;
 
 	public event Action? OnWindowClosedEvent;
 
-	internal Window(GraphicsApi graphicsApi, GraphicsApiHints graphicsApiHints, string title, ushort width, ushort height) {
-		GraphicsApi = graphicsApi;
-		handle = Toolkit.Window.Create(graphicsApiHints);
-		handle.UserData = this;
+	internal Window(GraphicsApi graphicsApi, string title, ushort width, ushort height) { GraphicsApi = graphicsApi; }
 
-		Toolkit.Window.SetTitle(handle, title);
-		Toolkit.Window.SetSize(handle, new(width, height));
-	}
-
-	public void Hide() => Toolkit.Window.SetMode(handle, WindowMode.Hidden);
-	public void Show() => Toolkit.Window.SetMode(handle, WindowMode.Normal);
+	public void Hide() => throw new NotImplementedException(); // TODO
+	public void Show() => throw new NotImplementedException(); // TODO
 
 	public void RequestClose() {
 		bool shouldClose = true;
@@ -36,7 +26,7 @@ public class Window {
 	internal void Destroy() {
 		OnWindowClosedEvent?.Invoke();
 
-		Toolkit.Window.Destroy(handle);
+		// TODO
 	}
 
 	public delegate void TryCloseWindowDelegate(ref bool shouldClose);
