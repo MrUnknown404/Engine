@@ -1,30 +1,40 @@
 using Engine4.Client.Graphics.Console;
 using Engine4.Client.Graphics.Vulkan;
-using Engine4.Client.IO;
 using Engine4.Client.Rendering;
+using Engine4.Client.Utility;
+using Engine4.Utility.Versions;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace Engine4.Client;
 
-public abstract class GameClient : Game2 {
-	public bool IsGlfwEnabled { get; } // allows windows
-	public bool IsVulkanEnabled { get; } // allows window/image render target
+public abstract class GameClient : GameCore {
+	private readonly GameStartupFlags startupFlags;
 
-	private readonly Lazy<Action>? lazyPollEvents;
-	protected sealed override Action? PollEvents => lazyPollEvents?.Value ?? null;
+	public bool IsGlfwEnabled => startupFlags.HasFlagFast(GameStartupFlags.UseGlfw);
+	public bool IsVulkanEnabled => startupFlags.HasFlagFast(GameStartupFlags.UseVulkan);
+
+	protected sealed override Action? PollEvents { get; }
 
 	// windowing & graphics
 	private readonly List<Window> windows = new(); // TODO cleanup. allow removal
 	private readonly List<Renderer> renderers = new(); // TODO cleanup. allow removal
 
-	private GlfwHandler? glfwHandler;
 	private VulkanProvider? vulkanGraphicsProvider;
 	private readonly ConsoleGraphicsProvider consoleGraphicsProvider = new();
 
-	protected GameClient(string[] args, string name, bool useGlfw, bool useVulkan) : base(args, name) {
-		IsGlfwEnabled = useGlfw;
-		IsVulkanEnabled = useVulkan;
+	protected GameClient(string name, IPackableVersion version, GameStartupFlags startupFlags) : base(name, version) {
+		this.startupFlags = startupFlags;
 
-		if (useGlfw) { lazyPollEvents = new(() => (glfwHandler ?? throw new Exception()).Glfw.PollEvents); } // TODO exception
+		if (IsGlfwEnabled) { PollEvents = GLFW.PollEvents; }
+	}
+
+	protected sealed override void SetupInternals() {
+		base.SetupInternals();
+
+		SetupWindowing();
+		SetupGraphics();
+
+		// TODO
 	}
 
 	protected sealed override void InternalUpdate() {
@@ -46,7 +56,7 @@ public abstract class GameClient : Game2 {
 	protected Window CreateWindow(string title, ushort width, ushort height) {
 		if (!IsGlfwEnabled) { throw new Exception(); } // TODO exception
 
-		Window window = new((glfwHandler ?? throw new Exception()).Glfw, title, width, height); // TODO exception
+		Window window = new(title, width, height); // TODO exception
 		windows.Add(window);
 		return window;
 	}
@@ -64,19 +74,13 @@ public abstract class GameClient : Game2 {
 		return renderer;
 	}
 
-	protected sealed override void SetupInternals() {
-		base.SetupInternals();
-
-		SetupWindowing();
-		SetupGraphics();
-
-		// TODO
-	}
-
 	private void SetupWindowing() {
 		// TODO
 
-		if (IsGlfwEnabled) { glfwHandler = new(); }
+		if (IsGlfwEnabled) {
+			GLFW.SetErrorCallback(ErrorCallback); // TODO untested
+			GLFW.Init();
+		}
 	}
 
 	private void SetupGraphics() {
@@ -94,11 +98,13 @@ public abstract class GameClient : Game2 {
 	protected sealed override void InternalCleanup() {
 		base.InternalCleanup();
 
-		if (glfwHandler != null) {
-			glfwHandler.Cleanup();
-			glfwHandler = null;
+		if (IsGlfwEnabled) {
+			GLFW.Terminate();
+			GLFW.SetErrorCallback(null);
 		}
 
 		// TODO
 	}
+
+	private static void ErrorCallback(ErrorCode error, string description) => Console.WriteLine($"[GLFW] [{error}] {description}"); // TODO log
 }

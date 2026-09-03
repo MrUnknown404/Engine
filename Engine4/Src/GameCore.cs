@@ -1,11 +1,18 @@
+using Engine4.Utility.Versions;
+
 namespace Engine4;
 
-public abstract class Game2 {
+public abstract class GameCore {
 	public string Name { get; }
+	public IPackableVersion Version { get; }
 	// TODO more properties
 
 	public ushort TargetFps { get; init; }
 	public ushort TargetUps { get; init; }
+	public byte MaxFrameSkip { get; init; } = 5;
+
+	public ulong UpdateCount { get; private set; }
+	public ulong FrameCount { get; private set; }
 
 	// lifecycle
 	public bool IsRunning { get; private set; }
@@ -15,15 +22,21 @@ public abstract class Game2 {
 
 	public event Action? OnSetupStartEvent;
 	public event Action? OnSetupDoneEvent;
+	public event Action? OnExitEvent;
 
 	public event RequestShutdownDelegate? RequestShutdownEvent;
 
-	protected Game2(string[] args, string name) => Name = name;
+	protected GameCore(string name, IPackableVersion version) {
+		Name = name;
+		Version = version;
+	}
 
-	public void Start() {
+	public void Start(string[] args) {
 		// setup
 		InitialSetup();
 		Console.WriteLine("setup");
+
+		ProcessArgs(args);
 
 		OnSetupStartEvent?.Invoke();
 		SetupInternals();
@@ -44,6 +57,10 @@ public abstract class Game2 {
 	private void InitialSetup() {
 		// TODO logging
 		// TODO thread name
+	}
+
+	protected virtual void ProcessArgs(string[] args) {
+		// TODO
 	}
 
 	protected virtual void SetupInternals() {
@@ -94,6 +111,8 @@ public abstract class Game2 {
 
 	private void OnExit() {
 		// TODO
+
+		OnExitEvent?.Invoke();
 
 		InternalCleanup();
 		Cleanup();

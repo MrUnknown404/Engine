@@ -1,4 +1,4 @@
-namespace Engine4.Exceptions;
+namespace Engine4.Utility.Exceptions;
 
 public class Engine4Exception : Exception {
 	public Engine4Exception() { }

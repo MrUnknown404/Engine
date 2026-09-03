@@ -1,3 +1,5 @@
+using Engine4.Client.Graphics.Vulkan.Objects;
+
 namespace Engine4.Client.Graphics.Vulkan;
 
 // TODO this should handle the lifetime of all graphics resources. this should handle cleanup.
@@ -6,7 +8,7 @@ namespace Engine4.Client.Graphics.Vulkan;
 public class VulkanProvider : IGraphicsProvider {
 	internal VulkanProvider() { }
 
-	public GraphicsBuffer GetBuffer(ulong size) => throw new NotImplementedException(); // TODO
+	public VulkanBuffer GetBuffer(ulong size) => throw new NotImplementedException(); // TODO
 
 	public void Cleanup() { } // TODO cleanup
 }
