@@ -1,12 +1,16 @@
 using Engine4.Client.Graphics.Console;
 using Engine4.Client.Graphics.Vulkan;
 using Engine4.Client.Rendering;
+using Engine4.IO;
 using Engine4.Utility.Versions;
+using NLog;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace Engine4.Client;
 
 public abstract class GameClient : GameCore {
+	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Game);
+
 	public bool IsGlfwEnabled { get; private set; }
 	public bool IsVulkanEnabled { get; private set; }
 
@@ -93,8 +97,13 @@ public abstract class GameClient : GameCore {
 			GLFW.SetErrorCallback(null);
 		}
 
+		if (IsVulkanEnabled) {
+			// TODO cleanup vulkan
+		}
+
 		// TODO
 	}
 
-	private static void ErrorCallback(ErrorCode error, string description) => Console.WriteLine($"[GLFW] [{error}] {description}"); // TODO log
+	private static readonly Logger GlfwLogger = LoggerH.GetLogger(LogSource.Glfw);
+	private static void ErrorCallback(ErrorCode error, string description) => GlfwLogger.Error($"[{error}] {description}");
 }

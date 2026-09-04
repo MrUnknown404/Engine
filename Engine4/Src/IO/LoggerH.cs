@@ -1,7 +1,6 @@
 using System.Text;
 using JetBrains.Annotations;
 using NLog;
-using NLog.Time;
 
 namespace Engine4.IO;
 
@@ -20,15 +19,14 @@ public static class LoggerH {
 	internal static void Setup(LoggingSettings settings) {
 		if (isSetup) { throw new Exception(); } // TODO exception
 
-		// TODO https://github.com/NLog/NLog/wiki/Tutorial#5-remember-to-flush
-
 		Directory.CreateDirectory(settings.LogFileDirectory);
-
-		if (settings.TimeSource != null) { TimeSource.Current = settings.TimeSource; }
 
 		AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
 
-		LogManager.Setup().LoadConfiguration(builder => {
+		LogManager.Setup().SetupLogFactory(builder => {
+			if (settings.TimeSource != null) { builder.SetTimeSource(settings.TimeSource); }
+			builder.AddCallSiteHiddenClassType(typeof(LoggerH)); // not sure if this will break anything below
+		}).LoadConfiguration(builder => {
 			string? layout = settings.CustomLayout;
 			if (layout == null) {
 				StringBuilder withoutSource = new();
@@ -91,7 +89,7 @@ public static class LoggerH {
 		return logger;
 	}
 
-	private static void OnUnhandledException(object _, UnhandledExceptionEventArgs e) {
+	private static void OnUnhandledException(object _, UnhandledExceptionEventArgs e) { // untested
 		LogManager.GetCurrentClassLogger().Error(e.ExceptionObject as Exception, "Unhandled Exception"); // should i store current class logger?
 		LogManager.Flush();
 	}
