@@ -1,17 +1,14 @@
 using Engine4.Client.Graphics.Console;
 using Engine4.Client.Graphics.Vulkan;
 using Engine4.Client.Rendering;
-using Engine4.Client.Utility;
 using Engine4.Utility.Versions;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace Engine4.Client;
 
 public abstract class GameClient : GameCore {
-	private readonly GameStartupFlags startupFlags;
-
-	public bool IsGlfwEnabled => startupFlags.HasFlagFast(GameStartupFlags.UseGlfw);
-	public bool IsVulkanEnabled => startupFlags.HasFlagFast(GameStartupFlags.UseVulkan);
+	public bool IsGlfwEnabled { get; private set; }
+	public bool IsVulkanEnabled { get; private set; }
 
 	protected sealed override Action? PollEvents { get; }
 
@@ -22,17 +19,22 @@ public abstract class GameClient : GameCore {
 	private VulkanProvider? vulkanGraphicsProvider;
 	private readonly ConsoleGraphicsProvider consoleGraphicsProvider = new();
 
-	protected GameClient(string name, IPackableVersion version, GameStartupFlags startupFlags) : base(name, version) {
-		this.startupFlags = startupFlags;
-
+	protected GameClient(string name, IPackableVersion version) : base(name, version) {
 		if (IsGlfwEnabled) { PollEvents = GLFW.PollEvents; }
 	}
 
-	protected sealed override void SetupInternals() {
-		base.SetupInternals();
+	protected sealed override void SetupInternals(StartupSettings settings) {
+		base.SetupInternals(settings);
 
-		SetupWindowing();
-		SetupGraphics();
+		if (settings.LoadGlfw) {
+			IsGlfwEnabled = true;
+			SetupWindowing();
+		}
+
+		if (settings.LoadVulkan) {
+			IsVulkanEnabled = true;
+			SetupVulkan();
+		}
 
 		// TODO
 	}
@@ -73,16 +75,8 @@ public abstract class GameClient : GameCore {
 	private void SetupWindowing() {
 		// TODO
 
-		if (IsGlfwEnabled) {
-			GLFW.SetErrorCallback(ErrorCallback);
-			GLFW.Init();
-		}
-	}
-
-	private void SetupGraphics() {
-		// TODO
-
-		if (IsVulkanEnabled) { SetupVulkan(); }
+		GLFW.SetErrorCallback(ErrorCallback);
+		GLFW.Init();
 	}
 
 	private void SetupVulkan() {

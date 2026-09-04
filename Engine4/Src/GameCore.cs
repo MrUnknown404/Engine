@@ -1,6 +1,9 @@
+using Engine4.IO;
 using Engine4.Utility.Versions;
 
 namespace Engine4;
+
+// TODO logging
 
 public abstract class GameCore {
 	public string Name { get; }
@@ -31,15 +34,15 @@ public abstract class GameCore {
 		Version = version;
 	}
 
-	public void Start(string[] args) {
+	public void Start(string[] args, StartupSettings settings) {
 		// setup
-		InitialSetup();
+		InitialSetup(settings);
 		Console.WriteLine("setup");
 
 		ProcessArgs(args);
 
 		OnSetupStartEvent?.Invoke();
-		SetupInternals();
+		SetupInternals(settings);
 
 		Setup();
 
@@ -54,16 +57,16 @@ public abstract class GameCore {
 		Console.WriteLine("exit");
 	}
 
-	private void InitialSetup() {
-		// TODO logging
-		// TODO thread name
+	private void InitialSetup(StartupSettings startupSettings) {
+		Thread.CurrentThread.Name = startupSettings.MainThreadName;
+		LoggerH.Setup(startupSettings.LoggingSettings);
 	}
 
 	protected virtual void ProcessArgs(string[] args) {
 		// TODO
 	}
 
-	protected virtual void SetupInternals() {
+	protected virtual void SetupInternals(StartupSettings settings) {
 		// TODO
 	}
 
@@ -109,13 +112,14 @@ public abstract class GameCore {
 		if (shouldShutdown) { this.shouldShutdown = true; }
 	}
 
+	// TODO make sure this is called on an unhandled exit (ie, exceptions). see if this is helpful: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/10.0/sigterm-signal-handler
 	private void OnExit() {
-		// TODO
-
 		OnExitEvent?.Invoke();
 
 		InternalCleanup();
 		Cleanup();
+
+		LoggerH.Shutdown();
 	}
 
 	protected virtual void InternalCleanup() {
