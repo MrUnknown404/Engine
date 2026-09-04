@@ -3,6 +3,8 @@ using Engine4.Client.Graphics;
 namespace Engine4.Client.Rendering;
 
 public abstract class Renderer {
+	// TODO frame count
+
 	public IGraphicsProvider GraphicsProvider { get; }
 	public List<RenderPass> RenderPasses { get; } // TODO make sure this supports adding/removing at runtime
 

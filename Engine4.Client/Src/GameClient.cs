@@ -31,11 +31,13 @@ public abstract class GameClient : GameCore {
 		base.SetupInternals(settings);
 
 		if (settings.LoadGlfw) {
+			Logger.Trace("Loading Glfw...");
 			IsGlfwEnabled = true;
-			SetupWindowing();
+			SetupGlfw();
 		}
 
 		if (settings.LoadVulkan) {
+			Logger.Trace("Loading Vulkan...");
 			IsVulkanEnabled = true;
 			SetupVulkan();
 		}
@@ -62,12 +64,15 @@ public abstract class GameClient : GameCore {
 	protected Window CreateWindow(string title, ushort width, ushort height) {
 		if (!IsGlfwEnabled) { throw new Exception(); } // TODO exception
 
+		Logger.Debug("Creating window...");
 		Window window = new(title, width, height); // TODO exception
+
 		windows.Add(window);
 		return window;
 	}
 
 	protected Renderer CreateRenderer(RenderTarget renderTarget, params RenderPass[] renderPasses) {
+		Logger.Debug("Creating renderer...");
 		Renderer renderer = renderTarget is ConsoleRenderTarget { UseVulkan: false, } consoleRenderTarget ?
 				new ConsoleRenderer(consoleRenderTarget, consoleGraphicsProvider ?? throw new Exception(), renderPasses) : // TODO exception
 				new VulkanRenderer(renderTarget, vulkanGraphicsProvider ?? throw new Exception(), renderPasses); // TODO exception
@@ -76,7 +81,7 @@ public abstract class GameClient : GameCore {
 		return renderer;
 	}
 
-	private void SetupWindowing() {
+	private void SetupGlfw() {
 		// TODO
 
 		GLFW.SetErrorCallback(ErrorCallback);
@@ -93,12 +98,18 @@ public abstract class GameClient : GameCore {
 		base.InternalCleanup();
 
 		if (IsGlfwEnabled) {
+			Logger.Trace("Cleaning up Glfw");
+
 			GLFW.Terminate();
 			GLFW.SetErrorCallback(null);
 		}
 
 		if (IsVulkanEnabled) {
-			// TODO cleanup vulkan
+			Logger.Trace("Cleaning up Vulkan");
+
+			if (vulkanGraphicsProvider == null) { throw new Exception(); } // TODO exception
+
+			vulkanGraphicsProvider.Cleanup();
 		}
 
 		// TODO

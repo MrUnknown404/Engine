@@ -6,14 +6,13 @@ namespace Engine4.Client;
 public unsafe class Window {
 	private readonly GlfwWindow* glfwWindow;
 
-	public Window(string title, ushort width, ushort height) {
+	internal Window(string title, ushort width, ushort height) {
 		// TODO way of setting hints? or just setting values once window is created
 
 		GLFW.WindowHint(WindowHintClientApi.ClientApi, ClientApi.NoApi);
 		GLFW.WindowHint(WindowHintBool.Decorated, true);
 
 		glfwWindow = GLFW.CreateWindow(width, height, title, null, null);
-
 		GLFW.DefaultWindowHints(); // reset hints
 
 		// https://github.com/glfw/glfw/issues/1398

@@ -5,7 +5,7 @@ using JetBrains.Annotations;
 
 namespace Engine4.Client.Graphics.Console;
 
-public class ConsoleRenderer : Renderer {
+public sealed class ConsoleRenderer : Renderer {
 	// TODO this'll need to disable regular console output
 
 	public char[,] Buffer { get; private set; } // TODO double buffer?
@@ -14,7 +14,7 @@ public class ConsoleRenderer : Renderer {
 
 	private readonly ConsoleRenderTarget renderTarget;
 
-	public ConsoleRenderer(ConsoleRenderTarget renderTarget, IGraphicsProvider graphicsProvider, params RenderPass[] renderPasses) : base(renderTarget, graphicsProvider, renderPasses) {
+	internal ConsoleRenderer(ConsoleRenderTarget renderTarget, IGraphicsProvider graphicsProvider, params RenderPass[] renderPasses) : base(renderTarget, graphicsProvider, renderPasses) {
 		this.renderTarget = renderTarget;
 		Width = (ushort)System.Console.BufferWidth; // TODO these may update!
 		Height = (ushort)System.Console.BufferHeight;

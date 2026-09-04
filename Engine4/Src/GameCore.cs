@@ -1,21 +1,23 @@
+using System.Diagnostics.CodeAnalysis;
 using Engine4.IO;
 using Engine4.Utility.Versions;
+using NLog;
 
 namespace Engine4;
 
-// TODO logging
+// TODO print engine/game details
 
 public abstract class GameCore {
+	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
+
 	public string Name { get; }
 	public IPackableVersion Version { get; }
-	// TODO more properties
 
 	public ushort TargetFps { get; init; }
 	public ushort TargetUps { get; init; }
 	public byte MaxFrameSkip { get; init; } = 5;
 
 	public ulong UpdateCount { get; private set; }
-	public ulong FrameCount { get; private set; }
 
 	// lifecycle
 	public bool IsRunning { get; private set; }
@@ -23,9 +25,11 @@ public abstract class GameCore {
 
 	protected abstract Action? PollEvents { get; }
 
+	/// <summary> Called after internal have been set up but before <see cref="SetupGame"/> </summary>
 	public event Action? OnSetupStartEvent;
+	/// <summary> Called when all setup is done </summary>
 	public event Action? OnSetupDoneEvent;
-	public event Action? OnExitEvent;
+	public event Action? OnShutdownEvent;
 
 	public event RequestShutdownDelegate? RequestShutdownEvent;
 
@@ -35,26 +39,36 @@ public abstract class GameCore {
 	}
 
 	public void Start(string[] args, StartupSettings settings) {
-		// setup
-		InitialSetup(settings);
-		Console.WriteLine("setup");
+		// initial setup. logging is not set up yet
+		InitialSetup(settings); // logging exists beyond this point
 
+		Logger.Info("Hello World!");
+		Logger.Info("Engine starting...");
+
+		Logger.Trace("Processing args...");
 		ProcessArgs(args);
 
-		OnSetupStartEvent?.Invoke();
+		// setup
+		Logger.Debug("Setting up internals...");
 		SetupInternals(settings);
 
-		Setup();
+		Logger.Trace($"Invoking {nameof(OnSetupStartEvent)}s...");
+		OnSetupStartEvent?.Invoke();
 
+		Logger.Debug("Setting up game...");
+		SetupGame();
+
+		Logger.Trace($"Invoking {nameof(OnSetupDoneEvent)}s...");
 		OnSetupDoneEvent?.Invoke();
-		Console.WriteLine("done");
+
+		Logger.Info("Setup done!");
 
 		// loop
+		Logger.Debug("Entering gameloop");
 		GameLoop();
 
 		// exit
-		OnExit();
-		Console.WriteLine("exit");
+		Shutdown();
 	}
 
 	private void InitialSetup(StartupSettings startupSettings) {
@@ -70,14 +84,12 @@ public abstract class GameCore {
 		// TODO
 	}
 
-	protected abstract void Setup();
+	protected abstract void SetupGame();
 	protected abstract void Update();
 	protected abstract void Render(float delta);
 
 	private void GameLoop() {
-		// TODO
-
-		Console.WriteLine("in loop");
+		Logger.Trace("Starting gameloop...");
 
 		IsRunning = true;
 		while (IsRunning) {
@@ -87,6 +99,7 @@ public abstract class GameCore {
 
 			InternalUpdate();
 			Update();
+			UpdateCount++;
 
 			float delta = 0; // TODO
 			Render(delta);
@@ -113,13 +126,25 @@ public abstract class GameCore {
 	}
 
 	// TODO make sure this is called on an unhandled exit (ie, exceptions). see if this is helpful: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/10.0/sigterm-signal-handler
-	private void OnExit() {
-		OnExitEvent?.Invoke();
+	[DoesNotReturn]
+	private void Shutdown() {
+		Logger.Info("Shutting down...");
 
-		InternalCleanup();
+		Logger.Trace($"Invoking {nameof(OnShutdownEvent)}s...");
+		OnShutdownEvent?.Invoke();
+
+		Logger.Debug("Cleaning up everything...");
+		Logger.Trace("Cleaning up the game...");
 		Cleanup();
 
+		Logger.Trace("Cleaning up internals...");
+		InternalCleanup();
+
+		Logger.Info("Logger shutting down... Goodbye!");
 		LoggerH.Shutdown();
+
+		// TODO exit
+		Environment.Exit(0);
 	}
 
 	protected virtual void InternalCleanup() {
