@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Engine4.IO;
+using Engine4.Utility.Compatability;
 using Engine4.Utility.Versions;
 using NLog;
 
@@ -29,6 +30,7 @@ public abstract class GameCore {
 	public event Action? OnSetupStartEvent;
 	/// <summary> Called when all setup is done </summary>
 	public event Action? OnSetupDoneEvent;
+	/// <summary> Called on shutdown before anything is cleaned up </summary>
 	public event Action? OnShutdownEvent;
 
 	public event RequestShutdownDelegate? RequestShutdownEvent;
@@ -74,14 +76,20 @@ public abstract class GameCore {
 	private void InitialSetup(StartupSettings startupSettings) {
 		Thread.CurrentThread.Name = startupSettings.MainThreadName;
 		LoggerH.Setup(startupSettings.LoggingSettings);
+
+#if OS_WINDOWS
+		Windows.Setup();
+#elif OS_LINUX
+		Linux.Setup();
+#endif
 	}
 
 	protected virtual void ProcessArgs(string[] args) {
-		// TODO
+		// TODO process args
 	}
 
 	protected virtual void SetupInternals(StartupSettings settings) {
-		// TODO
+		// TODO setup core internals
 	}
 
 	protected abstract void SetupGame();
@@ -101,18 +109,16 @@ public abstract class GameCore {
 			Update();
 			UpdateCount++;
 
-			float delta = 0; // TODO
+			float delta = 0; // TODO delta
 			Render(delta);
 
-			Thread.Sleep(1); // TODO remove
+			Thread.Sleep(1); // TODO remove sleep
 		}
 
 		IsRunning = false;
 	}
 
-	protected virtual void InternalUpdate() {
-		// TODO
-	}
+	protected virtual void InternalUpdate() { }
 
 	public void RequestShutdown(bool force) {
 		if (force) {
@@ -143,12 +149,17 @@ public abstract class GameCore {
 		Logger.Info("Logger shutting down... Goodbye!");
 		LoggerH.Shutdown();
 
-		// TODO exit
 		Environment.Exit(0);
 	}
 
 	protected virtual void InternalCleanup() {
-		// TODO
+		// TODO internal cleanup
+
+#if OS_WINDOWS
+		Windows.Cleanup();
+#elif OS_LINUX
+		Linux.Cleanup();
+#endif
 	}
 
 	protected abstract void Cleanup();
