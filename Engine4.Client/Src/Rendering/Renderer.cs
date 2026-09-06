@@ -3,12 +3,11 @@ using Engine4.Client.Graphics;
 namespace Engine4.Client.Rendering;
 
 public abstract class Renderer {
-	// TODO frame count
-
 	public IGraphicsProvider GraphicsProvider { get; }
-	public List<RenderPass> RenderPasses { get; } // TODO make sure this supports adding/removing at runtime
+	public ulong FrameCount { get; private set; }
 
-	protected RenderTarget RenderTarget { get; }
+	protected List<RenderPass> RenderPasses { get; } // TODO make sure this supports adding/removing at runtime
+	protected RenderTarget RenderTarget { get; } // TODO eventually allow multiple targets
 
 	protected Renderer(RenderTarget renderTarget, IGraphicsProvider graphicsProvider, params RenderPass[] renderPasses) {
 		RenderTarget = renderTarget;
@@ -16,9 +15,10 @@ public abstract class Renderer {
 		RenderPasses = new(renderPasses);
 	}
 
-	protected internal abstract bool BeginFrame();
-	protected internal abstract void UpdateBuffers(float delta);
-	protected internal abstract void DrawFrame();
-	protected internal abstract void EndFrame();
-	protected internal abstract void PresentFrame();
+	internal void InternalRender(float delta) {
+		Render(delta);
+		FrameCount++;
+	}
+
+	protected abstract void Render(float delta);
 }

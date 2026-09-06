@@ -51,14 +51,7 @@ public abstract class GameClient : GameCore {
 	}
 
 	protected sealed override void Render(float delta) {
-		foreach (Renderer renderer in renderers) {
-			if (renderer.BeginFrame()) {
-				renderer.UpdateBuffers(delta);
-				renderer.DrawFrame();
-				renderer.EndFrame();
-				renderer.PresentFrame();
-			}
-		}
+		foreach (Renderer renderer in renderers) { renderer.InternalRender(delta); }
 	}
 
 	protected Window CreateWindow(string title, ushort width, ushort height) {

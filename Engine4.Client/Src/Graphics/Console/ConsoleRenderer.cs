@@ -23,45 +23,38 @@ public sealed class ConsoleRenderer : Renderer {
 		System.Console.CursorVisible = false; // TODO place elsewhere?
 	}
 
-	protected internal override bool BeginFrame() {
+	protected override void Render(float delta) {
+		if (!TryResizeBuffer()) { ClearBuffer(Buffer, ' '); } // if buffer was not reset. clear buffer
+
+		DrawFrame();
+		PresentFrame();
+	}
+
+	/// <returns> true if buffer was resized </returns>
+	private bool TryResizeBuffer() {
 		ushort width, height;
 		checked {
 			width = (ushort)System.Console.BufferWidth;
 			height = (ushort)System.Console.BufferHeight;
 		}
 
-		bool shouldMakeNewBuffer = false;
-		if (Width != width) {
+		if (Width != width || Height != height) {
 			Width = width;
-			shouldMakeNewBuffer = true;
-		}
-
-		if (Height != height) {
 			Height = height;
-			shouldMakeNewBuffer = true;
-		}
-
-		if (shouldMakeNewBuffer) {
 			Buffer = CreateBuffer(Width, Height);
-			return false;
+			return true;
 		}
 
-		return true;
+		return false;
 	}
 
-	protected internal override void UpdateBuffers(float delta) { }
-
-	protected internal override void DrawFrame() {
-		ClearBuffer(Buffer, ' ');
-
+	private void DrawFrame() {
 		foreach (RenderPass renderPass in RenderPasses) {
 			renderPass.RecordCommandBuffer(); //
 		}
 	}
 
-	protected internal override void EndFrame() { }
-
-	protected internal override void PresentFrame() {
+	private void PresentFrame() {
 		int width = Width * sizeof(char);
 
 		char[] row = new char[Width];
