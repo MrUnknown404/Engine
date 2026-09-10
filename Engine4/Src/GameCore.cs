@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Engine4.Client.Graphics;
 using Engine4.IO;
 using Engine4.Utility.Compatability;
 using Engine4.Utility.Versions;
@@ -13,6 +14,15 @@ public abstract class GameCore {
 
 	public string Name { get; }
 	public IPackableVersion Version { get; }
+	public ConsoleRenderer? ConsoleRenderer {
+		get;
+		set {
+			if (field == value) { return; }
+			field?.Cleanup();
+			field = value;
+			field?.InternalSetup();
+		}
+	}
 
 	public ushort TargetFps { get; init; }
 	public ushort TargetUps { get; init; }
@@ -47,12 +57,12 @@ public abstract class GameCore {
 		Logger.Info("Hello World!");
 		Logger.Info("Engine starting...");
 
-		Logger.Trace("Processing args...");
-		ProcessArgs(args);
-
 		// setup
 		Logger.Debug("Setting up internals...");
 		SetupInternals(settings);
+
+		Logger.Trace("Processing args...");
+		ProcessArgs(args);
 
 		Logger.Trace($"Invoking {nameof(OnSetupStartEvent)}s...");
 		OnSetupStartEvent?.Invoke();
@@ -77,6 +87,7 @@ public abstract class GameCore {
 		Thread.CurrentThread.Name = startupSettings.MainThreadName;
 		LoggerH.Setup(startupSettings.LoggingSettings);
 
+		Logger.Trace("Setting up OS compatibility...");
 #if OS_WINDOWS
 		Windows.Setup();
 #elif OS_LINUX
@@ -106,11 +117,10 @@ public abstract class GameCore {
 			if (shouldShutdown) { break; }
 
 			InternalUpdate();
-			Update();
 			UpdateCount++;
 
 			float delta = 0; // TODO delta
-			Render(delta);
+			InternalRender(delta);
 
 			Thread.Sleep(1); // TODO remove sleep
 		}
@@ -118,7 +128,19 @@ public abstract class GameCore {
 		IsRunning = false;
 	}
 
-	protected virtual void InternalUpdate() { }
+	protected virtual void InternalUpdate() {
+		// TODO
+
+		Update();
+	}
+
+	protected virtual void InternalRender(float delta) {
+		// TODO
+
+		Render(delta);
+
+		ConsoleRenderer?.InternalRender(delta); // console may depend on other renderers so it needs to render last
+	}
 
 	public void RequestShutdown(bool force) {
 		if (force) {
@@ -154,6 +176,8 @@ public abstract class GameCore {
 
 	protected virtual void InternalCleanup() {
 		// TODO internal cleanup
+
+		ConsoleRenderer?.Cleanup();
 
 #if OS_WINDOWS
 		Windows.Cleanup();

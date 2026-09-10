@@ -1,17 +1,17 @@
-using Engine4.Client.Graphics;
+using Engine4.Client.Graphics.Vulkan;
 
 namespace Engine4.Client.Rendering;
 
 public abstract class Renderer {
-	public IGraphicsProvider GraphicsProvider { get; }
+	public VulkanResourceManager VulkanResourceManager { get; }
 	public ulong FrameCount { get; private set; }
 
 	protected List<RenderPass> RenderPasses { get; } // TODO make sure this supports adding/removing at runtime
 	protected RenderTarget RenderTarget { get; } // TODO eventually allow multiple targets
 
-	protected Renderer(RenderTarget renderTarget, IGraphicsProvider graphicsProvider, params RenderPass[] renderPasses) {
+	protected Renderer(RenderTarget renderTarget, VulkanResourceManager vulkanResourceManager, params RenderPass[] renderPasses) {
 		RenderTarget = renderTarget;
-		GraphicsProvider = graphicsProvider;
+		VulkanResourceManager = vulkanResourceManager;
 		RenderPasses = new(renderPasses);
 	}
 

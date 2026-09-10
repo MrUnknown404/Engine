@@ -1,4 +1,3 @@
-using Engine4.Client.Graphics.Console;
 using Engine4.Client.Graphics.Vulkan;
 using Engine4.Client.Rendering;
 using Engine4.IO;
@@ -20,23 +19,24 @@ public abstract class GameClient : GameCore {
 	private readonly List<Window> windows = new(); // TODO cleanup. allow removal
 	private readonly List<Renderer> renderers = new(); // TODO cleanup. allow removal
 
-	private VulkanProvider? vulkanGraphicsProvider;
-	private readonly ConsoleGraphicsProvider consoleGraphicsProvider = new();
+	private VulkanResourceManager? vulkanResourceManager;
 
 	protected GameClient(string name, IPackableVersion version) : base(name, version) {
 		if (IsGlfwEnabled) { PollEvents = GLFW.PollEvents; }
 	}
 
-	protected sealed override void SetupInternals(StartupSettings settings) {
-		base.SetupInternals(settings);
+	protected sealed override void SetupInternals(StartupSettings coreSettings) {
+		if (coreSettings is not ClientStartupSettings clientSettings) { throw new Exception(); } // TODO exception
 
-		if (settings.LoadGlfw) {
+		base.SetupInternals(coreSettings);
+
+		if (clientSettings.LoadGlfw) {
 			Logger.Trace("Loading Glfw...");
 			IsGlfwEnabled = true;
 			SetupGlfw();
 		}
 
-		if (settings.LoadVulkan) {
+		if (clientSettings.LoadVulkan) {
 			Logger.Trace("Loading Vulkan...");
 			IsVulkanEnabled = true;
 			SetupVulkan();
@@ -46,8 +46,11 @@ public abstract class GameClient : GameCore {
 	}
 
 	protected sealed override void InternalUpdate() {
-		base.InternalUpdate();
-		// TODO
+		base.InternalUpdate(); // TODO anything?
+	}
+
+	protected sealed override void InternalRender(float delta) {
+		base.InternalRender(delta); // TODO anything?
 	}
 
 	protected sealed override void Render(float delta) {
@@ -66,9 +69,7 @@ public abstract class GameClient : GameCore {
 
 	protected Renderer CreateRenderer(RenderTarget renderTarget, params RenderPass[] renderPasses) {
 		Logger.Debug("Creating renderer...");
-		Renderer renderer = renderTarget is ConsoleRenderTarget { UseVulkan: false, } consoleRenderTarget ?
-				new ConsoleRenderer(consoleRenderTarget, consoleGraphicsProvider ?? throw new Exception(), renderPasses) : // TODO exception
-				new VulkanRenderer(renderTarget, vulkanGraphicsProvider ?? throw new Exception(), renderPasses); // TODO exception
+		Renderer renderer = new VulkanRenderer(renderTarget, vulkanResourceManager ?? throw new Exception(), renderPasses); // TODO exception
 
 		renderers.Add(renderer);
 		return renderer;
@@ -84,7 +85,7 @@ public abstract class GameClient : GameCore {
 	private void SetupVulkan() {
 		// TODO
 
-		vulkanGraphicsProvider = new();
+		vulkanResourceManager = new();
 	}
 
 	protected sealed override void InternalCleanup() {
@@ -100,9 +101,9 @@ public abstract class GameClient : GameCore {
 		if (IsVulkanEnabled) {
 			Logger.Trace("Cleaning up Vulkan");
 
-			if (vulkanGraphicsProvider == null) { throw new Exception(); } // TODO exception
+			if (vulkanResourceManager == null) { throw new Exception(); } // TODO exception
 
-			vulkanGraphicsProvider.Cleanup();
+			vulkanResourceManager.Cleanup();
 		}
 
 		// TODO

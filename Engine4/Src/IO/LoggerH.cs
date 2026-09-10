@@ -14,6 +14,8 @@ public static class LoggerH {
 	public const string Callsite = "[${callsite:includeNamespace=False}#${callsite-linenumber}]";
 	public const string Message = "${message:exceptionSeparator= :withexception=true}";
 
+	public static bool IsConsoleLoggingPaused { get; private set; }
+
 	private static bool isSetup;
 
 	internal static void Setup(LoggingSettings settings) {
@@ -32,22 +34,14 @@ public static class LoggerH {
 				StringBuilder withoutSource = new();
 				StringBuilder withSource = new();
 
-				if (settings.ShowTime) {
-					withoutSource.Append($"{Time} ");
-					withSource.Append($"{Time} ");
-				}
+				if (settings.ShowTime) { withSource.Append($"{Time} "); }
+				if (settings.ShowLogLevel) { withSource.Append($"{LogLevel} "); }
+				if (settings.ShowThread) { withSource.Append($"{Thread} "); }
 
-				if (settings.ShowLogLevel) {
-					withoutSource.Append($"{LogLevel} ");
-					withSource.Append($"{LogLevel} ");
+				if (settings.ShowSource) {
+					withoutSource.Append(withSource);
+					withSource.Append($"{Source} ");
 				}
-
-				if (settings.ShowThread) {
-					withoutSource.Append($"{Thread} ");
-					withSource.Append($"{Thread} ");
-				}
-
-				if (settings.ShowSource) { withSource.Append($"{Source} "); }
 
 				if (settings.ShowCallsite) {
 					withoutSource.Append($"{Callsite} ");
@@ -60,7 +54,7 @@ public static class LoggerH {
 				layout = $"${{when:when='${{event-properties:{SourcePropertyKey}}}'=='':inner={withoutSource}:else={withSource}}}";
 			}
 
-			if (settings.PrintToConsole) { builder.ForLogger().FilterMinLevel(settings.ConsoleLogLevel).WriteToColoredConsole(layout: layout); }
+			if (settings.PrintToConsole) { builder.ForLogger().FilterMinLevel(settings.ConsoleLogLevel).FilterDynamicIgnore(static _ => IsConsoleLoggingPaused).WriteToColoredConsole(layout: layout); }
 
 			if (settings.PrintToFile) {
 				builder.ForLogger().FilterMinLevel(settings.FileLogLevel).WriteToFile(layout: layout, fileName: $"{settings.LogFileDirectory}/{DateTime.Now.ToString(settings.LogFileDateFormat)}.{settings.LogFileExtension}",
@@ -81,6 +75,9 @@ public static class LoggerH {
 
 		isSetup = false;
 	}
+
+	public static void PauseConsoleLogging() => IsConsoleLoggingPaused = true;
+	public static void UnpauseConsoleLogging() => IsConsoleLoggingPaused = false;
 
 	[MustUseReturnValue]
 	public static Logger GetLogger(LogSource? primarySource, string? secondarySource = null) {
