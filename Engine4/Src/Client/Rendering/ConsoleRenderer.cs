@@ -1,12 +1,13 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Engine4.IO;
+using Engine4.Utility.Exceptions;
 using JetBrains.Annotations;
 
-namespace Engine4.Client.Graphics;
+namespace Engine4.Client.Rendering;
 
 public abstract class ConsoleRenderer {
-	public char[,] Buffer { get; private set; } // TODO double buffer?
+	public char[,] Buffer { get; private set; } // TODO double buffer? is that necessary?
 	public ushort Width { get; private set; }
 	public ushort Height { get; private set; }
 
@@ -34,7 +35,8 @@ public abstract class ConsoleRenderer {
 	}
 
 	internal void InternalRender(float delta) {
-		if (!WasSetup || wasDestroyed) { throw new Exception(); } // TODO exception
+		if (!WasSetup) { throw new RenderingException($"Attempted to render a {nameof(ConsoleRenderer)} that was not setup."); }
+		if (wasDestroyed) { throw new RenderingException($"Attempted to render a {nameof(ConsoleRenderer)} that was destroyed."); }
 
 		ClearBuffer(Buffer, ' ');
 

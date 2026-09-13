@@ -1,4 +1,4 @@
-namespace Engine4.Client.Graphics;
+namespace Engine4.Client.Graphics.Data;
 
 public readonly record struct TestVertex : IVertex {
 	public readonly float X;

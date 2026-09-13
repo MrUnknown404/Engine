@@ -1,9 +1,13 @@
+using JetBrains.Annotations;
 using NLog;
 using NLog.Time;
 
 namespace Engine4.IO;
 
-public class LoggingSettings {
+[PublicAPI]
+public sealed class LoggingSettings {
+	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
+
 	public bool ShowTime { get; init; } = true;
 	public bool ShowLogLevel { get; init; } = true;
 	public bool ShowThread { get; init; }
@@ -36,4 +40,9 @@ public class LoggingSettings {
 #endif
 
 	public TimeSource? TimeSource { get; init; }
+
+	internal void PrintValue() {
+		Logger.Debug($"- {nameof(ConsoleLogLevel)}: {ConsoleLogLevel.Name}");
+		Logger.Debug($"- {nameof(FileLogLevel)}: {FileLogLevel.Name}");
+	}
 }

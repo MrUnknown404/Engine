@@ -1,9 +1,11 @@
 using System.Text;
+using Engine4.Utility.Exceptions;
 using JetBrains.Annotations;
 using NLog;
 
 namespace Engine4.IO;
 
+[PublicAPI]
 public static class LoggerH {
 	public const string SourcePropertyKey = "source";
 
@@ -19,7 +21,7 @@ public static class LoggerH {
 	private static bool isSetup;
 
 	internal static void Setup(LoggingSettings settings) {
-		if (isSetup) { throw new Exception(); } // TODO exception
+		if (isSetup) { throw new Engine4Exception($"Cannot call {nameof(Setup)} twice"); }
 
 		Directory.CreateDirectory(settings.LogFileDirectory);
 
@@ -68,7 +70,7 @@ public static class LoggerH {
 	}
 
 	internal static void Shutdown() {
-		if (!isSetup) { throw new Exception(); } // TODO exception
+		if (isSetup) { throw new Engine4Exception("Cannot shutdown because we logging was never setup"); }
 
 		AppDomain.CurrentDomain.UnhandledException -= OnUnhandledException;
 		LogManager.Shutdown();

@@ -1,7 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
-using Engine4.Client.Graphics;
+using Engine4.Client.Rendering;
 using Engine4.IO;
 using Engine4.Utility.Compatability;
+using Engine4.Utility.Extensions;
 using Engine4.Utility.Versions;
 using NLog;
 
@@ -14,6 +15,7 @@ public abstract class GameCore {
 
 	public string Name { get; }
 	public IPackableVersion Version { get; }
+
 	public ConsoleRenderer? ConsoleRenderer {
 		get;
 		set {
@@ -54,8 +56,8 @@ public abstract class GameCore {
 		// initial setup. logging is not set up yet
 		InitialSetup(settings); // logging exists beyond this point
 
-		Logger.Info("Hello World!");
 		Logger.Info("Engine starting...");
+		Engine4.PrintStartup();
 
 		// setup
 		Logger.Debug("Setting up internals...");
@@ -64,13 +66,13 @@ public abstract class GameCore {
 		Logger.Trace("Processing args...");
 		ProcessArgs(args);
 
-		Logger.Trace($"Invoking {nameof(OnSetupStartEvent)}s...");
+		Logger.Trace($"Invoking {OnSetupStartEvent.GetInvocationListCount()} {nameof(OnSetupStartEvent)}s...");
 		OnSetupStartEvent?.Invoke();
 
 		Logger.Debug("Setting up game...");
 		SetupGame();
 
-		Logger.Trace($"Invoking {nameof(OnSetupDoneEvent)}s...");
+		Logger.Trace($"Invoking {OnSetupDoneEvent.GetInvocationListCount()} {nameof(OnSetupDoneEvent)}s...");
 		OnSetupDoneEvent?.Invoke();
 
 		Logger.Info("Setup done!");
@@ -86,6 +88,7 @@ public abstract class GameCore {
 	private void InitialSetup(StartupSettings startupSettings) {
 		Thread.CurrentThread.Name = startupSettings.MainThreadName;
 		LoggerH.Setup(startupSettings.LoggingSettings);
+		Logger.Info("Hello World!");
 
 		Logger.Trace("Setting up OS compatibility...");
 #if OS_WINDOWS
@@ -100,7 +103,8 @@ public abstract class GameCore {
 	}
 
 	protected virtual void SetupInternals(StartupSettings settings) {
-		// TODO setup core internals
+		Logger.Debug("Startup Settings:");
+		settings.PrintValues();
 	}
 
 	protected abstract void SetupGame();
@@ -108,8 +112,6 @@ public abstract class GameCore {
 	protected abstract void Render(float delta);
 
 	private void GameLoop() {
-		Logger.Trace("Starting gameloop...");
-
 		IsRunning = true;
 		while (IsRunning) {
 			PollEvents?.Invoke();
@@ -129,14 +131,10 @@ public abstract class GameCore {
 	}
 
 	protected virtual void InternalUpdate() {
-		// TODO
-
-		Update();
+		Update(); //
 	}
 
 	protected virtual void InternalRender(float delta) {
-		// TODO
-
 		Render(delta);
 
 		ConsoleRenderer?.InternalRender(delta); // console may depend on other renderers so it needs to render last
@@ -175,8 +173,6 @@ public abstract class GameCore {
 	}
 
 	protected virtual void InternalCleanup() {
-		// TODO internal cleanup
-
 		ConsoleRenderer?.Cleanup();
 
 #if OS_WINDOWS

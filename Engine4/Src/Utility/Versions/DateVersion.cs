@@ -3,7 +3,7 @@ using JetBrains.Annotations;
 namespace Engine4.Utility.Versions;
 
 [PublicAPI]
-public readonly record struct DateVersion : IPackableVersion { // TODO copy this to the other versions?
+public readonly record struct DateVersion : IPackableVersion {
 	private const byte HotfixCharOffset = (byte)'a' - 1;
 
 	public const uint YearMask = 0b_11111111_11110000_00000000_00000000;

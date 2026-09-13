@@ -7,7 +7,7 @@ public unsafe class Window {
 	private readonly GlfwWindow* glfwWindow;
 
 	internal Window(string title, ushort width, ushort height) {
-		// TODO way of setting hints? or just setting values once window is created
+		// TODO way of setting hints? or just setting values once the window is created
 
 		GLFW.WindowHint(WindowHintClientApi.ClientApi, ClientApi.NoApi);
 		GLFW.WindowHint(WindowHintBool.Decorated, true);
