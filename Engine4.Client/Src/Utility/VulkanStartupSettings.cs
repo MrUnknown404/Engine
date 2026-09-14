@@ -1,4 +1,5 @@
 using Engine4.Client.Graphics.Vulkan;
+using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.Utility.Exceptions;
 using OpenTK.Graphics.Vulkan;
 

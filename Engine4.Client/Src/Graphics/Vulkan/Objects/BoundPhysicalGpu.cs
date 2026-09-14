@@ -1,6 +1,4 @@
-using Engine4.Client.Graphics.Vulkan.Objects;
-
-namespace Engine4.Client.Graphics.Vulkan;
+namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 // TODO idk. i may rename this
 public class BoundPhysicalGpu : UnboundPhysicalGpu {

@@ -1,6 +1,6 @@
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine4.Client.Graphics.Vulkan;
+namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public class UnboundPhysicalGpu {
 	public VkPhysicalDevice VkPhysicalDevice { get; } // TODO private
