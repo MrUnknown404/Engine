@@ -6,7 +6,7 @@ namespace Engine4.Client.Graphics.Vulkan.Objects;
 public sealed unsafe class VulkanInstance {
 	public VkInstance VkInstance { get; } // TODO private
 
-	internal VulkanInstance(GameClient game, VulkanStartupSettings vulkanSettings) {
+	internal VulkanInstance(GameClient game, VulkanStartupSettings vulkanSettings, VulkanManager vulkanManager) {
 		using StringUtf8Ptr appNamePtr = new(game.Name);
 		using StringUtf8Ptr engineNamePtr = new(Engine4.Name);
 
@@ -18,8 +18,8 @@ public sealed unsafe class VulkanInstance {
 				apiVersion = Vk.MAKE_API_VERSION(0, 1, 4, 0),
 		};
 
-		string[] requiredInstanceLayerProperties = VulkanManager.GetRequiredInstanceLayerProperties(vulkanSettings);
-		string[] requiredInstanceExtensionProperties = VulkanManager.GetRequiredInstanceExtensionProperties(vulkanSettings);
+		string[] requiredInstanceLayerProperties = vulkanManager.RequiredInstanceLayerProperties;
+		string[] requiredInstanceExtensionProperties = vulkanManager.RequiredInstanceExtensionProperties;
 
 		using StringArrayUtf8Ptr requiredInstanceLayerPropertiesPtr = new(requiredInstanceLayerProperties);
 		using StringArrayUtf8Ptr requiredInstanceExtensionPropertiesPtr = new(requiredInstanceExtensionProperties);

@@ -1,19 +1,18 @@
 using OpenTK.Graphics.Vulkan;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using GlfwWindow = OpenTK.Windowing.GraphicsLibraryFramework.Window;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public unsafe class VulkanSurface {
+	public VkSurfaceKHR VkSurface { get; } // TODO private
 	private readonly VulkanInstance vulkanInstance;
-	private readonly VkSurfaceKHR vkSurface;
 
-	internal VulkanSurface(VulkanInstance vulkanInstance, GlfwWindow* glfwWindow) {
+	internal VulkanSurface(VulkanInstance vulkanInstance, Window window) {
 		this.vulkanInstance = vulkanInstance;
 
-		GLFW.CreateWindowSurface(new((ulong)vulkanInstance.VkInstance.Handle), glfwWindow, null, out VkHandle handle);
-		vkSurface = new(handle.Handle);
+		GLFW.CreateWindowSurface(new((ulong)vulkanInstance.VkInstance.Handle), window.GlfwWindow, null, out VkHandle handle);
+		VkSurface = new(handle.Handle);
 	}
 
-	internal void Cleanup() => Vk.DestroySurfaceKHR(vulkanInstance.VkInstance, vkSurface, null);
+	internal void Cleanup() => Vk.DestroySurfaceKHR(vulkanInstance.VkInstance, VkSurface, null);
 }

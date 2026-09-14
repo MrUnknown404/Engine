@@ -1,54 +1,43 @@
-using Engine4.Client.Graphics.Vulkan;
-using Engine4.Client.Graphics.Vulkan.Objects;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using GlfwWindow = OpenTK.Windowing.GraphicsLibraryFramework.Window;
 
 namespace Engine4.Client;
 
 public unsafe class Window {
-	private readonly GlfwWindow* glfwWindow;
-	private readonly VulkanSurface surface;
+	internal GlfwWindow* GlfwWindow { get; } // TODO private
 
-	private bool shouldClose; // TODO try close before update
+	public bool ShouldClose { get; private set; }
 
 	public event RequestCloseDelegate? RequestCloseEvent;
 
-	internal Window(VulkanManager vulkanManager, string title, ushort width, ushort height) {
+	internal Window(string title, ushort width, ushort height) {
 		// TODO way of setting hints? or just setting values once the window is created
-		GLFW.WindowHint(WindowHintClientApi.ClientApi, ClientApi.NoApi);
+		GLFW.WindowHint(WindowHintClientApi.ClientApi, ClientApi.NoApi); // disable opengl
 		GLFW.WindowHint(WindowHintBool.Decorated, true);
 
-		glfwWindow = GLFW.CreateWindow(width, height, title, null, null);
+		GlfwWindow = GLFW.CreateWindow(width, height, title, null, null);
 		GLFW.DefaultWindowHints(); // reset hints
 
-		// https://github.com/glfw/glfw/issues/1398
-		// TODO looks like wayland requires a buffer to "draw" the window
-
-		surface = new(vulkanManager.VulkanInstance, glfwWindow);
-
-		// TODO get surface capable GPUs
-		// TODO pick GPU. Manual or comparator method
-		// TODO create logical gpu
+		// TODO looks like wayland requires you to draw once before the window will appear. see https://github.com/glfw/glfw/issues/1398
 	}
 
-	public void Show() => GLFW.ShowWindow(glfwWindow);
-	public void Hide() => GLFW.HideWindow(glfwWindow);
+	public void Show() => GLFW.ShowWindow(GlfwWindow);
+	public void Hide() => GLFW.HideWindow(GlfwWindow);
 
 	public void RequestClose(bool force) {
 		if (force) {
-			this.shouldClose = true;
+			ShouldClose = true;
 			return;
 		}
 
 		bool shouldClose = true;
 		RequestCloseEvent?.Invoke(ref shouldClose);
-		if (shouldClose) { this.shouldClose = true; }
+		if (shouldClose) { ShouldClose = true; }
 	}
 
-	internal void Cleanup() {
-		surface.Cleanup();
-		GLFW.DestroyWindow(glfwWindow);
-	}
+	internal bool GlfwShouldClose() => GLFW.WindowShouldClose(GlfwWindow);
+
+	internal void Cleanup() => GLFW.DestroyWindow(GlfwWindow); // TODO why isn't this working?
 
 	public delegate bool RequestCloseDelegate(ref bool shouldShutdown);
 }

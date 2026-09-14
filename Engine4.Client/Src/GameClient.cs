@@ -23,7 +23,7 @@ public abstract class GameClient : GameCore {
 	private readonly List<Window> windows = new(); // TODO cleanup. allow removal
 	private readonly List<VulkanRenderer> renderers = new(); // TODO cleanup. allow removal
 
-	private VulkanManager? vulkanManager;
+	protected VulkanManager? VulkanManager { get; private set; }
 	protected sealed override Action? PollEvents { get; }
 
 	protected GameClient(string name, IPackableVersion version) : base(name, version) {
@@ -49,7 +49,22 @@ public abstract class GameClient : GameCore {
 	}
 
 	protected sealed override void InternalUpdate() {
-		base.InternalUpdate(); //
+		// try close windows
+		for (int i = 0; i < windows.Count; i++) {
+			Window window = windows[i];
+
+			if (window.GlfwShouldClose()) { window.RequestClose(false); }
+
+			if (window.ShouldClose) {
+				Logger.Debug("Found window to close. Closing it...");
+
+				window.Cleanup();
+				windows.RemoveAt(i);
+				i--;
+			}
+		}
+
+		base.InternalUpdate();
 	}
 
 	protected sealed override void InternalRender(float delta) {
@@ -62,10 +77,10 @@ public abstract class GameClient : GameCore {
 
 	protected Window CreateWindow(string title, ushort width, ushort height) {
 		if (!IsGlfwEnabled) { throw new Engine4Exception($"Cannot create a {nameof(Window)} when Glfw is not loaded"); }
-		if (vulkanManager == null) { throw new IllegalStateException(); }
+		if (VulkanManager == null) { throw new IllegalStateException(); }
 
 		Logger.Debug("Creating window...");
-		Window window = new(vulkanManager, title, width, height);
+		Window window = new(title, width, height);
 
 		windows.Add(window);
 		return window;
@@ -73,10 +88,10 @@ public abstract class GameClient : GameCore {
 
 	protected VulkanRenderer CreateRenderer(RenderTarget renderTarget, params RenderPass[] renderPasses) {
 		if (!IsVulkanEnabled) { throw new Engine4Exception($"Cannot create a {nameof(VulkanRenderer)} when Vulkan is not loaded"); }
-		if (vulkanManager == null) { throw new IllegalStateException(); }
+		if (VulkanManager == null) { throw new IllegalStateException(); }
 
 		Logger.Debug("Creating renderer...");
-		VulkanRenderer renderer = new(vulkanManager, renderTarget, renderPasses);
+		VulkanRenderer renderer = new(VulkanManager, renderTarget, renderPasses);
 
 		renderers.Add(renderer);
 		return renderer;
@@ -93,7 +108,7 @@ public abstract class GameClient : GameCore {
 		Logger.Trace("Loading Vulkan bindings...");
 		VKLoader.Init();
 
-		vulkanManager = new(this, vulkanSettings);
+		VulkanManager = new(this, vulkanSettings);
 
 		// TODO vulkan
 		// TODO print version
@@ -105,7 +120,7 @@ public abstract class GameClient : GameCore {
 		if (IsVulkanEnabled) {
 			Logger.Trace("Cleaning up Vulkan");
 
-			if (vulkanManager == null) { throw new IllegalStateException(); }
+			if (VulkanManager == null) { throw new IllegalStateException(); }
 
 			foreach (VulkanRenderer renderer in renderers) { renderer.Cleanup(); }
 
@@ -114,7 +129,7 @@ public abstract class GameClient : GameCore {
 				foreach (Window window in windows) { window.Cleanup(); }
 			}
 
-			vulkanManager.Cleanup();
+			VulkanManager.Cleanup();
 		}
 
 		if (IsGlfwEnabled) {

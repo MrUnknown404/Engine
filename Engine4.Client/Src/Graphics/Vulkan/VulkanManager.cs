@@ -3,6 +3,7 @@ using System.Text;
 using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.Client.Utility;
 using Engine4.Client.Utility.Exceptions;
+using Engine4.Client.Utility.Extensions;
 using Engine4.IO;
 using JetBrains.Annotations;
 using NLog;
@@ -15,48 +16,86 @@ namespace Engine4.Client.Graphics.Vulkan;
 public sealed unsafe class VulkanManager {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
 
-	public static readonly string[] RequiredEngineInstanceLayerProperties = [
-#if DEBUG
-			"VK_LAYER_KHRONOS_validation", // if OpenTK defines this somewhere, i could not find it
-#endif
-	];
+	public static readonly string[] RequiredEngineInstanceLayerProperties;
+	public static readonly string[] RequiredEngineInstanceExtensionProperties;
+	public static readonly string[] RequiredEngineDeviceExtensionProperties;
 
-	public static readonly string[] RequiredEngineInstanceExtensionProperties = [
-			Vk.KhrSurfaceExtensionName, //
-			Vk.KhrGetSurfaceCapabilities2ExtensionName,
+	static VulkanManager() {
+		HashSet<string> requiredEngineInstanceLayerProperties = new([
 #if DEBUG
-			Vk.ExtDebugUtilsExtensionName,
+				"VK_LAYER_KHRONOS_validation", // if OpenTK defines this somewhere, i could not find it
 #endif
-#if OS_LINUX
-			Vk.KhrWaylandSurfaceExtensionName,
-#endif
-	];
+		]);
 
-	public static readonly string[] RequiredEngineDeviceExtensionProperties = [
-			Vk.KhrSwapchainExtensionName, //
-			Vk.KhrDynamicRenderingExtensionName,
-	];
+		HashSet<string> requiredEngineInstanceExtensionProperties = new([
+				Vk.KhrSurfaceExtensionName, Vk.KhrGetSurfaceCapabilities2ExtensionName,
+#if DEBUG
+				Vk.ExtDebugUtilsExtensionName,
+#endif
+		]);
+
+		HashSet<string> requiredEngineDeviceExtensionProperties = new([
+				Vk.KhrSwapchainExtensionName, //
+				Vk.KhrDynamicRenderingExtensionName,
+		]);
+
+		requiredEngineInstanceLayerProperties.UnionWith(Engine4.OperatingSystem.GetRequiredEngineInstanceLayerProperties());
+		requiredEngineInstanceExtensionProperties.UnionWith(Engine4.OperatingSystem.GetRequiredEngineInstanceExtensionProperties());
+		requiredEngineDeviceExtensionProperties.UnionWith(Engine4.OperatingSystem.GetRequiredEngineDeviceExtensionProperties());
+
+		RequiredEngineInstanceLayerProperties = requiredEngineInstanceLayerProperties.ToArray();
+		RequiredEngineInstanceExtensionProperties = requiredEngineInstanceExtensionProperties.ToArray();
+		RequiredEngineDeviceExtensionProperties = requiredEngineDeviceExtensionProperties.ToArray();
+	}
 
 	public VulkanResourceManager ResourceManager { get; }
 	internal VulkanInstance VulkanInstance { get; } // TODO private
 
-	private readonly VulkanDebugMessenger debugMessenger; // TODO remove in release builds
-	private readonly PhysicalGpu[] physicalGpus;
+#if DEBUG
+	private readonly VulkanDebugMessenger debugMessenger;
+#endif
+
+	private readonly UnboundPhysicalGpu[] physicalGpus;
+
+	public readonly string[] RequiredInstanceLayerProperties;
+	public readonly string[] RequiredInstanceExtensionProperties;
+	public readonly string[] RequiredDeviceExtensionProperties;
+
+	private readonly SelectGpuMode selectGpuMode;
+	private readonly SelectGpuDelegate? getManualGpuFunc;
+	private readonly RateGpuSuitabilityDelegate? rateGpuSuitability;
 
 	internal VulkanManager(GameClient game, VulkanStartupSettings vulkanSettings) {
+		selectGpuMode = vulkanSettings.SelectGpuMode;
+		getManualGpuFunc = vulkanSettings.GetManualGpuFunc;
+		rateGpuSuitability = vulkanSettings.RateGpuSuitability;
+
+		//
+		HashSet<string> requiredInstanceLayerProperties = new(RequiredEngineInstanceLayerProperties);
+		requiredInstanceLayerProperties.UnionWith(vulkanSettings.RequiredInstanceLayerProperties);
+		RequiredInstanceLayerProperties = requiredInstanceLayerProperties.ToArray();
+
+		HashSet<string> requiredInstanceExtensionProperties = new(RequiredEngineInstanceExtensionProperties);
+		requiredInstanceExtensionProperties.UnionWith(vulkanSettings.RequiredInstanceExtensionProperties);
+		RequiredInstanceExtensionProperties = requiredInstanceExtensionProperties.ToArray();
+
+		HashSet<string> requiredDeviceExtensionProperties = new(RequiredEngineDeviceExtensionProperties);
+		requiredDeviceExtensionProperties.UnionWith(vulkanSettings.RequiredDeviceExtensionProperties);
+		RequiredDeviceExtensionProperties = requiredDeviceExtensionProperties.ToArray();
+
 		// get vulkan api version
 		uint apiVersion;
 		Vk.EnumerateInstanceVersion(&apiVersion);
 		Logger.Debug($"- Version: {apiVersion} ({Vk.API_VERSION_MAJOR(apiVersion)}.{Vk.API_VERSION_MINOR(apiVersion)}.{Vk.API_VERSION_PATCH(apiVersion)})");
 
 		// check for instance/extension properties
-		VkLayerProperties[] availableInstanceLayerProperties = CheckForInstanceLayerProperties(vulkanSettings);
-		VkExtensionProperties[] availableInstanceExtensionProperties = CheckForInstanceExtensionProperties(vulkanSettings);
+		VkLayerProperties[] availableInstanceLayerProperties = CheckForInstanceLayerProperties();
+		VkExtensionProperties[] availableInstanceExtensionProperties = CheckForInstanceExtensionProperties();
 		PrintInstanceLayerProperties(availableInstanceLayerProperties);
 		PrintInstanceExtensionProperties(availableInstanceExtensionProperties);
 
 		// create instance
-		VulkanInstance = new(game, vulkanSettings);
+		VulkanInstance = new(game, vulkanSettings, this);
 		VKLoader.SetInstance(VulkanInstance.VkInstance); // set opentk instance
 		Logger.Trace("Created VkInstance");
 
@@ -69,7 +108,7 @@ public sealed unsafe class VulkanManager {
 
 		PrintPhysicalGpus();
 
-		ResourceManager = new(VulkanInstance);
+		ResourceManager = new(this);
 	}
 
 	public void Cleanup() {
@@ -81,33 +120,11 @@ public sealed unsafe class VulkanManager {
 	}
 
 	[MustUseReturnValue]
-	public static string[] GetRequiredInstanceLayerProperties(VulkanStartupSettings vulkanSettings) {
-		HashSet<string> all = new(RequiredEngineInstanceLayerProperties);
-		all.UnionWith(vulkanSettings.RequiredInstanceLayerProperties);
-		return all.ToArray();
-	}
-
-	[MustUseReturnValue]
-	public static string[] GetRequiredInstanceExtensionProperties(VulkanStartupSettings vulkanSettings) {
-		HashSet<string> all = new(RequiredEngineInstanceExtensionProperties);
-		all.UnionWith(vulkanSettings.RequiredInstanceExtensionProperties);
-		return all.ToArray();
-	}
-
-	[MustUseReturnValue]
-	public static string[] GetRequiredDeviceExtensionProperties(VulkanStartupSettings vulkanSettings) {
-		HashSet<string> all = new(RequiredEngineDeviceExtensionProperties);
-		all.UnionWith(vulkanSettings.RequiredDeviceExtensionProperties);
-		return all.ToArray();
-	}
-
-	[MustUseReturnValue]
-	private static VkLayerProperties[] CheckForInstanceLayerProperties(VulkanStartupSettings vulkanSettings) {
-		string[] requiredInstanceLayerProperties = GetRequiredInstanceLayerProperties(vulkanSettings);
+	private VkLayerProperties[] CheckForInstanceLayerProperties() {
 		VkLayerProperties[] availableInstanceLayerProperties = GetAvailableInstanceLayerProperties();
 
 		if (availableInstanceLayerProperties.Length == 0) { throw new VulkanException("Could not find any instance layer properties"); }
-		if (!CheckSupportForInstanceLayerProperties(availableInstanceLayerProperties, requiredInstanceLayerProperties, out string[]? missingLayers)) {
+		if (!CheckSupportForInstanceLayerProperties(availableInstanceLayerProperties, RequiredInstanceLayerProperties, out string[]? missingLayers)) {
 			foreach (string missingLayer in missingLayers) { Logger.Warn($"Layer \'{missingLayer}\' is not available"); } // TODO allow user to decide what to do for each missing
 			throw new VulkanException("Requested validation layers are not available");
 		}
@@ -150,8 +167,8 @@ public sealed unsafe class VulkanManager {
 	}
 
 	[MustUseReturnValue]
-	private static VkExtensionProperties[] CheckForInstanceExtensionProperties(VulkanStartupSettings vulkanSettings) {
-		string[] requiredInstanceExtensionProperties = GetRequiredInstanceExtensionProperties(vulkanSettings);
+	private VkExtensionProperties[] CheckForInstanceExtensionProperties() {
+		string[] requiredInstanceExtensionProperties = RequiredInstanceExtensionProperties;
 		VkExtensionProperties[] availableInstanceExtensionProperties = GetAvailableInstanceExtensionProperties();
 
 		if (availableInstanceExtensionProperties.Length == 0) { throw new VulkanException("Could not find any instance extension properties"); }
@@ -218,11 +235,10 @@ public sealed unsafe class VulkanManager {
 	}
 
 	[MustUseReturnValue]
-	private static PhysicalGpu[] GetPhysicalGpus(VulkanInstance vulkanInstance, VulkanStartupSettings vulkanSettings) {
-		string[] requiredDeviceExtensionProperties = GetRequiredDeviceExtensionProperties(vulkanSettings);
+	private UnboundPhysicalGpu[] GetPhysicalGpus(VulkanInstance vulkanInstance, VulkanStartupSettings vulkanSettings) {
 		VkPhysicalDevice[] availablePhysicalDevices = GetAvailablePhysicalDevices(vulkanInstance);
 
-		List<PhysicalGpu> physicalGpus = new();
+		List<UnboundPhysicalGpu> physicalGpus = new();
 		foreach (VkPhysicalDevice physicalDevice in availablePhysicalDevices) {
 			VkPhysicalDeviceProperties2 physicalDeviceProperties2 = new();
 			VkPhysicalDeviceFeatures2 physicalDeviceFeatures2 = new();
@@ -237,7 +253,7 @@ public sealed unsafe class VulkanManager {
 			VkExtensionProperties[] physicalDeviceExtensionProperties = GetPhysicalDeviceExtensionProperties(physicalDevice);
 			if (physicalDeviceExtensionProperties.Length == 0) { continue; }
 
-			if (!CheckDeviceExtensionSupport(physicalDeviceExtensionProperties, requiredDeviceExtensionProperties, out _)) { continue; } // TODO allow the user to handle missing?
+			if (!CheckDeviceExtensionSupport(physicalDeviceExtensionProperties, RequiredDeviceExtensionProperties, out _)) { continue; } // TODO allow the user to handle missing?
 
 			physicalGpus.Add(new(physicalDevice, properties));
 		}
@@ -311,5 +327,86 @@ public sealed unsafe class VulkanManager {
 
 	private void PrintPhysicalGpus() {
 		// TODO
+	}
+
+	internal BoundPhysicalGpu[] GetCapableGpus(VulkanSurface surface) {
+		List<BoundPhysicalGpu> boundPhysicalGpus = new();
+		foreach (UnboundPhysicalGpu physicalGpu in physicalGpus) {
+			VkPhysicalDevice physicalDevice = physicalGpu.VkPhysicalDevice;
+
+			if (!FindQueueFamilies(physicalDevice, surface.VkSurface, out QueueFamilyIndices? queueFamilyIndices)) { continue; }
+
+			// any other checks?
+			// TODO how do i properly query for support? i don't think i was doing it correctly. see https://github.com/MrUnknown404/Engine/blob/main/Src/Client/Graphics/Vulkan/SwapChain.cs#L72
+
+			boundPhysicalGpus.Add(new(physicalGpu, surface, queueFamilyIndices.Value));
+		}
+
+		return boundPhysicalGpus.ToArray();
+
+		[MustUseReturnValue]
+		static VkQueueFamilyProperties2[] GetPhysicalDeviceQueueFamilyProperties(VkPhysicalDevice physicalDevice) {
+			uint queueFamilyPropertyCount = 0;
+			Vk.GetPhysicalDeviceQueueFamilyProperties2(physicalDevice, &queueFamilyPropertyCount, null);
+
+			if (queueFamilyPropertyCount == 0) { return Array.Empty<VkQueueFamilyProperties2>(); }
+
+			VkQueueFamilyProperties2[] queueFamilyProperties2 = new VkQueueFamilyProperties2[queueFamilyPropertyCount];
+			Array.Fill(queueFamilyProperties2, new() { sType = VkStructureType.StructureTypeQueueFamilyProperties2, });
+
+			fixed (VkQueueFamilyProperties2* queueFamilyPropertiesPtr = queueFamilyProperties2) {
+				Vk.GetPhysicalDeviceQueueFamilyProperties2(physicalDevice, &queueFamilyPropertyCount, queueFamilyPropertiesPtr);
+				return queueFamilyProperties2;
+			}
+		}
+
+		[MustUseReturnValue]
+		static bool FindQueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, [NotNullWhen(true)] out QueueFamilyIndices? queueFamilyIndices) {
+			uint? graphicsFamily = null;
+			uint? presentFamily = null;
+			uint? transferFamily = null;
+
+			VkQueueFamilyProperties2[] queueFamilyProperties2 = GetPhysicalDeviceQueueFamilyProperties(physicalDevice);
+
+			for (uint i = 0; i < queueFamilyProperties2.Length; i++) {
+				VkQueueFamilyProperties queueFamilyProperties = queueFamilyProperties2[i].queueFamilyProperties;
+				if ((queueFamilyProperties.queueFlags & VkQueueFlagBits.QueueGraphicsBit) != 0) { graphicsFamily = i; }
+				if ((queueFamilyProperties.queueFlags & VkQueueFlagBits.QueueTransferBit) != 0) { transferFamily = i; }
+
+				int presentSupport;
+				Vk.GetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport);
+				if (presentSupport == Vk.True) { presentFamily = i; }
+
+				if (graphicsFamily != null && presentFamily != null && transferFamily != null) { // if filled. we're done
+					queueFamilyIndices = new(graphicsFamily.Value, presentFamily.Value, transferFamily.Value);
+					return true;
+				}
+			}
+
+			queueFamilyIndices = null;
+			return false;
+		}
+	}
+
+	internal BoundPhysicalGpu? SelectGpu(BoundPhysicalGpu[] capableGpus) {
+		switch (selectGpuMode) {
+			case SelectGpuMode.Manual: return getManualGpuFunc?.Invoke(capableGpus);
+			case SelectGpuMode.HighestRated:
+				if (rateGpuSuitability == null) { return null; }
+
+				BoundPhysicalGpu? bestDevice = null;
+				int bestDeviceScore = int.MinValue;
+
+				foreach (BoundPhysicalGpu device in capableGpus) {
+					int score = rateGpuSuitability(device);
+					if (score > bestDeviceScore) {
+						bestDevice = device;
+						bestDeviceScore = score;
+					}
+				}
+
+				return bestDevice;
+			default: throw new ArgumentOutOfRangeException();
+		}
 	}
 }

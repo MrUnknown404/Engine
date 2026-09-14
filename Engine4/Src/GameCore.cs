@@ -185,8 +185,9 @@ public abstract class GameCore {
 		IsRunning = false;
 	}
 
+	/// <summary> Calls <see cref="Update"/> at the end. </summary>
 	protected virtual void InternalUpdate() {
-		Update(); //
+		Update(); // end
 	}
 
 	protected virtual void InternalRender(float delta) {

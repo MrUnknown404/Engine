@@ -33,7 +33,7 @@ public sealed class VulkanRenderer {
 	}
 
 	[MustUseReturnValue]
-	private bool TryBeginFrame() => throw new NotImplementedException(); // TODO
+	private bool TryBeginFrame() => false; // TODO
 
 	private void UpdateBuffers(float delta) => throw new NotImplementedException(); // TODO
 	private void SyncResources() => throw new NotImplementedException(); // TODO

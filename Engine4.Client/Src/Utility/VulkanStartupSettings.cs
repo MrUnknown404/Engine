@@ -32,6 +32,20 @@ public sealed class VulkanStartupSettings {
 
 	public IsPhysicalDeviceSuitableDelegate? IsPhysicalDeviceSuitable { get; init; }
 
+	public SelectGpuMode SelectGpuMode { get; init; } = SelectGpuMode.HighestRated;
+	public SelectGpuDelegate? GetManualGpuFunc { get; init; }
+	public RateGpuSuitabilityDelegate? RateGpuSuitability { get; init; } = DefaultRateGpuSuitability;
+
+	private static int DefaultRateGpuSuitability(BoundPhysicalGpu physicalGpu) {
+		VkPhysicalDeviceProperties deviceProperties = physicalGpu.PhysicalDeviceProperties2.properties;
+		int score = 0;
+
+		if (deviceProperties.deviceType == VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu) { score += 1000; } // prioritize discreate
+		score += (int)deviceProperties.limits.maxImageDimension2D; // prefer larger max images
+
+		return score;
+	}
+
 	internal void PrintValues() {
 		// TODO
 	}

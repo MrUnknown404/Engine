@@ -3,6 +3,7 @@ using JetBrains.Annotations;
 
 namespace Engine4.Client.Utility;
 
+[PublicAPI]
 [MustDisposeResource]
 public readonly unsafe ref struct StringArrayUtf8Ptr : IDisposable {
 	public IntPtr* Pointer { get; }
