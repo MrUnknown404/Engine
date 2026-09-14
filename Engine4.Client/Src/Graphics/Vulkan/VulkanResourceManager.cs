@@ -1,3 +1,4 @@
+using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.Client.Graphics.Vulkan.Resources;
 
 namespace Engine4.Client.Graphics.Vulkan;

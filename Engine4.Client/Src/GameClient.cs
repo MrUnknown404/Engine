@@ -62,9 +62,10 @@ public abstract class GameClient : GameCore {
 
 	protected Window CreateWindow(string title, ushort width, ushort height) {
 		if (!IsGlfwEnabled) { throw new Engine4Exception($"Cannot create a {nameof(Window)} when Glfw is not loaded"); }
+		if (vulkanManager == null) { throw new IllegalStateException(); }
 
 		Logger.Debug("Creating window...");
-		Window window = new(title, width, height);
+		Window window = new(vulkanManager, title, width, height);
 
 		windows.Add(window);
 		return window;
@@ -101,19 +102,26 @@ public abstract class GameClient : GameCore {
 	protected sealed override void InternalCleanup() {
 		base.InternalCleanup();
 
-		if (IsGlfwEnabled) {
-			Logger.Trace("Cleaning up Glfw");
-
-			GLFW.Terminate();
-			GLFW.SetErrorCallback(null);
-		}
-
 		if (IsVulkanEnabled) {
 			Logger.Trace("Cleaning up Vulkan");
 
 			if (vulkanManager == null) { throw new IllegalStateException(); }
 
+			foreach (VulkanRenderer renderer in renderers) { renderer.Cleanup(); }
+
+			if (IsGlfwEnabled) {
+				Logger.Trace($"Cleaning up {windows.Count} windows");
+				foreach (Window window in windows) { window.Cleanup(); }
+			}
+
 			vulkanManager.Cleanup();
+		}
+
+		if (IsGlfwEnabled) {
+			Logger.Trace("Cleaning up Glfw");
+
+			GLFW.Terminate();
+			GLFW.SetErrorCallback(null);
 		}
 	}
 

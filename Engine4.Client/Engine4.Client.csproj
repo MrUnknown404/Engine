@@ -24,7 +24,14 @@
 
 	<!-- Release -->
 	<ItemGroup Condition="'$(Configuration)' == 'Release'">
-		<Compile Remove="Src\Graphics\Vulkan\Objects\VulkanDebugMessenger.cs"/>
 		<None Include="Src\Graphics\Vulkan\Objects\VulkanDebugMessenger.cs"/>
 	</ItemGroup>
+
+	<!-- OS specific stuff -->
+	<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+		<DefineConstants>OS_WINDOWS</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+		<DefineConstants>OS_LINUX</DefineConstants>
+	</PropertyGroup>
 </Project>

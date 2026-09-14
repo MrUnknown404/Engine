@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.Client.Utility;
 using Engine4.Client.Utility.Exceptions;
 using Engine4.IO;
@@ -26,6 +27,9 @@ public sealed unsafe class VulkanManager {
 #if DEBUG
 			Vk.ExtDebugUtilsExtensionName,
 #endif
+#if OS_LINUX
+			Vk.KhrWaylandSurfaceExtensionName,
+#endif
 	];
 
 	public static readonly string[] RequiredEngineDeviceExtensionProperties = [
@@ -34,8 +38,8 @@ public sealed unsafe class VulkanManager {
 	];
 
 	public VulkanResourceManager ResourceManager { get; }
+	internal VulkanInstance VulkanInstance { get; } // TODO private
 
-	private readonly VulkanInstance vulkanInstance;
 	private readonly VulkanDebugMessenger debugMessenger; // TODO remove in release builds
 	private readonly PhysicalGpu[] physicalGpus;
 
@@ -52,20 +56,20 @@ public sealed unsafe class VulkanManager {
 		PrintInstanceExtensionProperties(availableInstanceExtensionProperties);
 
 		// create instance
-		vulkanInstance = new(game, vulkanSettings);
-		VKLoader.SetInstance(vulkanInstance.VkInstance);
+		VulkanInstance = new(game, vulkanSettings);
+		VKLoader.SetInstance(VulkanInstance.VkInstance); // set opentk instance
 		Logger.Trace("Created VkInstance");
 
 		// debugger
-		debugMessenger = new(vulkanInstance, vulkanSettings.EnabledDebugMessageSeverities, vulkanSettings.EnabledDebugMessageTypes);
+		debugMessenger = new(VulkanInstance, vulkanSettings.EnabledDebugMessageSeverities, vulkanSettings.EnabledDebugMessageTypes);
 		Logger.Trace("Created Vulkan Debug Messenger");
 
-		physicalGpus = GetPhysicalGpus(vulkanInstance, vulkanSettings);
+		physicalGpus = GetPhysicalGpus(VulkanInstance, vulkanSettings);
 		Logger.Trace($"Sorted {physicalGpus.Length} physical gpus");
 
 		PrintPhysicalGpus();
 
-		ResourceManager = new(vulkanInstance);
+		ResourceManager = new(VulkanInstance);
 	}
 
 	public void Cleanup() {
@@ -73,7 +77,7 @@ public sealed unsafe class VulkanManager {
 		ResourceManager.Cleanup();
 
 		debugMessenger.Cleanup();
-		vulkanInstance.Cleanup();
+		VulkanInstance.Cleanup();
 	}
 
 	[MustUseReturnValue]

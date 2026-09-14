@@ -5,7 +5,7 @@ using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine4.Client.Graphics.Vulkan;
+namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public sealed unsafe class VulkanDebugMessenger {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Vulkan);

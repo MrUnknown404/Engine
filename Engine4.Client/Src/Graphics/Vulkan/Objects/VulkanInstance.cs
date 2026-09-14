@@ -1,7 +1,7 @@
 using Engine4.Client.Utility;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine4.Client.Graphics.Vulkan;
+namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public sealed unsafe class VulkanInstance {
 	public VkInstance VkInstance { get; } // TODO private

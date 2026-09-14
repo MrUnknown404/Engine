@@ -40,4 +40,8 @@ public sealed class VulkanRenderer {
 	private void DrawFrame() => throw new NotImplementedException(); // TODO
 	private void EndFrame() => throw new NotImplementedException(); // TODO
 	private void PresentFrame() => throw new NotImplementedException(); // TODO
+
+	internal void Cleanup() {
+		// TODO
+	}
 }

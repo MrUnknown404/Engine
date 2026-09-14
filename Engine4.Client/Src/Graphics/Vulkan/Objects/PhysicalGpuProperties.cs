@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine4.Client.Graphics.Vulkan;
+namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public readonly record struct PhysicalGpuProperties {
 	public required VkPhysicalDeviceProperties2 PhysicalDeviceProperties2 { get; init; }
