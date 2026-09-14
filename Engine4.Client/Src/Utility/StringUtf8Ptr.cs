@@ -4,7 +4,7 @@ using JetBrains.Annotations;
 namespace Engine4.Client.Utility;
 
 [MustDisposeResource]
-public readonly unsafe record struct StringUtf8Ptr : IDisposable {
+public readonly unsafe ref struct StringUtf8Ptr : IDisposable {
 	public IntPtr Pointer { get; }
 
 	public StringUtf8Ptr(string str) => Pointer = Marshal.StringToCoTaskMemUTF8(str);
