@@ -6,9 +6,9 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<WarningsAsErrors>nullable</WarningsAsErrors>
-		<DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
+		<RootNamespace>Engine4.Client</RootNamespace>
+		<AssemblyName>Engine4.Client</AssemblyName>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<PackageId>Engine4.Client</PackageId>
 	</PropertyGroup>
 
 	<!-- Includes -->
@@ -20,5 +20,11 @@
 		<ProjectReference Include="..\Engine4\Engine4.csproj"/>
 
 		<EmbeddedResource Include="Assets\**"/>
+	</ItemGroup>
+
+	<!-- Release -->
+	<ItemGroup Condition="'$(Configuration)' == 'Release'">
+		<Compile Remove="Src\Graphics\Vulkan\Objects\VulkanDebugMessenger.cs"/>
+		<None Include="Src\Graphics\Vulkan\Objects\VulkanDebugMessenger.cs"/>
 	</ItemGroup>
 </Project>

@@ -1,9 +1,12 @@
 using Engine4.Client.Graphics.Vulkan;
 using Engine4.Client.Rendering;
+using Engine4.Client.Utility;
 using Engine4.IO;
+using Engine4.Utility;
 using Engine4.Utility.Exceptions;
 using Engine4.Utility.Versions;
 using NLog;
+using OpenTK.Graphics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace Engine4.Client;
@@ -13,16 +16,15 @@ namespace Engine4.Client;
 public abstract class GameClient : GameCore {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
 
+	// windowing & graphics
 	public bool IsGlfwEnabled { get; private set; }
 	public bool IsVulkanEnabled { get; private set; }
 
-	protected sealed override Action? PollEvents { get; }
-
-	// windowing & graphics
 	private readonly List<Window> windows = new(); // TODO cleanup. allow removal
 	private readonly List<VulkanRenderer> renderers = new(); // TODO cleanup. allow removal
 
-	private VulkanResourceManager? vulkanResourceManager;
+	private VulkanManager? vulkanManager;
+	protected sealed override Action? PollEvents { get; }
 
 	protected GameClient(string name, IPackableVersion version) : base(name, version) {
 		if (IsGlfwEnabled) { PollEvents = GLFW.PollEvents; }
@@ -39,10 +41,10 @@ public abstract class GameClient : GameCore {
 			SetupGlfw();
 		}
 
-		if (clientSettings.LoadVulkan) {
+		if (clientSettings.VulkanSettings != null) {
 			Logger.Trace("Loading Vulkan...");
 			IsVulkanEnabled = true;
-			SetupVulkan();
+			SetupVulkan(clientSettings.VulkanSettings);
 		}
 	}
 
@@ -70,24 +72,27 @@ public abstract class GameClient : GameCore {
 
 	protected VulkanRenderer CreateRenderer(RenderTarget renderTarget, params RenderPass[] renderPasses) {
 		if (!IsVulkanEnabled) { throw new Engine4Exception($"Cannot create a {nameof(VulkanRenderer)} when Vulkan is not loaded"); }
-		if (vulkanResourceManager == null) { throw new IllegalStateException(); }
+		if (vulkanManager == null) { throw new IllegalStateException(); }
 
 		Logger.Debug("Creating renderer...");
-		VulkanRenderer renderer = new(vulkanResourceManager, renderTarget, renderPasses);
+		VulkanRenderer renderer = new(vulkanManager, renderTarget, renderPasses);
 
 		renderers.Add(renderer);
 		return renderer;
 	}
 
 	private void SetupGlfw() {
-		GLFW.SetErrorCallback(ErrorCallback);
+		GLFW.SetErrorCallback(GlfwErrorCallback);
 		GLFW.Init();
 
 		Logger.Debug($"- Glfw Version: {GLFW.GetVersionString()}");
 	}
 
-	private void SetupVulkan() {
-		vulkanResourceManager = new();
+	private void SetupVulkan(VulkanStartupSettings vulkanSettings) {
+		Logger.Trace("Loading Vulkan bindings...");
+		VKLoader.Init();
+
+		vulkanManager = new(this, vulkanSettings);
 
 		// TODO vulkan
 		// TODO print version
@@ -106,12 +111,12 @@ public abstract class GameClient : GameCore {
 		if (IsVulkanEnabled) {
 			Logger.Trace("Cleaning up Vulkan");
 
-			if (vulkanResourceManager == null) { throw new IllegalStateException(); }
+			if (vulkanManager == null) { throw new IllegalStateException(); }
 
-			vulkanResourceManager.Cleanup();
+			vulkanManager.Cleanup();
 		}
 	}
 
 	private static readonly Logger GlfwLogger = LoggerH.GetLogger(LogSource.Glfw);
-	private static void ErrorCallback(ErrorCode error, string description) => GlfwLogger.Error($"[{error}] {description}");
+	private static void GlfwErrorCallback(ErrorCode error, string description) => GlfwLogger.Error($"[{error}] {description}");
 }

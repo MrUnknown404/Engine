@@ -6,7 +6,9 @@ namespace Engine4.Client.Graphics.Vulkan;
 //  should try to be efficient and reuse objects when necessary. but still allow manual object deletion.
 
 public sealed class VulkanResourceManager {
-	internal VulkanResourceManager() { }
+	private readonly VulkanInstance vulkanInstance;
+
+	internal VulkanResourceManager(VulkanInstance vulkanInstance) => this.vulkanInstance = vulkanInstance;
 
 	public VulkanBuffer GetBuffer(ulong size) => throw new NotImplementedException(); // TODO
 

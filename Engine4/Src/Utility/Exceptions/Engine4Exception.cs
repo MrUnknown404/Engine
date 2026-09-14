@@ -1,5 +1,8 @@
+using JetBrains.Annotations;
+
 namespace Engine4.Utility.Exceptions;
 
+[PublicAPI]
 public class Engine4Exception : Exception {
 	public Engine4Exception() { }
 	public Engine4Exception(string message, Exception? innerException = null) : base(message, innerException) { }

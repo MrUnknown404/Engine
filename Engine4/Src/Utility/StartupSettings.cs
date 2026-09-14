@@ -1,7 +1,7 @@
 using Engine4.IO;
 using NLog;
 
-namespace Engine4;
+namespace Engine4.Utility;
 
 public abstract class StartupSettings {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);

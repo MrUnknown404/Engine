@@ -26,6 +26,12 @@ public static class Engine4 {
 
 	public static readonly IPackableVersion Version = new BuildVersion(0);
 
+	internal static readonly string[] RequiredValidationLayers = [
+#if DEBUG
+			"VK_LAYER_KHRONOS_validation", // if OpenTK defines this somewhere, i could not find it
+#endif
+	];
+
 	internal static void PrintStartup() {
 		Logger.Debug($"- Engine Name: {Name}");
 		Logger.Debug($"- Version: {Version}");
