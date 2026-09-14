@@ -99,11 +99,11 @@ public abstract class GameCore {
 		LoggerH.Setup(startupSettings.LoggingSettings);
 		Logger.Info("Hello World!");
 
-		Logger.Trace("Setting up OS compatibility...");
-#if OS_WINDOWS
-		Windows.Setup();
-#elif OS_LINUX
+		Logger.Trace($"Setting up {Engine4.OperatingSystem} compatibility...");
+#if OS_LINUX
 		Linux.Setup();
+#elif OS_WINDOWS
+		Windows.Setup();
 #endif
 	}
 

@@ -11,7 +11,7 @@ namespace Engine4.Client;
 // https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/Engine_Architecture/05_rendering_pipeline.html read
 
 public abstract class GameClient : GameCore {
-	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Game);
+	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
 
 	public bool IsGlfwEnabled { get; private set; }
 	public bool IsVulkanEnabled { get; private set; }
