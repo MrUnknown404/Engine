@@ -1,10 +1,10 @@
 using Engine4.Client.Utility;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine4.Client.Graphics.Vulkan.Objects;
+namespace Engine4.Client.Graphics.Vulkan;
 
 public sealed unsafe class VulkanInstance {
-	public VkInstance VkInstance { get; }
+	public VkInstance VkInstance { get; } // TODO private
 
 	internal VulkanInstance(GameClient game, VulkanStartupSettings vulkanSettings) {
 		using StringUtf8Ptr appNamePtr = new(game.Name);
@@ -29,7 +29,7 @@ public sealed unsafe class VulkanInstance {
 #endif
 
 		VkInstanceCreateInfo instanceCreateInfo = new() {
-				pApplicationInfo = &applicationInfo,
+				pApplicationInfo = &applicationInfo, //
 #if DEBUG
 				pNext = &debugMessengerCreateInfo,
 #endif

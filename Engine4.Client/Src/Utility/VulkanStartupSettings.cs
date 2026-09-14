@@ -1,3 +1,4 @@
+using Engine4.Client.Graphics.Vulkan;
 using Engine4.Utility.Exceptions;
 using OpenTK.Graphics.Vulkan;
 
@@ -28,6 +29,8 @@ public sealed class VulkanStartupSettings {
 	} = 2;
 
 	public bool AllowEnableAnisotropy { get; init; } = true;
+
+	public IsPhysicalDeviceSuitableDelegate? IsPhysicalDeviceSuitable { get; init; }
 
 	internal void PrintValues() {
 		// TODO

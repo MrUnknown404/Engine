@@ -211,7 +211,7 @@ public abstract class GameCore {
 	private void Shutdown() {
 		Logger.Info("Shutting down...");
 
-		Logger.Trace($"Invoking {nameof(OnShutdownEvent)}s...");
+		Logger.Trace($"Invoking {OnShutdownEvent.GetInvocationListCount()} {nameof(OnShutdownEvent)}s...");
 		OnShutdownEvent?.Invoke();
 
 		Logger.Debug("Cleaning up everything...");

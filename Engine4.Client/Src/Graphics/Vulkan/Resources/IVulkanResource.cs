@@ -1,4 +1,4 @@
-namespace Engine4.Client.Graphics.Vulkan.Objects;
+namespace Engine4.Client.Graphics.Vulkan.Resources;
 
 public interface IVulkanResource {
 	public string DebugName { get; }

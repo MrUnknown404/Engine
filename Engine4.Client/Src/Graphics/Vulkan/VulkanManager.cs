@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
-using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.Client.Utility;
 using Engine4.Client.Utility.Exceptions;
 using Engine4.IO;
@@ -38,6 +37,7 @@ public sealed unsafe class VulkanManager {
 
 	private readonly VulkanInstance vulkanInstance;
 	private readonly VulkanDebugMessenger debugMessenger; // TODO remove in release builds
+	private readonly PhysicalGpu[] physicalGpus;
 
 	internal VulkanManager(GameClient game, VulkanStartupSettings vulkanSettings) {
 		// get vulkan api version
@@ -53,14 +53,17 @@ public sealed unsafe class VulkanManager {
 
 		// create instance
 		vulkanInstance = new(game, vulkanSettings);
-		VKLoader.SetInstance(vulkanInstance.VkInstance); // move?
+		VKLoader.SetInstance(vulkanInstance.VkInstance);
 		Logger.Trace("Created VkInstance");
 
 		// debugger
 		debugMessenger = new(vulkanInstance, vulkanSettings.EnabledDebugMessageSeverities, vulkanSettings.EnabledDebugMessageTypes);
-		Logger.Debug("Created Vulkan Debug Messenger");
+		Logger.Trace("Created Vulkan Debug Messenger");
 
-		// TODO get devices
+		physicalGpus = GetPhysicalGpus(vulkanInstance, vulkanSettings);
+		Logger.Trace($"Sorted {physicalGpus.Length} physical gpus");
+
+		PrintPhysicalGpus();
 
 		ResourceManager = new(vulkanInstance);
 	}
@@ -97,15 +100,15 @@ public sealed unsafe class VulkanManager {
 	[MustUseReturnValue]
 	private static VkLayerProperties[] CheckForInstanceLayerProperties(VulkanStartupSettings vulkanSettings) {
 		string[] requiredInstanceLayerProperties = GetRequiredInstanceLayerProperties(vulkanSettings);
-		VkLayerProperties[] availableLayerProperties = GetAvailableInstanceLayerProperties();
+		VkLayerProperties[] availableInstanceLayerProperties = GetAvailableInstanceLayerProperties();
 
-		if (availableLayerProperties.Length == 0) { throw new VulkanException("Could not find any instance layer properties"); }
-		if (!CheckSupportForInstanceLayerProperties(availableLayerProperties, requiredInstanceLayerProperties, out string[]? missingLayers)) {
+		if (availableInstanceLayerProperties.Length == 0) { throw new VulkanException("Could not find any instance layer properties"); }
+		if (!CheckSupportForInstanceLayerProperties(availableInstanceLayerProperties, requiredInstanceLayerProperties, out string[]? missingLayers)) {
 			foreach (string missingLayer in missingLayers) { Logger.Warn($"Layer \'{missingLayer}\' is not available"); } // TODO allow user to decide what to do for each missing
 			throw new VulkanException("Requested validation layers are not available");
 		}
 
-		return availableLayerProperties;
+		return availableInstanceLayerProperties;
 
 		static VkLayerProperties[] GetAvailableInstanceLayerProperties() {
 			uint layerCount;
@@ -145,15 +148,15 @@ public sealed unsafe class VulkanManager {
 	[MustUseReturnValue]
 	private static VkExtensionProperties[] CheckForInstanceExtensionProperties(VulkanStartupSettings vulkanSettings) {
 		string[] requiredInstanceExtensionProperties = GetRequiredInstanceExtensionProperties(vulkanSettings);
-		VkExtensionProperties[] instanceExtensionProperties = GetAvailableInstanceExtensionProperties();
+		VkExtensionProperties[] availableInstanceExtensionProperties = GetAvailableInstanceExtensionProperties();
 
-		if (instanceExtensionProperties.Length == 0) { throw new VulkanException("Could not find any instance extension properties"); }
-		if (!CheckSupportForInstanceExtensionProperties(instanceExtensionProperties, requiredInstanceExtensionProperties, out string[]? missingExtensions)) {
+		if (availableInstanceExtensionProperties.Length == 0) { throw new VulkanException("Could not find any instance extension properties"); }
+		if (!CheckSupportForInstanceExtensionProperties(availableInstanceExtensionProperties, requiredInstanceExtensionProperties, out string[]? missingExtensions)) {
 			foreach (string missingExtension in missingExtensions) { Logger.Warn($"Extension \'{missingExtension}\' is not available"); } // TODO allow user to decide what to do for each missing
 			throw new VulkanException("Requested instance extensions are not available");
 		}
 
-		return instanceExtensionProperties;
+		return availableInstanceExtensionProperties;
 
 		static VkExtensionProperties[] GetAvailableInstanceExtensionProperties() {
 			uint extensionCount;
@@ -208,5 +211,101 @@ public sealed unsafe class VulkanManager {
 		}
 
 		Logger.Trace($"- The following instance extension properties are available: {arr.ElementsAsString()}");
+	}
+
+	[MustUseReturnValue]
+	private static PhysicalGpu[] GetPhysicalGpus(VulkanInstance vulkanInstance, VulkanStartupSettings vulkanSettings) {
+		string[] requiredDeviceExtensionProperties = GetRequiredDeviceExtensionProperties(vulkanSettings);
+		VkPhysicalDevice[] availablePhysicalDevices = GetAvailablePhysicalDevices(vulkanInstance);
+
+		List<PhysicalGpu> physicalGpus = new();
+		foreach (VkPhysicalDevice physicalDevice in availablePhysicalDevices) {
+			VkPhysicalDeviceProperties2 physicalDeviceProperties2 = new();
+			VkPhysicalDeviceFeatures2 physicalDeviceFeatures2 = new();
+			Vk.GetPhysicalDeviceProperties2(physicalDevice, &physicalDeviceProperties2);
+			Vk.GetPhysicalDeviceFeatures2(physicalDevice, &physicalDeviceFeatures2);
+
+			PhysicalGpuProperties properties = new(physicalDeviceProperties2, physicalDeviceFeatures2);
+
+			if (!IsPhysicalDeviceSuitableForEngine(vulkanSettings, properties)) { continue; }
+			if (!vulkanSettings.IsPhysicalDeviceSuitable?.Invoke(properties) ?? false) { continue; }
+
+			VkExtensionProperties[] physicalDeviceExtensionProperties = GetPhysicalDeviceExtensionProperties(physicalDevice);
+			if (physicalDeviceExtensionProperties.Length == 0) { continue; }
+
+			if (!CheckDeviceExtensionSupport(physicalDeviceExtensionProperties, requiredDeviceExtensionProperties, out _)) { continue; } // TODO allow the user to handle missing?
+
+			physicalGpus.Add(new(physicalDevice, properties));
+		}
+
+		return physicalGpus.ToArray();
+
+		[MustUseReturnValue]
+		static VkPhysicalDevice[] GetAvailablePhysicalDevices(VulkanInstance vulkanInstance) {
+			uint deviceCount;
+			Vk.EnumeratePhysicalDevices(vulkanInstance.VkInstance, &deviceCount, null);
+
+			if (deviceCount == 0) { return Array.Empty<VkPhysicalDevice>(); }
+
+			VkPhysicalDevice[] physicalDevices = new VkPhysicalDevice[deviceCount];
+			fixed (VkPhysicalDevice* physicalDevicesPtr = physicalDevices) {
+				Vk.EnumeratePhysicalDevices(vulkanInstance.VkInstance, &deviceCount, physicalDevicesPtr);
+				return physicalDevices;
+			}
+		}
+
+		[MustUseReturnValue]
+		static bool IsPhysicalDeviceSuitableForEngine(VulkanStartupSettings vulkanSettings, PhysicalGpuProperties physicalGpuProperties) {
+			VkPhysicalDeviceProperties properties = physicalGpuProperties.PhysicalDeviceProperties2.properties;
+			VkPhysicalDeviceFeatures features = physicalGpuProperties.PhysicalDeviceFeatures2.features;
+
+			bool isValid = properties.deviceType is VkPhysicalDeviceType.PhysicalDeviceTypeIntegratedGpu //
+					or VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu
+					or VkPhysicalDeviceType.PhysicalDeviceTypeVirtualGpu;
+
+			if (vulkanSettings.AllowEnableAnisotropy) { isValid &= features.samplerAnisotropy == Vk.True; }
+
+			return isValid;
+		}
+
+		[MustUseReturnValue]
+		static VkExtensionProperties[] GetPhysicalDeviceExtensionProperties(VkPhysicalDevice physicalDevice) {
+			uint extensionCount;
+			Vk.EnumerateDeviceExtensionProperties(physicalDevice, null, &extensionCount, null);
+
+			if (extensionCount == 0) { return Array.Empty<VkExtensionProperties>(); }
+
+			VkExtensionProperties[] physicalDeviceExtensionProperties = new VkExtensionProperties[extensionCount];
+			fixed (VkExtensionProperties* extensionPropertiesPtr = physicalDeviceExtensionProperties) {
+				Vk.EnumerateDeviceExtensionProperties(physicalDevice, null, &extensionCount, extensionPropertiesPtr);
+				return physicalDeviceExtensionProperties;
+			}
+		}
+
+		[MustUseReturnValue]
+		static bool CheckDeviceExtensionSupport(VkExtensionProperties[] extensionProperties, string[] wantedExtensions, [NotNullWhen(false)] out string[]? missing) {
+			List<string> missingList = new();
+
+			foreach (string wantedExtension in wantedExtensions) {
+				bool found = false;
+
+				foreach (VkExtensionProperties properties in extensionProperties) {
+					ReadOnlySpan<byte> extensionName = properties.extensionName;
+					if (Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)]) == wantedExtension) {
+						found = true;
+						break;
+					}
+				}
+
+				if (!found) { missingList.Add(wantedExtension); }
+			}
+
+			missing = missingList.Count == 0 ? null : missingList.ToArray();
+			return missingList.Count == 0;
+		}
+	}
+
+	private void PrintPhysicalGpus() {
+		// TODO
 	}
 }
