@@ -139,7 +139,9 @@ public abstract class GameCore {
 			long lastTime = currentTime;
 			currentTime = Stopwatch.GetTimestamp();
 
-			ulong timeDifference = UpdateCount == 0 ? 0 : (ulong)(currentTime - lastTime); // ignore the first loop. TODO is there a better way of doing this?
+			// TODO can i find a way to do this without checking every frame? should i even care about the first loop time difference?
+			ulong timeDifference = UpdateCount == 0 ? 0 : (ulong)(currentTime - lastTime); // ignore the first loop.
+
 			PerformanceMonitor?.AddTime(timeDifference);
 
 			// update
