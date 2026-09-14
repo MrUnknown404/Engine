@@ -1,7 +1,10 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Engine4.Client.Rendering;
 using Engine4.IO;
+using Engine4.Utility;
 using Engine4.Utility.Compatability;
+using Engine4.Utility.Exceptions;
 using Engine4.Utility.Extensions;
 using Engine4.Utility.Versions;
 using NLog;
@@ -25,12 +28,18 @@ public abstract class GameCore {
 			field?.InternalSetup();
 		}
 	}
-
-	public ushort TargetFps { get; init; }
-	public ushort TargetUps { get; init; }
+	/// <summary> The amount of updates per second to aim for </summary>
+	/// <exception cref="Engine4Exception"> Thrown if value was set to zero </exception>
+	public uint TargetUps { get; init => field = TargetUps != 0 ? value : throw new Engine4Exception($"{nameof(TargetUps)} must be above zero"); } = 60;
+	/// <summary> The amount of frames per second to aim for. If zero, framerate will be uncapped </summary>
+	public uint TargetFps { get; init; }
+	/// <summary> The maximum amount of frames to skip while updating before rendering anyway. Set to zero to disable </summary>
 	public byte MaxFrameSkip { get; init; } = 5;
 
 	public ulong UpdateCount { get; private set; }
+	public ulong FrameCount { get; private set; }
+
+	public PerformanceMonitor? PerformanceMonitor { get; init; }
 
 	// lifecycle
 	public bool IsRunning { get; private set; }
@@ -113,18 +122,62 @@ public abstract class GameCore {
 
 	private void GameLoop() {
 		IsRunning = true;
-		while (IsRunning) {
-			PollEvents?.Invoke();
 
+		ulong ticksPerUpdate = (ulong)(1f / TargetUps * Stopwatch.Frequency);
+		ulong ticksPerFrame = (ulong)(1f / TargetFps * Stopwatch.Frequency);
+		ulong updateAccumulator = ticksPerUpdate;
+		ulong frameAccumulator = 0;
+		long currentTime = Stopwatch.GetTimestamp();
+
+		while (IsRunning) {
+			// check/poll/check again
+			if (shouldShutdown) { break; }
+			PollEvents?.Invoke();
 			if (shouldShutdown) { break; }
 
-			InternalUpdate();
-			UpdateCount++;
+			// timing
+			long lastTime = currentTime;
+			currentTime = Stopwatch.GetTimestamp();
 
-			float delta = 0; // TODO delta
-			InternalRender(delta);
+			ulong timeDifference = UpdateCount == 0 ? 0 : (ulong)(currentTime - lastTime); // ignore the first loop. TODO is there a better way of doing this?
+			PerformanceMonitor?.AddTime(timeDifference);
 
-			Thread.Sleep(1); // TODO remove sleep
+			// update
+			updateAccumulator += timeDifference;
+
+			int frameSkip = 0;
+			while (updateAccumulator >= ticksPerUpdate && (MaxFrameSkip == 0 || frameSkip < MaxFrameSkip)) {
+				if (frameSkip > 0) { Logger.Warn("frame skipping..."); } // debug
+
+				if (PerformanceMonitor != null) {
+					PerformanceMonitor.TimeUpdate(InternalUpdate); // calls update & times it
+				} else { InternalUpdate(); }
+
+				updateAccumulator -= ticksPerUpdate;
+				UpdateCount++;
+				PerformanceMonitor?.IncrementUpdateCounter();
+				frameSkip++;
+
+				if (MaxFrameSkip != 0 && frameSkip >= MaxFrameSkip) { Logger.Warn($"FrameSkip hit max ({MaxFrameSkip}). Rendering anyways..."); }
+			}
+
+			// render
+			if (TargetFps != 0) { // if frame limiting
+				frameAccumulator += timeDifference;
+
+				if (frameAccumulator >= ticksPerFrame) {
+					frameAccumulator -= ticksPerFrame; // continue
+				} else { continue; } // waste time
+			}
+
+			float delta = 1 - (float)(ticksPerUpdate - updateAccumulator) / ticksPerUpdate; // convert to 0-1
+
+			if (PerformanceMonitor != null) {
+				PerformanceMonitor.TimeRender(InternalRender, delta); // calls render & times it
+			} else { InternalRender(delta); }
+
+			FrameCount++;
+			PerformanceMonitor?.IncrementFrameCounter();
 		}
 
 		IsRunning = false;

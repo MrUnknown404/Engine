@@ -55,7 +55,7 @@ public abstract class GameClient : GameCore {
 	}
 
 	protected sealed override void Render(float delta) {
-		foreach (VulkanRenderer renderer in renderers) { renderer.InternalRender(delta); }
+		foreach (VulkanRenderer renderer in renderers) { renderer.InternalRender(delta); } // TODO time individual renderers
 	}
 
 	protected Window CreateWindow(string title, ushort width, ushort height) {

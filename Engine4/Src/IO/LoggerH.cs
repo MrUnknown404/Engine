@@ -70,7 +70,7 @@ public static class LoggerH {
 	}
 
 	internal static void Shutdown() {
-		if (isSetup) { throw new Engine4Exception("Cannot shutdown because we logging was never setup"); }
+		if (!isSetup) { throw new Engine4Exception("Cannot shutdown because logging was never setup"); }
 
 		AppDomain.CurrentDomain.UnhandledException -= OnUnhandledException;
 		LogManager.Shutdown();
