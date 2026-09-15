@@ -1,10 +1,14 @@
 using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.Client.Rendering;
+using Engine4.IO;
+using NLog;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan;
 
 public sealed unsafe class VulkanRenderer {
+	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
+
 	public ulong FrameCount { get; private set; }
 
 	private readonly VulkanResourceManager resourceManager;
@@ -92,6 +96,8 @@ public sealed unsafe class VulkanRenderer {
 	private void DrawFrame(FrameInFlight frame) {
 		GraphicsCommandBuffer graphicsCommandBuffer = frame.GraphicsCommandBuffer;
 		// RecordCommandBuffer(graphicsCommandBuffer); // TODO draw
+
+		if (FrameCount < 3) { Logger.Trace($"Frame: {FrameCount}"); }
 	}
 
 	private void EndFrame(FrameInFlight frame) {

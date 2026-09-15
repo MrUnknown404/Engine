@@ -26,6 +26,8 @@ public abstract class GameClient : GameCore {
 	protected VulkanManager? VulkanManager { get; private set; }
 	protected sealed override Action? PollEvents { get; }
 
+	protected bool AnyWindowsExist => windows.Count != 0;
+
 	protected GameClient(string name, IPackableVersion version) : base(name, version) {
 		if (IsGlfwEnabled) { PollEvents = GLFW.PollEvents; }
 	}
