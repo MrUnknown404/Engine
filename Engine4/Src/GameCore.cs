@@ -45,7 +45,7 @@ public abstract class GameCore {
 	public bool IsRunning { get; private set; }
 	private bool shouldShutdown;
 
-	protected abstract Action? PollEvents { get; }
+	protected Action? PollEvents { get; set => field = field == null ? value : throw new Exception(); }
 
 	/// <summary> Called after internal have been set up but before <see cref="SetupGame"/> </summary>
 	public event Action? OnSetupStartEvent;

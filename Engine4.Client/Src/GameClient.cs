@@ -17,20 +17,17 @@ public abstract class GameClient : GameCore {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
 
 	// windowing & graphics
-	public bool IsGlfwEnabled { get; private set; }
+	public bool IsGlfwEnabled { get; private set; } // note: not set until SetupInternals()
 	public bool IsVulkanEnabled { get; private set; }
 
 	private readonly List<Window> windows = new(); // TODO cleanup. allow removal
 	private readonly List<VulkanRenderer> renderers = new(); // TODO cleanup. allow removal
 
 	protected VulkanManager? VulkanManager { get; private set; }
-	protected sealed override Action? PollEvents { get; }
 
 	protected bool AnyWindowsExist => windows.Count != 0;
 
-	protected GameClient(string name, IPackableVersion version) : base(name, version) {
-		if (IsGlfwEnabled) { PollEvents = GLFW.PollEvents; }
-	}
+	protected GameClient(string name, IPackableVersion version) : base(name, version) { }
 
 	protected sealed override void SetupInternals(StartupSettings coreSettings) {
 		if (coreSettings is not ClientStartupSettings clientSettings) { throw new ArgumentException($"{nameof(coreSettings)} needs to be of type {nameof(ClientStartupSettings)}"); }
@@ -102,6 +99,8 @@ public abstract class GameClient : GameCore {
 	private void SetupGlfw() {
 		GLFW.SetErrorCallback(GlfwErrorCallback);
 		GLFW.Init();
+
+		PollEvents = GLFW.PollEvents;
 
 		Logger.Debug($"- Glfw Version: {GLFW.GetVersionString()}");
 	}
