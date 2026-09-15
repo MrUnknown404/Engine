@@ -14,7 +14,7 @@ public unsafe class SwapChain {
 	private readonly Window window;
 	private readonly BoundPhysicalGpu physicalGpu;
 	private readonly LogicalGpu logicalGpu;
-	private readonly VulkanSurface surface;
+	private readonly Surface surface;
 	private readonly VkPresentModeKHR presentMode;
 
 	internal VkSwapchainKHR VkSwapChain { get; private set; } // TODO private
@@ -23,14 +23,14 @@ public unsafe class SwapChain {
 	internal VkImage[] Images { get; private set; } // TODO private
 	internal VkImageView[] ImageViews { get; private set; } // TODO private
 
-	internal SwapChain(Window window, BoundPhysicalGpu physicalGpu, LogicalGpu logicalGpu, VulkanSurface surface, VkPresentModeKHR presentMode) {
+	internal SwapChain(Window window, BoundPhysicalGpu physicalGpu, LogicalGpu logicalGpu, Surface surface, VkPresentModeKHR presentMode) {
 		this.window = window;
 		this.physicalGpu = physicalGpu;
 		this.logicalGpu = logicalGpu;
 		this.surface = surface;
 		this.presentMode = presentMode;
 
-		VkSwapChain = CreateSwapChain(window, physicalGpu, logicalGpu, surface, presentMode, out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat);
+		VkSwapChain = CreateSwapChain(physicalGpu, logicalGpu, surface, presentMode, window.GetFrameBufferSize(), out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat);
 		ImageFormat = swapChainImageFormat;
 		Extent = swapChainExtent;
 		Images = GetSwapChainImages(logicalGpu, VkSwapChain);
@@ -40,7 +40,7 @@ public unsafe class SwapChain {
 	internal void Recreate() {
 		Vk.DeviceWaitIdle(logicalGpu.VkLogicalDevice);
 
-		VkSwapchainKHR vkSwapChain = CreateSwapChain(window, physicalGpu, logicalGpu, surface, presentMode, out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat, oldSwapChain: VkSwapChain);
+		VkSwapchainKHR vkSwapChain = CreateSwapChain(physicalGpu, logicalGpu, surface, presentMode, window.GetFrameBufferSize(), out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat, null, VkSwapChain);
 		Logger.Trace("Recreated swap chain");
 
 		Cleanup();
@@ -52,22 +52,28 @@ public unsafe class SwapChain {
 		ImageViews = CreateImageViews(logicalGpu, Images, swapChainImageFormat, VkImageAspectFlagBits.ImageAspectColorBit);
 	}
 
-	internal void Cleanup() { // TODO call this
+	[MustUseReturnValue]
+	internal VkResult AcquireNextImage(VkSemaphore imageAvailableSemaphore, out uint swapChainImageIndex) {
+		uint tempSwapChainImageIndex;
+		VkResult result = Vk.AcquireNextImageKHR(logicalGpu.VkLogicalDevice, VkSwapChain, ulong.MaxValue, imageAvailableSemaphore, VkFence.Zero, &tempSwapChainImageIndex);
+		swapChainImageIndex = tempSwapChainImageIndex;
+		return result;
+	}
+
+	internal void Cleanup() {
 		VkDevice logicalDevice = logicalGpu.VkLogicalDevice;
 		Vk.DestroySwapchainKHR(logicalDevice, VkSwapChain, null);
 		foreach (VkImageView imageView in ImageViews) { Vk.DestroyImageView(logicalDevice, imageView, null); }
 	}
 
 	[MustUseReturnValue]
-	private static VkSwapchainKHR CreateSwapChain(Window window, BoundPhysicalGpu physicalGpu, LogicalGpu logicalGpu, VulkanSurface surface, VkPresentModeKHR presentMode, out VkExtent2D swapChainExtent,
+	private static VkSwapchainKHR CreateSwapChain(BoundPhysicalGpu physicalGpu, LogicalGpu logicalGpu, Surface surface, VkPresentModeKHR presentMode, Vec2<ushort> frameBufferSize, out VkExtent2D swapChainExtent,
 		out VkFormat swapChainImageFormat, VkSurfaceTransformFlagBitsKHR? surfaceTransform = null, VkSwapchainKHR? oldSwapChain = null) {
 		// check if the surface is swapchain capable
 		// TODO shouldn't i check this before i get here?
-		if (!QuerySurfaceSupport(physicalGpu, surface, presentMode, out VkSurfaceCapabilities2KHR? surfaceCapabilities2, out VkSurfaceFormat2KHR? surfaceFormat2, out VkPresentModeKHR[]? supportedPresentModes)) {
+		if (!QuerySurfaceSupport(physicalGpu, surface, presentMode, out VkSurfaceCapabilities2KHR? surfaceCapabilities2, out VkSurfaceFormat2KHR? surfaceFormat2)) {
 			throw new Engine4Exception("Failed to query swap chain support");
 		}
-
-		Vec2<ushort> frameBufferSize = window.GetFrameBufferSize();
 
 		VkSurfaceCapabilitiesKHR surfaceCapabilities = surfaceCapabilities2.Value.surfaceCapabilities;
 		swapChainImageFormat = surfaceFormat2.Value.surfaceFormat.format;
@@ -118,8 +124,8 @@ public unsafe class SwapChain {
 		}
 
 		[MustUseReturnValue]
-		static bool QuerySurfaceSupport(BoundPhysicalGpu physicalGpu, VulkanSurface surface, VkPresentModeKHR presentMode, [NotNullWhen(true)] out VkSurfaceCapabilities2KHR? surfaceCapabilities2,
-			[NotNullWhen(true)] out VkSurfaceFormat2KHR? surfaceFormat2, [NotNullWhen(true)] out VkPresentModeKHR[]? presentModes) {
+		static bool QuerySurfaceSupport(BoundPhysicalGpu physicalGpu, Surface surface, VkPresentModeKHR presentMode, [NotNullWhen(true)] out VkSurfaceCapabilities2KHR? surfaceCapabilities2,
+			[NotNullWhen(true)] out VkSurfaceFormat2KHR? surfaceFormat2) {
 			VkSurfaceKHR vkSurface = surface.VkSurface;
 			VkPhysicalDevice vkPhysicalDevice = physicalGpu.VkPhysicalDevice;
 
@@ -129,14 +135,12 @@ public unsafe class SwapChain {
 			surfaceCapabilities2 = tempSurfaceCapabilities2;
 
 			VkSurfaceFormat2KHR[]? supportedSurfaceFormats = GetPhysicalDeviceSurfaceFormats(vkPhysicalDevice, surfaceInfo);
-			presentModes = GetPhysicalDeviceSurfacePresentModes(vkPhysicalDevice, vkSurface);
+			VkPresentModeKHR[]? presentModes = GetPhysicalDeviceSurfacePresentModes(vkPhysicalDevice, vkSurface);
 
-			if (supportedSurfaceFormats == null || presentModes == null) {
+			if (supportedSurfaceFormats == null || presentModes == null || !presentModes.Contains(presentMode)) {
 				surfaceFormat2 = null;
 				return false;
 			}
-
-			if (!presentModes.Contains(presentMode)) { throw new Engine4Exception("Surface does not support requested present mode"); }
 
 			surfaceFormat2 = ChooseSwapSurfaceFormat(supportedSurfaceFormats);
 			return surfaceFormat2 != null;

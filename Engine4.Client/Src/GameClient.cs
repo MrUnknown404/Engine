@@ -86,12 +86,12 @@ public abstract class GameClient : GameCore {
 		return window;
 	}
 
-	protected VulkanRenderer CreateRenderer(RenderTarget renderTarget, params RenderPass[] renderPasses) {
+	protected VulkanRenderer CreateRenderer(string debugName, RenderTarget renderTarget, params RenderPass[] renderPasses) {
 		if (!IsVulkanEnabled) { throw new Engine4Exception($"Cannot create a {nameof(VulkanRenderer)} when Vulkan is not loaded"); }
 		if (VulkanManager == null) { throw new IllegalStateException(); }
 
 		Logger.Debug("Creating renderer...");
-		VulkanRenderer renderer = new(renderTarget, renderPasses);
+		VulkanRenderer renderer = new(debugName, VulkanManager, renderTarget, renderPasses);
 
 		renderers.Add(renderer);
 		return renderer;

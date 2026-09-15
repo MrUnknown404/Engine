@@ -6,6 +6,7 @@ using Engine4.Client.Utility;
 using Engine4.Client.Utility.Exceptions;
 using Engine4.Client.Utility.Extensions;
 using Engine4.IO;
+using Engine4.Utility.Math;
 using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics;
@@ -56,6 +57,7 @@ public sealed unsafe class VulkanManager {
 #endif
 
 	public VkPresentModeKHR PresentMode { get; } // TODO support setting this at runtime
+	public byte MaxFramesInFlight { get; }
 
 	private readonly UnboundPhysicalGpu[] physicalGpus;
 
@@ -71,6 +73,8 @@ public sealed unsafe class VulkanManager {
 
 	internal VulkanManager(GameClient game, VulkanStartupSettings vulkanSettings) {
 		PresentMode = vulkanSettings.PresentMode;
+		MaxFramesInFlight = vulkanSettings.MaxFramesInFlight;
+
 		selectGpuMode = vulkanSettings.SelectGpuMode;
 		getManualGpuFunc = vulkanSettings.GetManualGpuFunc;
 		rateGpuSuitability = vulkanSettings.RateGpuSuitability;
@@ -114,8 +118,8 @@ public sealed unsafe class VulkanManager {
 		PrintPhysicalGpus();
 	}
 
-	public WindowRenderTarget CreateWindowRenderTarget(Window window) {
-		WindowRenderTarget renderTarget = new(window, this);
+	public WindowRenderTarget CreateWindowRenderTarget(Window window, Color3 clearColor) {
+		WindowRenderTarget renderTarget = new(window, this, clearColor);
 		renderTargets.Add(renderTarget);
 		return renderTarget;
 	}
@@ -125,7 +129,6 @@ public sealed unsafe class VulkanManager {
 
 	internal void Cleanup() {
 		Logger.Trace("- Cleaning up resources...");
-		//
 
 		foreach (RenderTarget renderTarget in renderTargets) { renderTarget.Cleanup(); } // logical gpus
 
@@ -343,7 +346,7 @@ public sealed unsafe class VulkanManager {
 		// TODO
 	}
 
-	internal BoundPhysicalGpu[] GetCapableGpus(VulkanSurface surface) {
+	internal BoundPhysicalGpu[] GetCapableGpus(Surface surface) {
 		List<BoundPhysicalGpu> boundPhysicalGpus = new();
 		foreach (UnboundPhysicalGpu physicalGpu in physicalGpus) {
 			VkPhysicalDevice physicalDevice = physicalGpu.VkPhysicalDevice;

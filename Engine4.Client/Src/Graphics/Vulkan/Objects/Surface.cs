@@ -3,11 +3,11 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
-public unsafe class VulkanSurface {
+public unsafe class Surface {
 	public VkSurfaceKHR VkSurface { get; } // TODO private
 	private readonly VulkanInstance vulkanInstance;
 
-	internal VulkanSurface(VulkanInstance vulkanInstance, Window window) {
+	internal Surface(VulkanInstance vulkanInstance, Window window) {
 		this.vulkanInstance = vulkanInstance;
 
 		GLFW.CreateWindowSurface(new((ulong)vulkanInstance.VkInstance.Handle), window.GlfwWindow, null, out VkHandle handle);

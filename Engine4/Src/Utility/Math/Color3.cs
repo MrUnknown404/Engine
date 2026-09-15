@@ -22,4 +22,16 @@ public readonly record struct Color3 {
 		G = g;
 		B = b;
 	}
+
+	public Color3(byte r, byte g, byte b) {
+		R = (float)r / byte.MaxValue;
+		G = (float)g / byte.MaxValue;
+		B = (float)b / byte.MaxValue;
+	}
+
+	public void Deconstruct(out float r, out float g, out float b) {
+		r = R;
+		g = G;
+		b = B;
+	}
 }

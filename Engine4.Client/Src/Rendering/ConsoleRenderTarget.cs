@@ -1,4 +1,8 @@
+using Engine4.Client.Graphics.Vulkan;
 using Engine4.Client.Graphics.Vulkan.Objects;
+using Engine4.Utility.Math;
+using OpenTK.Graphics.Vulkan;
+using USharpLibs.Common.Math;
 
 namespace Engine4.Client.Rendering;
 
@@ -9,9 +13,18 @@ public class ConsoleRenderTarget : RenderTarget {
 
 	private readonly ConsoleRenderer consoleRenderer;
 
-	internal ConsoleRenderTarget(ConsoleRenderer consoleRenderer) => this.consoleRenderer = consoleRenderer;
+	internal ConsoleRenderTarget(ConsoleRenderer consoleRenderer, Color3 clearColor) : base(clearColor) => this.consoleRenderer = consoleRenderer;
 
-	public void PresentFrame() => throw new NotImplementedException(); // TODO
+	protected internal override bool TryBeginFrame(VulkanRenderer.FrameInFlight frame) => throw new NotImplementedException(); // TODO
+
+	protected internal override void CmdBeginRendering(GraphicsCommandBuffer graphicsCommandBuffer, DepthImage? depthImage) => throw new NotImplementedException();
+	protected internal override void CmdEndRendering(GraphicsCommandBuffer graphicsCommandBuffer) => throw new NotImplementedException();
+
+	protected internal override void PresentFrame(VulkanRenderer.FrameInFlight frame) => throw new NotImplementedException(); // TODO
+
+	protected internal override VkSemaphore GetSignalSemaphore() => throw new NotImplementedException();
+
+	public override Vec2<ushort> GetFrameBufferSize() => throw new NotImplementedException(); // TODO
 
 	protected internal override void Cleanup() { }
 }
