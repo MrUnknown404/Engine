@@ -5,15 +5,18 @@ using OpenTK.Graphics.Vulkan;
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public unsafe class LogicalGpu {
-	public VkDevice VkLogicalDevice { get; } // TODO private
-	public VkQueue GraphicsQueue { get; } // TODO private
-	public VkQueue PresentQueue { get; } // TODO private
-	public VkQueue TransferQueue { get; } // TODO private
+	internal VkDevice VkLogicalDevice { get; } // TODO private
+	internal VkQueue GraphicsQueue { get; } // TODO private
+	internal VkQueue PresentQueue { get; } // TODO private
+	internal VkQueue TransferQueue { get; } // TODO private
+
+	internal VulkanResourceManager ResourceManager { get; } // TODO private
 
 	private readonly BoundPhysicalGpu physicalGpu;
 
 	internal LogicalGpu(BoundPhysicalGpu physicalGpu, VulkanManager vulkanManager) {
 		this.physicalGpu = physicalGpu;
+		ResourceManager = new();
 
 		QueueFamilyIndices queueFamilyIndices = physicalGpu.QueueFamilyIndices;
 		HashSet<uint> queueFamilies = [ queueFamilyIndices.GraphicsFamily, queueFamilyIndices.PresentFamily, queueFamilyIndices.TransferFamily, ];

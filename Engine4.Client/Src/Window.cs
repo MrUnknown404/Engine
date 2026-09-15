@@ -1,4 +1,6 @@
+using JetBrains.Annotations;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using USharpLibs.Common.Math;
 using GlfwWindow = OpenTK.Windowing.GraphicsLibraryFramework.Window;
 
 namespace Engine4.Client;
@@ -23,6 +25,13 @@ public unsafe class Window {
 
 	public void Show() => GLFW.ShowWindow(GlfwWindow);
 	public void Hide() => GLFW.HideWindow(GlfwWindow);
+
+	/// <summary> Not cached </summary>
+	[MustUseReturnValue]
+	public Vec2<ushort> GetFrameBufferSize() {
+		GLFW.GetFramebufferSize(GlfwWindow, out int width, out int height);
+		checked { return new((ushort)width, (ushort)height); } // throw if we lose data. this should never happen
+	}
 
 	public void RequestClose(bool force) {
 		if (force) {

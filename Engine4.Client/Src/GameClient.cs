@@ -91,7 +91,7 @@ public abstract class GameClient : GameCore {
 		if (VulkanManager == null) { throw new IllegalStateException(); }
 
 		Logger.Debug("Creating renderer...");
-		VulkanRenderer renderer = new(VulkanManager, renderTarget, renderPasses);
+		VulkanRenderer renderer = new(renderTarget, renderPasses);
 
 		renderers.Add(renderer);
 		return renderer;

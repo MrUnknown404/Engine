@@ -1,4 +1,5 @@
 using System.Numerics;
+using USharpLibs.Common.Math;
 
 namespace Engine4.Utility.Math;
 
@@ -9,6 +10,7 @@ public readonly record struct Color4 {
 	public float A { get; init; }
 
 	public Vector4 ToVector => new(R, G, B, A);
+	public Vec4<float> ToVec3 => new(R, G, B, A);
 
 	public Color4(Vector4 vector) {
 		R = vector.X;

@@ -10,8 +10,8 @@ public sealed class VulkanRenderer {
 	private readonly List<RenderPass> renderPasses; // TODO make sure this supports adding/removing at runtime
 	private readonly RenderTarget renderTarget; // TODO eventually allow multiple targets
 
-	internal VulkanRenderer(VulkanManager vulkanManager, RenderTarget renderTarget, params RenderPass[] renderPasses) {
-		resourceManager = vulkanManager.ResourceManager;
+	internal VulkanRenderer(RenderTarget renderTarget, params RenderPass[] renderPasses) {
+		resourceManager = renderTarget.LogicalGpu.ResourceManager;
 		this.renderTarget = renderTarget;
 		this.renderPasses = new(renderPasses);
 	}

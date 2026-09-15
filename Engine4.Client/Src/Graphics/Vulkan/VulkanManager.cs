@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Engine4.Client.Graphics.Vulkan.Objects;
+using Engine4.Client.Rendering;
 using Engine4.Client.Utility;
 using Engine4.Client.Utility.Exceptions;
 using Engine4.Client.Utility.Extensions;
@@ -48,14 +49,17 @@ public sealed unsafe class VulkanManager {
 		RequiredEngineDeviceExtensionProperties = requiredEngineDeviceExtensionProperties.ToArray();
 	}
 
-	public VulkanResourceManager ResourceManager { get; }
 	internal VulkanInstance VulkanInstance { get; } // TODO private
 
 #if DEBUG
 	private readonly VulkanDebugMessenger debugMessenger;
 #endif
 
+	public VkPresentModeKHR PresentMode { get; } // TODO support setting this at runtime
+
 	private readonly UnboundPhysicalGpu[] physicalGpus;
+
+	private readonly List<RenderTarget> renderTargets = new(); // TODO allow removal
 
 	public readonly string[] RequiredInstanceLayerProperties;
 	public readonly string[] RequiredInstanceExtensionProperties;
@@ -66,6 +70,7 @@ public sealed unsafe class VulkanManager {
 	private readonly RateGpuSuitabilityDelegate? rateGpuSuitability;
 
 	internal VulkanManager(GameClient game, VulkanStartupSettings vulkanSettings) {
+		PresentMode = vulkanSettings.PresentMode;
 		selectGpuMode = vulkanSettings.SelectGpuMode;
 		getManualGpuFunc = vulkanSettings.GetManualGpuFunc;
 		rateGpuSuitability = vulkanSettings.RateGpuSuitability;
@@ -107,13 +112,22 @@ public sealed unsafe class VulkanManager {
 		Logger.Trace($"Sorted {physicalGpus.Length} physical gpus");
 
 		PrintPhysicalGpus();
-
-		ResourceManager = new(this);
 	}
 
-	public void Cleanup() {
+	public WindowRenderTarget CreateWindowRenderTarget(Window window) {
+		WindowRenderTarget renderTarget = new(window, this);
+		renderTargets.Add(renderTarget);
+		return renderTarget;
+	}
+
+	public TextureRenderTarget CreateTextureRenderTarget() => throw new NotImplementedException(); // TODO
+	public ConsoleRenderTarget CreateConsoleRenderTarget() => throw new NotImplementedException(); // TODO
+
+	internal void Cleanup() {
 		Logger.Trace("- Cleaning up resources...");
-		ResourceManager.Cleanup();
+		//
+
+		foreach (RenderTarget renderTarget in renderTargets) { renderTarget.Cleanup(); } // logical gpus
 
 		debugMessenger.Cleanup();
 		VulkanInstance.Cleanup();
