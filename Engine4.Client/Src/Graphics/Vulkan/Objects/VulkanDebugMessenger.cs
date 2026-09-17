@@ -18,7 +18,8 @@ public sealed unsafe class VulkanDebugMessenger {
 		VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(messageSeverity, messageType);
 		VkDebugUtilsMessengerEXT debugMessenger;
 
-		vkDebugMessenger = Vk.CreateDebugUtilsMessengerEXT(vulkanInstance.VkInstance, &messengerCreateInfo, null, &debugMessenger) != VkResult.Success ? throw new Exception() : debugMessenger; // TODO exception
+		VkH.CheckSuccess(Vk.CreateDebugUtilsMessengerEXT(vulkanInstance.VkInstance, &messengerCreateInfo, null, &debugMessenger), "Failed to create debug messenger");
+		vkDebugMessenger = debugMessenger;
 	}
 
 	internal void Cleanup() => Vk.DestroyDebugUtilsMessengerEXT(vulkanInstance.VkInstance, vkDebugMessenger, null);

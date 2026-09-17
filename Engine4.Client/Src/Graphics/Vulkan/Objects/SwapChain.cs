@@ -17,11 +17,11 @@ public unsafe class SwapChain {
 	private readonly Surface surface;
 	private readonly VkPresentModeKHR presentMode;
 
-	internal VkSwapchainKHR VkSwapChain { get; private set; } // TODO private
-	internal VkFormat ImageFormat { get; private set; } // TODO private
-	internal VkExtent2D Extent { get; private set; } // TODO private
-	internal VkImage[] Images { get; private set; } // TODO private
-	internal VkImageView[] ImageViews { get; private set; } // TODO private
+	internal VkSwapchainKHR VkSwapChain { get; private set; }
+	internal VkFormat ImageFormat { get; private set; }
+	internal VkExtent2D Extent { get; private set; }
+	internal VkImage[] Images { get; private set; }
+	internal VkImageView[] ImageViews { get; private set; }
 
 	internal SwapChain(Window window, SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, Surface surface, VkPresentModeKHR presentMode) {
 		this.window = window;
@@ -83,44 +83,32 @@ public unsafe class SwapChain {
 		uint imageCount = surfaceCapabilities.minImageCount + 1;
 		if (surfaceCapabilities.maxImageCount > 0 && imageCount > surfaceCapabilities.maxImageCount) { imageCount = surfaceCapabilities.maxImageCount; }
 
-		VkSharingMode imageSharingMode;
-		uint queueFamilyIndexCount;
-		uint[] queueFamilyIndicesArray;
+		uint[] uniqueFamilies = physicalGpu.QueueFamilyIndices.ToUniqueFamilies();
+		uint queueFamilyIndexCount = (uint)uniqueFamilies.Length;
 
-		QueueFamilyIndices queueFamilyIndices = physicalGpu.QueueFamilyIndices;
-		HashSet<uint> hashSet = [ queueFamilyIndices.GraphicsFamily, queueFamilyIndices.TransferFamily, queueFamilyIndices.PresentFamily, ];
+		VkSwapchainCreateInfoKHR createInfo = new() {
+				surface = surface.VkSurface,
+				imageFormat = swapChainImageFormat,
+				imageColorSpace = surfaceFormat2.Value.surfaceFormat.colorSpace,
+				imageExtent = swapChainExtent,
+				minImageCount = imageCount,
+				imageArrayLayers = 1,
+				imageUsage = VkImageUsageFlagBits.ImageUsageColorAttachmentBit,
+				preTransform = surfaceTransform ?? surfaceCapabilities.currentTransform,
+				compositeAlpha = VkCompositeAlphaFlagBitsKHR.CompositeAlphaOpaqueBitKhr,
+				presentMode = presentMode,
+				clipped = VkH.True,
+				oldSwapchain = oldSwapChain ?? VkSwapchainKHR.Zero,
+		};
 
-		if (hashSet.Count != 1) {
-			imageSharingMode = VkSharingMode.SharingModeConcurrent;
-			queueFamilyIndexCount = (uint)hashSet.Count;
-			queueFamilyIndicesArray = hashSet.ToArray();
-		} else {
-			imageSharingMode = VkSharingMode.SharingModeExclusive;
-			queueFamilyIndexCount = 0;
-			queueFamilyIndicesArray = Array.Empty<uint>();
-		}
-
-		fixed (uint* pQueueFamilyIndicesPtr = queueFamilyIndicesArray) {
-			VkSwapchainCreateInfoKHR createInfo = new() {
-					surface = surface.VkSurface,
-					imageFormat = swapChainImageFormat,
-					imageColorSpace = surfaceFormat2.Value.surfaceFormat.colorSpace,
-					imageExtent = swapChainExtent,
-					minImageCount = imageCount,
-					imageArrayLayers = 1,
-					imageUsage = VkImageUsageFlagBits.ImageUsageColorAttachmentBit,
-					imageSharingMode = imageSharingMode,
-					queueFamilyIndexCount = queueFamilyIndexCount,
-					pQueueFamilyIndices = queueFamilyIndicesArray.Length == 0 ? null : pQueueFamilyIndicesPtr,
-					preTransform = surfaceTransform ?? surfaceCapabilities.currentTransform,
-					compositeAlpha = VkCompositeAlphaFlagBitsKHR.CompositeAlphaOpaqueBitKhr,
-					presentMode = presentMode,
-					clipped = VkH.True,
-					oldSwapchain = oldSwapChain ?? VkSwapchainKHR.Zero,
-			};
+		fixed (uint* uniqueFamiliesPtr = uniqueFamilies) {
+			createInfo = queueFamilyIndexCount != 1 ?
+					createInfo with { imageSharingMode = VkSharingMode.SharingModeConcurrent, queueFamilyIndexCount = queueFamilyIndexCount, pQueueFamilyIndices = uniqueFamiliesPtr, } :
+					createInfo with { imageSharingMode = VkSharingMode.SharingModeExclusive, };
 
 			VkSwapchainKHR swapChain;
-			return Vk.CreateSwapchainKHR(logicalGpu.VkLogicalDevice, &createInfo, null, &swapChain) == VkResult.Success ? swapChain : throw new Exception(); // TODO exception
+			VkH.CheckSuccess(Vk.CreateSwapchainKHR(logicalGpu.VkLogicalDevice, &createInfo, null, &swapChain), "Failed to create swap chain");
+			return swapChain;
 		}
 
 		[MustUseReturnValue]
@@ -200,7 +188,8 @@ public unsafe class SwapChain {
 
 		VkImage[] swapChainImages = new VkImage[swapChainImageCount];
 		fixed (VkImage* swapChainImagesPtr = swapChainImages) {
-			return Vk.GetSwapchainImagesKHR(logicalGpu.VkLogicalDevice, vkSwapChain, &swapChainImageCount, swapChainImagesPtr) == VkResult.Success ? swapChainImages : throw new Exception(); // TODO exception
+			VkH.CheckSuccess(Vk.GetSwapchainImagesKHR(logicalGpu.VkLogicalDevice, vkSwapChain, &swapChainImageCount, swapChainImagesPtr), "Failed to get swap chain images");
+			return swapChainImages;
 		}
 	}
 
@@ -224,7 +213,7 @@ public unsafe class SwapChain {
 						subresourceRange = new() { aspectMask = aspectMask, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 				};
 
-				if (Vk.CreateImageView(logicalGpu.VkLogicalDevice, &createInfo, null, &imageViewsPtr[i]) != VkResult.Success) { throw new Exception(); } // TODO exception
+				VkH.CheckSuccess(Vk.CreateImageView(logicalGpu.VkLogicalDevice, &createInfo, null, &imageViewsPtr[i]), "Failed to create image view");
 			}
 		}
 

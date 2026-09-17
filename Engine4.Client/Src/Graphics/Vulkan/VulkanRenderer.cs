@@ -52,16 +52,15 @@ public sealed unsafe class VulkanRenderer {
 
 	private bool Render(float delta) {
 		FrameInFlight frame = framesInFlight[currentFrameInFlight];
-		VkDevice logicalDevice = renderTarget.LogicalGpu.VkLogicalDevice;
-		VkFence inFlightFence = frame.InFlightFence.VkFence;
+		Fence inFlightFence = frame.InFlightFence;
 
 		// TODO not sure if i'm supposed to wait for all fences or just the current one. vulkan-tutorial.com & vkguide.dev differ. i should probably read the docs
 		//  vulkan-tutorial.com waits for all
 		//  vkguide.dev waits for current
-		Vk.WaitForFences(logicalDevice, 1, &inFlightFence, VkH.True, ulong.MaxValue);
+		inFlightFence.Wait(true, uint.MaxValue);
 
 		if (renderTarget.TryBeginFrame(frame)) {
-			Vk.ResetFences(logicalDevice, 1, &inFlightFence);
+			inFlightFence.Reset();
 
 			// update buffers/etc
 			UpdateBuffers(delta);
@@ -88,9 +87,7 @@ public sealed unsafe class VulkanRenderer {
 		GraphicsCommandBuffer graphicsCommandBuffer = frame.GraphicsCommandBuffer;
 
 		graphicsCommandBuffer.ResetCommandBuffer();
-
-		if (graphicsCommandBuffer.BeginCommandBuffer(0) != VkResult.Success) { throw new Exception(); } // TODO exception
-
+		VkH.CheckSuccess(graphicsCommandBuffer.BeginCommandBuffer(0), "Failed to begin command buffer");
 		renderTarget.CmdBeginRendering(graphicsCommandBuffer, depthImage);
 	}
 
@@ -105,8 +102,7 @@ public sealed unsafe class VulkanRenderer {
 		GraphicsCommandBuffer graphicsCommandBuffer = frame.GraphicsCommandBuffer;
 
 		renderTarget.CmdEndRendering(graphicsCommandBuffer);
-
-		if (graphicsCommandBuffer.EndCommandBuffer() != VkResult.Success) { throw new Exception(); } // TODO exception
+		VkH.CheckSuccess(graphicsCommandBuffer.EndCommandBuffer(), "Failed to end command buffer");
 
 		// submit queue
 		VkPipelineStageFlagBits* waitStages = stackalloc VkPipelineStageFlagBits[] { VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, };

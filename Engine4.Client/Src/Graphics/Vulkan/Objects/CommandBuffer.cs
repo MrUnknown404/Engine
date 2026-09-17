@@ -3,7 +3,7 @@ using OpenTK.Graphics.Vulkan;
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public abstract unsafe class CommandBuffer {
-	internal VkCommandBuffer VkCommandBuffer { get; } // TODO private
+	internal VkCommandBuffer VkCommandBuffer { get; }
 
 	protected CommandBuffer(VkCommandBuffer commandBuffer) => VkCommandBuffer = commandBuffer;
 

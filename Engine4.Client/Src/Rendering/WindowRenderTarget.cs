@@ -1,6 +1,7 @@
 using Engine4.Client.Graphics.Vulkan;
 using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.IO;
+using Engine4.Utility.Exceptions;
 using Engine4.Utility.Math;
 using NLog;
 using OpenTK.Graphics.Vulkan;
@@ -23,13 +24,13 @@ public sealed unsafe class WindowRenderTarget : RenderTarget {
 	private readonly Semaphore[] renderFinishedSemaphores;
 	private uint swapChainImageIndex;
 
-	internal WindowRenderTarget(Window window, VulkanManager vulkanManager, Color3 clearColor) : base(clearColor) {
+	internal WindowRenderTarget(Window window, VulkanManager vulkanManager, VulkanInstance vulkanInstance, Color3 clearColor) : base(clearColor) {
 		this.window = window;
 
 		// TODO logging
-		surface = new(vulkanManager.VulkanInstance, window);
+		surface = new(vulkanInstance, window);
 		SurfaceReadyPhysicalGpu[] capableGpus = vulkanManager.GetCapableGpus(surface);
-		PhysicalGpu = vulkanManager.SelectGpu(capableGpus) ?? throw new Exception(); // TODO exception
+		PhysicalGpu = vulkanManager.SelectGpu(capableGpus) ?? throw new Engine4Exception("Failed to select gpu");
 		LogicalGpu = new(PhysicalGpu, vulkanManager);
 		swapChain = new(window, PhysicalGpu, LogicalGpu, surface, vulkanManager.PresentMode);
 		renderFinishedSemaphores = LogicalGpu.ResourceManager.CreateSemaphores("Render Finished Semaphore", 0, (uint)swapChain.Images.Length);
@@ -40,7 +41,7 @@ public sealed unsafe class WindowRenderTarget : RenderTarget {
 		if (result == VkResult.ErrorOutOfDateKhr) {
 			InvalidateSwapChain();
 			return false;
-		} else if (result is not VkResult.Success and not VkResult.SuboptimalKhr) { throw new Exception(); } // TODO exception
+		} else if (result != VkResult.SuboptimalKhr) { VkH.CheckSuccess(result, "Failed to acquire next swap chain image"); }
 
 		return true;
 	}
@@ -70,7 +71,7 @@ public sealed unsafe class WindowRenderTarget : RenderTarget {
 		if (result is VkResult.ErrorOutOfDateKhr or VkResult.SuboptimalKhr || IsFrameBufferDirty) {
 			IsFrameBufferDirty = false;
 			InvalidateSwapChain();
-		} else if (result != VkResult.Success) { throw new Exception(); } // TODO exception
+		} else { VkH.CheckSuccess(result, "Failed to present queue"); }
 	}
 
 	protected internal override Semaphore GetSignalSemaphore() => renderFinishedSemaphores[swapChainImageIndex];

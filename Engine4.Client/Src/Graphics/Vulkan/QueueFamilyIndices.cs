@@ -10,4 +10,6 @@ public readonly record struct QueueFamilyIndices {
 		TransferFamily = transferFamily;
 		PresentFamily = presentFamily;
 	}
+
+	public uint[] ToUniqueFamilies() => new HashSet<uint>([ GraphicsFamily, TransferFamily, PresentFamily, ]).ToArray();
 }

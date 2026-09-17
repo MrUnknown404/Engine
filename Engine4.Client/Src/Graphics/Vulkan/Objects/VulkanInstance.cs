@@ -4,7 +4,7 @@ using OpenTK.Graphics.Vulkan;
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public sealed unsafe class VulkanInstance {
-	public VkInstance VkInstance { get; } // TODO private
+	internal VkInstance VkInstance { get; }
 
 	internal VulkanInstance(GameClient game, VulkanStartupSettings vulkanSettings, VulkanManager vulkanManager) {
 		using StringUtf8Ptr appNamePtr = new(game.Name);
@@ -40,7 +40,8 @@ public sealed unsafe class VulkanInstance {
 		};
 
 		VkInstance vkInstance;
-		VkInstance = Vk.CreateInstance(&instanceCreateInfo, null, &vkInstance) != VkResult.Success ? throw new Exception() : vkInstance; // TODO exception
+		VkH.CheckSuccess(Vk.CreateInstance(&instanceCreateInfo, null, &vkInstance), "Failed to create instance");
+		VkInstance = vkInstance;
 	}
 
 	internal void Cleanup() => Vk.DestroyInstance(VkInstance, null);

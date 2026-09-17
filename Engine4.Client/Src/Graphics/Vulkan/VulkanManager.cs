@@ -51,28 +51,26 @@ public sealed unsafe class VulkanManager {
 		RequiredEngineDeviceExtensionProperties = requiredEngineDeviceExtensionProperties.ToArray();
 	}
 
-	internal VulkanInstance VulkanInstance { get; } // TODO private
-
-#if DEBUG
-	private readonly VulkanDebugMessenger debugMessenger;
-#endif
-
 	public VkPresentModeKHR PresentMode { get; } // TODO support setting this at runtime
 	public byte MaxFramesInFlight { get; }
-
-	private readonly PhysicalGpu[] physicalGpus;
-
-	private readonly List<RenderTarget> renderTargets = new(); // TODO allow removal
 
 	public readonly string[] RequiredInstanceLayerProperties;
 	public readonly string[] RequiredInstanceExtensionProperties;
 	public readonly string[] RequiredDeviceExtensionProperties;
 
+	private readonly GameClient game;
+	private readonly VulkanInstance vulkanInstance;
+#if DEBUG
+	private readonly VulkanDebugMessenger debugMessenger;
+#endif
+	private readonly PhysicalGpu[] physicalGpus;
+	private readonly List<RenderTarget> renderTargets = new(); // TODO allow removal
 	private readonly SelectGpuMode selectGpuMode;
 	private readonly SelectGpuDelegate? getManualGpuFunc;
 	private readonly RateGpuSuitabilityDelegate? rateGpuSuitability;
 
 	internal VulkanManager(GameClient game, VulkanStartupSettings vulkanSettings) {
+		this.game = game;
 		PresentMode = vulkanSettings.PresentMode;
 		MaxFramesInFlight = vulkanSettings.MaxFramesInFlight;
 
@@ -105,28 +103,37 @@ public sealed unsafe class VulkanManager {
 		PrintInstanceExtensionProperties(availableInstanceExtensionProperties);
 
 		// create instance
-		VulkanInstance = new(game, vulkanSettings, this);
-		VKLoader.SetInstance(VulkanInstance.VkInstance); // set opentk instance
+		vulkanInstance = new(game, vulkanSettings, this);
+		VKLoader.SetInstance(vulkanInstance.VkInstance); // set opentk instance
 		Logger.Trace("Created VkInstance");
 
 		// debugger
-		debugMessenger = new(VulkanInstance, vulkanSettings.EnabledDebugMessageSeverities, vulkanSettings.EnabledDebugMessageTypes);
+		debugMessenger = new(vulkanInstance, vulkanSettings.EnabledDebugMessageSeverities, vulkanSettings.EnabledDebugMessageTypes);
 		Logger.Trace("Created Vulkan Debug Messenger");
 
-		physicalGpus = GetPhysicalGpus(VulkanInstance, vulkanSettings);
+		physicalGpus = GetPhysicalGpus(vulkanInstance, vulkanSettings);
 		Logger.Trace($"Sorted {physicalGpus.Length} physical gpus");
 
 		PrintPhysicalGpus();
 	}
 
 	public WindowRenderTarget CreateWindowRenderTarget(Window window, Color3 clearColor) {
-		WindowRenderTarget renderTarget = new(window, this, clearColor);
+		WindowRenderTarget renderTarget = new(window, this, vulkanInstance, clearColor);
 		renderTargets.Add(renderTarget);
 		return renderTarget;
 	}
 
-	public TextureRenderTarget CreateTextureRenderTarget() => throw new NotImplementedException(); // TODO
-	public ConsoleRenderTarget CreateConsoleRenderTarget() => throw new NotImplementedException(); // TODO
+	public TextureRenderTarget CreateTextureRenderTarget(Color3 clearColor) {
+		TextureRenderTarget renderTarget = new(clearColor);
+		renderTargets.Add(renderTarget);
+		return renderTarget;
+	}
+
+	public ConsoleRenderTarget CreateConsoleRenderTarget(Color3 clearColor) {
+		ConsoleRenderTarget renderTarget = new(game.ConsoleRenderer ?? throw new NullReferenceException(), clearColor);
+		renderTargets.Add(renderTarget);
+		return renderTarget;
+	}
 
 	internal void Cleanup() {
 		Logger.Trace("- Cleaning up resources...");
@@ -134,7 +141,7 @@ public sealed unsafe class VulkanManager {
 		foreach (RenderTarget renderTarget in renderTargets) { renderTarget.Cleanup(); } // logical gpus
 
 		debugMessenger.Cleanup();
-		VulkanInstance.Cleanup();
+		vulkanInstance.Cleanup();
 	}
 
 	[MustUseReturnValue]

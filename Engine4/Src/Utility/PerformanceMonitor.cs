@@ -2,8 +2,8 @@ using System.Diagnostics;
 
 namespace Engine4.Utility;
 
-// TODO monitor timing anomalies/drift
-// TODO calc avg/min/max. ring buffer for profiling?
+// TODO add more profiling. monitor spikes. calc avg/min/max. ring buffer for profiling?
+
 public class PerformanceMonitor {
 	/// <summary> In seconds </summary>
 	public ushort ProfileTime { get; init; }

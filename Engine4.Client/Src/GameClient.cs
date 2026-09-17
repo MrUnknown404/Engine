@@ -20,8 +20,8 @@ public abstract class GameClient : GameCore {
 	public bool IsGlfwEnabled { get; private set; } // note: not set until SetupInternals()
 	public bool IsVulkanEnabled { get; private set; }
 
-	private readonly List<Window> windows = new(); // TODO cleanup. allow removal
-	private readonly List<VulkanRenderer> renderers = new(); // TODO cleanup. allow removal
+	private readonly List<Window> windows = new();
+	private readonly List<VulkanRenderer> renderers = new(); // TODO allow removal
 
 	protected VulkanManager? VulkanManager { get; private set; }
 
@@ -111,8 +111,6 @@ public abstract class GameClient : GameCore {
 		VKLoader.Init();
 
 		VulkanManager = new(this, vulkanSettings);
-
-		// TODO vulkan
 		// TODO print version
 	}
 

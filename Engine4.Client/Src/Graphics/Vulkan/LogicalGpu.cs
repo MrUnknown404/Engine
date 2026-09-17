@@ -5,12 +5,12 @@ using OpenTK.Graphics.Vulkan;
 namespace Engine4.Client.Graphics.Vulkan;
 
 public unsafe class LogicalGpu {
-	internal VkDevice VkLogicalDevice { get; } // TODO private
-	internal VkQueue GraphicsQueue { get; } // TODO private
-	internal VkQueue PresentQueue { get; } // TODO private
-	internal VkQueue TransferQueue { get; } // TODO private
+	internal VkDevice VkLogicalDevice { get; }
+	internal VkQueue GraphicsQueue { get; } // TODO queue objects?
+	internal VkQueue PresentQueue { get; }
+	internal VkQueue TransferQueue { get; }
 
-	internal VulkanResourceManager ResourceManager { get; } // TODO private
+	internal VulkanResourceManager ResourceManager { get; }
 
 	internal LogicalGpu(SurfaceReadyPhysicalGpu physicalGpu, VulkanManager vulkanManager) {
 		ResourceManager = new(physicalGpu, this);
@@ -45,7 +45,7 @@ public unsafe class LogicalGpu {
 		};
 
 		VkDevice logicalDevice;
-		if (Vk.CreateDevice(physicalGpu.VkPhysicalDevice, &deviceCreateInfo, null, &logicalDevice) != VkResult.Success) { throw new Exception(); } // TODO exception
+		VkH.CheckSuccess(Vk.CreateDevice(physicalGpu.VkPhysicalDevice, &deviceCreateInfo, null, &logicalDevice), "Failed to create logical device");
 
 		VkLogicalDevice = logicalDevice;
 		GraphicsQueue = GetDeviceQueue(logicalDevice, queueFamilyIndices.GraphicsFamily);
