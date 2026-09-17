@@ -12,7 +12,7 @@ namespace Engine4.Client.Rendering;
 public sealed unsafe class WindowRenderTarget : RenderTarget {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
 
-	public override BoundPhysicalGpu PhysicalGpu { get; }
+	public override SurfaceReadyPhysicalGpu PhysicalGpu { get; }
 	public override LogicalGpu LogicalGpu { get; }
 
 	private readonly Window window;
@@ -28,7 +28,7 @@ public sealed unsafe class WindowRenderTarget : RenderTarget {
 
 		// TODO logging
 		surface = new(vulkanManager.VulkanInstance, window);
-		BoundPhysicalGpu[] capableGpus = vulkanManager.GetCapableGpus(surface);
+		SurfaceReadyPhysicalGpu[] capableGpus = vulkanManager.GetCapableGpus(surface);
 		PhysicalGpu = vulkanManager.SelectGpu(capableGpus) ?? throw new Exception(); // TODO exception
 		LogicalGpu = new(PhysicalGpu, vulkanManager);
 		swapChain = new(window, PhysicalGpu, LogicalGpu, surface, vulkanManager.PresentMode);

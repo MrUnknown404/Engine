@@ -2,7 +2,7 @@ using Engine4.Client.Utility;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine4.Client.Graphics.Vulkan.Objects;
+namespace Engine4.Client.Graphics.Vulkan;
 
 public unsafe class LogicalGpu {
 	internal VkDevice VkLogicalDevice { get; } // TODO private
@@ -12,7 +12,7 @@ public unsafe class LogicalGpu {
 
 	internal VulkanResourceManager ResourceManager { get; } // TODO private
 
-	internal LogicalGpu(BoundPhysicalGpu physicalGpu, VulkanManager vulkanManager) {
+	internal LogicalGpu(SurfaceReadyPhysicalGpu physicalGpu, VulkanManager vulkanManager) {
 		ResourceManager = new(physicalGpu, this);
 
 		QueueFamilyIndices queueFamilyIndices = physicalGpu.QueueFamilyIndices;

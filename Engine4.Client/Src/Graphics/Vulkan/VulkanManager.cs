@@ -60,7 +60,7 @@ public sealed unsafe class VulkanManager {
 	public VkPresentModeKHR PresentMode { get; } // TODO support setting this at runtime
 	public byte MaxFramesInFlight { get; }
 
-	private readonly UnboundPhysicalGpu[] physicalGpus;
+	private readonly PhysicalGpu[] physicalGpus;
 
 	private readonly List<RenderTarget> renderTargets = new(); // TODO allow removal
 
@@ -252,10 +252,10 @@ public sealed unsafe class VulkanManager {
 	}
 
 	[MustUseReturnValue]
-	private UnboundPhysicalGpu[] GetPhysicalGpus(VulkanInstance vulkanInstance, VulkanStartupSettings vulkanSettings) {
+	private PhysicalGpu[] GetPhysicalGpus(VulkanInstance vulkanInstance, VulkanStartupSettings vulkanSettings) {
 		VkPhysicalDevice[] availablePhysicalDevices = GetAvailablePhysicalDevices(vulkanInstance);
 
-		List<UnboundPhysicalGpu> physicalGpus = new();
+		List<PhysicalGpu> physicalGpus = new();
 		foreach (VkPhysicalDevice physicalDevice in availablePhysicalDevices) {
 			VkPhysicalDeviceProperties2 physicalDeviceProperties2 = new();
 			VkPhysicalDeviceFeatures2 physicalDeviceFeatures2 = new();
@@ -346,9 +346,9 @@ public sealed unsafe class VulkanManager {
 		// TODO
 	}
 
-	internal BoundPhysicalGpu[] GetCapableGpus(Surface surface) {
-		List<BoundPhysicalGpu> boundPhysicalGpus = new();
-		foreach (UnboundPhysicalGpu physicalGpu in physicalGpus) {
+	internal SurfaceReadyPhysicalGpu[] GetCapableGpus(Surface surface) {
+		List<SurfaceReadyPhysicalGpu> boundPhysicalGpus = new();
+		foreach (PhysicalGpu physicalGpu in physicalGpus) {
 			VkPhysicalDevice physicalDevice = physicalGpu.VkPhysicalDevice;
 
 			if (!FindQueueFamilies(physicalDevice, surface.VkSurface, out QueueFamilyIndices? queueFamilyIndices)) { continue; }
@@ -377,7 +377,7 @@ public sealed unsafe class VulkanManager {
 			}
 		}
 
-		[MustUseReturnValue]
+		[MustUseReturnValue] // TODO split this for the 2 physical gpu classes. make a version of QueueFamilyIndices that doesn't use present queue?
 		static bool FindQueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, [NotNullWhen(true)] out QueueFamilyIndices? queueFamilyIndices) {
 			uint? graphicsFamily = null;
 			uint? presentFamily = null;
@@ -395,7 +395,7 @@ public sealed unsafe class VulkanManager {
 				if (presentSupport == Vk.True) { presentFamily = i; }
 
 				if (graphicsFamily != null && presentFamily != null && transferFamily != null) { // if filled. we're done
-					queueFamilyIndices = new(graphicsFamily.Value, presentFamily.Value, transferFamily.Value);
+					queueFamilyIndices = new(graphicsFamily.Value, transferFamily.Value, presentFamily.Value);
 					return true;
 				}
 			}
@@ -405,16 +405,16 @@ public sealed unsafe class VulkanManager {
 		}
 	}
 
-	internal BoundPhysicalGpu? SelectGpu(BoundPhysicalGpu[] capableGpus) {
+	internal SurfaceReadyPhysicalGpu? SelectGpu(SurfaceReadyPhysicalGpu[] capableGpus) {
 		switch (selectGpuMode) {
 			case SelectGpuMode.Manual: return getManualGpuFunc?.Invoke(capableGpus);
 			case SelectGpuMode.HighestRated:
 				if (rateGpuSuitability == null) { return null; }
 
-				BoundPhysicalGpu? bestDevice = null;
+				SurfaceReadyPhysicalGpu? bestDevice = null;
 				int bestDeviceScore = int.MinValue;
 
-				foreach (BoundPhysicalGpu device in capableGpus) {
+				foreach (SurfaceReadyPhysicalGpu device in capableGpus) {
 					int score = rateGpuSuitability(device);
 					if (score > bestDeviceScore) {
 						bestDevice = device;

@@ -12,7 +12,7 @@ public unsafe class SwapChain {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Vulkan);
 
 	private readonly Window window;
-	private readonly BoundPhysicalGpu physicalGpu;
+	private readonly SurfaceReadyPhysicalGpu physicalGpu;
 	private readonly LogicalGpu logicalGpu;
 	private readonly Surface surface;
 	private readonly VkPresentModeKHR presentMode;
@@ -23,7 +23,7 @@ public unsafe class SwapChain {
 	internal VkImage[] Images { get; private set; } // TODO private
 	internal VkImageView[] ImageViews { get; private set; } // TODO private
 
-	internal SwapChain(Window window, BoundPhysicalGpu physicalGpu, LogicalGpu logicalGpu, Surface surface, VkPresentModeKHR presentMode) {
+	internal SwapChain(Window window, SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, Surface surface, VkPresentModeKHR presentMode) {
 		this.window = window;
 		this.physicalGpu = physicalGpu;
 		this.logicalGpu = logicalGpu;
@@ -67,7 +67,7 @@ public unsafe class SwapChain {
 	}
 
 	[MustUseReturnValue]
-	private static VkSwapchainKHR CreateSwapChain(BoundPhysicalGpu physicalGpu, LogicalGpu logicalGpu, Surface surface, VkPresentModeKHR presentMode, Vec2<ushort> frameBufferSize, out VkExtent2D swapChainExtent,
+	private static VkSwapchainKHR CreateSwapChain(SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, Surface surface, VkPresentModeKHR presentMode, Vec2<ushort> frameBufferSize, out VkExtent2D swapChainExtent,
 		out VkFormat swapChainImageFormat, VkSurfaceTransformFlagBitsKHR? surfaceTransform = null, VkSwapchainKHR? oldSwapChain = null) {
 		// check if the surface is swapchain capable
 		// TODO shouldn't i check this before i get here?
@@ -124,7 +124,7 @@ public unsafe class SwapChain {
 		}
 
 		[MustUseReturnValue]
-		static bool QuerySurfaceSupport(BoundPhysicalGpu physicalGpu, Surface surface, VkPresentModeKHR presentMode, [NotNullWhen(true)] out VkSurfaceCapabilities2KHR? surfaceCapabilities2,
+		static bool QuerySurfaceSupport(SurfaceReadyPhysicalGpu physicalGpu, Surface surface, VkPresentModeKHR presentMode, [NotNullWhen(true)] out VkSurfaceCapabilities2KHR? surfaceCapabilities2,
 			[NotNullWhen(true)] out VkSurfaceFormat2KHR? surfaceFormat2) {
 			VkSurfaceKHR vkSurface = surface.VkSurface;
 			VkPhysicalDevice vkPhysicalDevice = physicalGpu.VkPhysicalDevice;

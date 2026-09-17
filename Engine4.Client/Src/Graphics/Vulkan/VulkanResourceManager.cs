@@ -10,12 +10,12 @@ namespace Engine4.Client.Graphics.Vulkan;
 public sealed class VulkanResourceManager {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Vulkan);
 
-	private readonly BoundPhysicalGpu physicalGpu;
+	private readonly SurfaceReadyPhysicalGpu physicalGpu;
 	private readonly LogicalGpu logicalGpu;
 
 	private readonly Dictionary<Type, IResourceList> resourceLists = new();
 
-	internal VulkanResourceManager(BoundPhysicalGpu physicalGpu, LogicalGpu logicalGpu) {
+	internal VulkanResourceManager(SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu) {
 		this.physicalGpu = physicalGpu;
 		this.logicalGpu = logicalGpu;
 	}
