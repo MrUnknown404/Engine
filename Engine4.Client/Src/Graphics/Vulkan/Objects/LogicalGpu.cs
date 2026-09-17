@@ -63,34 +63,6 @@ public unsafe class LogicalGpu {
 		}
 	}
 
-	[MustUseReturnValue]
-	public VkSemaphore CreateSemaphore() {
-		VkSemaphoreCreateInfo semaphoreCreateInfo = new();
-		VkSemaphore semaphore;
-		return Vk.CreateSemaphore(VkLogicalDevice, &semaphoreCreateInfo, null, &semaphore) == VkResult.Success ? semaphore : throw new Exception(); // TODO exception
-	}
-
-	[MustUseReturnValue]
-	public VkSemaphore[] CreateSemaphores(uint count) {
-		VkSemaphore[] semaphores = new VkSemaphore[count];
-		for (uint i = 0; i < count; i++) { semaphores[i] = CreateSemaphore(); }
-		return semaphores;
-	}
-
-	[MustUseReturnValue]
-	public VkFence CreateFence() {
-		VkFenceCreateInfo fenceCreateInfo = new() { flags = VkFenceCreateFlagBits.FenceCreateSignaledBit, };
-		VkFence fence;
-		return Vk.CreateFence(VkLogicalDevice, &fenceCreateInfo, null, &fence) == VkResult.Success ? fence : throw new Exception(); // TODO exception
-	}
-
-	[MustUseReturnValue]
-	public VkFence[] CreateFences(uint count) {
-		VkFence[] fences = new VkFence[count];
-		for (uint i = 0; i < count; i++) { fences[i] = CreateFence(); }
-		return fences;
-	}
-
 	internal void Cleanup() {
 		ResourceManager.Cleanup();
 

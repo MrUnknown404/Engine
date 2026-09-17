@@ -5,6 +5,7 @@ using Engine4.Utility.Math;
 using NLog;
 using OpenTK.Graphics.Vulkan;
 using USharpLibs.Common.Math;
+using Semaphore = Engine4.Client.Graphics.Vulkan.Objects.Semaphore;
 
 namespace Engine4.Client.Rendering;
 
@@ -19,7 +20,7 @@ public sealed unsafe class WindowRenderTarget : RenderTarget {
 	private readonly SwapChain swapChain;
 
 	// this is messy
-	private readonly VkSemaphore[] renderFinishedSemaphores;
+	private readonly Semaphore[] renderFinishedSemaphores;
 	private uint swapChainImageIndex;
 
 	internal WindowRenderTarget(Window window, VulkanManager vulkanManager, Color3 clearColor) : base(clearColor) {
@@ -31,7 +32,7 @@ public sealed unsafe class WindowRenderTarget : RenderTarget {
 		PhysicalGpu = vulkanManager.SelectGpu(capableGpus) ?? throw new Exception(); // TODO exception
 		LogicalGpu = new(PhysicalGpu, vulkanManager);
 		swapChain = new(window, PhysicalGpu, LogicalGpu, surface, vulkanManager.PresentMode);
-		renderFinishedSemaphores = LogicalGpu.CreateSemaphores((uint)swapChain.Images.Length);
+		renderFinishedSemaphores = LogicalGpu.ResourceManager.CreateSemaphores("Render Finished Semaphore", 0, (uint)swapChain.Images.Length);
 	}
 
 	protected internal override bool TryBeginFrame(VulkanRenderer.FrameInFlight frame) {
@@ -61,7 +62,7 @@ public sealed unsafe class WindowRenderTarget : RenderTarget {
 	protected internal override void PresentFrame(VulkanRenderer.FrameInFlight frame) {
 		VkSwapchainKHR swapChain = this.swapChain.VkSwapChain;
 		uint swapChainImageIndex = this.swapChainImageIndex;
-		VkSemaphore renderFinishedSemaphore = renderFinishedSemaphores[swapChainImageIndex];
+		VkSemaphore renderFinishedSemaphore = renderFinishedSemaphores[swapChainImageIndex].VkSemaphore;
 
 		VkPresentInfoKHR presentInfo = new() { waitSemaphoreCount = 1, pWaitSemaphores = &renderFinishedSemaphore, swapchainCount = 1, pSwapchains = &swapChain, pImageIndices = &swapChainImageIndex, };
 		VkResult result = Vk.QueuePresentKHR(LogicalGpu.PresentQueue, &presentInfo);
@@ -72,7 +73,7 @@ public sealed unsafe class WindowRenderTarget : RenderTarget {
 		} else if (result != VkResult.Success) { throw new Exception(); } // TODO exception
 	}
 
-	protected internal override VkSemaphore GetSignalSemaphore() => renderFinishedSemaphores[swapChainImageIndex];
+	protected internal override Semaphore GetSignalSemaphore() => renderFinishedSemaphores[swapChainImageIndex];
 
 	public override Vec2<ushort> GetFrameBufferSize() => window.GetFrameBufferSize();
 
@@ -84,10 +85,12 @@ public sealed unsafe class WindowRenderTarget : RenderTarget {
 	}
 
 	protected internal override void Cleanup() {
+		// all resources that use logical gpu should be cleaned here
 		Vk.DeviceWaitIdle(LogicalGpu.VkLogicalDevice);
 
 		swapChain.Cleanup();
 		surface.Cleanup();
+
 		LogicalGpu.Cleanup();
 	}
 

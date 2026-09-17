@@ -18,6 +18,7 @@ namespace Engine4.Client.Graphics.Vulkan;
 public sealed unsafe class VulkanManager {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
 
+	// engine
 	public static readonly string[] RequiredEngineInstanceLayerProperties;
 	public static readonly string[] RequiredEngineInstanceExtensionProperties;
 	public static readonly string[] RequiredEngineDeviceExtensionProperties;
@@ -41,9 +42,9 @@ public sealed unsafe class VulkanManager {
 				Vk.KhrDynamicRenderingExtensionName,
 		]);
 
-		requiredEngineInstanceLayerProperties.UnionWith(Engine4.OperatingSystem.GetRequiredEngineInstanceLayerProperties());
-		requiredEngineInstanceExtensionProperties.UnionWith(Engine4.OperatingSystem.GetRequiredEngineInstanceExtensionProperties());
-		requiredEngineDeviceExtensionProperties.UnionWith(Engine4.OperatingSystem.GetRequiredEngineDeviceExtensionProperties());
+		requiredEngineInstanceLayerProperties.UnionWith(Engine4.OperatingSystem.GetRequiredInstanceLayerProperties());
+		requiredEngineInstanceExtensionProperties.UnionWith(Engine4.OperatingSystem.GetRequiredInstanceExtensionProperties());
+		requiredEngineDeviceExtensionProperties.UnionWith(Engine4.OperatingSystem.GetRequiredDeviceExtensionProperties());
 
 		RequiredEngineInstanceLayerProperties = requiredEngineInstanceLayerProperties.ToArray();
 		RequiredEngineInstanceExtensionProperties = requiredEngineInstanceExtensionProperties.ToArray();
@@ -79,7 +80,7 @@ public sealed unsafe class VulkanManager {
 		getManualGpuFunc = vulkanSettings.GetManualGpuFunc;
 		rateGpuSuitability = vulkanSettings.RateGpuSuitability;
 
-		//
+		// layers/extensions
 		HashSet<string> requiredInstanceLayerProperties = new(RequiredEngineInstanceLayerProperties);
 		requiredInstanceLayerProperties.UnionWith(vulkanSettings.RequiredInstanceLayerProperties);
 		RequiredInstanceLayerProperties = requiredInstanceLayerProperties.ToArray();
@@ -185,11 +186,10 @@ public sealed unsafe class VulkanManager {
 
 	[MustUseReturnValue]
 	private VkExtensionProperties[] CheckForInstanceExtensionProperties() {
-		string[] requiredInstanceExtensionProperties = RequiredInstanceExtensionProperties;
 		VkExtensionProperties[] availableInstanceExtensionProperties = GetAvailableInstanceExtensionProperties();
 
 		if (availableInstanceExtensionProperties.Length == 0) { throw new VulkanException("Could not find any instance extension properties"); }
-		if (!CheckSupportForInstanceExtensionProperties(availableInstanceExtensionProperties, requiredInstanceExtensionProperties, out string[]? missingExtensions)) {
+		if (!CheckSupportForInstanceExtensionProperties(availableInstanceExtensionProperties, RequiredInstanceExtensionProperties, out string[]? missingExtensions)) {
 			foreach (string missingExtension in missingExtensions) { Logger.Warn($"Extension \'{missingExtension}\' is not available"); } // TODO allow user to decide what to do for each missing
 			throw new VulkanException("Requested instance extensions are not available");
 		}

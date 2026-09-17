@@ -1,8 +1,8 @@
 using Engine4.Client.Graphics.Vulkan;
 using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.Utility.Math;
-using OpenTK.Graphics.Vulkan;
 using USharpLibs.Common.Math;
+using Semaphore = Engine4.Client.Graphics.Vulkan.Objects.Semaphore;
 
 namespace Engine4.Client.Rendering;
 
@@ -20,7 +20,7 @@ public sealed class TextureRenderTarget : RenderTarget {
 
 	protected internal override void PresentFrame(VulkanRenderer.FrameInFlight frame) => throw new NotImplementedException(); // TODO
 
-	protected internal override VkSemaphore GetSignalSemaphore() => throw new NotImplementedException();
+	protected internal override Semaphore GetSignalSemaphore() => throw new NotImplementedException();
 
 	public override Vec2<ushort> GetFrameBufferSize() => throw new NotImplementedException(); // TODO
 

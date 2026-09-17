@@ -1,4 +1,3 @@
-using Engine4.Client.Graphics.Vulkan.Resources;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
@@ -20,11 +19,6 @@ public abstract unsafe class CommandPool : VulkanResource {
 		VkCommandPool = commandPool;
 	}
 
-	protected internal override void Cleanup() {
-		VkCommandBuffer[] commandBuffers = CommandBuffers.Select(static b => b.VkCommandBuffer).ToArray();
-		fixed (VkCommandBuffer* commandBufferPtr = commandBuffers) { Vk.FreeCommandBuffers(logicalGpu.VkLogicalDevice, VkCommandPool, (uint)commandBuffers.Length, commandBufferPtr); } // cleanup buffers
-	}
-
 	protected VkCommandBuffer[] InternalCreateCommandBuffers(byte count, VkCommandBufferLevel level) {
 		VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = VkCommandPool, level = level, commandBufferCount = count, };
 		VkCommandBuffer[] commandBuffers = new VkCommandBuffer[count];
@@ -32,5 +26,16 @@ public abstract unsafe class CommandPool : VulkanResource {
 		fixed (VkCommandBuffer* commandBuffersPtr = commandBuffers) {
 			return Vk.AllocateCommandBuffers(logicalGpu.VkLogicalDevice, &commandBufferAllocateInfo, commandBuffersPtr) == VkResult.Success ? commandBuffers : throw new Exception(); // TODO exception
 		}
+	}
+
+	protected internal override void Cleanup() {
+		VkDevice logicalDevice = logicalGpu.VkLogicalDevice;
+
+		if (CommandBuffers.Count != 0) { // cleanup buffers
+			VkCommandBuffer[] commandBuffers = CommandBuffers.Select(static b => b.VkCommandBuffer).ToArray();
+			fixed (VkCommandBuffer* commandBufferPtr = commandBuffers) { Vk.FreeCommandBuffers(logicalDevice, VkCommandPool, (uint)commandBuffers.Length, commandBufferPtr); }
+		}
+
+		Vk.DestroyCommandPool(logicalDevice, VkCommandPool, null);
 	}
 }

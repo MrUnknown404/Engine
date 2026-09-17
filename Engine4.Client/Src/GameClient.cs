@@ -91,6 +91,7 @@ public abstract class GameClient : GameCore {
 
 		Logger.Debug("Creating renderer...");
 		VulkanRenderer renderer = new(debugName, VulkanManager, renderTarget, renderPasses);
+		renderTarget.InUse = true;
 
 		renderers.Add(renderer);
 		return renderer;
@@ -123,14 +124,12 @@ public abstract class GameClient : GameCore {
 
 			if (VulkanManager == null) { throw new IllegalStateException(); }
 
-			foreach (VulkanRenderer renderer in renderers) { renderer.Cleanup(); }
-
 			if (IsGlfwEnabled) {
 				Logger.Trace($"Cleaning up {windows.Count} windows");
 				foreach (Window window in windows) { window.Cleanup(); }
 			}
 
-			VulkanManager.Cleanup();
+			VulkanManager.Cleanup(); // calls vkDeviceWaitIdle()
 		}
 
 		if (IsGlfwEnabled) {

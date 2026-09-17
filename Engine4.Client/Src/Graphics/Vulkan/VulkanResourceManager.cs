@@ -1,8 +1,9 @@
 using Engine4.Client.Graphics.Vulkan.Objects;
-using Engine4.Client.Graphics.Vulkan.Resources;
 using Engine4.IO;
+using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics.Vulkan;
+using Semaphore = Engine4.Client.Graphics.Vulkan.Objects.Semaphore;
 
 namespace Engine4.Client.Graphics.Vulkan;
 
@@ -19,22 +20,53 @@ public sealed class VulkanResourceManager {
 		this.logicalGpu = logicalGpu;
 	}
 
+	[MustUseReturnValue]
 	public GraphicsCommandPool CreateGraphicsCommandPool(string debugName, VkCommandPoolCreateFlagBits commandPoolCreateFlags) {
 		GraphicsCommandPool graphicsCommandPool = new(debugName, logicalGpu, commandPoolCreateFlags, physicalGpu.QueueFamilyIndices.GraphicsFamily);
 		Add(graphicsCommandPool);
 		return graphicsCommandPool;
 	}
 
+	[MustUseReturnValue]
 	public TransferCommandPool CreateTransferCommandPool(string debugName, VkCommandPoolCreateFlagBits commandPoolCreateFlags) {
 		TransferCommandPool transferCommandPool = new(debugName, logicalGpu, commandPoolCreateFlags, physicalGpu.QueueFamilyIndices.TransferFamily);
 		Add(transferCommandPool);
 		return transferCommandPool;
 	}
 
+	[MustUseReturnValue]
 	public VulkanBuffer CreateBuffer(string debugName, ulong size) {
 		VulkanBuffer vulkanBuffer = new(debugName, size);
 		Add(vulkanBuffer);
 		return vulkanBuffer;
+	}
+
+	[MustUseReturnValue]
+	public Semaphore CreateSemaphore(string debugName, VkSemaphoreCreateFlags semaphoreCreateFlags) {
+		Semaphore semaphore = new(debugName, logicalGpu, semaphoreCreateFlags);
+		Add(semaphore);
+		return semaphore;
+	}
+
+	[MustUseReturnValue]
+	public Fence CreateFence(string debugName, VkFenceCreateFlagBits fenceCreateFlags) {
+		Fence fence = new(debugName, logicalGpu, fenceCreateFlags);
+		Add(fence);
+		return fence;
+	}
+
+	[MustUseReturnValue]
+	public Semaphore[] CreateSemaphores(string debugName, VkSemaphoreCreateFlags semaphoreCreateFlags, uint count) {
+		Semaphore[] semaphores = new Semaphore[count];
+		for (uint i = 0; i < count; i++) { semaphores[i] = CreateSemaphore($"{debugName} [{i}]", semaphoreCreateFlags); }
+		return semaphores;
+	}
+
+	[MustUseReturnValue]
+	public Fence[] CreateFences(string debugName, uint count, VkFenceCreateFlagBits fenceCreateFlags) {
+		Fence[] fences = new Fence[count];
+		for (uint i = 0; i < count; i++) { fences[i] = CreateFence($"{debugName} [{i}]", fenceCreateFlags); }
+		return fences;
 	}
 
 	private void Add<T>(T resource) where T : VulkanResource => GetResourceList<T>().Add(resource);
@@ -51,6 +83,9 @@ public sealed class VulkanResourceManager {
 	}
 
 	internal void Cleanup() {
-		foreach (IResourceList resourceList in resourceLists.Values) { resourceList.Cleanup(); }
+		foreach (IResourceList resourceList in resourceLists.Values) {
+			Logger.Trace($"- Cleaning up resource: {resourceList.DebugName}");
+			resourceList.Cleanup();
+		}
 	}
 }

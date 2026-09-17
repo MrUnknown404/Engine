@@ -12,15 +12,13 @@ public unsafe class Window {
 
 	public event RequestCloseDelegate? RequestCloseEvent;
 
-	internal Window(string title, ushort width, ushort height) {
-		// TODO way of setting hints? or just setting values once the window is created
+	internal Window(string title, ushort width, ushort height, Action? setWindowHints = null) {
 		GLFW.WindowHint(WindowHintClientApi.ClientApi, ClientApi.NoApi); // disable opengl
 		GLFW.WindowHint(WindowHintBool.Decorated, true);
+		setWindowHints?.Invoke(); // user window hints
 
 		GlfwWindow = GLFW.CreateWindow(width, height, title, null, null);
 		GLFW.DefaultWindowHints(); // reset hints
-
-		// TODO looks like wayland requires you to draw once before the window will appear. see https://github.com/glfw/glfw/issues/1398
 	}
 
 	public void Show() => GLFW.ShowWindow(GlfwWindow);

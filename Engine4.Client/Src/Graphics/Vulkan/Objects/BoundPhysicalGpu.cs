@@ -4,7 +4,7 @@ namespace Engine4.Client.Graphics.Vulkan.Objects;
 public class BoundPhysicalGpu : UnboundPhysicalGpu {
 	private readonly Surface surface;
 
-	public QueueFamilyIndices QueueFamilyIndices { get; }
+	internal QueueFamilyIndices QueueFamilyIndices { get; } // TODO private
 
 	internal BoundPhysicalGpu(UnboundPhysicalGpu unboundPhysicalGpu, Surface surface, QueueFamilyIndices queueFamilyIndices) : base(unboundPhysicalGpu.VkPhysicalDevice, unboundPhysicalGpu.PhysicalDeviceProperties2,
 		unboundPhysicalGpu.PhysicalDeviceFeatures2) {

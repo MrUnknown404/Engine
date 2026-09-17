@@ -53,9 +53,9 @@ public unsafe class SwapChain {
 	}
 
 	[MustUseReturnValue]
-	internal VkResult AcquireNextImage(VkSemaphore imageAvailableSemaphore, out uint swapChainImageIndex) {
+	internal VkResult AcquireNextImage(Semaphore imageAvailableSemaphore, out uint swapChainImageIndex) {
 		uint tempSwapChainImageIndex;
-		VkResult result = Vk.AcquireNextImageKHR(logicalGpu.VkLogicalDevice, VkSwapChain, ulong.MaxValue, imageAvailableSemaphore, VkFence.Zero, &tempSwapChainImageIndex);
+		VkResult result = Vk.AcquireNextImageKHR(logicalGpu.VkLogicalDevice, VkSwapChain, ulong.MaxValue, imageAvailableSemaphore.VkSemaphore, VkFence.Zero, &tempSwapChainImageIndex);
 		swapChainImageIndex = tempSwapChainImageIndex;
 		return result;
 	}

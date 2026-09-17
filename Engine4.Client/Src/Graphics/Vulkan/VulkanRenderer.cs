@@ -3,6 +3,7 @@ using Engine4.Client.Rendering;
 using Engine4.IO;
 using NLog;
 using OpenTK.Graphics.Vulkan;
+using Semaphore = Engine4.Client.Graphics.Vulkan.Objects.Semaphore;
 
 namespace Engine4.Client.Graphics.Vulkan;
 
@@ -26,23 +27,23 @@ public sealed unsafe class VulkanRenderer {
 	private DepthImage? depthImage;
 
 	internal VulkanRenderer(string debugName, VulkanManager vulkanManager, RenderTarget renderTarget, params RenderPass[] renderPasses) {
+		if (renderTarget.InUse) { throw new Exception(); } // TODO exception
+
 		resourceManager = renderTarget.LogicalGpu.ResourceManager;
 		this.renderTarget = renderTarget;
 		this.renderPasses = new(renderPasses);
 		maxFramesInFlight = vulkanManager.MaxFramesInFlight;
-
-		LogicalGpu logicalGpu = renderTarget.LogicalGpu;
 
 		// TODO logging
 		graphicsCommandPool = resourceManager.CreateGraphicsCommandPool($"{debugName} Graphics Command Pool", VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit);
 		transferCommandPool = resourceManager.CreateTransferCommandPool($"{debugName} Transfer Command Pool", VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit);
 
 		GraphicsCommandBuffer[] graphicsCommandBuffers = graphicsCommandPool.CreateCommandBuffers(maxFramesInFlight, VkCommandBufferLevel.CommandBufferLevelPrimary);
-		VkSemaphore[] imageAvailableSemaphores = logicalGpu.CreateSemaphores(maxFramesInFlight);
-		VkFence[] inFlightFences = logicalGpu.CreateFences(maxFramesInFlight);
+		Semaphore[] imageAvailableSemaphores = resourceManager.CreateSemaphores($"{debugName} Image Available Semaphore", 0, maxFramesInFlight);
+		Fence[] inFlightFences = resourceManager.CreateFences($"{debugName} In Flight Fence", maxFramesInFlight, VkFenceCreateFlagBits.FenceCreateSignaledBit);
 
 		framesInFlight = new FrameInFlight[maxFramesInFlight];
-		for (int i = 0; i < maxFramesInFlight; i++) { framesInFlight[i] = new(logicalGpu, graphicsCommandBuffers[i], imageAvailableSemaphores[i], inFlightFences[i]); }
+		for (int i = 0; i < maxFramesInFlight; i++) { framesInFlight[i] = new(graphicsCommandBuffers[i], imageAvailableSemaphores[i], inFlightFences[i]); }
 	}
 
 	internal void InternalRender(float delta) {
@@ -52,7 +53,7 @@ public sealed unsafe class VulkanRenderer {
 	private bool Render(float delta) {
 		FrameInFlight frame = framesInFlight[currentFrameInFlight];
 		VkDevice logicalDevice = renderTarget.LogicalGpu.VkLogicalDevice;
-		VkFence inFlightFence = frame.InFlightFence;
+		VkFence inFlightFence = frame.InFlightFence.VkFence;
 
 		// TODO not sure if i'm supposed to wait for all fences or just the current one. vulkan-tutorial.com & vkguide.dev differ. i should probably read the docs
 		//  vulkan-tutorial.com waits for all
@@ -109,8 +110,8 @@ public sealed unsafe class VulkanRenderer {
 
 		// submit queue
 		VkPipelineStageFlagBits* waitStages = stackalloc VkPipelineStageFlagBits[] { VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, };
-		VkSemaphore signalSemaphore = renderTarget.GetSignalSemaphore();
-		VkSemaphore imageAvailableSemaphore = frame.ImageAvailableSemaphore;
+		VkSemaphore signalSemaphore = renderTarget.GetSignalSemaphore().VkSemaphore;
+		VkSemaphore imageAvailableSemaphore = frame.ImageAvailableSemaphore.VkSemaphore;
 		VkCommandBuffer commandBuffer = graphicsCommandBuffer.VkCommandBuffer;
 
 		VkSubmitInfo submitInfo = new() {
@@ -123,30 +124,18 @@ public sealed unsafe class VulkanRenderer {
 				pSignalSemaphores = &signalSemaphore,
 		};
 
-		Vk.QueueSubmit(renderTarget.LogicalGpu.GraphicsQueue, 1, &submitInfo, frame.InFlightFence);
-	}
-
-	internal void Cleanup() {
-		// TODO
+		Vk.QueueSubmit(renderTarget.LogicalGpu.GraphicsQueue, 1, &submitInfo, frame.InFlightFence.VkFence);
 	}
 
 	public class FrameInFlight {
 		public GraphicsCommandBuffer GraphicsCommandBuffer { get; }
-		public VkSemaphore ImageAvailableSemaphore { get; }
-		public VkFence InFlightFence { get; }
+		public Semaphore ImageAvailableSemaphore { get; }
+		public Fence InFlightFence { get; }
 
-		private readonly LogicalGpu logicalGpu;
-
-		internal FrameInFlight(LogicalGpu logicalGpu, GraphicsCommandBuffer graphicsCommandBuffer, VkSemaphore imageAvailableSemaphore, VkFence inFlightFence) {
-			this.logicalGpu = logicalGpu;
+		internal FrameInFlight(GraphicsCommandBuffer graphicsCommandBuffer, Semaphore imageAvailableSemaphore, Fence inFlightFence) {
 			GraphicsCommandBuffer = graphicsCommandBuffer;
 			ImageAvailableSemaphore = imageAvailableSemaphore;
 			InFlightFence = inFlightFence;
-		}
-
-		internal void Cleanup() {
-			Vk.DestroySemaphore(logicalGpu.VkLogicalDevice, ImageAvailableSemaphore, null);
-			Vk.DestroyFence(logicalGpu.VkLogicalDevice, InFlightFence, null);
 		}
 	}
 }

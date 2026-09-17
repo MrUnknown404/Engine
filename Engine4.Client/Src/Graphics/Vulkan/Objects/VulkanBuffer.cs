@@ -1,4 +1,4 @@
-namespace Engine4.Client.Graphics.Vulkan.Resources;
+namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public class VulkanBuffer : VulkanResource { // TODO
 	public ulong Size { get; }

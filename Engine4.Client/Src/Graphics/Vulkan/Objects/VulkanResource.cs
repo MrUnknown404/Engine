@@ -1,4 +1,4 @@
-namespace Engine4.Client.Graphics.Vulkan.Resources;
+namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 // TODO in debug mode the engine should automatically print what resources are made and deleted
 public abstract class VulkanResource {
