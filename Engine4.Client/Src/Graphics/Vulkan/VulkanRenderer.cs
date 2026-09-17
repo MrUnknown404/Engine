@@ -14,7 +14,7 @@ public sealed unsafe class VulkanRenderer {
 
 	private readonly VulkanResourceManager resourceManager;
 	private readonly List<RenderPass> renderPasses; // TODO make sure this supports adding/removing at runtime
-	private readonly RenderTarget renderTarget; // TODO eventually allow multiple targets?
+	internal RenderTarget RenderTarget { get; }
 
 	private readonly GraphicsCommandPool graphicsCommandPool;
 	private readonly TransferCommandPool transferCommandPool;
@@ -30,7 +30,7 @@ public sealed unsafe class VulkanRenderer {
 		if (renderTarget.InUse) { throw new Exception(); } // TODO exception
 
 		resourceManager = renderTarget.LogicalGpu.ResourceManager;
-		this.renderTarget = renderTarget;
+		RenderTarget = renderTarget;
 		this.renderPasses = new(renderPasses);
 		maxFramesInFlight = vulkanManager.MaxFramesInFlight;
 
@@ -59,7 +59,7 @@ public sealed unsafe class VulkanRenderer {
 		//  vkguide.dev waits for current
 		inFlightFence.Wait(true, uint.MaxValue);
 
-		if (renderTarget.TryBeginFrame(frame)) {
+		if (RenderTarget.TryBeginFrame(frame)) {
 			inFlightFence.Reset();
 
 			// update buffers/etc
@@ -71,7 +71,7 @@ public sealed unsafe class VulkanRenderer {
 			DrawFrame(frame);
 			EndFrame(frame);
 
-			renderTarget.PresentFrame(frame);
+			RenderTarget.PresentFrame(frame);
 
 			currentFrameInFlight = (byte)((currentFrameInFlight + 1) % maxFramesInFlight);
 			return true;
@@ -80,33 +80,31 @@ public sealed unsafe class VulkanRenderer {
 		return false;
 	}
 
-	private void UpdateBuffers(float delta) { } // throw new NotImplementedException();// TODO
-	private void SyncResources() { } // throw new NotImplementedException(); // TODO
+	private void UpdateBuffers(float delta) { } // TODO
+	private void SyncResources() { } // TODO
 
 	private void BeginFrame(FrameInFlight frame) {
 		GraphicsCommandBuffer graphicsCommandBuffer = frame.GraphicsCommandBuffer;
 
 		graphicsCommandBuffer.ResetCommandBuffer();
 		VkH.CheckSuccess(graphicsCommandBuffer.BeginCommandBuffer(0), "Failed to begin command buffer");
-		renderTarget.CmdBeginRendering(graphicsCommandBuffer, depthImage);
+		RenderTarget.CmdBeginRendering(graphicsCommandBuffer, depthImage);
 	}
 
 	private void DrawFrame(FrameInFlight frame) {
 		GraphicsCommandBuffer graphicsCommandBuffer = frame.GraphicsCommandBuffer;
 		// RecordCommandBuffer(graphicsCommandBuffer); // TODO draw
-
-		if (FrameCount < 3) { Logger.Trace($"Frame: {FrameCount}"); }
 	}
 
 	private void EndFrame(FrameInFlight frame) {
 		GraphicsCommandBuffer graphicsCommandBuffer = frame.GraphicsCommandBuffer;
 
-		renderTarget.CmdEndRendering(graphicsCommandBuffer);
+		RenderTarget.CmdEndRendering(graphicsCommandBuffer);
 		VkH.CheckSuccess(graphicsCommandBuffer.EndCommandBuffer(), "Failed to end command buffer");
 
 		// submit queue
 		VkPipelineStageFlagBits* waitStages = stackalloc VkPipelineStageFlagBits[] { VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, };
-		VkSemaphore signalSemaphore = renderTarget.GetSignalSemaphore().VkSemaphore;
+		VkSemaphore signalSemaphore = RenderTarget.GetSignalSemaphore().VkSemaphore;
 		VkSemaphore imageAvailableSemaphore = frame.ImageAvailableSemaphore.VkSemaphore;
 		VkCommandBuffer commandBuffer = graphicsCommandBuffer.VkCommandBuffer;
 
@@ -120,7 +118,7 @@ public sealed unsafe class VulkanRenderer {
 				pSignalSemaphores = &signalSemaphore,
 		};
 
-		Vk.QueueSubmit(renderTarget.LogicalGpu.GraphicsQueue, 1, &submitInfo, frame.InFlightFence.VkFence);
+		Vk.QueueSubmit(RenderTarget.LogicalGpu.GraphicsQueue, 1, &submitInfo, frame.InFlightFence.VkFence);
 	}
 
 	public class FrameInFlight {

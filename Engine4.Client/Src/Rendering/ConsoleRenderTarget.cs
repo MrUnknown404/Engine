@@ -8,8 +8,8 @@ namespace Engine4.Client.Rendering;
 
 // vulkan to console
 public class ConsoleRenderTarget : RenderTarget {
-	public override SurfaceReadyPhysicalGpu PhysicalGpu => throw new NotImplementedException(); // TODO impl
-	public override LogicalGpu LogicalGpu => throw new NotImplementedException();
+	internal override SurfaceReadyPhysicalGpu PhysicalGpu => throw new NotImplementedException(); // TODO impl
+	internal override LogicalGpu LogicalGpu => throw new NotImplementedException();
 
 	private readonly ConsoleRenderer consoleRenderer;
 

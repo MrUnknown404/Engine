@@ -7,9 +7,10 @@ using Semaphore = Engine4.Client.Graphics.Vulkan.Objects.Semaphore;
 namespace Engine4.Client.Rendering;
 
 // TODO save to file
+
 public sealed class TextureRenderTarget : RenderTarget {
-	public override SurfaceReadyPhysicalGpu PhysicalGpu => throw new NotImplementedException(); // TODO impl
-	public override LogicalGpu LogicalGpu => throw new NotImplementedException();
+	internal override SurfaceReadyPhysicalGpu PhysicalGpu => throw new NotImplementedException(); // TODO impl
+	internal override LogicalGpu LogicalGpu => throw new NotImplementedException();
 
 	internal TextureRenderTarget(Color3 clearColor) : base(clearColor) { } // TODO how is this going to work? when a renderer is done it has the final image. how do i get that?
 

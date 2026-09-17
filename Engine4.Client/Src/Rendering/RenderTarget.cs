@@ -8,8 +8,8 @@ using Semaphore = Engine4.Client.Graphics.Vulkan.Objects.Semaphore;
 namespace Engine4.Client.Rendering;
 
 public abstract class RenderTarget { // for vulkan
-	public abstract SurfaceReadyPhysicalGpu PhysicalGpu { get; }
-	public abstract LogicalGpu LogicalGpu { get; }
+	internal abstract SurfaceReadyPhysicalGpu PhysicalGpu { get; }
+	internal abstract LogicalGpu LogicalGpu { get; }
 
 	public bool IsFrameBufferDirty { get; protected set; } // TODO set on resize
 	public bool InUse { get; internal set; }

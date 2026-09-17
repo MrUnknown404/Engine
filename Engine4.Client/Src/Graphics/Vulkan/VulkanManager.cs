@@ -135,6 +135,8 @@ public sealed unsafe class VulkanManager {
 		return renderTarget;
 	}
 
+	internal void RemoveRenderTarget(RenderTarget renderTarget) => renderTargets.Remove(renderTarget); // TODO public version
+
 	internal void Cleanup() {
 		Logger.Trace("- Cleaning up resources...");
 

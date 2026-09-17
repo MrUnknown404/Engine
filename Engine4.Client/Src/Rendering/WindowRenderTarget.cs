@@ -13,10 +13,10 @@ namespace Engine4.Client.Rendering;
 public sealed unsafe class WindowRenderTarget : RenderTarget {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
 
-	public override SurfaceReadyPhysicalGpu PhysicalGpu { get; }
-	public override LogicalGpu LogicalGpu { get; }
+	internal override SurfaceReadyPhysicalGpu PhysicalGpu { get; }
+	internal override LogicalGpu LogicalGpu { get; }
+	internal Window Window { get; }
 
-	private readonly Window window;
 	private readonly Surface surface;
 	private readonly SwapChain swapChain;
 
@@ -25,7 +25,7 @@ public sealed unsafe class WindowRenderTarget : RenderTarget {
 	private uint swapChainImageIndex;
 
 	internal WindowRenderTarget(Window window, VulkanManager vulkanManager, VulkanInstance vulkanInstance, Color3 clearColor) : base(clearColor) {
-		this.window = window;
+		Window = window;
 
 		// TODO logging
 		surface = new(vulkanInstance, window);
@@ -62,11 +62,13 @@ public sealed unsafe class WindowRenderTarget : RenderTarget {
 
 	protected internal override void PresentFrame(VulkanRenderer.FrameInFlight frame) {
 		VkSwapchainKHR swapChain = this.swapChain.VkSwapChain;
-		uint swapChainImageIndex = this.swapChainImageIndex;
 		VkSemaphore renderFinishedSemaphore = renderFinishedSemaphores[swapChainImageIndex].VkSemaphore;
 
-		VkPresentInfoKHR presentInfo = new() { waitSemaphoreCount = 1, pWaitSemaphores = &renderFinishedSemaphore, swapchainCount = 1, pSwapchains = &swapChain, pImageIndices = &swapChainImageIndex, };
-		VkResult result = Vk.QueuePresentKHR(LogicalGpu.PresentQueue, &presentInfo);
+		VkResult result;
+		fixed (uint* swapChainImageIndexPtr = &swapChainImageIndex) {
+			VkPresentInfoKHR presentInfo = new() { waitSemaphoreCount = 1, pWaitSemaphores = &renderFinishedSemaphore, swapchainCount = 1, pSwapchains = &swapChain, pImageIndices = swapChainImageIndexPtr, };
+			result = Vk.QueuePresentKHR(LogicalGpu.PresentQueue, &presentInfo);
+		}
 
 		if (result is VkResult.ErrorOutOfDateKhr or VkResult.SuboptimalKhr || IsFrameBufferDirty) {
 			IsFrameBufferDirty = false;
@@ -76,7 +78,7 @@ public sealed unsafe class WindowRenderTarget : RenderTarget {
 
 	protected internal override Semaphore GetSignalSemaphore() => renderFinishedSemaphores[swapChainImageIndex];
 
-	public override Vec2<ushort> GetFrameBufferSize() => window.GetFrameBufferSize();
+	public override Vec2<ushort> GetFrameBufferSize() => Window.GetFrameBufferSize();
 
 	private void InvalidateSwapChain() {
 		Logger.Trace("Swapchain is invalid. Recreating...");

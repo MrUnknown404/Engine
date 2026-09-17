@@ -20,8 +20,9 @@ public abstract class GameClient : GameCore {
 	public bool IsGlfwEnabled { get; private set; } // note: not set until SetupInternals()
 	public bool IsVulkanEnabled { get; private set; }
 
-	private readonly List<Window> windows = new();
+	private readonly List<Window> windows = new(); // TODO window/renderer should impl HashCode
 	private readonly List<VulkanRenderer> renderers = new(); // TODO allow removal
+	private readonly Dictionary<Window, VulkanRenderer> windowToRenderer = new();
 
 	protected VulkanManager? VulkanManager { get; private set; }
 
@@ -53,14 +54,20 @@ public abstract class GameClient : GameCore {
 			Window window = windows[i];
 
 			if (window.GlfwShouldClose()) { window.RequestClose(false); }
+			if (!window.ShouldClose) { continue; }
 
-			if (window.ShouldClose) {
-				Logger.Debug("Found window to close. Closing it...");
+			Logger.Debug("Found window to close. Closing it...");
 
-				window.Cleanup();
-				windows.RemoveAt(i);
-				i--;
+			if (windowToRenderer.TryGetValue(window, out VulkanRenderer? renderer) && renderer.RenderTarget is WindowRenderTarget windowTarget) {
+				Logger.Trace("- Window has a render target. Cleaning that first...");
+				windowTarget.Cleanup();
+				VulkanManager?.RemoveRenderTarget(windowTarget);
+				renderers.Remove(renderer);
 			}
+
+			window.Cleanup();
+			windows.RemoveAt(i);
+			i--;
 		}
 
 		base.InternalUpdate();
@@ -88,10 +95,13 @@ public abstract class GameClient : GameCore {
 	protected VulkanRenderer CreateRenderer(string debugName, RenderTarget renderTarget, params RenderPass[] renderPasses) {
 		if (!IsVulkanEnabled) { throw new Engine4Exception($"Cannot create a {nameof(VulkanRenderer)} when Vulkan is not loaded"); }
 		if (VulkanManager == null) { throw new IllegalStateException(); }
+		if (renderTarget.InUse) { throw new Engine4Exception("RenderTarget is already in use"); }
 
 		Logger.Debug("Creating renderer...");
 		VulkanRenderer renderer = new(debugName, VulkanManager, renderTarget, renderPasses);
 		renderTarget.InUse = true;
+
+		if (renderTarget is WindowRenderTarget windowTarget) { windowToRenderer.Add(windowTarget.Window, renderer); }
 
 		renderers.Add(renderer);
 		return renderer;
