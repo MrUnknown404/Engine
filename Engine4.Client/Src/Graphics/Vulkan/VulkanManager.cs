@@ -92,9 +92,8 @@ public sealed unsafe class VulkanManager {
 		RequiredDeviceExtensionProperties = requiredDeviceExtensionProperties.ToArray();
 
 		// get vulkan api version
-		uint apiVersion;
-		Vk.EnumerateInstanceVersion(&apiVersion);
-		Logger.Debug($"- Version: {apiVersion} ({Vk.API_VERSION_MAJOR(apiVersion)}.{Vk.API_VERSION_MINOR(apiVersion)}.{Vk.API_VERSION_PATCH(apiVersion)})");
+		VkH.GetApiVersion(out uint apiVersion, out _, out byte major, out ushort minor, out ushort patch);
+		Logger.Debug($"- Version: {apiVersion} ({major}.{minor}.{patch})");
 
 		// check for instance/extension properties
 		VkLayerProperties[] availableInstanceLayerProperties = CheckForInstanceLayerProperties();

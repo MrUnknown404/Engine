@@ -11,12 +11,11 @@ public abstract class RenderTarget { // for vulkan
 	internal abstract SurfaceReadyPhysicalGpu PhysicalGpu { get; }
 	internal abstract LogicalGpu LogicalGpu { get; }
 
+	public Color3 ClearColor { get; }
 	public bool IsFrameBufferDirty { get; protected set; } // TODO set on resize
 	public bool InUse { get; internal set; }
 
 	protected RenderTarget(Color3 clearColor) => ClearColor = clearColor;
-
-	public Color3 ClearColor { get; }
 
 	[MustUseReturnValue]
 	protected internal abstract bool TryBeginFrame(VulkanRenderer.FrameInFlight frame);

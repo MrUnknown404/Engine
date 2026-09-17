@@ -34,10 +34,11 @@ public readonly record struct Version4<T> where T : unmanaged, IBinaryInteger<T>
 	public T Minor { get; init; }
 	public T Hotfix { get; init; }
 
-	public Version4(T release, T major, T minor) {
+	public Version4(T release, T major, T minor, T hotfix) {
 		Release = release;
 		Major = major;
 		Minor = minor;
+		Hotfix = hotfix;
 	}
 
 	public override int GetHashCode() => HashCode.Combine(Release, Major, Minor, Hotfix);
