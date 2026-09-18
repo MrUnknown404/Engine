@@ -90,9 +90,11 @@ public sealed unsafe class VulkanRenderer {
 			SyncResources(); // TODO how do i handle this?
 
 			// draw
-			BeginFrame(frame);
-			DrawFrame(frame);
-			EndFrame(frame);
+			GraphicsCommandBuffer graphicsCommandBuffer = frame.GraphicsCommandBuffer;
+			BeginFrame(graphicsCommandBuffer);
+			DrawFrame(graphicsCommandBuffer);
+			EndFrame(graphicsCommandBuffer);
+			SubmitQueue(frame);
 
 			PresentFrame();
 
@@ -111,14 +113,12 @@ public sealed unsafe class VulkanRenderer {
 		if (result == VkResult.ErrorOutOfDateKhr) {
 			InvalidateSwapChain();
 			return false;
-		} else if (result != VkResult.SuboptimalKhr) { return VkH.CheckSuccess(result, "Failed to acquire next swap chain image"); }
+		} else if (result != VkResult.SuboptimalKhr) { VkH.CheckSuccess(result, "Failed to acquire next swap chain image"); }
 
 		return true;
 	}
 
-	private void BeginFrame(FrameInFlight frame) {
-		GraphicsCommandBuffer graphicsCommandBuffer = frame.GraphicsCommandBuffer;
-
+	private void BeginFrame(GraphicsCommandBuffer graphicsCommandBuffer) {
 		graphicsCommandBuffer.ResetCommandBuffer();
 		VkH.CheckSuccess(graphicsCommandBuffer.BeginCommandBuffer(0), "Failed to begin command buffer");
 
@@ -128,30 +128,28 @@ public sealed unsafe class VulkanRenderer {
 		graphicsCommandBuffer.CmdBeginRendering(swapChain.Extent, swapChain.ImageViews[swapChainImageIndex], depthImage == null ? null : null, ClearColor, new(1, 0)); // TODO use depth image
 	}
 
-	private void DrawFrame(FrameInFlight frame) {
-		GraphicsCommandBuffer graphicsCommandBuffer = frame.GraphicsCommandBuffer;
+	private void DrawFrame(GraphicsCommandBuffer graphicsCommandBuffer) {
 		// RecordCommandBuffer(graphicsCommandBuffer); // TODO draw
 	}
 
-	private void EndFrame(FrameInFlight frame) {
-		GraphicsCommandBuffer graphicsCommandBuffer = frame.GraphicsCommandBuffer;
-
+	private void EndFrame(GraphicsCommandBuffer graphicsCommandBuffer) {
 		graphicsCommandBuffer.CmdEndRendering();
 
 		VkImageMemoryBarrier2 imageMemoryBarrier2 = GetEndPipelineBarrierImageMemoryBarrier();
 		graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier2, });
 
 		VkH.CheckSuccess(graphicsCommandBuffer.EndCommandBuffer(), "Failed to end command buffer");
+	}
 
-		// submit queue
+	private void SubmitQueue(FrameInFlight frame) {
 		VkPipelineStageFlagBits* waitStages = stackalloc VkPipelineStageFlagBits[1] { VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, };
-		VkSemaphore signalSemaphore = renderFinishedSemaphores[swapChainImageIndex].VkSemaphore; // lots of copying
-		VkSemaphore imageAvailableSemaphore = frame.ImageAvailableSemaphore.VkSemaphore;
-		VkCommandBuffer commandBuffer = graphicsCommandBuffer.VkCommandBuffer;
+		VkSemaphore signalSemaphore = renderFinishedSemaphores[swapChainImageIndex].VkSemaphore; // lots of copying. can i fix that?
+		VkSemaphore waitSemaphore = frame.ImageAvailableSemaphore.VkSemaphore;
+		VkCommandBuffer commandBuffer = frame.GraphicsCommandBuffer.VkCommandBuffer;
 
 		VkSubmitInfo submitInfo = new() {
 				waitSemaphoreCount = 1,
-				pWaitSemaphores = &imageAvailableSemaphore,
+				pWaitSemaphores = &waitSemaphore,
 				pWaitDstStageMask = waitStages,
 				commandBufferCount = 1,
 				pCommandBuffers = &commandBuffer,
@@ -164,11 +162,11 @@ public sealed unsafe class VulkanRenderer {
 
 	private void PresentFrame() {
 		VkSwapchainKHR swapChain = this.swapChain.VkSwapChain;
-		VkSemaphore renderFinishedSemaphore = renderFinishedSemaphores[swapChainImageIndex].VkSemaphore;
+		VkSemaphore waitSemaphore = renderFinishedSemaphores[swapChainImageIndex].VkSemaphore;
 
 		VkResult result;
 		fixed (uint* swapChainImageIndexPtr = &swapChainImageIndex) {
-			VkPresentInfoKHR presentInfo = new() { waitSemaphoreCount = 1, pWaitSemaphores = &renderFinishedSemaphore, swapchainCount = 1, pSwapchains = &swapChain, pImageIndices = swapChainImageIndexPtr, };
+			VkPresentInfoKHR presentInfo = new() { waitSemaphoreCount = 1, pWaitSemaphores = &waitSemaphore, swapchainCount = 1, pSwapchains = &swapChain, pImageIndices = swapChainImageIndexPtr, };
 			result = Vk.QueuePresentKHR(LogicalGpu.PresentQueue, &presentInfo);
 		}
 
