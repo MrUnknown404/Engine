@@ -4,6 +4,7 @@ using Engine4.Client.Utility;
 using Engine4.IO;
 using Engine4.Utility;
 using Engine4.Utility.Exceptions;
+using Engine4.Utility.Math;
 using Engine4.Utility.Versions;
 using NLog;
 using OpenTK.Graphics;
@@ -58,10 +59,9 @@ public abstract class GameClient : GameCore {
 
 			Logger.Debug("Found window to close. Closing it...");
 
-			if (windowToRenderer.TryGetValue(window, out VulkanRenderer? renderer) && renderer.RenderTarget is WindowRenderTarget windowTarget) {
-				Logger.Trace("- Window has a render target. Cleaning that first...");
-				windowTarget.Cleanup();
-				VulkanManager?.RemoveRenderTarget(windowTarget);
+			if (windowToRenderer.TryGetValue(window, out VulkanRenderer? renderer)) {
+				Logger.Trace("- Window has a renderer. Cleaning that first...");
+				renderer.Cleanup(); // calls Vk.DeviceWaitIdle()
 				renderers.Remove(renderer);
 			}
 
@@ -92,18 +92,16 @@ public abstract class GameClient : GameCore {
 		return window;
 	}
 
-	protected VulkanRenderer CreateRenderer(string debugName, RenderTarget renderTarget, params RenderPass[] renderPasses) {
+	protected VulkanRenderer CreateRenderer(string debugName, Window window, Color4 clearColor, params RenderPass[] renderPasses) {
 		if (!IsVulkanEnabled) { throw new Engine4Exception($"Cannot create a {nameof(VulkanRenderer)} when Vulkan is not loaded"); }
 		if (VulkanManager == null) { throw new IllegalStateException(); }
-		if (renderTarget.InUse) { throw new Engine4Exception("RenderTarget is already in use"); }
 
 		Logger.Debug("Creating renderer...");
-		VulkanRenderer renderer = new(debugName, VulkanManager, renderTarget, renderPasses);
-		renderTarget.InUse = true;
-
-		if (renderTarget is WindowRenderTarget windowTarget) { windowToRenderer.Add(windowTarget.Window, renderer); }
+		VulkanRenderer renderer = new(debugName, VulkanManager, window, clearColor, renderPasses);
 
 		renderers.Add(renderer);
+		windowToRenderer.Add(window, renderer);
+
 		return renderer;
 	}
 
@@ -134,10 +132,16 @@ public abstract class GameClient : GameCore {
 
 			if (IsGlfwEnabled) {
 				Logger.Trace($"Cleaning up {windows.Count} windows");
-				foreach (Window window in windows) { window.Cleanup(); }
+				foreach (Window window in windows) {
+					if (windowToRenderer.TryGetValue(window, out VulkanRenderer? renderer)) {
+						renderer.Cleanup(); // calls Vk.DeviceWaitIdle()
+					}
+
+					window.Cleanup();
+				}
 			}
 
-			VulkanManager.Cleanup(); // calls vkDeviceWaitIdle()
+			VulkanManager.Cleanup();
 		}
 
 		if (IsGlfwEnabled) {

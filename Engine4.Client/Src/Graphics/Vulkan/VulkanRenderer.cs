@@ -1,36 +1,59 @@
 using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.Client.Rendering;
 using Engine4.IO;
+using Engine4.Utility.Exceptions;
+using Engine4.Utility.Math;
 using NLog;
 using OpenTK.Graphics.Vulkan;
 using Semaphore = Engine4.Client.Graphics.Vulkan.Objects.Semaphore;
 
 namespace Engine4.Client.Graphics.Vulkan;
 
+// TODO add way of rendering to a texture or convert to ascii then display to console
 public sealed unsafe class VulkanRenderer {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
 
+	public Color4 ClearColor { get; }
 	public ulong FrameCount { get; private set; }
+	public bool IsFrameBufferSizeDirty { get; protected set; } // TODO move? set on resize
 
 	private readonly VulkanResourceManager resourceManager;
+	private readonly SurfaceReadyPhysicalGpu PhysicalGpu;
+	private readonly LogicalGpu LogicalGpu;
+	internal readonly Window Window;
+	private readonly Surface surface;
+	private readonly SwapChain swapChain;
+
 	private readonly List<RenderPass> renderPasses; // TODO make sure this supports adding/removing at runtime
-	internal RenderTarget RenderTarget { get; }
 
 	private readonly GraphicsCommandPool graphicsCommandPool;
 	private readonly TransferCommandPool transferCommandPool;
 
+	// frames in flight
 	private readonly FrameInFlight[] framesInFlight;
 	private readonly byte maxFramesInFlight;
 	private byte currentFrameInFlight;
 
+	// swap chain
+	private readonly Semaphore[] renderFinishedSemaphores;
+	private uint swapChainImageIndex;
+
 	// TODO easy depth image
 	private DepthImage? depthImage;
 
-	internal VulkanRenderer(string debugName, VulkanManager vulkanManager, RenderTarget renderTarget, params RenderPass[] renderPasses) {
-		if (renderTarget.InUse) { throw new Exception(); } // TODO exception
+	internal VulkanRenderer(string debugName, VulkanManager vulkanManager, Window window, Color4 clearColor, params RenderPass[] renderPasses) {
+		Window = window;
+		ClearColor = clearColor;
 
-		resourceManager = renderTarget.LogicalGpu.ResourceManager;
-		RenderTarget = renderTarget;
+		// TODO log
+		surface = new(vulkanManager.VulkanInstance, window);
+		SurfaceReadyPhysicalGpu[] capableGpus = vulkanManager.GetCapableGpus(surface);
+		PhysicalGpu = vulkanManager.SelectGpu(capableGpus) ?? throw new Engine4Exception("Failed to select gpu");
+		LogicalGpu = new(PhysicalGpu, vulkanManager);
+		swapChain = new(window, PhysicalGpu, LogicalGpu, surface, vulkanManager.PresentMode);
+		renderFinishedSemaphores = LogicalGpu.ResourceManager.CreateSemaphores("Render Finished Semaphore", 0, (uint)swapChain.Images.Length);
+
+		resourceManager = LogicalGpu.ResourceManager;
 		this.renderPasses = new(renderPasses);
 		maxFramesInFlight = vulkanManager.MaxFramesInFlight;
 
@@ -59,7 +82,7 @@ public sealed unsafe class VulkanRenderer {
 		//  vkguide.dev waits for current
 		inFlightFence.Wait(true, uint.MaxValue);
 
-		if (RenderTarget.TryBeginFrame(frame)) {
+		if (TryBeginFrame(frame)) {
 			inFlightFence.Reset();
 
 			// update buffers/etc
@@ -71,7 +94,7 @@ public sealed unsafe class VulkanRenderer {
 			DrawFrame(frame);
 			EndFrame(frame);
 
-			RenderTarget.PresentFrame(frame);
+			PresentFrame();
 
 			currentFrameInFlight = (byte)((currentFrameInFlight + 1) % maxFramesInFlight);
 			return true;
@@ -83,12 +106,26 @@ public sealed unsafe class VulkanRenderer {
 	private void UpdateBuffers(float delta) { } // TODO
 	private void SyncResources() { } // TODO
 
+	private bool TryBeginFrame(FrameInFlight frame) {
+		VkResult result = swapChain.AcquireNextImage(frame.ImageAvailableSemaphore, out swapChainImageIndex);
+		if (result == VkResult.ErrorOutOfDateKhr) {
+			InvalidateSwapChain();
+			return false;
+		} else if (result != VkResult.SuboptimalKhr) { return VkH.CheckSuccess(result, "Failed to acquire next swap chain image"); }
+
+		return true;
+	}
+
 	private void BeginFrame(FrameInFlight frame) {
 		GraphicsCommandBuffer graphicsCommandBuffer = frame.GraphicsCommandBuffer;
 
 		graphicsCommandBuffer.ResetCommandBuffer();
 		VkH.CheckSuccess(graphicsCommandBuffer.BeginCommandBuffer(0), "Failed to begin command buffer");
-		RenderTarget.CmdBeginRendering(graphicsCommandBuffer, depthImage);
+
+		VkImageMemoryBarrier2 imageMemoryBarrier2 = GetBeginPipelineBarrierImageMemoryBarrier();
+		graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier2, });
+
+		graphicsCommandBuffer.CmdBeginRendering(swapChain.Extent, swapChain.ImageViews[swapChainImageIndex], depthImage == null ? null : null, ClearColor, new(1, 0)); // TODO use depth image
 	}
 
 	private void DrawFrame(FrameInFlight frame) {
@@ -99,12 +136,16 @@ public sealed unsafe class VulkanRenderer {
 	private void EndFrame(FrameInFlight frame) {
 		GraphicsCommandBuffer graphicsCommandBuffer = frame.GraphicsCommandBuffer;
 
-		RenderTarget.CmdEndRendering(graphicsCommandBuffer);
+		graphicsCommandBuffer.CmdEndRendering();
+
+		VkImageMemoryBarrier2 imageMemoryBarrier2 = GetEndPipelineBarrierImageMemoryBarrier();
+		graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier2, });
+
 		VkH.CheckSuccess(graphicsCommandBuffer.EndCommandBuffer(), "Failed to end command buffer");
 
 		// submit queue
-		VkPipelineStageFlagBits* waitStages = stackalloc VkPipelineStageFlagBits[] { VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, };
-		VkSemaphore signalSemaphore = RenderTarget.GetSignalSemaphore().VkSemaphore;
+		VkPipelineStageFlagBits* waitStages = stackalloc VkPipelineStageFlagBits[1] { VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, };
+		VkSemaphore signalSemaphore = renderFinishedSemaphores[swapChainImageIndex].VkSemaphore; // lots of copying
 		VkSemaphore imageAvailableSemaphore = frame.ImageAvailableSemaphore.VkSemaphore;
 		VkCommandBuffer commandBuffer = graphicsCommandBuffer.VkCommandBuffer;
 
@@ -118,15 +159,67 @@ public sealed unsafe class VulkanRenderer {
 				pSignalSemaphores = &signalSemaphore,
 		};
 
-		Vk.QueueSubmit(RenderTarget.LogicalGpu.GraphicsQueue, 1, &submitInfo, frame.InFlightFence.VkFence);
+		Vk.QueueSubmit(LogicalGpu.GraphicsQueue, 1, &submitInfo, frame.InFlightFence.VkFence);
 	}
 
-	public class FrameInFlight {
+	private void PresentFrame() {
+		VkSwapchainKHR swapChain = this.swapChain.VkSwapChain;
+		VkSemaphore renderFinishedSemaphore = renderFinishedSemaphores[swapChainImageIndex].VkSemaphore;
+
+		VkResult result;
+		fixed (uint* swapChainImageIndexPtr = &swapChainImageIndex) {
+			VkPresentInfoKHR presentInfo = new() { waitSemaphoreCount = 1, pWaitSemaphores = &renderFinishedSemaphore, swapchainCount = 1, pSwapchains = &swapChain, pImageIndices = swapChainImageIndexPtr, };
+			result = Vk.QueuePresentKHR(LogicalGpu.PresentQueue, &presentInfo);
+		}
+
+		if (result is VkResult.ErrorOutOfDateKhr or VkResult.SuboptimalKhr || IsFrameBufferSizeDirty) {
+			IsFrameBufferSizeDirty = false;
+			InvalidateSwapChain();
+		} else { VkH.CheckSuccess(result, "Failed to present queue"); }
+	}
+
+	private void InvalidateSwapChain() {
+		Logger.Trace("Swapchain is invalid. Recreating...");
+
+		swapChain.Recreate();
+		// DepthImage?.Recreate(SwapChain.Extent);
+	}
+
+	private VkImageMemoryBarrier2 GetBeginPipelineBarrierImageMemoryBarrier() => // TODO redo
+			new() {
+					dstAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
+					dstStageMask = VkPipelineStageFlagBits2.PipelineStage2TopOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
+					oldLayout = VkImageLayout.ImageLayoutUndefined,
+					newLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
+					image = swapChain.Images[swapChainImageIndex],
+					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+			};
+
+	private VkImageMemoryBarrier2 GetEndPipelineBarrierImageMemoryBarrier() => // TODO redo
+			new() {
+					srcAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
+					srcStageMask = VkPipelineStageFlagBits2.PipelineStage2BottomOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
+					oldLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
+					newLayout = VkImageLayout.ImageLayoutPresentSrcKhr,
+					image = swapChain.Images[swapChainImageIndex],
+					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+			};
+
+	internal void Cleanup() {
+		Vk.DeviceWaitIdle(LogicalGpu.VkLogicalDevice);
+
+		swapChain.Cleanup();
+		surface.Cleanup();
+
+		LogicalGpu.Cleanup();
+	}
+
+	private class FrameInFlight {
 		public GraphicsCommandBuffer GraphicsCommandBuffer { get; }
 		public Semaphore ImageAvailableSemaphore { get; }
 		public Fence InFlightFence { get; }
 
-		internal FrameInFlight(GraphicsCommandBuffer graphicsCommandBuffer, Semaphore imageAvailableSemaphore, Fence inFlightFence) {
+		public FrameInFlight(GraphicsCommandBuffer graphicsCommandBuffer, Semaphore imageAvailableSemaphore, Fence inFlightFence) {
 			GraphicsCommandBuffer = graphicsCommandBuffer;
 			ImageAvailableSemaphore = imageAvailableSemaphore;
 			InFlightFence = inFlightFence;

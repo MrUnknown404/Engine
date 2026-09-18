@@ -1,12 +1,10 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Engine4.Client.Graphics.Vulkan.Objects;
-using Engine4.Client.Rendering;
 using Engine4.Client.Utility;
 using Engine4.Client.Utility.Exceptions;
 using Engine4.Client.Utility.Extensions;
 using Engine4.IO;
-using Engine4.Utility.Math;
 using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics;
@@ -59,12 +57,12 @@ public sealed unsafe class VulkanManager {
 	public readonly string[] RequiredDeviceExtensionProperties;
 
 	private readonly GameClient game;
-	private readonly VulkanInstance vulkanInstance;
+	internal readonly VulkanInstance VulkanInstance;
 #if DEBUG
 	private readonly VulkanDebugMessenger debugMessenger;
 #endif
 	private readonly PhysicalGpu[] physicalGpus;
-	private readonly List<RenderTarget> renderTargets = new(); // TODO allow removal
+
 	private readonly SelectGpuMode selectGpuMode;
 	private readonly SelectGpuDelegate? getManualGpuFunc;
 	private readonly RateGpuSuitabilityDelegate? rateGpuSuitability;
@@ -102,47 +100,25 @@ public sealed unsafe class VulkanManager {
 		PrintInstanceExtensionProperties(availableInstanceExtensionProperties);
 
 		// create instance
-		vulkanInstance = new(game, vulkanSettings, this);
-		VKLoader.SetInstance(vulkanInstance.VkInstance); // set opentk instance
+		VulkanInstance = new(game, vulkanSettings, this);
+		VKLoader.SetInstance(VulkanInstance.VkInstance); // set opentk instance
 		Logger.Trace("Created VkInstance");
 
 		// debugger
-		debugMessenger = new(vulkanInstance, vulkanSettings.EnabledDebugMessageSeverities, vulkanSettings.EnabledDebugMessageTypes);
+		debugMessenger = new(VulkanInstance, vulkanSettings.EnabledDebugMessageSeverities, vulkanSettings.EnabledDebugMessageTypes);
 		Logger.Trace("Created Vulkan Debug Messenger");
 
-		physicalGpus = GetPhysicalGpus(vulkanInstance, vulkanSettings);
+		physicalGpus = GetPhysicalGpus(VulkanInstance, vulkanSettings);
 		Logger.Trace($"Sorted {physicalGpus.Length} physical gpus");
 
 		PrintPhysicalGpus();
 	}
 
-	public WindowRenderTarget CreateWindowRenderTarget(Window window, Color3 clearColor) {
-		WindowRenderTarget renderTarget = new(window, this, vulkanInstance, clearColor);
-		renderTargets.Add(renderTarget);
-		return renderTarget;
-	}
-
-	public TextureRenderTarget CreateTextureRenderTarget(Color3 clearColor) {
-		TextureRenderTarget renderTarget = new(clearColor);
-		renderTargets.Add(renderTarget);
-		return renderTarget;
-	}
-
-	public ConsoleRenderTarget CreateConsoleRenderTarget(Color3 clearColor) {
-		ConsoleRenderTarget renderTarget = new(game.ConsoleRenderer ?? throw new NullReferenceException(), clearColor);
-		renderTargets.Add(renderTarget);
-		return renderTarget;
-	}
-
-	internal void RemoveRenderTarget(RenderTarget renderTarget) => renderTargets.Remove(renderTarget); // TODO public version
-
 	internal void Cleanup() {
-		Logger.Trace("- Cleaning up resources...");
-
-		foreach (RenderTarget renderTarget in renderTargets) { renderTarget.Cleanup(); } // logical gpus
+		Logger.Trace("- Cleaning up final resources...");
 
 		debugMessenger.Cleanup();
-		vulkanInstance.Cleanup();
+		VulkanInstance.Cleanup();
 	}
 
 	[MustUseReturnValue]

@@ -38,7 +38,5 @@ public static unsafe class VkH {
 		return new(variant, major, minor, patch);
 	}
 
-	public static void CheckSuccess(VkResult result, string failedMessage) {
-		if (result != VkResult.Success) { throw new VulkanException($"{failedMessage}. Reason: {result}"); }
-	}
+	public static bool CheckSuccess(VkResult result, string failedMessage) => result == VkResult.Success ? true : throw new VulkanException($"{failedMessage}. Reason: {result}");
 }

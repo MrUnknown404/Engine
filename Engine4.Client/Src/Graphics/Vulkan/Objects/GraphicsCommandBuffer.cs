@@ -7,7 +7,7 @@ namespace Engine4.Client.Graphics.Vulkan.Objects;
 public unsafe class GraphicsCommandBuffer : CommandBuffer {
 	internal GraphicsCommandBuffer(VkCommandBuffer commandBuffer) : base(commandBuffer) { }
 
-	public void CmdBeginRendering(VkExtent2D extent, VkImageView imageView, VkImageView? depthImageView, Color3 color, VkClearDepthStencilValue depthStencilValue) {
+	public void CmdBeginRendering(VkExtent2D extent, VkImageView imageView, VkImageView? depthImageView, Color4 color, VkClearDepthStencilValue depthStencilValue) {
 		VkRenderingAttachmentInfo colorAttachmentInfo = new() {
 				imageView = imageView,
 				imageLayout = VkImageLayout.ImageLayoutAttachmentOptimalKhr,
