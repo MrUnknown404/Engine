@@ -5,7 +5,7 @@ public class VulkanBuffer : VulkanResource { // TODO
 
 	protected override ulong Handle => throw new NotImplementedException();
 
-	public VulkanBuffer(string debugName, ulong size) : base(debugName) => Size = size;
+	internal VulkanBuffer(string debugName, ulong size) : base(debugName) => Size = size;
 
 	public unsafe void Copy(byte* data, ulong dataLength, uint bufferStart = 0, uint dataStart = 0) => throw new NotImplementedException(); // TODO
 	public void Copy(byte[] data, uint bufferStart = 0, uint dataStart = 0) => throw new NotImplementedException(); // TODO

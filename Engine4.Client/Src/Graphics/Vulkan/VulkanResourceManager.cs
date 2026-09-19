@@ -42,6 +42,9 @@ public sealed class VulkanResourceManager {
 	}
 
 	[MustUseReturnValue]
+	public VulkanTexture CreateTexture(string resourceName) => throw new NotImplementedException(); // TODO
+
+	[MustUseReturnValue]
 	public Semaphore CreateSemaphore(string debugName, VkSemaphoreCreateFlags semaphoreCreateFlags) {
 		Semaphore semaphore = new(debugName, logicalGpu, semaphoreCreateFlags);
 		Add(semaphore);
