@@ -1,78 +1,69 @@
 using System.Diagnostics.CodeAnalysis;
 using Engine4.Client.Graphics.Vulkan;
 using Engine4.Client.Graphics.Vulkan.Objects;
-using Engine4.Utility.Exceptions;
 using JetBrains.Annotations;
+using OpenTK.Graphics.Vulkan;
+using Semaphore = Engine4.Client.Graphics.Vulkan.Objects.Semaphore;
 
 namespace Engine4.Client.Graphics._Test;
 
 // TODO look into
 //  https://en.wikipedia.org/wiki/Directed_acyclic_graph
 //  https://en.wikipedia.org/wiki/Topological_sorting#Kahn's_algorithm
+//  https://www.geeksforgeeks.org/dsa/introduction-to-directed-acyclic-graph/
+//  https://www.geeksforgeeks.org/dsa/topological-sorting-indegree-based-solution/
 //  https://www.gdcvault.com/play/1024612/FrameGraph-Extensible-Rendering-Architecture-in
 //  https://themaister.net/blog/2017/08/15/render-graphs-and-vulkan-a-deep-dive/
 //  https://apoorvaj.io/render-graphs-1
 //  https://vkguide.dev/docs/ascendant/ascendant_light/
 //  https://dev.to/p3ngu1nzz/advanced-vulkan-rendering-building-a-modern-frame-graph-and-memory-management-system-15kn
-//  https://www.geeksforgeeks.org/dsa/introduction-to-directed-acyclic-graph/
-//  https://www.geeksforgeeks.org/dsa/topological-sorting-indegree-based-solution/
+//  https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/Engine_Architecture/05_rendering_pipeline.html
+//  https://alielmorsy.github.io/the-art-of-render-graphs/
+//  https://deepwiki.com/inexorgame/vulkan-renderer/4-render-graph
+//  https://poniesandlight.co.uk/reflect/island_rendergraph_1/
+//  https://poniesandlight.co.uk/reflect/island_rendergraph_2/
+//  https://github.com/asc-community/VulkanAbstractionLayer/tree/master/examples
 // TODO document this when done
 
-public class RenderGraph {
-	private bool isDirty;
-
-	private readonly Dictionary<RenderPassHandle, RenderPass2> renderPasses = new();
-	private RenderPass2[] bakedRenderPasses = Array.Empty<RenderPass2>();
-
-	private readonly Dictionary<string, ResourceData> resources = new(); // TODO how efficient is using a string as a hash code? should i make my own type? it's probably fine?
-
+public unsafe class RenderGraph {
+	// TODO i could maybe optimize this by switching to a list? idk how fast OrderedDictionary is. use a dict of handle -> index to access the list. i want the handle so i can access passes to edit
+	private readonly OrderedDictionary<RenderPassHandle, RenderPass2> renderPasses = new();
+	// TODO add support for static resources? they would be set at the beginning of the program's lifetime and never change
+	private readonly Dictionary<IResourceHandle, ResourceData> resources = new(); // TODO how efficient is using a string as a hash code? should i make my own type? it's probably fine?
 	private readonly VulkanResourceManager resourceManager;
 
-	private static void Test(VulkanResourceManager resourceManager) { // test example
-		RenderGraph renderGraph = new(resourceManager);
+	private bool isDirty;
 
-		const ulong Size = 0; // make vulkan resources here
-		BufferHandle vertexBuffer = renderGraph.AddBuffer("vertex buffer", Size); // TODO what if we want to resize later? auto resize behind the scenes?
-		BufferHandle indexBuffer = renderGraph.AddBuffer("index buffer", Size);
-		// ImageHandle testImage = renderGraph.AddTexture("test image");
-
-		RenderPassBuilder passBuilder = new("testPass", RenderPassStage.Graphics, null); // compute/graphics/transfer
-		passBuilder.AddInput(vertexBuffer);
-		passBuilder.AddInput(indexBuffer);
-		// passBuilder.AddInput(testImage);
-		RenderPassHandle testPass = renderGraph.AddPass(passBuilder);
-
-		renderGraph.DisablePass(testPass);
-		renderGraph.EnablePass(testPass);
-
-		renderGraph.RemovePass(testPass);
-	}
+	// compiled
+	private RenderPass2[] bakedRenderPasses = Array.Empty<RenderPass2>();
+	private uint[] passExecutionOrder = Array.Empty<uint>();
+	private Semaphore[] semaphores = Array.Empty<Semaphore>();
+	private (uint, uint)[] semaphoreSignalWaitPairs = Array.Empty<(uint, uint)>();
 
 	internal RenderGraph(VulkanResourceManager resourceManager) => this.resourceManager = resourceManager;
 
 	[MustUseReturnValue]
-	public BufferHandle AddBuffer(string resourceName, ulong size) {
-		if (!resources.TryGetValue(resourceName, out ResourceData? resourceData)) {
-			resourceData = new(resourceManager.CreateBuffer(resourceName, size));
-			resources.Add(resourceName, resourceData);
-			return new(resourceName);
+	public BufferHandle AddBuffer(string resourceName, ulong size, VkBufferUsageFlagBits2 bufferUsageFlags) { // TODO properties
+		BufferHandle handle = new(resourceName);
+		if (!resources.TryGetValue(handle, out ResourceData? resourceData)) {
+			resourceData = new BufferResourceData(resourceManager, resourceName, size, bufferUsageFlags);
+			resources.Add(handle, resourceData);
+			return handle;
 		} else { throw new Exception(); } // TODO exception
 	}
 
 	[MustUseReturnValue]
-	public ImageHandle AddTexture(string resourceName) { // TODO properties
-		if (!resources.TryGetValue(resourceName, out ResourceData? resourceData)) {
-			resourceData = new(resourceManager.CreateTexture(resourceName));
-			resources.Add(resourceName, resourceData);
-			return new(resourceName);
+	public ImageHandle AddTexture(string resourceName, ushort width, ushort height, VkFormat format, VkImageUsageFlagBits imageUsageFlags, VkImageLayout layout) { // TODO properties
+		ImageHandle handle = new(resourceName);
+		if (!resources.TryGetValue(handle, out ResourceData? resourceData)) {
+			resourceData = new ImageResourceData(resourceManager, resourceName, format, new(width, height), imageUsageFlags, VkImageLayout.ImageLayoutUndefined, layout);
+			resources.Add(handle, resourceData);
+			return handle;
 		} else { throw new Exception(); } // TODO exception
 	}
 
-	[MustUseReturnValue]
-	public BufferHandle RemoveBuffer(string resourceName) => throw new NotImplementedException(); // TODO
-
-	[MustUseReturnValue]
-	public ImageHandle RemoveTexture(string resourceName) => throw new NotImplementedException(); // TODO
+	public void RemoveBuffer(string resourceName) => throw new NotImplementedException(); // TODO
+	public void RemoveTexture(string resourceName) => throw new NotImplementedException(); // TODO
 
 	public RenderPassHandle AddPass([HandlesResourceDisposal] RenderPassBuilder builder) {
 		if (builder.Invalid) { throw new Exception(); } // TODO exception
@@ -89,13 +80,100 @@ public class RenderGraph {
 		renderPasses.Remove(handle);
 		isDirty = true;
 
-		// TODO cleanup resources if no longer used
+		// TODO clean up any resources no longer in use
 	}
 
-	public void DisablePass(RenderPassHandle handle) => renderPasses[handle].Enabled = false;
-	public void EnablePass(RenderPassHandle handle) => renderPasses[handle].Enabled = true;
+	public void DisablePass(RenderPassHandle handle) {
+		renderPasses[handle].Enabled = false;
+		isDirty = true;
+	}
 
-	private RenderPass2[] BakeGraph() {
+	public void EnablePass(RenderPassHandle handle) {
+		renderPasses[handle].Enabled = true;
+		isDirty = true;
+	}
+
+	// effectively https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/Engine_Architecture/05_rendering_pipeline.html#_rendergraph_dependency_analysis_and_execution_ordering
+	// TODO doc
+	private static void BakeGraph(VulkanResourceManager resourceManager, Dictionary<IResourceHandle, ResourceData> resources, IEnumerable<RenderPass2> inRenderPasses, out RenderPass2[] outRenderPasses,
+		out uint[] outPassExecutionOrder, out Semaphore[] outSemaphores, out (uint, uint)[] outSemaphoreSignalWaitPairs) {
+		List<RenderPass2> enabledRenderPasses = new();
+		foreach (RenderPass2 renderPass in inRenderPasses) {
+			if (renderPass.Enabled) { enabledRenderPasses.Add(renderPass); }
+		}
+
+		uint passCount = (uint)enabledRenderPasses.Count;
+		List<uint>[] dependencies = new List<uint>[passCount];
+		List<uint>[] dependents = new List<uint>[passCount];
+		Dictionary<IResourceHandle, uint> resourceWriters = new();
+		List<RenderPass2> renderPasses = new();
+		List<uint> passExecutionOrder = new();
+
+		for (uint i = 0; i < passCount; i++) {
+			RenderPass2 pass = enabledRenderPasses[(int)i];
+
+			// inputs
+			foreach (IResourceHandle input in pass.Inputs) {
+				if (resourceWriters.TryGetValue(input, out uint value)) {
+					dependencies[i].Add(value);
+					dependents[value].Add(i);
+				}
+			}
+
+			// outputs
+			foreach (IResourceHandle output in pass.Outputs) { resourceWriters.Add(output, i); }
+		}
+
+		bool[] visited = new bool[passCount];
+		bool[] inStack = new bool[passCount];
+
+		for (uint i = 0; i < passCount; i++) {
+			if (!visited[i]) { Visit(i); }
+		}
+
+		outRenderPasses = renderPasses.ToArray();
+		outPassExecutionOrder = passExecutionOrder.ToArray();
+		CreateResources(resourceManager, resources, out outSemaphores, out outSemaphoreSignalWaitPairs);
+
+		// TODO create pipeline
+
+		return;
+
+		void Visit(uint passIndex) {
+			if (inStack[passIndex]) { throw new Exception(); } // TODO exception
+			if (visited[passIndex]) { throw new Exception(); } // TODO exception
+
+			inStack[passIndex] = true;
+
+			foreach (uint dependent in dependents[passIndex]) { Visit(dependent); }
+
+			inStack[passIndex] = false;
+			visited[passIndex] = true;
+			renderPasses.Add(enabledRenderPasses[(int)passIndex]);
+			passExecutionOrder.Add(passIndex);
+		}
+
+		void CreateResources(VulkanResourceManager resourceManager, Dictionary<IResourceHandle, ResourceData> resources, out Semaphore[] outSemaphores, out (uint, uint)[] outSemaphoreSignalWaitPairs) {
+			List<Semaphore> semaphores = new();
+			List<(uint, uint)> semaphoreSignalWaitPairs = new();
+
+			for (uint i = 0; i < passCount; i++) {
+				foreach (uint dependency in dependencies[i]) {
+					semaphores.Add(resourceManager.CreateSemaphore($"RenderGraph Pass[{i}] ({dependency})", 0));
+					semaphoreSignalWaitPairs.Add(new(dependency, i));
+				}
+			}
+
+			foreach ((IResourceHandle resourceHandle, ResourceData data) in resources) {
+				switch (data) { } // TODO create resources. buffers/textures
+				throw new NotImplementedException();
+			}
+
+			outSemaphores = semaphores.ToArray();
+			outSemaphoreSignalWaitPairs = semaphoreSignalWaitPairs.ToArray();
+		}
+
+		/*
 		Dictionary<RenderPass2, RenderPass2[]> edges = CalculateEdges(renderPasses, resources); // calculate edges
 		if (edges.Count == 0) { return Array.Empty<RenderPass2>(); } // nothing to draw
 
@@ -132,26 +210,8 @@ public class RenderGraph {
 
 		return output.ToArray();
 
-		// TODO make this output
-		/* Example Output:
-		 * [
-		 * - [ Pass1, [ Pass2, Pass3 ], ],
-		 * - [ Pass2, [ Pass3, ], ],
-		 * - [ Pass3, [ ], ],
-		 * ]
-		 */
 		[MustUseReturnValue]
-		static Dictionary<RenderPass2, RenderPass2[]> CalculateEdges(Dictionary<RenderPassHandle, RenderPass2> renderPasses, Dictionary<string, ResourceData> resources) {
-			Dictionary<RenderPass2, RenderPass2[]> edges = new();
-
-			// calculate first/last used here?
-			// USE renderPass.Enabled
-
-			foreach (KeyValuePair<RenderPassHandle, RenderPass2> renderPass in renderPasses) { }
-			foreach (KeyValuePair<string, ResourceData> resourceData in resources) { }
-
-			return edges;
-		}
+		static Dictionary<RenderPass2, RenderPass2[]> CalculateEdges(Dictionary<RenderPassHandle, RenderPass2> renderPasses, Dictionary<string, ResourceData> resources) => throw new NullReferenceException();
 
 		[MustUseReturnValue]
 		static Dictionary<RenderPass2, uint> CalculateInDegrees(IEnumerable<RenderPass2[]> edges) {
@@ -165,14 +225,211 @@ public class RenderGraph {
 
 			return inDegrees;
 		}
+		*/
 	}
 
-	private void Render(GraphicsCommandBuffer graphicsCommandBuffer) {
-		if (isDirty) {
-			bakedRenderPasses = BakeGraph();
+	internal void Render(GraphicsCommandBuffer graphicsCommandBuffer, VkQueue graphicsQueue, VkQueue transferQueue) {
+		if (isDirty) { // move?
+			BakeGraph(resourceManager, resources, renderPasses.Values, out bakedRenderPasses, out passExecutionOrder, out semaphores, out semaphoreSignalWaitPairs); // TODO how do i want to handle cleanup?
 			isDirty = false;
 		}
 
+		// List<CommandBuffer> commandBuffers = new(); TODO why is this here?
+		List<Semaphore> waitSemaphores = new();
+		List<VkPipelineStageFlagBits> waitStages = new();
+		List<Semaphore> signalSemaphores = new();
+
+		// TODO upload data to buffers
+
+		foreach (uint passIndex in passExecutionOrder) {
+			RenderPass2 renderPass = bakedRenderPasses[passIndex];
+
+			waitSemaphores.Clear(); // TODO do i need to clean these?
+			waitStages.Clear();
+			signalSemaphores.Clear();
+
+			for (int i = 0; i < semaphoreSignalWaitPairs.Length; i++) {
+				if (semaphoreSignalWaitPairs[i].Item1 == passIndex) {
+					signalSemaphores.Add(semaphores[i]); //
+				}
+
+				if (semaphoreSignalWaitPairs[i].Item2 == passIndex) {
+					waitSemaphores.Add(semaphores[i]);
+					waitStages.Add(VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit);
+				}
+			}
+
+			// TODO bind buffers
+			// TODO bind pipeline
+
+			if (renderPass.RenderPassStage == RenderPassStage.Graphics) {
+				// TODO begin/end?
+				// graphicsCommandBuffer.CmdBeginRendering(extent, colorView, clearColor, depthView, depthStencil);
+			}
+
+			// graphicsCommandBuffer.BeginCommandBuffer(0); // TODO is this the correct begin?
+
+			//
+			foreach (IResourceHandle resourceHandle in renderPass.Inputs) { // TODO calculate these in BakeGraph()
+				ResourceData resourceData = resources[resourceHandle]; // TODO union? method?
+				switch (resourceData) {
+					case BufferResourceData bufferResource:
+						VkBufferMemoryBarrier2 bufferMemoryBarrier = new() {
+								srcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+								dstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+								buffer = bufferResource.Buffer.VkBuffer,
+								size = Vk.WholeSize, // should i do this? or set per resource?
+								offset = 0, // ^
+								srcAccessMask = VkAccessFlagBits2.Access2MemoryWriteBit,
+								dstAccessMask = VkAccessFlagBits2.Access2ShaderReadBit,
+								// srcStageMask = , add these?
+								// dstStageMask = ,
+						};
+
+						// TODO set multiple at once?
+						graphicsCommandBuffer.CmdPipelineBarrier(new() { bufferMemoryBarrierCount = 1, pBufferMemoryBarriers = &bufferMemoryBarrier, dependencyFlags = VkDependencyFlagBits.DependencyByRegionBit, });
+
+						break;
+					case ImageResourceData imageResource:
+						VkImageMemoryBarrier2 imageMemoryBarrier = new() {
+								oldLayout = imageResource.InitialLayout,
+								newLayout = VkImageLayout.ImageLayoutShaderReadOnlyOptimal,
+								srcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+								dstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+								image = imageResource.Texture.Image,
+								subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+								srcAccessMask = VkAccessFlagBits2.Access2MemoryWriteBit,
+								dstAccessMask = VkAccessFlagBits2.Access2ShaderReadBit,
+								// srcStageMask = , add these?
+								// dstStageMask = ,
+						};
+
+						// TODO set multiple at once?
+						graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier, dependencyFlags = VkDependencyFlagBits.DependencyByRegionBit, });
+
+						break;
+				}
+			}
+
+			//
+			foreach (IResourceHandle resourceHandle in renderPass.Outputs) {
+				ResourceData resourceData = resources[resourceHandle]; // TODO union? method?
+				switch (resourceData) {
+					case BufferResourceData bufferResource:
+						VkBufferMemoryBarrier2 bufferMemoryBarrier = new() {
+								srcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+								dstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+								buffer = bufferResource.Buffer.VkBuffer,
+								size = Vk.WholeSize, // should i do this? or set per resource?
+								offset = 0, // ^
+								srcAccessMask = VkAccessFlagBits2.Access2MemoryReadBit,
+								dstAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
+						};
+
+						// TODO set multiple at once?
+						graphicsCommandBuffer.CmdPipelineBarrier(new() { bufferMemoryBarrierCount = 1, pBufferMemoryBarriers = &bufferMemoryBarrier, dependencyFlags = VkDependencyFlagBits.DependencyByRegionBit, });
+
+						break;
+					case ImageResourceData imageResource:
+						VkImageMemoryBarrier2 imageMemoryBarrier = new() {
+								oldLayout = imageResource.InitialLayout,
+								newLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
+								srcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+								dstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+								image = imageResource.Texture.Image,
+								subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+								srcAccessMask = VkAccessFlagBits2.Access2MemoryReadBit,
+								dstAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
+						};
+
+						// TODO set multiple at once?
+						graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier, dependencyFlags = VkDependencyFlagBits.DependencyByRegionBit, });
+
+						break;
+				}
+			}
+
+			// exec
+			renderPass.Exec?.Invoke(graphicsCommandBuffer);
+
+			//
+			foreach (IResourceHandle resourceHandle in renderPass.Outputs) {
+				ResourceData resourceData = resources[resourceHandle]; // TODO union? method?
+				switch (resourceData) {
+					case BufferResourceData bufferResource:
+						VkBufferMemoryBarrier2 bufferMemoryBarrier = new() {
+								srcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+								dstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+								buffer = bufferResource.Buffer.VkBuffer,
+								size = Vk.WholeSize, // should i do this? or set per resource?
+								offset = 0, // ^
+								srcAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
+								dstAccessMask = VkAccessFlagBits2.Access2MemoryReadBit,
+						};
+
+						// TODO set multiple at once?
+						graphicsCommandBuffer.CmdPipelineBarrier(new() { bufferMemoryBarrierCount = 1, pBufferMemoryBarriers = &bufferMemoryBarrier, dependencyFlags = VkDependencyFlagBits.DependencyByRegionBit, });
+
+						break;
+					case ImageResourceData imageResource:
+						VkImageMemoryBarrier2 imageMemoryBarrier = new() {
+								oldLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
+								newLayout = imageResource.FinalLayout,
+								srcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+								dstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+								image = imageResource.Texture.Image,
+								subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+								srcAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
+								dstAccessMask = VkAccessFlagBits2.Access2MemoryReadBit,
+						};
+
+						// TODO set multiple at once?
+						graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier, dependencyFlags = VkDependencyFlagBits.DependencyByRegionBit, });
+
+						break;
+				}
+			}
+
+			// graphicsCommandBuffer.EndCommandBuffer();
+
+			if (renderPass.RenderPassStage == RenderPassStage.Graphics) { graphicsCommandBuffer.CmdEndRendering(); }
+
+			VkSemaphore[] waitSemaphoresArray = new VkSemaphore[waitSemaphores.Count];
+			for (int i = 0; i < waitSemaphoresArray.Length; i++) { waitSemaphoresArray[i] = waitSemaphores[i].VkSemaphore; }
+
+			VkPipelineStageFlagBits[] waitStagesArray = new VkPipelineStageFlagBits[waitStages.Count];
+			for (int i = 0; i < waitStagesArray.Length; i++) { waitStagesArray[i] = waitStages[i]; }
+
+			VkSemaphore[] signalSemaphoresArray = new VkSemaphore[signalSemaphores.Count];
+			for (int i = 0; i < signalSemaphoresArray.Length; i++) { signalSemaphoresArray[i] = signalSemaphores[i].VkSemaphore; }
+
+			VkCommandBuffer commandBuffer = graphicsCommandBuffer.VkCommandBuffer;
+
+			fixed (VkSemaphore* pWaitSemaphores = waitSemaphoresArray) {
+				fixed (VkPipelineStageFlagBits* pWaitStages = waitStagesArray) {
+					fixed (VkSemaphore* pSignalSemaphores = signalSemaphoresArray) {
+						VkSubmitInfo submitInfo = new() {
+								waitSemaphoreCount = (uint)waitSemaphores.Count,
+								pWaitSemaphores = pWaitSemaphores,
+								pWaitDstStageMask = pWaitStages,
+								commandBufferCount = 1,
+								pCommandBuffers = &commandBuffer,
+								signalSemaphoreCount = (uint)signalSemaphores.Count,
+								pSignalSemaphores = pSignalSemaphores,
+						};
+
+						// TODO queue object. queue for each renderPass.RenderPassStage? or always use graphics?
+						Vk.QueueSubmit(renderPass.RenderPassStage switch {
+								RenderPassStage.Compute or RenderPassStage.Graphics => graphicsQueue,
+								RenderPassStage.Transfer => transferQueue,
+								_ => throw new ArgumentOutOfRangeException(),
+						}, 1, &submitInfo, VkFence.Zero);
+					}
+				}
+			}
+		}
+
+		/*
 		foreach (RenderPass2 renderPass in bakedRenderPasses) {
 			// TODO upload data
 			// TODO sync
@@ -189,6 +446,7 @@ public class RenderGraph {
 
 			renderPass.Exec?.Invoke(graphicsCommandBuffer); // see Exec comment
 		}
+		*/
 	}
 
 	public readonly record struct RenderPassHandle { // TODO IEquatable
@@ -218,12 +476,35 @@ public class RenderGraph {
 		public ImageHandle(string name) => Name = name;
 	}
 
-	private class ResourceData { // TODO rename
-		internal VulkanResource Resource { get; }
-
+	// TODO i could use the new unions for these?
+	private abstract class ResourceData { // TODO rename
 		internal List<RenderPassHandle> Reads { get; } = new();
 		internal List<RenderPassHandle> Writes { get; } = new();
+	}
 
-		public ResourceData(VulkanResource resource) => this.Resource = resource;
+	private class BufferResourceData : ResourceData { // TODO
+		public VulkanBuffer Buffer { get; }
+
+		public BufferResourceData(VulkanResourceManager resourceManager, string resourceName, ulong size, VkBufferUsageFlagBits2 bufferUsageFlags) =>
+				Buffer = resourceManager.CreateBuffer(resourceName, size, bufferUsageFlags);
+	}
+
+	private class ImageResourceData : ResourceData { // TODO
+		public VkFormat Format { get; }
+		public VkExtent2D Extent { get; }
+		public VkImageUsageFlagBits Usage { get; }
+		public VkImageLayout InitialLayout { get; }
+		public VkImageLayout FinalLayout { get; }
+
+		public VulkanTexture Texture { get; }
+
+		public ImageResourceData(VulkanResourceManager resourceManager, string resourceName, VkFormat format, VkExtent2D extent, VkImageUsageFlagBits usage, VkImageLayout initialLayout, VkImageLayout finalLayout) {
+			Format = format;
+			Extent = extent;
+			Usage = usage;
+			InitialLayout = initialLayout;
+			FinalLayout = finalLayout;
+			Texture = resourceManager.CreateTexture(resourceName);
+		}
 	}
 }

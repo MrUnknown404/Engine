@@ -35,14 +35,14 @@ public sealed class VulkanResourceManager {
 	}
 
 	[MustUseReturnValue]
-	public VulkanBuffer CreateBuffer(string debugName, ulong size) {
+	public VulkanBuffer CreateBuffer(string debugName, ulong size, VkBufferUsageFlagBits2 bufferUsageFlags) {
 		VulkanBuffer vulkanBuffer = new(debugName, size);
 		Add(vulkanBuffer);
 		return vulkanBuffer;
 	}
 
 	[MustUseReturnValue]
-	public VulkanTexture CreateTexture(string resourceName) => throw new NotImplementedException(); // TODO
+	public VulkanTexture CreateTexture(string debugName) => throw new NotImplementedException(); // TODO
 
 	[MustUseReturnValue]
 	public Semaphore CreateSemaphore(string debugName, VkSemaphoreCreateFlags semaphoreCreateFlags) {

@@ -1,9 +1,12 @@
+using OpenTK.Graphics.Vulkan;
+
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public class VulkanBuffer : VulkanResource { // TODO
+	public VkBuffer VkBuffer { get; }
 	public ulong Size { get; }
 
-	protected override ulong Handle => throw new NotImplementedException();
+	protected override ulong Handle => VkBuffer.Handle;
 
 	internal VulkanBuffer(string debugName, ulong size) : base(debugName) => Size = size;
 

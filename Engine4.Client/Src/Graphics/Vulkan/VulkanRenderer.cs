@@ -39,7 +39,7 @@ public sealed unsafe class VulkanRenderer {
 	private uint swapChainImageIndex;
 
 	// TODO easy depth image
-	private DepthImage? depthImage;
+	private DepthImage? depthImage; // TODO merge into render graph?
 
 	internal VulkanRenderer(string debugName, VulkanManager vulkanManager, Window window, Color4 clearColor, params RenderPass[] renderPasses) {
 		Window = window;
@@ -122,21 +122,38 @@ public sealed unsafe class VulkanRenderer {
 		graphicsCommandBuffer.ResetCommandBuffer();
 		VkH.CheckSuccess(graphicsCommandBuffer.BeginCommandBuffer(0), "Failed to begin command buffer");
 
-		VkImageMemoryBarrier2 imageMemoryBarrier2 = GetBeginPipelineBarrierImageMemoryBarrier();
-		graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier2, });
+		VkImageMemoryBarrier2 imageMemoryBarrier = new() {
+				dstAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
+				dstStageMask = VkPipelineStageFlagBits2.PipelineStage2TopOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
+				oldLayout = VkImageLayout.ImageLayoutUndefined,
+				newLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
+				image = swapChain.Images[swapChainImageIndex],
+				subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+		};
 
-		graphicsCommandBuffer.CmdBeginRendering(swapChain.Extent, swapChain.ImageViews[swapChainImageIndex], depthImage == null ? null : null, ClearColor, new(1, 0)); // TODO use depth image
+		graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier, });
+
+		graphicsCommandBuffer.CmdBeginRendering(swapChain.Extent, swapChain.ImageViews[swapChainImageIndex], ClearColor, depthImage?.Image, new(1, 0)); // TODO use depth image
 	}
 
 	private void DrawFrame(GraphicsCommandBuffer graphicsCommandBuffer) {
 		// RecordCommandBuffer(graphicsCommandBuffer); // TODO draw
+		// renderGraph.Render(graphicsCommandBuffer, LogicalGpu.GraphicsQueue, LogicalGpu.TransferQueue);
 	}
 
 	private void EndFrame(GraphicsCommandBuffer graphicsCommandBuffer) {
 		graphicsCommandBuffer.CmdEndRendering();
 
-		VkImageMemoryBarrier2 imageMemoryBarrier2 = GetEndPipelineBarrierImageMemoryBarrier();
-		graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier2, });
+		VkImageMemoryBarrier2 imageMemoryBarrier = new() {
+				srcAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
+				srcStageMask = VkPipelineStageFlagBits2.PipelineStage2BottomOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
+				oldLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
+				newLayout = VkImageLayout.ImageLayoutPresentSrcKhr,
+				image = swapChain.Images[swapChainImageIndex],
+				subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+		};
+
+		graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier, });
 
 		VkH.CheckSuccess(graphicsCommandBuffer.EndCommandBuffer(), "Failed to end command buffer");
 	}
@@ -182,26 +199,6 @@ public sealed unsafe class VulkanRenderer {
 		swapChain.Recreate();
 		// DepthImage?.Recreate(SwapChain.Extent);
 	}
-
-	private VkImageMemoryBarrier2 GetBeginPipelineBarrierImageMemoryBarrier() => // TODO redo
-			new() {
-					dstAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
-					dstStageMask = VkPipelineStageFlagBits2.PipelineStage2TopOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
-					oldLayout = VkImageLayout.ImageLayoutUndefined,
-					newLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
-					image = swapChain.Images[swapChainImageIndex],
-					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
-			};
-
-	private VkImageMemoryBarrier2 GetEndPipelineBarrierImageMemoryBarrier() => // TODO redo
-			new() {
-					srcAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
-					srcStageMask = VkPipelineStageFlagBits2.PipelineStage2BottomOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
-					oldLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
-					newLayout = VkImageLayout.ImageLayoutPresentSrcKhr,
-					image = swapChain.Images[swapChainImageIndex],
-					subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
-			};
 
 	internal void Cleanup() {
 		Vk.DeviceWaitIdle(LogicalGpu.VkLogicalDevice);

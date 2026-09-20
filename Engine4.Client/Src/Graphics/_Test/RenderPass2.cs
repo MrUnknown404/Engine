@@ -9,14 +9,18 @@ public class RenderPass2 {
 	internal RenderPassStage RenderPassStage { get; }
 	internal Action<GraphicsCommandBuffer>? Exec { get; } // record graphics buffer. etc
 
-	internal Dictionary<RenderGraph.IResourceHandle, List<RenderGraph.RenderPassHandle>> Inputs { get; }
-	internal Dictionary<RenderGraph.IResourceHandle, List<RenderGraph.RenderPassHandle>> Outputs { get; }
+	internal RenderGraph.IResourceHandle[] Inputs { get; }
+	internal RenderGraph.IResourceHandle[] Outputs { get; }
+
+	internal List<object> ColorAttachments { get; } = new(); // TODO ?
+
+	// TODO store barriers?
 
 	internal RenderPass2(RenderPassBuilder builder) {
 		Handle = builder.Handle;
 		RenderPassStage = builder.RenderPassStage;
 		Exec = builder.Exec;
-		Inputs = builder.Inputs;
-		Outputs = builder.Outputs;
+		Inputs = builder.Inputs.ToArray();
+		Outputs = builder.Outputs.ToArray();
 	}
 }
