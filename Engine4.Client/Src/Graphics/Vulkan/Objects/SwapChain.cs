@@ -30,7 +30,7 @@ public unsafe class SwapChain {
 		this.surface = surface;
 		this.presentMode = presentMode;
 
-		VkSwapChain = CreateSwapChain(physicalGpu, logicalGpu, surface, presentMode, window.GetFrameBufferSize(), out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat);
+		VkSwapChain = CreateSwapChain(window, physicalGpu, logicalGpu, surface, presentMode, out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat);
 		ImageFormat = swapChainImageFormat;
 		Extent = swapChainExtent;
 		Images = GetSwapChainImages(logicalGpu, VkSwapChain);
@@ -40,7 +40,8 @@ public unsafe class SwapChain {
 	internal void Recreate() {
 		Vk.DeviceWaitIdle(logicalGpu.VkLogicalDevice);
 
-		VkSwapchainKHR vkSwapChain = CreateSwapChain(physicalGpu, logicalGpu, surface, presentMode, window.GetFrameBufferSize(), out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat, null, VkSwapChain);
+		VkSwapchainKHR vkSwapChain = CreateSwapChain(window, physicalGpu, logicalGpu, surface, presentMode, out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat, null, VkSwapChain);
+
 		Logger.Trace("Recreated swap chain");
 
 		Cleanup();
@@ -67,7 +68,7 @@ public unsafe class SwapChain {
 	}
 
 	[MustUseReturnValue]
-	private static VkSwapchainKHR CreateSwapChain(SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, Surface surface, VkPresentModeKHR presentMode, Vec2<ushort> frameBufferSize, out VkExtent2D swapChainExtent,
+	private static VkSwapchainKHR CreateSwapChain(Window window, SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, Surface surface, VkPresentModeKHR presentMode, out VkExtent2D swapChainExtent,
 		out VkFormat swapChainImageFormat, VkSurfaceTransformFlagBitsKHR? surfaceTransform = null, VkSwapchainKHR? oldSwapChain = null) {
 		// check if the surface is swapchain capable
 		// TODO shouldn't i check this before i get here?
@@ -77,7 +78,7 @@ public unsafe class SwapChain {
 
 		VkSurfaceCapabilitiesKHR surfaceCapabilities = surfaceCapabilities2.Value.surfaceCapabilities;
 		swapChainImageFormat = surfaceFormat2.Value.surfaceFormat.format;
-		swapChainExtent = ChooseSwapExtent(frameBufferSize, surfaceCapabilities);
+		swapChainExtent = ChooseSwapExtent(window.GetFrameBufferSize(), surfaceCapabilities);
 
 		// https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Swap_chain#Creating_the_swap_chain - "Therefore it is recommended to request at least one more image than the minimum"
 		uint imageCount = surfaceCapabilities.minImageCount + 1;
@@ -172,12 +173,12 @@ public unsafe class SwapChain {
 		}
 
 		[MustUseReturnValue]
-		static VkExtent2D ChooseSwapExtent(Vec2<ushort> framebufferSize, VkSurfaceCapabilitiesKHR surfaceCapabilities) =>
+		static VkExtent2D ChooseSwapExtent(Vec2<ushort> frameBufferSize, VkSurfaceCapabilitiesKHR surfaceCapabilities) =>
 				surfaceCapabilities.currentExtent.width != uint.MaxValue ?
 						surfaceCapabilities.currentExtent :
 						new() {
-								width = Math.Clamp(framebufferSize.X, surfaceCapabilities.minImageExtent.width, surfaceCapabilities.maxImageExtent.width),
-								height = Math.Clamp(framebufferSize.Y, surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height),
+								width = Math.Clamp(frameBufferSize.X, surfaceCapabilities.minImageExtent.width, surfaceCapabilities.maxImageExtent.width),
+								height = Math.Clamp(frameBufferSize.Y, surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height),
 						};
 	}
 

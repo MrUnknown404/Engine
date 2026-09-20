@@ -1,3 +1,4 @@
+using Engine4.Client.Graphics._Test;
 using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.Client.Rendering;
 using Engine4.IO;
@@ -18,13 +19,14 @@ public sealed unsafe class VulkanRenderer {
 	public bool IsFrameBufferSizeDirty { get; protected set; } // TODO move? set on resize
 
 	private readonly VulkanResourceManager resourceManager;
-	private readonly SurfaceReadyPhysicalGpu PhysicalGpu;
-	private readonly LogicalGpu LogicalGpu;
+	private readonly SurfaceReadyPhysicalGpu physicalGpu;
+	private readonly LogicalGpu logicalGpu;
 	internal readonly Window Window;
 	private readonly Surface surface;
-	private readonly SwapChain swapChain;
+	internal readonly SwapChain SwapChain;
 
 	private readonly List<RenderPass> renderPasses; // TODO make sure this supports adding/removing at runtime
+	private readonly RenderGraph3 renderGraph;
 
 	private readonly GraphicsCommandPool graphicsCommandPool;
 	private readonly TransferCommandPool transferCommandPool;
@@ -48,14 +50,16 @@ public sealed unsafe class VulkanRenderer {
 		// TODO log
 		surface = new(vulkanManager.VulkanInstance, window);
 		SurfaceReadyPhysicalGpu[] capableGpus = vulkanManager.GetCapableGpus(surface);
-		PhysicalGpu = vulkanManager.SelectGpu(capableGpus) ?? throw new Engine4Exception("Failed to select gpu");
-		LogicalGpu = new(PhysicalGpu, vulkanManager);
-		swapChain = new(window, PhysicalGpu, LogicalGpu, surface, vulkanManager.PresentMode);
-		renderFinishedSemaphores = LogicalGpu.ResourceManager.CreateSemaphores("Render Finished Semaphore", 0, (uint)swapChain.Images.Length);
+		physicalGpu = vulkanManager.SelectGpu(capableGpus) ?? throw new Engine4Exception("Failed to select gpu");
+		logicalGpu = new(physicalGpu, vulkanManager);
+		SwapChain = new(window, physicalGpu, logicalGpu, surface, vulkanManager.PresentMode);
+		renderFinishedSemaphores = logicalGpu.ResourceManager.CreateSemaphores("Render Finished Semaphore", 0, (uint)SwapChain.Images.Length);
 
-		resourceManager = LogicalGpu.ResourceManager;
+		resourceManager = logicalGpu.ResourceManager;
 		this.renderPasses = new(renderPasses);
 		maxFramesInFlight = vulkanManager.MaxFramesInFlight;
+
+		renderGraph = new(this, resourceManager);
 
 		// TODO logging
 		graphicsCommandPool = resourceManager.CreateGraphicsCommandPool($"{debugName} Graphics Command Pool", VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit);
@@ -109,7 +113,7 @@ public sealed unsafe class VulkanRenderer {
 	private void SyncResources() { } // TODO
 
 	private bool TryBeginFrame(FrameInFlight frame) {
-		VkResult result = swapChain.AcquireNextImage(frame.ImageAvailableSemaphore, out swapChainImageIndex);
+		VkResult result = SwapChain.AcquireNextImage(frame.ImageAvailableSemaphore, out swapChainImageIndex);
 		if (result == VkResult.ErrorOutOfDateKhr) {
 			InvalidateSwapChain();
 			return false;
@@ -127,29 +131,35 @@ public sealed unsafe class VulkanRenderer {
 				dstStageMask = VkPipelineStageFlagBits2.PipelineStage2TopOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
 				oldLayout = VkImageLayout.ImageLayoutUndefined,
 				newLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
-				image = swapChain.Images[swapChainImageIndex],
+				image = GetSwapChainImage(),
 				subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 		};
 
 		graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier, });
 
-		graphicsCommandBuffer.CmdBeginRendering(swapChain.Extent, swapChain.ImageViews[swapChainImageIndex], ClearColor, depthImage?.Image, new(1, 0)); // TODO use depth image
+		// graphicsCommandBuffer.CmdBeginRendering(swapChain.Extent, swapChain.ImageViews[swapChainImageIndex], ClearColor, depthImage?.Image, new(1, 0)); // TODO use depth image
 	}
 
-	private void DrawFrame(GraphicsCommandBuffer graphicsCommandBuffer) {
+	private void DrawFrame(GraphicsCommandBuffer commandBuffer) {
 		// RecordCommandBuffer(graphicsCommandBuffer); // TODO draw
 		// renderGraph.Render(graphicsCommandBuffer, LogicalGpu.GraphicsQueue, LogicalGpu.TransferQueue);
+
+		renderGraph.Render(commandBuffer);
+
+		// commandBuffer.CmdBeginRendering();
+		// // draw
+		// commandBuffer.CmdEndRendering();
 	}
 
 	private void EndFrame(GraphicsCommandBuffer graphicsCommandBuffer) {
-		graphicsCommandBuffer.CmdEndRendering();
+		// graphicsCommandBuffer.CmdEndRendering();
 
 		VkImageMemoryBarrier2 imageMemoryBarrier = new() {
 				srcAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
 				srcStageMask = VkPipelineStageFlagBits2.PipelineStage2BottomOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
 				oldLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
 				newLayout = VkImageLayout.ImageLayoutPresentSrcKhr,
-				image = swapChain.Images[swapChainImageIndex],
+				image = GetSwapChainImage(),
 				subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 		};
 
@@ -174,17 +184,17 @@ public sealed unsafe class VulkanRenderer {
 				pSignalSemaphores = &signalSemaphore,
 		};
 
-		Vk.QueueSubmit(LogicalGpu.GraphicsQueue, 1, &submitInfo, frame.InFlightFence.VkFence);
+		Vk.QueueSubmit(logicalGpu.GraphicsQueue, 1, &submitInfo, frame.InFlightFence.VkFence);
 	}
 
 	private void PresentFrame() {
-		VkSwapchainKHR swapChain = this.swapChain.VkSwapChain;
+		VkSwapchainKHR swapChain = SwapChain.VkSwapChain;
 		VkSemaphore waitSemaphore = renderFinishedSemaphores[swapChainImageIndex].VkSemaphore;
 
 		VkResult result;
 		fixed (uint* swapChainImageIndexPtr = &swapChainImageIndex) {
 			VkPresentInfoKHR presentInfo = new() { waitSemaphoreCount = 1, pWaitSemaphores = &waitSemaphore, swapchainCount = 1, pSwapchains = &swapChain, pImageIndices = swapChainImageIndexPtr, };
-			result = Vk.QueuePresentKHR(LogicalGpu.PresentQueue, &presentInfo);
+			result = Vk.QueuePresentKHR(logicalGpu.PresentQueue, &presentInfo);
 		}
 
 		if (result is VkResult.ErrorOutOfDateKhr or VkResult.SuboptimalKhr || IsFrameBufferSizeDirty) {
@@ -196,17 +206,21 @@ public sealed unsafe class VulkanRenderer {
 	private void InvalidateSwapChain() {
 		Logger.Trace("Swapchain is invalid. Recreating...");
 
-		swapChain.Recreate();
+		SwapChain.Recreate();
 		// DepthImage?.Recreate(SwapChain.Extent);
 	}
 
-	internal void Cleanup() {
-		Vk.DeviceWaitIdle(LogicalGpu.VkLogicalDevice);
+	internal VkFormat GetDepthFormat() => physicalGpu.FindDepthFormat();
+	internal VkImage GetSwapChainImage() => SwapChain.Images[swapChainImageIndex];
+	internal VkImageView GetSwapChainImageView() => SwapChain.ImageViews[swapChainImageIndex];
 
-		swapChain.Cleanup();
+	internal void Cleanup() {
+		Vk.DeviceWaitIdle(logicalGpu.VkLogicalDevice);
+
+		SwapChain.Cleanup();
 		surface.Cleanup();
 
-		LogicalGpu.Cleanup();
+		logicalGpu.Cleanup();
 	}
 
 	private class FrameInFlight {

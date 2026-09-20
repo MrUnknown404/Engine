@@ -1,3 +1,4 @@
+using Engine4.Utility.Math;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics._Test;
@@ -16,10 +17,12 @@ public class RenderTarget {
 
 	public ushort Width { get; }
 	public ushort Height { get; }
+	public Color4 ClearColor { get; }
 
-	public RenderTarget(ushort width, ushort height, VkImage colorImage, VkDeviceMemory colorMemory, VkImageView colorView, VkImage? depthImage, VkDeviceMemory? depthMemory, VkImageView? depthView) {
+	public RenderTarget(ushort width, ushort height, Color4 clearColor, VkImage colorImage, VkDeviceMemory colorMemory, VkImageView colorView, VkImage? depthImage, VkDeviceMemory? depthMemory, VkImageView? depthView) {
 		Width = width;
 		Height = height;
+		ClearColor = clearColor;
 		this.colorImage = colorImage;
 		this.colorMemory = colorMemory;
 		this.colorView = colorView;
@@ -28,9 +31,10 @@ public class RenderTarget {
 		this.depthView = depthView;
 	}
 
-	public RenderTarget(ushort width, ushort height, bool createDepth) {
+	public RenderTarget(ushort width, ushort height, Color4 clearColor, bool createDepth) {
 		Width = width;
 		Height = height;
+		ClearColor = clearColor;
 
 		CreateColorResources(out colorImage, out colorMemory, out colorView);
 
