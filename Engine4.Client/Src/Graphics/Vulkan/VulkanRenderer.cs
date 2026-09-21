@@ -43,7 +43,7 @@ public sealed unsafe class VulkanRenderer {
 	// TODO easy depth image
 	private DepthImage? depthImage; // TODO merge into render graph?
 
-	internal VulkanRenderer(string debugName, VulkanManager vulkanManager, Window window, Color4 clearColor, params RenderPass[] renderPasses) {
+	internal VulkanRenderer(string debugName, VulkanManager vulkanManager, Window window, Color4 clearColor, Action<RenderGraph3, VulkanRenderer> setupRenderGraph, params RenderPass[] renderPasses) {
 		Window = window;
 		ClearColor = clearColor;
 
@@ -60,6 +60,7 @@ public sealed unsafe class VulkanRenderer {
 		maxFramesInFlight = vulkanManager.MaxFramesInFlight;
 
 		renderGraph = new(this, resourceManager);
+		setupRenderGraph.Invoke(renderGraph, this);
 
 		// TODO logging
 		graphicsCommandPool = resourceManager.CreateGraphicsCommandPool($"{debugName} Graphics Command Pool", VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit);
@@ -210,7 +211,9 @@ public sealed unsafe class VulkanRenderer {
 		// DepthImage?.Recreate(SwapChain.Extent);
 	}
 
-	internal VkFormat GetDepthFormat() => physicalGpu.FindDepthFormat();
+	public VkFormat GetDepthFormat() => physicalGpu.FindDepthFormat();
+	public VkFormat GetSwapChainFormat() => SwapChain.ImageFormat;
+
 	internal VkImage GetSwapChainImage() => SwapChain.Images[swapChainImageIndex];
 	internal VkImageView GetSwapChainImageView() => SwapChain.ImageViews[swapChainImageIndex];
 

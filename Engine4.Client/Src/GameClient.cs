@@ -1,3 +1,4 @@
+using Engine4.Client.Graphics._Test;
 using Engine4.Client.Graphics.Vulkan;
 using Engine4.Client.Rendering;
 using Engine4.Client.Utility;
@@ -92,12 +93,12 @@ public abstract class GameClient : GameCore {
 		return window;
 	}
 
-	protected VulkanRenderer CreateRenderer(string debugName, Window window, Color4 clearColor, params RenderPass[] renderPasses) {
+	protected VulkanRenderer CreateRenderer(string debugName, Window window, Color4 clearColor, Action<RenderGraph3, VulkanRenderer> setupRenderGraph, params RenderPass[] renderPasses) {
 		if (!IsVulkanEnabled) { throw new Engine4Exception($"Cannot create a {nameof(VulkanRenderer)} when Vulkan is not loaded"); }
 		if (VulkanManager == null) { throw new IllegalStateException(); }
 
 		Logger.Debug("Creating renderer...");
-		VulkanRenderer renderer = new(debugName, VulkanManager, window, clearColor, renderPasses);
+		VulkanRenderer renderer = new(debugName, VulkanManager, window, clearColor, setupRenderGraph, renderPasses);
 
 		renderers.Add(renderer);
 		windowToRenderer.Add(window, renderer);

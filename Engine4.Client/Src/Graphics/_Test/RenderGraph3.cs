@@ -1,63 +1,11 @@
 using System.Diagnostics.CodeAnalysis;
 using Engine4.Client.Graphics.Vulkan;
 using Engine4.Client.Graphics.Vulkan.Objects;
-using Engine4.Client.Utility.Extensions;
-using Engine4.Utility.Math;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics._Test;
 
-public static class Theory {
-	internal static void Test() {
-		const ulong BufferSize = 0;
-		const ushort Width = 1920, Height = 1080;
-		Color4 clearColor = new(0.001f, 0.001f, 0.001f, 1);
-
-		VulkanRenderer renderer = null!;
-		VulkanResourceManager resourceManager = null!;
-
-		RenderGraph3 graph = new(renderer, resourceManager);
-		RenderGraph3.BufferHandle vertexBuffer = graph.AddBuffer("vertex buffer", BufferSize, VkBufferUsageFlagBits2.BufferUsage2VertexBufferBit);
-		RenderGraph3.BufferHandle indexBuffer = graph.AddBuffer("index buffer", BufferSize, VkBufferUsageFlagBits2.BufferUsage2IndexBufferBit);
-
-		// swap chain?
-		RenderGraph3.TextureHandle colorImage = graph.AddTexture("color image", Width, Height, renderer.SwapChain.ImageFormat, VkImageUsageFlagBits.ImageUsageColorAttachmentBit);
-		RenderGraph3.TextureHandle depthImage = graph.AddTexture("depth image", Width, Height, renderer.GetDepthFormat(), VkImageUsageFlagBits.ImageUsageDepthStencilAttachmentBit);
-
-		TestRenderPass3 renderPass = new(vertexBuffer, indexBuffer) { ClearColor = clearColor.ToVkClearColorValue(), };
-		renderPass.SetDepthImage(depthImage, new(1, 0));
-
-		renderPass.AddInput(vertexBuffer, VkPipelineStageFlagBits2.PipelineStage2AllGraphicsBit);
-		renderPass.AddInput(indexBuffer, VkPipelineStageFlagBits2.PipelineStage2AllGraphicsBit);
-		renderPass.AddOutput(colorImage);
-		renderPass.AddOutput(depthImage);
-
-		RenderGraph3.RenderPassHandle graphicsPass = graph.AddPass("graphics pass", renderPass);
-	}
-
-	public class TestRenderPass3 : GraphicsRenderPass3 {
-		private readonly RenderGraph3.BufferHandle vertexBufferHandle;
-		private readonly RenderGraph3.BufferHandle indexBufferHandle;
-
-		public TestRenderPass3(RenderGraph3.BufferHandle vertexBufferHandle, RenderGraph3.BufferHandle indexBufferHandle) {
-			this.vertexBufferHandle = vertexBufferHandle;
-			this.indexBufferHandle = indexBufferHandle;
-		}
-
-		protected internal override void Execute(GraphicsCommandBuffer commandBuffer) {
-			// DRAW. bind(?)/push constants/draw indexed/etc
-
-			// TODO pipeline
-			BindBuffer(vertexBufferHandle, 0);
-			BindBuffer(indexBufferHandle, 0);
-
-			commandBuffer.CmdDrawIndexed(0);
-		}
-	}
-}
-
-//
 public sealed unsafe class RenderGraph3 {
 	private readonly VulkanRenderer vulkanRenderer;
 	private readonly VulkanResourceManager resourceManager;
@@ -158,6 +106,7 @@ public sealed unsafe class RenderGraph3 {
 			for (uint i = 0; i < enabledPasses.Count; i++) {
 				RenderPass3 pass = enabledPasses[(int)i];
 				passToIndex[pass] = i;
+				dependencies[i] = new();
 
 				// inputs
 				foreach (ReadData input in pass.Inputs) {
@@ -193,7 +142,7 @@ public sealed unsafe class RenderGraph3 {
 
 		static void CreateResources(VulkanResourceManager resourceManager, RenderPass3[] sortedRenderPasses, Dictionary<RenderGraph.IResourceHandle, ResourceCreationData> resourcesToMake,
 			Dictionary<RenderGraph.IResourceHandle, ResourceData> resources) {
-			resourcesToMake.Clear(); // TODO clean?
+			resources.Clear(); // TODO clean?
 
 			foreach ((RenderGraph.IResourceHandle handle, ResourceCreationData resourceCreationData) in resourcesToMake) {
 				resources.Add(handle, resourceCreationData switch { // TODO union?
@@ -539,55 +488,4 @@ public sealed unsafe class RenderGraph3 {
 	public sealed class TextureCreationData : ResourceCreationData {
 		public TextureCreationData(TextureHandle handle) : base(handle) { }
 	}
-}
-
-// TODO arrays for readonly version
-public abstract class RenderPass3 {
-	public bool Enabled { get; set; } = true;
-
-	protected internal RenderGraph3 RenderGraph { get; internal set; } = null!; // SET ELSEWHERE
-
-	protected internal List<RenderGraph3.ReadData> Inputs { get; } = new();
-	protected internal List<RenderGraph3.WriteData> Outputs { get; } = new();
-
-	// set on compile
-	protected internal VkBufferMemoryBarrier2[] BufferMemoryBarriers { get; internal set; } = Array.Empty<VkBufferMemoryBarrier2>();
-	protected internal VkImageMemoryBarrier2[] ImageMemoryBarriers { get; internal set; } = Array.Empty<VkImageMemoryBarrier2>();
-
-	protected internal abstract void Execute(GraphicsCommandBuffer commandBuffer);
-
-	// ADD
-	public void AddInput(RenderGraph3.BufferHandle handle, VkPipelineStageFlagBits2 stageMask) => Inputs.Add(new RenderGraph3.BufferReadData(handle, VkAccessFlagBits2.Access2ShaderReadBit, stageMask));
-
-	public void AddInput(RenderGraph3.TextureHandle handle, VkPipelineStageFlagBits2 stageMask, VkImageLayout imageLayout) =>
-			Inputs.Add(new RenderGraph3.ImageReadData(handle, VkAccessFlagBits2.Access2ShaderReadBit, stageMask, imageLayout));
-
-	public void AddOutput(RenderGraph3.BufferHandle handle) => Outputs.Add(new(handle));
-	public void AddOutput(RenderGraph3.TextureHandle handle) => Outputs.Add(new(handle));
-
-	// have these?
-	public void PushConstants<T>(T constants) where T : unmanaged => throw new NotImplementedException(); // TODO
-	public void BindBuffer(RenderGraph3.BufferHandle bufferHandle, byte binding) => throw new NotImplementedException(); // TODO
-}
-
-public abstract class ComputeRenderPass3 : RenderPass3 {
-	public void Dispatch() => throw new NotImplementedException(); // TODO
-}
-
-public abstract class GraphicsRenderPass3 : RenderPass3 {
-	protected internal VkClearColorValue? ClearColor { get; init; }
-
-	protected internal RenderGraph3.TextureHandle? DepthImageHandle { get; private set; } // should only graphics have this stuff?
-	protected internal VkClearDepthStencilValue? DepthStencil { get; private set; }
-
-	public void SetDepthImage(RenderGraph3.TextureHandle depthImageHandle, VkClearDepthStencilValue depthStencil) {
-		DepthImageHandle = depthImageHandle;
-		DepthStencil = depthStencil;
-	}
-
-	public void DrawIndexed() => throw new NotImplementedException(); // TODO ?
-}
-
-public abstract class TransferRenderPass3 : RenderPass3 { // should this exist?
-	public void DrawIndexed() => throw new NotImplementedException(); // TODO ?
 }
