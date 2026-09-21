@@ -5,7 +5,7 @@ namespace Engine4.Client.Graphics._Test;
 
 // TODO arrays for readonly version
 public abstract class RenderPass3 {
-	public bool Enabled { get; set; } = true;
+	public bool Enabled { get; protected internal set; } = true;
 
 	protected internal List<RenderGraph3.ReadData> Inputs { get; } = new();
 	protected internal List<RenderGraph3.WriteData> Outputs { get; } = new();

@@ -22,7 +22,7 @@ namespace Engine4.Client.Graphics._Test;
 //  https://deepwiki.com/inexorgame/vulkan-renderer/4-render-graph
 //  https://poniesandlight.co.uk/reflect/island_rendergraph_1/
 //  https://poniesandlight.co.uk/reflect/island_rendergraph_2/
-//  https://github.com/asc-community/VulkanAbstractionLayer/tree/master/examples
+//  https://github.com/asc-community/VulkanAbstractionLayer/tree/master
 //  https://godotengine.org/article/rendering-acyclic-graph/
 // TODO document this when done
 
