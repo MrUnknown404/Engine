@@ -55,8 +55,6 @@ public unsafe class GraphicsCommandBuffer : CommandBuffer {
 
 	// set scissors
 	public void CmdSetScissor(int x, int y, uint width, uint height, uint firstScissor = 0) => CmdSetScissor(new() { offset = new(x, y), extent = new(width, height), }, firstScissor);
-	public void CmdSetScissor(int x, int y, VkExtent2D extent, uint firstScissor = 0) => CmdSetScissor(new() { offset = new(x, y), extent = extent, }, firstScissor);
-	public void CmdSetScissor(VkOffset2D offset, uint width, uint height, uint firstScissor = 0) => CmdSetScissor(new() { offset = offset, extent = new(width, height), }, firstScissor);
 	public void CmdSetScissor(VkOffset2D offset, VkExtent2D extent, uint firstScissor = 0) => CmdSetScissor(new() { offset = offset, extent = extent, }, firstScissor);
 	public void CmdSetScissor(VkRect2D scissor, uint firstScissor = 0) => Vk.CmdSetScissor(VkCommandBuffer, firstScissor, 1, &scissor);
 
@@ -68,21 +66,25 @@ public unsafe class GraphicsCommandBuffer : CommandBuffer {
 	public void CmdPushConstants<T>(VkPipelineLayout pipelineLayout, VkShaderStageFlagBits shaderStageFlags, T data, uint offset = 0) where T : unmanaged =>
 			Vk.CmdPushConstants(VkCommandBuffer, pipelineLayout, shaderStageFlags, offset, (uint)sizeof(T), &data);
 
-	// bind vertex
-	public void CmdBindVertexBuffer(VulkanBuffer buffer, uint firstBinding, ulong offset = 0) => CmdBindVertexBuffer(buffer.VkBuffer, firstBinding, offset);
-	public void CmdBindVertexBuffer(VkBuffer buffer, uint firstBinding, ulong offset = 0) => Vk.CmdBindVertexBuffers(VkCommandBuffer, firstBinding, 1, &buffer, &offset);
+	// bind pipeline
+	public void CmdBindGraphicsPipeline(GraphicsPipeline graphicsPipeline) => Vk.CmdBindPipeline(VkCommandBuffer, VkPipelineBindPoint.PipelineBindPointGraphics, graphicsPipeline.Pipeline);
 
-	public void CmdBindVertexBuffer2(VulkanBuffer buffer, uint firstBinding, ulong vertexStride, ulong offset = 0) => CmdBindVertexBuffer2(buffer.VkBuffer, firstBinding, vertexStride, offset);
-	public void CmdBindVertexBuffer2(VkBuffer buffer, uint firstBinding, ulong vertexStride, ulong offset = 0) => Vk.CmdBindVertexBuffers2(VkCommandBuffer, firstBinding, 1, &buffer, &offset, null, &vertexStride);
+	// bind vertex
+	public void CmdBindVertexBuffer(VulkanBuffer buffer, uint firstBinding, ulong offset = 0) {
+		VkBuffer vkBuffer = buffer.VkBuffer;
+		Vk.CmdBindVertexBuffers(VkCommandBuffer, firstBinding, 1, &vkBuffer, &offset);
+	}
+
+	public void CmdBindVertexBuffer2(VulkanBuffer buffer, uint firstBinding, ulong vertexStride, ulong offset = 0) {
+		VkBuffer vkBuffer = buffer.VkBuffer;
+		Vk.CmdBindVertexBuffers2(VkCommandBuffer, firstBinding, 1, &vkBuffer, &offset, null, &vertexStride);
+	}
 
 	// bind index
-	public void CmdBindIndexBuffer(VulkanBuffer buffer, VkIndexType indexType = VkIndexType.IndexTypeUint32, ulong offset = 0) => CmdBindIndexBuffer(buffer.VkBuffer, indexType, offset);
-	public void CmdBindIndexBuffer(VkBuffer buffer, VkIndexType indexType = VkIndexType.IndexTypeUint32, ulong offset = 0) => Vk.CmdBindIndexBuffer(VkCommandBuffer, buffer, offset, indexType);
+	public void CmdBindIndexBuffer(VulkanBuffer buffer, VkIndexType indexType = VkIndexType.IndexTypeUint32, ulong offset = 0) => Vk.CmdBindIndexBuffer(VkCommandBuffer, buffer.VkBuffer, offset, indexType);
 
-	public void CmdBindIndexBuffer2(VulkanBuffer buffer, ulong bufferSize, VkIndexType indexType = VkIndexType.IndexTypeUint32, ulong offset = 0) => CmdBindIndexBuffer2(buffer.VkBuffer, bufferSize, indexType, offset);
-
-	public void CmdBindIndexBuffer2(VkBuffer buffer, ulong bufferSize, VkIndexType indexType = VkIndexType.IndexTypeUint32, ulong offset = 0) =>
-			Vk.CmdBindIndexBuffer2(VkCommandBuffer, buffer, offset, bufferSize, indexType);
+	public void CmdBindIndexBuffer2(VulkanBuffer buffer, ulong bufferSize, VkIndexType indexType = VkIndexType.IndexTypeUint32, ulong offset = 0) =>
+			Vk.CmdBindIndexBuffer2(VkCommandBuffer, buffer.VkBuffer, offset, bufferSize, indexType);
 
 	// draw commands
 	public void CmdDrawIndexed(uint indexCount) => CmdDrawIndexed(indexCount, 1, 0, 0, 0);
@@ -91,6 +93,5 @@ public unsafe class GraphicsCommandBuffer : CommandBuffer {
 			Vk.CmdDrawIndexed(VkCommandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 
 	public void CmdDrawIndirect(VkBuffer buffer, ulong offset, uint drawCount, uint stride) => Vk.CmdDrawIndirect(VkCommandBuffer, buffer, offset, drawCount, stride);
-
 	public void CmdDrawIndexedIndirect(VkBuffer buffer, ulong offset, uint drawCount, uint stride) => Vk.CmdDrawIndexedIndirect(VkCommandBuffer, buffer, offset, drawCount, stride);
 }

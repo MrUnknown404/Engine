@@ -62,6 +62,7 @@ public abstract class GameClient : GameCore {
 
 			if (windowToRenderer.TryGetValue(window, out VulkanRenderer? renderer)) {
 				Logger.Trace("- Window has a renderer. Cleaning that first...");
+
 				renderer.Cleanup(); // calls Vk.DeviceWaitIdle()
 				renderers.Remove(renderer);
 			}

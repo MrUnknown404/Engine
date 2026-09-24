@@ -44,10 +44,10 @@ public unsafe class RenderGraph {
 	internal RenderGraph(VulkanResourceManager resourceManager) => this.resourceManager = resourceManager;
 
 	[MustUseReturnValue]
-	public BufferHandle AddBuffer(string resourceName, ulong size, VkBufferUsageFlagBits2 bufferUsageFlags) { // TODO properties
+	public BufferHandle AddBuffer(string resourceName, ulong size, VkBufferUsageFlagBits2 usageFlags, VkBufferCreateFlagBits createFlags, VkMemoryPropertyFlagBits memoryPropertyFlags) { // TODO properties
 		BufferHandle handle = new(resourceName);
 		if (!resources.TryGetValue(handle, out ResourceData? resourceData)) {
-			resourceData = new BufferResourceData(resourceManager, resourceName, size, bufferUsageFlags);
+			resourceData = new BufferResourceData(resourceManager, resourceName, size, usageFlags, createFlags, memoryPropertyFlags);
 			resources.Add(handle, resourceData);
 			return handle;
 		} else { throw new Exception(); } // TODO exception
@@ -486,8 +486,9 @@ public unsafe class RenderGraph {
 	private class BufferResourceData : ResourceData { // TODO
 		public VulkanBuffer Buffer { get; }
 
-		public BufferResourceData(VulkanResourceManager resourceManager, string resourceName, ulong size, VkBufferUsageFlagBits2 bufferUsageFlags) =>
-				Buffer = resourceManager.CreateBuffer(resourceName, size, bufferUsageFlags);
+		public BufferResourceData(VulkanResourceManager resourceManager, string resourceName, ulong size, VkBufferUsageFlagBits2 usageFlags, VkBufferCreateFlagBits createFlags,
+			VkMemoryPropertyFlagBits memoryPropertyFlags) =>
+				Buffer = resourceManager.CreateBuffer(resourceName, size, usageFlags, createFlags, memoryPropertyFlags);
 	}
 
 	private class ImageResourceData : ResourceData { // TODO

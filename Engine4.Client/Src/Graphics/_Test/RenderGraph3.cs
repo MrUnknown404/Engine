@@ -29,9 +29,9 @@ public sealed unsafe class RenderGraph3 {
 	}
 
 	[MustUseReturnValue]
-	public BufferHandle AddBuffer(string resourceName, ulong bufferSize, VkBufferUsageFlagBits2 bufferUsageFlags) {
+	public BufferHandle AddBuffer(string resourceName, ulong size, VkBufferUsageFlagBits2 usageFlags, VkBufferCreateFlagBits createFlags, VkMemoryPropertyFlagBits memoryPropertyFlags) {
 		BufferHandle handle = new(resourceName);
-		if (!resourcesToMake.TryAdd(handle, new BufferCreationData(handle, bufferSize, bufferUsageFlags))) { throw new Exception(); } // TODO exception
+		if (!resourcesToMake.TryAdd(handle, new BufferCreationData(handle, size, usageFlags, createFlags, memoryPropertyFlags))) { throw new Exception(); } // TODO exception
 
 		isDirty = true;
 		return handle;
@@ -81,12 +81,14 @@ public sealed unsafe class RenderGraph3 {
 	[MustUseReturnValue]
 	public RenderPassHandle AddPass(string passName, RenderPass3 renderPass) {
 		RenderPassHandle handle = new(passName);
-		if (renderPasses.TryAdd(handle, renderPass)) {
-			isDirty = true;
-			return handle;
+		if (!renderPasses.TryAdd(handle, renderPass)) {
+			throw new Exception(); // TODO exception
 		}
 
-		throw new Exception(); // TODO exception
+		renderPass.RenderGraph = this;
+
+		isDirty = true;
+		return handle;
 	}
 
 	public void RemovePass(RenderPassHandle handle) {
@@ -135,7 +137,7 @@ public sealed unsafe class RenderGraph3 {
 
 				// TODO are these graphics only?
 				commandBuffer.CmdSetViewport(0, 0, extent.width, extent.height, 0, 1); // TODO configurable? right now i can't change the depth
-				commandBuffer.CmdSetScissor(0, 0, extent); // TODO configurable?
+				commandBuffer.CmdSetScissor(new(), extent); // TODO configurable?
 
 				/* TODO more?
 					commandBuffer.CmdBindGraphicsPipeline();
@@ -297,7 +299,7 @@ public sealed unsafe class RenderGraph3 {
 			}
 
 			// outputs
-			foreach (WriteData output in pass.Outputs) { resourceWriters.Add(output.ResourceHandle, i); }
+			foreach (WriteData output in pass.Outputs) { resourceWriters.TryAdd(output.ResourceHandle, i); }
 		}
 
 		// calc inDegrees
@@ -328,7 +330,8 @@ public sealed unsafe class RenderGraph3 {
 
 		foreach ((RenderGraph.IResourceHandle handle, ResourceCreationData resourceCreationData) in resourcesToMake) {
 			cachedResources.Add(handle, resourceCreationData switch { // TODO union?
-					BufferCreationData bufferCreationData => new BufferResourceData(resourceManager.CreateBuffer(handle.Name, bufferCreationData.BufferSize, bufferCreationData.BufferUsageFlags)),
+					BufferCreationData bufferCreationData => new BufferResourceData(resourceManager.CreateBuffer(handle.Name, bufferCreationData.Size, bufferCreationData.UsageFlags, bufferCreationData.CreateFlags,
+						bufferCreationData.MemoryPropertyFlags)),
 					TextureCreationData textureCreationData => new ImageResourceData(resourceManager.CreateTexture(handle.Name)),
 					_ => throw new ArgumentOutOfRangeException(nameof(resourceCreationData)),
 			});
@@ -376,6 +379,8 @@ public sealed unsafe class RenderGraph3 {
 							VkImageMemoryBarrier2 imageMemoryBarrier = new() {
 									srcAccessMask = resource.CurrentAccessMask,
 									dstAccessMask = read.AccessMask,
+									srcStageMask = resource.CurrentStageMask,
+									dstStageMask = read.StageMask,
 									srcQueueFamilyIndex = Vk.QueueFamilyIgnored,
 									dstQueueFamilyIndex = Vk.QueueFamilyIgnored,
 									image = imageResource.Texture.Image,
@@ -402,6 +407,8 @@ public sealed unsafe class RenderGraph3 {
 							VkBufferMemoryBarrier2 bufferMemoryBarrier = new() {
 									srcAccessMask = resource.CurrentAccessMask,
 									dstAccessMask = read.AccessMask,
+									srcStageMask = resource.CurrentStageMask,
+									dstStageMask = read.StageMask,
 									srcQueueFamilyIndex = Vk.QueueFamilyIgnored,
 									dstQueueFamilyIndex = Vk.QueueFamilyIgnored,
 									buffer = bufferResource.Buffer.VkBuffer,
@@ -511,12 +518,16 @@ public sealed unsafe class RenderGraph3 {
 	}
 
 	public sealed class BufferCreationData : ResourceCreationData {
-		public ulong BufferSize { get; }
-		public VkBufferUsageFlagBits2 BufferUsageFlags { get; }
+		public ulong Size { get; }
+		public VkBufferUsageFlagBits2 UsageFlags { get; }
+		public VkBufferCreateFlagBits CreateFlags { get; }
+		public VkMemoryPropertyFlagBits MemoryPropertyFlags { get; }
 
-		internal BufferCreationData(BufferHandle handle, ulong bufferSize, VkBufferUsageFlagBits2 bufferUsageFlags) : base(handle) {
-			BufferSize = bufferSize;
-			BufferUsageFlags = bufferUsageFlags;
+		internal BufferCreationData(BufferHandle handle, ulong size, VkBufferUsageFlagBits2 usageFlags, VkBufferCreateFlagBits createFlags, VkMemoryPropertyFlagBits memoryPropertyFlags) : base(handle) {
+			Size = size;
+			UsageFlags = usageFlags;
+			CreateFlags = createFlags;
+			MemoryPropertyFlags = memoryPropertyFlags;
 		}
 	}
 

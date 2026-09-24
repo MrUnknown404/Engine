@@ -14,6 +14,8 @@ public abstract class RenderPass3 {
 	protected internal VkBufferMemoryBarrier2[] BufferMemoryBarriers { get; internal set; } = Array.Empty<VkBufferMemoryBarrier2>();
 	protected internal VkImageMemoryBarrier2[] ImageMemoryBarriers { get; internal set; } = Array.Empty<VkImageMemoryBarrier2>();
 
+	protected internal RenderGraph3 RenderGraph { get; internal set; } = null!; // set in RenderGraph.AddPass
+
 	protected internal abstract void Execute(GraphicsCommandBuffer commandBuffer);
 
 	// ADD
@@ -24,8 +26,4 @@ public abstract class RenderPass3 {
 
 	public void AddOutput(RenderGraph3.BufferHandle handle) => Outputs.Add(new(handle));
 	public void AddOutput(RenderGraph3.TextureHandle handle) => Outputs.Add(new(handle));
-
-	// have these?
-	public void PushConstants<T>(T constants) where T : unmanaged => throw new NotImplementedException(); // TODO
-	public void BindBuffer(RenderGraph3.BufferHandle bufferHandle, byte binding) => throw new NotImplementedException(); // TODO
 }

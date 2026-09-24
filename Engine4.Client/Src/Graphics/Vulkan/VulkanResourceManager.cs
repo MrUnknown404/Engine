@@ -7,6 +7,8 @@ using Semaphore = Engine4.Client.Graphics.Vulkan.Objects.Semaphore;
 
 namespace Engine4.Client.Graphics.Vulkan;
 
+// TODO add the ability to manually flag resources for destruction
+
 public sealed class VulkanResourceManager {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Vulkan);
 
@@ -35,8 +37,8 @@ public sealed class VulkanResourceManager {
 	}
 
 	[MustUseReturnValue]
-	public VulkanBuffer CreateBuffer(string debugName, ulong size, VkBufferUsageFlagBits2 bufferUsageFlags) {
-		VulkanBuffer vulkanBuffer = new(debugName, size);
+	public VulkanBuffer CreateBuffer(string debugName, ulong size, VkBufferUsageFlagBits2 usageFlags, VkBufferCreateFlagBits createFlags, VkMemoryPropertyFlagBits memoryPropertyFlags) {
+		VulkanBuffer vulkanBuffer = new(debugName, logicalGpu, size, usageFlags, createFlags, memoryPropertyFlags);
 		Add(vulkanBuffer);
 		return vulkanBuffer;
 	}
