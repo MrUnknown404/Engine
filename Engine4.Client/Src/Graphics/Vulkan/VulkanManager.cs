@@ -9,6 +9,8 @@ using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics;
 using OpenTK.Graphics.Vulkan;
+using Silk.NET.Core.Loader;
+using Silk.NET.Shaderc;
 using USharpLibs.Common.Utils;
 
 namespace Engine4.Client.Graphics.Vulkan;
@@ -57,6 +59,8 @@ public sealed unsafe class VulkanManager {
 	public readonly string[] RequiredDeviceExtensionProperties;
 
 	private readonly GameClient game;
+	private readonly Shaderc shaderc;
+
 	internal readonly VulkanInstance VulkanInstance;
 #if DEBUG
 	private readonly VulkanDebugMessenger debugMessenger;
@@ -108,16 +112,25 @@ public sealed unsafe class VulkanManager {
 		debugMessenger = new(VulkanInstance, vulkanSettings.EnabledDebugMessageSeverities, vulkanSettings.EnabledDebugMessageTypes);
 		Logger.Trace("Created Vulkan Debug Messenger");
 
-		physicalGpus = GetPhysicalGpus(VulkanInstance, vulkanSettings);
+		// get physical gpus
+		physicalGpus = GetSuitablePhysicalGpus(VulkanInstance, vulkanSettings);
 		Logger.Trace($"Sorted {physicalGpus.Length} physical gpus");
-
 		PrintPhysicalGpus();
+
+		// shaderc
+		shaderc = new(Shaderc.CreateDefaultContext(new ShadercSearchPathContainer().GetLibraryNames()));
 	}
 
 	internal void Cleanup() {
 		Logger.Trace("- Cleaning up final resources...");
 
+		Logger.Trace("- Cleaning up Shaderc...");
+		shaderc.Dispose();
+
+		Logger.Trace("- Cleaning up debugger...");
 		debugMessenger.Cleanup();
+
+		Logger.Trace("- Cleaning up instance...");
 		VulkanInstance.Cleanup();
 	}
 
@@ -236,7 +249,7 @@ public sealed unsafe class VulkanManager {
 	}
 
 	[MustUseReturnValue]
-	private PhysicalGpu[] GetPhysicalGpus(VulkanInstance vulkanInstance, VulkanStartupSettings vulkanSettings) {
+	private PhysicalGpu[] GetSuitablePhysicalGpus(VulkanInstance vulkanInstance, VulkanStartupSettings vulkanSettings) {
 		VkPhysicalDevice[] availablePhysicalDevices = GetAvailablePhysicalDevices(vulkanInstance);
 
 		List<PhysicalGpu> physicalGpus = new();
@@ -409,5 +422,14 @@ public sealed unsafe class VulkanManager {
 				return bestDevice;
 			default: throw new ArgumentOutOfRangeException();
 		}
+	}
+
+	private class ShadercSearchPathContainer : SearchPathContainer {
+		public override string[] Linux => new[] { "libshaderc_shared.so", "libshaderc.so", };
+		public override string[] MacOS => new[] { "libshaderc_shared.dylib", };
+		public override string[] Android => new[] { "libshaderc_shared.so", };
+		public override string[] IOS => new[] { string.Empty, };
+		public override string[] Windows64 => new[] { "shaderc_shared.dll", };
+		public override string[] Windows86 => new[] { "shaderc_shared.dll", };
 	}
 }

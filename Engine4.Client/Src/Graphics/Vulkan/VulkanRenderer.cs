@@ -211,7 +211,7 @@ public sealed unsafe class VulkanRenderer {
 		// DepthImage?.Recreate(SwapChain.Extent);
 	}
 
-	public VkFormat GetDepthFormat() => physicalGpu.FindDepthFormat();
+	public VkFormat GetDepthFormat() => physicalGpu.DepthFormat;
 	public VkFormat GetSwapChainFormat() => SwapChain.ImageFormat;
 
 	internal VkImage GetSwapChainImage() => SwapChain.Images[swapChainImageIndex];

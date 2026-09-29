@@ -9,20 +9,18 @@ public unsafe class SurfaceReadyPhysicalGpu : PhysicalGpu {
 	private readonly Surface surface; // TODO use this? or remove it?
 
 	internal QueueFamilyIndices QueueFamilyIndices { get; }
+	internal VkFormat DepthFormat { get; }
 
 	internal SurfaceReadyPhysicalGpu(PhysicalGpu physicalGpu, Surface surface, QueueFamilyIndices queueFamilyIndices) : base(physicalGpu.VkPhysicalDevice, physicalGpu.PhysicalDeviceProperties2,
 		physicalGpu.PhysicalDeviceFeatures2) {
 		this.surface = surface;
 		QueueFamilyIndices = queueFamilyIndices;
+		DepthFormat = FindSupportedFormat([ VkFormat.FormatD32Sfloat, VkFormat.FormatD32SfloatS8Uint, VkFormat.FormatD24UnormS8Uint, ], VkImageTiling.ImageTilingOptimal,
+			VkFormatFeatureFlagBits.FormatFeatureDepthStencilAttachmentBit);
 	}
 
 	[MustUseReturnValue]
-	public VkFormat FindDepthFormat() =>
-			FindSupportedFormat([ VkFormat.FormatD32Sfloat, VkFormat.FormatD32SfloatS8Uint, VkFormat.FormatD24UnormS8Uint, ], VkImageTiling.ImageTilingOptimal,
-				VkFormatFeatureFlagBits.FormatFeatureDepthStencilAttachmentBit);
-
-	[MustUseReturnValue]
-	public VkFormat FindSupportedFormat(VkFormat[] availableFormats, VkImageTiling tiling, VkFormatFeatureFlagBits featureFlags) {
+	private VkFormat FindSupportedFormat(VkFormat[] availableFormats, VkImageTiling tiling, VkFormatFeatureFlagBits featureFlags) {
 		foreach (VkFormat format in availableFormats) {
 			VkFormatProperties2 formatProperties2 = new();
 			Vk.GetPhysicalDeviceFormatProperties2(VkPhysicalDevice, format, &formatProperties2);

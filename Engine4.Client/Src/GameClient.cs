@@ -40,12 +40,14 @@ public abstract class GameClient : GameCore {
 		if (clientSettings.LoadGlfw) {
 			Logger.Trace("Loading Glfw...");
 			IsGlfwEnabled = true;
+
 			SetupGlfw();
 		}
 
 		if (clientSettings.VulkanSettings != null) {
 			Logger.Trace("Loading Vulkan...");
 			IsVulkanEnabled = true;
+
 			SetupVulkan(clientSettings.VulkanSettings);
 		}
 	}
@@ -128,18 +130,14 @@ public abstract class GameClient : GameCore {
 		base.InternalCleanup();
 
 		if (IsVulkanEnabled) {
-			Logger.Trace("Cleaning up Vulkan");
+			Logger.Trace("Cleaning up Vulkan...");
 
-			if (VulkanManager == null) { throw new IllegalStateException(); }
+			if (VulkanManager == null) { throw new IllegalStateException(); } // if vulkan is enabled these should not be null
 
 			if (IsGlfwEnabled) {
-				Logger.Trace($"Cleaning up {windows.Count} windows");
-				foreach (Window window in windows) {
-					if (windowToRenderer.TryGetValue(window, out VulkanRenderer? renderer)) {
-						renderer.Cleanup(); // calls Vk.DeviceWaitIdle()
-					}
-
-					window.Cleanup();
+				Logger.Trace($"- Cleaning up {renderers.Count} renderers...");
+				foreach (VulkanRenderer renderer in renderers) {
+					renderer.Cleanup(); // calls Vk.DeviceWaitIdle()
 				}
 			}
 
@@ -147,7 +145,10 @@ public abstract class GameClient : GameCore {
 		}
 
 		if (IsGlfwEnabled) {
-			Logger.Trace("Cleaning up Glfw");
+			Logger.Trace("Cleaning up Glfw...");
+
+			Logger.Trace($"- Cleaning up {windows.Count} windows...");
+			foreach (Window window in windows) { window.Cleanup(); }
 
 			GLFW.Terminate();
 			GLFW.SetErrorCallback(null);

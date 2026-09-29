@@ -5,6 +5,10 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan;
 
+// TODO rethink the visibility of vulkan objects.
+//  right now i have everything internal so only the engine uses the core components.
+//  should i keep that or expose them so the user can call "unsupported" vulkan methods?
+
 public static unsafe class VkH {
 	public const int True = (int)Vk.True;
 	public const int False = (int)Vk.False;

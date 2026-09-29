@@ -20,6 +20,7 @@ public sealed unsafe class RenderGraph3 {
 
 	// cached
 	private readonly Dictionary<RenderGraph.IResourceHandle, ResourceData> cachedResources = new();
+	private readonly Dictionary<RenderGraph.IResourceHandle, ResourceData> persistentResources = new();
 	private RenderPass3[] cachedSortedPasses = Array.Empty<RenderPass3>();
 	private bool isDirty;
 
@@ -49,7 +50,7 @@ public sealed unsafe class RenderGraph3 {
 	[MustUseReturnValue]
 	public BufferHandle AddPersistentBuffer(string resourceName, VulkanBuffer buffer) {
 		BufferHandle handle = new(resourceName);
-		if (!cachedResources.TryAdd(handle, new BufferResourceData(buffer) { Persistent = true, })) { throw new Exception(); } // TODO exception
+		if (!persistentResources.TryAdd(handle, new BufferResourceData(buffer) { Persistent = true, })) { throw new Exception(); } // TODO exception
 
 		isDirty = true;
 		return handle;
@@ -58,7 +59,7 @@ public sealed unsafe class RenderGraph3 {
 	[MustUseReturnValue]
 	public TextureHandle AddPersistentTexture(string resourceName, VulkanTexture texture) {
 		TextureHandle handle = new(resourceName);
-		if (!cachedResources.TryAdd(handle, new ImageResourceData(texture) { Persistent = true, })) { throw new Exception(); } // TODO exception
+		if (!persistentResources.TryAdd(handle, new ImageResourceData(texture) { Persistent = true, })) { throw new Exception(); } // TODO exception
 
 		isDirty = true;
 		return handle;
@@ -104,7 +105,8 @@ public sealed unsafe class RenderGraph3 {
 	}
 
 	[MustUseReturnValue]
-	private ResourceData GetResource(RenderGraph.IResourceHandle handle) => cachedResources[handle];
+	private ResourceData GetResource(RenderGraph.IResourceHandle handle) =>
+			cachedResources.TryGetValue(handle, out ResourceData? data) || persistentResources.TryGetValue(handle, out data) ? data : throw new Exception(); // TODO exception
 
 	[MustUseReturnValue]
 	public VulkanBuffer GetBuffer(BufferHandle handle) => (GetResource(handle) as BufferResourceData ?? throw new InvalidCastException()).Buffer;
@@ -260,8 +262,6 @@ public sealed unsafe class RenderGraph3 {
 			// 		default: throw new ArgumentOutOfRangeException();
 			// 	}
 			// }
-
-			//
 
 			if (bufferBarriers.Length == 0 && imageBarriers.Length == 0) { return; }
 

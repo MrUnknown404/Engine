@@ -9,7 +9,7 @@ public class VulkanTexture : VulkanResource { // TODO
 
 	protected override ulong Handle => Image.Handle;
 
-	public VulkanTexture(string debugName) : base(debugName) { }
+	internal VulkanTexture(string debugName) : base(debugName) { }
 
 	protected internal override void Cleanup() => throw new NotImplementedException();
 }
