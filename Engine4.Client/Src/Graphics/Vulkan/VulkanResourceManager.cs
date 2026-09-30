@@ -1,8 +1,10 @@
+using System.Reflection;
 using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.IO;
 using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics.Vulkan;
+using Silk.NET.Shaderc;
 using Semaphore = Engine4.Client.Graphics.Vulkan.Objects.Semaphore;
 
 namespace Engine4.Client.Graphics.Vulkan;
@@ -14,12 +16,14 @@ public sealed class VulkanResourceManager {
 
 	private readonly SurfaceReadyPhysicalGpu physicalGpu;
 	private readonly LogicalGpu logicalGpu;
+	private readonly Shaderc shaderc;
 
 	private readonly Dictionary<Type, IResourceList> resourceLists = new();
 
-	internal VulkanResourceManager(SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu) {
+	internal VulkanResourceManager(SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, Shaderc shaderc) {
 		this.physicalGpu = physicalGpu;
 		this.logicalGpu = logicalGpu;
+		this.shaderc = shaderc;
 	}
 
 	[MustUseReturnValue]
@@ -34,6 +38,20 @@ public sealed class VulkanResourceManager {
 		TransferCommandPool transferCommandPool = new(debugName, logicalGpu, commandPoolCreateFlags, physicalGpu.QueueFamilyIndices.TransferFamily);
 		Add(transferCommandPool);
 		return transferCommandPool;
+	}
+
+	[MustUseReturnValue]
+	public GraphicsPipeline CreateGraphicsPipeline(GraphicsPipeline.Settings settings) {
+		GraphicsPipeline graphicsPipeline = new(physicalGpu, logicalGpu, settings);
+		Add(graphicsPipeline);
+		return graphicsPipeline;
+	}
+
+	[MustUseReturnValue]
+	public VulkanShader CreateShader(string debugName, Assembly assembly, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, VkSpecializationInfo? specializationInfo = null) {
+		VulkanShader shader = new(debugName, shaderc, logicalGpu, assembly, fileLocation, shaderLang, shaderType, specializationInfo);
+		Add(shader);
+		return shader;
 	}
 
 	[MustUseReturnValue]

@@ -15,7 +15,7 @@ public unsafe class GraphicsPipeline : VulkanResource {
 	internal GraphicsPipeline(SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, Settings settings) : base(settings.DebugName) {
 		this.logicalGpu = logicalGpu;
 		Layout = CreateLayout(logicalGpu, settings);
-		Pipeline = CreatePipeline(physicalGpu, logicalGpu, settings, Layout);
+		Pipeline = CreatePipeline(logicalGpu, settings, Layout, physicalGpu.DepthFormat);
 	}
 
 	protected internal override void Cleanup() {
@@ -44,7 +44,7 @@ public unsafe class GraphicsPipeline : VulkanResource {
 	}
 
 	[MustUseReturnValue]
-	private static VkPipeline CreatePipeline(SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, Settings settings, VkPipelineLayout pipelineLayout) {
+	private static VkPipeline CreatePipeline(LogicalGpu logicalGpu, Settings settings, VkPipelineLayout pipelineLayout, VkFormat? depthFormat) {
 		using StringUtf8Ptr entryPoint = new(VulkanShader.ShaderEntryPoint);
 
 		VkPipelineShaderStageCreateInfo* shaderStageCreateInfos = stackalloc VkPipelineShaderStageCreateInfo[settings.Shaders.Length];
@@ -66,7 +66,9 @@ public unsafe class GraphicsPipeline : VulkanResource {
 		VkFormat swapChainImageFormat = settings.SwapChainImageFormat;
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo = new() { topology = settings.Topology, };
 		VkPipelineViewportStateCreateInfo viewportStateCreateInfo = new() { viewportCount = 1, scissorCount = 1, };
-		VkPipelineRenderingCreateInfo renderingCreateInfo = new() { colorAttachmentCount = 1, pColorAttachmentFormats = &swapChainImageFormat, depthAttachmentFormat = physicalGpu.DepthFormat, };
+		VkPipelineRenderingCreateInfo renderingCreateInfo = new() { colorAttachmentCount = 1, pColorAttachmentFormats = &swapChainImageFormat, };
+
+		if (depthFormat != null) { renderingCreateInfo = renderingCreateInfo with { depthAttachmentFormat = depthFormat.Value, }; }
 
 		VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = new() {
 				rasterizerDiscardEnable = settings.EnableRasterizerDiscard ? VkH.True : VkH.False,
@@ -104,6 +106,7 @@ public unsafe class GraphicsPipeline : VulkanResource {
 		// float* blendConstants = stackalloc float[4] { 0, 0, 0, 0, }; // TODO do i want this?
 		VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = new() { logicOpEnable = VkH.False, logicOp = VkLogicOp.LogicOpCopy, attachmentCount = 1, pAttachments = &colorBlendAttachmentState, };
 
+		// i'm not sure if this should be created if we aren't using depth testing? idk
 		VkPipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo = new() {
 				depthTestEnable = settings.EnableDepthTest ? VkH.True : VkH.False,
 				depthWriteEnable = settings.EnableDepthWrite ? VkH.True : VkH.False,
@@ -212,6 +215,7 @@ public unsafe class GraphicsPipeline : VulkanResource {
 		public VkDynamicState[] DynamicStates { get; init; } = [ VkDynamicState.DynamicStateViewport, VkDynamicState.DynamicStateScissor, ];
 
 		// Resources
+		[Obsolete("Add support for the new descriptor heaps")]
 		public VkDescriptorSetLayout[]? DescriptorSetLayouts { get; init; } // TODO look into the new Descriptor Heaps
 		public VkPushConstantRange[]? PushConstantRanges { get; init; }
 

@@ -59,9 +59,9 @@ public sealed unsafe class VulkanManager {
 	public readonly string[] RequiredDeviceExtensionProperties;
 
 	private readonly GameClient game;
-	private readonly Shaderc shaderc;
+	internal Shaderc Shaderc { get; }
 
-	internal readonly VulkanInstance VulkanInstance;
+	internal VulkanInstance VulkanInstance { get; }
 #if DEBUG
 	private readonly VulkanDebugMessenger debugMessenger;
 #endif
@@ -118,14 +118,14 @@ public sealed unsafe class VulkanManager {
 		PrintPhysicalGpus();
 
 		// shaderc
-		shaderc = new(Shaderc.CreateDefaultContext(new ShadercSearchPathContainer().GetLibraryNames()));
+		Shaderc = new(Shaderc.CreateDefaultContext(new ShadercSearchPathContainer().GetLibraryNames()));
 	}
 
 	internal void Cleanup() {
 		Logger.Trace("- Cleaning up final resources...");
 
 		Logger.Trace("- Cleaning up Shaderc...");
-		shaderc.Dispose();
+		Shaderc.Dispose();
 
 		Logger.Trace("- Cleaning up debugger...");
 		debugMessenger.Cleanup();

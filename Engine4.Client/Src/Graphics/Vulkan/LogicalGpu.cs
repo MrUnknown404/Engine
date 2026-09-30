@@ -16,7 +16,7 @@ public unsafe class LogicalGpu {
 
 	internal LogicalGpu(SurfaceReadyPhysicalGpu physicalGpu, VulkanManager vulkanManager) {
 		this.physicalGpu = physicalGpu;
-		ResourceManager = new(physicalGpu, this);
+		ResourceManager = new(physicalGpu, this, vulkanManager.Shaderc);
 
 		QueueFamilyIndices queueFamilyIndices = physicalGpu.QueueFamilyIndices;
 		HashSet<uint> queueFamilies = [ queueFamilyIndices.GraphicsFamily, queueFamilyIndices.PresentFamily, queueFamilyIndices.TransferFamily, ];

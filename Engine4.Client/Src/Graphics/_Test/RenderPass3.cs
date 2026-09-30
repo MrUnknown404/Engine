@@ -1,3 +1,4 @@
+using Engine4.Client.Graphics.Vulkan;
 using Engine4.Client.Graphics.Vulkan.Objects;
 using OpenTK.Graphics.Vulkan;
 
@@ -15,6 +16,7 @@ public abstract class RenderPass3 {
 	protected internal VkImageMemoryBarrier2[] ImageMemoryBarriers { get; internal set; } = Array.Empty<VkImageMemoryBarrier2>();
 
 	protected internal RenderGraph3 RenderGraph { get; internal set; } = null!; // set in RenderGraph.AddPass
+	protected VulkanResourceManager ResourceManager => RenderGraph.ResourceManager; // TODO do i want this exposed here?
 
 	protected internal abstract void Execute(GraphicsCommandBuffer commandBuffer);
 

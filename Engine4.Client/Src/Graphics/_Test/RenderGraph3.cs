@@ -12,7 +12,7 @@ public sealed unsafe class RenderGraph3 {
 	//   vulkan tut uses both. i should probably use both
 
 	private readonly VulkanRenderer vulkanRenderer;
-	private readonly VulkanResourceManager resourceManager;
+	internal VulkanResourceManager ResourceManager { get; }
 
 	// dynamic
 	private readonly OrderedDictionary<RenderPassHandle, RenderPass3> renderPasses = new();
@@ -26,7 +26,7 @@ public sealed unsafe class RenderGraph3 {
 
 	internal RenderGraph3(VulkanRenderer vulkanRenderer, VulkanResourceManager resourceManager) {
 		this.vulkanRenderer = vulkanRenderer;
-		this.resourceManager = resourceManager;
+		this.ResourceManager = resourceManager;
 	}
 
 	[MustUseReturnValue]
@@ -330,9 +330,9 @@ public sealed unsafe class RenderGraph3 {
 
 		foreach ((RenderGraph.IResourceHandle handle, ResourceCreationData resourceCreationData) in resourcesToMake) {
 			cachedResources.Add(handle, resourceCreationData switch { // TODO union?
-					BufferCreationData bufferCreationData => new BufferResourceData(resourceManager.CreateBuffer(handle.Name, bufferCreationData.Size, bufferCreationData.UsageFlags, bufferCreationData.CreateFlags,
+					BufferCreationData bufferCreationData => new BufferResourceData(ResourceManager.CreateBuffer(handle.Name, bufferCreationData.Size, bufferCreationData.UsageFlags, bufferCreationData.CreateFlags,
 						bufferCreationData.MemoryPropertyFlags)),
-					TextureCreationData textureCreationData => new ImageResourceData(resourceManager.CreateTexture(handle.Name)),
+					TextureCreationData textureCreationData => new ImageResourceData(ResourceManager.CreateTexture(handle.Name)),
 					_ => throw new ArgumentOutOfRangeException(nameof(resourceCreationData)),
 			});
 		}
