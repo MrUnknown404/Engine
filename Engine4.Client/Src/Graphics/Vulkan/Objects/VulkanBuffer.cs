@@ -27,37 +27,31 @@ public unsafe class VulkanBuffer : VulkanResource {
 		this.memoryPropertyFlags = memoryPropertyFlags;
 	}
 
-	public void Copy(byte* data, ulong dataSize, ulong dataOffset, ulong bufferOffset) {
-		void* dstPtr = MapMemory(dataSize, bufferOffset);
-		Buffer.MemoryCopy(data + dataOffset, dstPtr, dataSize, dataSize);
+	public void Copy(void* data, ulong size, ulong offset) {
+		void* dstPtr = MapMemory(size, offset);
+		Buffer.MemoryCopy(data, dstPtr, size, size);
 		UnmapMemory();
 	}
 
-	public void Copy(byte[] data, ulong dataOffset, ulong bufferOffset) {
-		fixed (byte* pData = data) { Copy(pData, (ulong)data.Length, dataOffset, bufferOffset); }
+	public void Copy(ReadOnlySpan<byte> data, ulong srcOffset = 0, ulong dstOffset = 0) {
+		fixed (byte* pData = data) { Copy(pData + srcOffset, (ulong)data.Length, dstOffset); }
 	}
 
-	public void Copy(byte[] data, ulong dataSize, ulong dataOffset, ulong bufferOffset) {
-		fixed (byte* pData = data) { Copy(pData, dataSize, dataOffset, bufferOffset); }
-	}
-
-	public void Copy(ReadOnlySpan<byte> data, ulong dataOffset, ulong bufferOffset) {
-		fixed (byte* pData = data) { Copy(pData, (ulong)data.Length, dataOffset, bufferOffset); }
-	}
-
-	public void Copy(ReadOnlySpan<byte> data, ulong dataSize, ulong dataOffset, ulong bufferOffset) {
-		fixed (byte* pData = data) { Copy(pData, dataSize, dataOffset, bufferOffset); }
+	public void Copy<T>(ReadOnlySpan<T> data, ulong srcOffset = 0, ulong dstOffset = 0) where T : unmanaged {
+		fixed (T* pData = data) { Copy(pData + srcOffset, (ulong)(data.Length * sizeof(T)), dstOffset); }
 	}
 
 	public void Resize(ulong size) {
+		Vk.DeviceWaitIdle(logicalGpu.VkLogicalDevice); // clean assumes this was already called
 		Cleanup();
+
 		CreateBuffer(logicalGpu, size, usageFlags, createFlags, memoryPropertyFlags, out vkBuffer, out deviceMemory);
 		Size = size;
 	}
 
 	[MustUseReturnValue]
-	private void* MapMemory(ulong bufferSize, ulong offset = 0) {
-		VkMemoryMapInfo memoryMapInfo = new() { memory = DeviceMemory, size = bufferSize, offset = offset, };
+	private void* MapMemory(ulong size, ulong offset = 0) {
+		VkMemoryMapInfo memoryMapInfo = new() { memory = DeviceMemory, size = size, offset = offset, };
 		void* dstPtr;
 		Vk.MapMemory2(logicalGpu.VkLogicalDevice, &memoryMapInfo, &dstPtr);
 		return dstPtr;

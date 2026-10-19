@@ -33,7 +33,6 @@ public static class Engine4 {
 	];
 
 	internal static void PrintStartup() {
-		Logger.Debug($"- Engine Name: {Name}");
 		Logger.Debug($"- Version: {Version}");
 		Logger.Debug($"- Debug: {Debug}");
 	}

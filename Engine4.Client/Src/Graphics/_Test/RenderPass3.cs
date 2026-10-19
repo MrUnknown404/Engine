@@ -15,8 +15,10 @@ public abstract class RenderPass3 {
 	protected internal VkBufferMemoryBarrier2[] BufferMemoryBarriers { get; internal set; } = Array.Empty<VkBufferMemoryBarrier2>();
 	protected internal VkImageMemoryBarrier2[] ImageMemoryBarriers { get; internal set; } = Array.Empty<VkImageMemoryBarrier2>();
 
-	protected internal RenderGraph3 RenderGraph { get; internal set; } = null!; // set in RenderGraph.AddPass
+	protected RenderGraph3 RenderGraph { get; }
 	protected VulkanResourceManager ResourceManager => RenderGraph.ResourceManager; // TODO do i want this exposed here?
+
+	protected RenderPass3(RenderGraph3 renderGraph) => RenderGraph = renderGraph;
 
 	protected internal abstract void Execute(GraphicsCommandBuffer commandBuffer);
 

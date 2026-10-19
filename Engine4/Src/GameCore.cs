@@ -68,12 +68,12 @@ public abstract class GameCore {
 		Logger.Info("Engine starting...");
 		Engine4.PrintStartup();
 
+		Logger.Trace("Processing args...");
+		ProcessArgs(args);
+
 		// setup
 		Logger.Debug("Setting up internals...");
 		SetupInternals(settings);
-
-		Logger.Trace("Processing args...");
-		ProcessArgs(args);
 
 		Logger.Trace($"Invoking {OnSetupStartEvent.GetInvocationListCount()} {nameof(OnSetupStartEvent)}s...");
 		OnSetupStartEvent?.Invoke();
@@ -95,10 +95,12 @@ public abstract class GameCore {
 	}
 
 	private void InitialSetup(StartupSettings startupSettings) {
+		// logging
 		Thread.CurrentThread.Name = startupSettings.MainThreadName;
 		LoggerH.Setup(startupSettings.LoggingSettings);
 		Logger.Info("Hello World!");
 
+		// os
 		Logger.Trace($"Setting up {Engine4.OperatingSystem} compatibility...");
 #if OS_LINUX
 		Linux.Setup();

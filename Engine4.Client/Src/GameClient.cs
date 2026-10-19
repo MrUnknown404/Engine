@@ -1,6 +1,4 @@
-using Engine4.Client.Graphics._Test;
 using Engine4.Client.Graphics.Vulkan;
-using Engine4.Client.Rendering;
 using Engine4.Client.Utility;
 using Engine4.IO;
 using Engine4.Utility;
@@ -10,6 +8,7 @@ using Engine4.Utility.Versions;
 using NLog;
 using OpenTK.Graphics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using OperatingSystem = Engine4.Utility.Compatability.OperatingSystem;
 
 namespace Engine4.Client;
 
@@ -38,14 +37,14 @@ public abstract class GameClient : GameCore {
 		base.SetupInternals(coreSettings);
 
 		if (clientSettings.LoadGlfw) {
-			Logger.Trace("Loading Glfw...");
+			Logger.Debug("Loading Glfw...");
 			IsGlfwEnabled = true;
 
 			SetupGlfw();
 		}
 
 		if (clientSettings.VulkanSettings != null) {
-			Logger.Trace("Loading Vulkan...");
+			Logger.Debug("Loading Vulkan...");
 			IsVulkanEnabled = true;
 
 			SetupVulkan(clientSettings.VulkanSettings);
@@ -96,12 +95,12 @@ public abstract class GameClient : GameCore {
 		return window;
 	}
 
-	protected VulkanRenderer CreateRenderer(string debugName, Window window, Color4 clearColor, Action<RenderGraph3, VulkanRenderer> setupRenderGraph, params RenderPass[] renderPasses) {
+	protected VulkanRenderer CreateRenderer(string debugName, Window window, Color4 clearColor) {
 		if (!IsVulkanEnabled) { throw new Engine4Exception($"Cannot create a {nameof(VulkanRenderer)} when Vulkan is not loaded"); }
 		if (VulkanManager == null) { throw new IllegalStateException(); }
 
 		Logger.Debug("Creating renderer...");
-		VulkanRenderer renderer = new(debugName, VulkanManager, window, clearColor, setupRenderGraph, renderPasses);
+		VulkanRenderer renderer = new(debugName, VulkanManager, window, clearColor);
 
 		renderers.Add(renderer);
 		windowToRenderer.Add(window, renderer);
@@ -110,17 +109,41 @@ public abstract class GameClient : GameCore {
 	}
 
 	private void SetupGlfw() {
+		switch (Engine4.OperatingSystem) {
+			case OperatingSystem.Linux: GLFW.InitHint(InitHintPlatform.Platform, Platform.Wayland); break;
+			case OperatingSystem.Windows: break; // nothing atm
+			default: throw new ArgumentOutOfRangeException();
+		}
+
 		GLFW.SetErrorCallback(GlfwErrorCallback);
 		GLFW.Init();
 
+		// prefer wayland over x11. Renderdoc uses x11 (pain).
+		// if GLFW doesn't have any instance extensions then try again with x11.
+		// this is basically done to check if we're using Renderdoc.
+		// if there's a better way of doing this lemme know.
+		if (GLFW.GetRequiredInstanceExtensions().Length == 0) {
+			Logger.Warn("Failed to find GLFW instance extensions. Attempting to try again with X11.");
+			GLFW.Terminate();
+
+			GLFW.InitHint(InitHintPlatform.Platform, Platform.X11);
+			GLFW.Init();
+
+			if (GLFW.GetRequiredInstanceExtensions().Length == 0) { throw new Engine4Exception("Failed to setup GLFW"); }
+		}
+
 		PollEvents = GLFW.PollEvents;
 
-		Logger.Debug($"- Glfw Version: {GLFW.GetVersionString()}");
+		Logger.Debug($"GLFW successfully set up. Version: {GLFW.GetVersionString()}, Platform: {GLFW.GetPlatform()}");
 	}
 
 	private void SetupVulkan(VulkanStartupSettings vulkanSettings) {
 		Logger.Trace("Loading Vulkan bindings...");
 		VKLoader.Init();
+
+		// get vulkan api version
+		VkH.GetApiVersion(out uint apiVersion, out _, out byte major, out ushort minor, out ushort patch);
+		Logger.Debug($"- Version: {major}.{minor}.{patch} ({apiVersion})");
 
 		VulkanManager = new(this, vulkanSettings);
 		// TODO print version

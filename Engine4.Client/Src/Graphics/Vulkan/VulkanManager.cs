@@ -3,12 +3,12 @@ using System.Text;
 using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.Client.Utility;
 using Engine4.Client.Utility.Exceptions;
-using Engine4.Client.Utility.Extensions;
 using Engine4.IO;
 using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics;
 using OpenTK.Graphics.Vulkan;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 using Silk.NET.Core.Loader;
 using Silk.NET.Shaderc;
 using USharpLibs.Common.Utils;
@@ -18,39 +18,6 @@ namespace Engine4.Client.Graphics.Vulkan;
 public sealed unsafe class VulkanManager {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
 
-	// engine
-	public static readonly string[] RequiredEngineInstanceLayerProperties;
-	public static readonly string[] RequiredEngineInstanceExtensionProperties;
-	public static readonly string[] RequiredEngineDeviceExtensionProperties;
-
-	static VulkanManager() {
-		HashSet<string> requiredEngineInstanceLayerProperties = new([
-#if DEBUG
-				"VK_LAYER_KHRONOS_validation", // if OpenTK defines this somewhere, i could not find it
-#endif
-		]);
-
-		HashSet<string> requiredEngineInstanceExtensionProperties = new([
-				Vk.KhrSurfaceExtensionName, Vk.KhrGetSurfaceCapabilities2ExtensionName,
-#if DEBUG
-				Vk.ExtDebugUtilsExtensionName,
-#endif
-		]);
-
-		HashSet<string> requiredEngineDeviceExtensionProperties = new([
-				Vk.KhrSwapchainExtensionName, //
-				Vk.KhrDynamicRenderingExtensionName,
-		]);
-
-		requiredEngineInstanceLayerProperties.UnionWith(Engine4.OperatingSystem.GetRequiredInstanceLayerProperties());
-		requiredEngineInstanceExtensionProperties.UnionWith(Engine4.OperatingSystem.GetRequiredInstanceExtensionProperties());
-		requiredEngineDeviceExtensionProperties.UnionWith(Engine4.OperatingSystem.GetRequiredDeviceExtensionProperties());
-
-		RequiredEngineInstanceLayerProperties = requiredEngineInstanceLayerProperties.ToArray();
-		RequiredEngineInstanceExtensionProperties = requiredEngineInstanceExtensionProperties.ToArray();
-		RequiredEngineDeviceExtensionProperties = requiredEngineDeviceExtensionProperties.ToArray();
-	}
-
 	public VkPresentModeKHR PresentMode { get; } // TODO support setting this at runtime
 	public byte MaxFramesInFlight { get; }
 
@@ -58,7 +25,6 @@ public sealed unsafe class VulkanManager {
 	public readonly string[] RequiredInstanceExtensionProperties;
 	public readonly string[] RequiredDeviceExtensionProperties;
 
-	private readonly GameClient game;
 	internal Shaderc Shaderc { get; }
 
 	internal VulkanInstance VulkanInstance { get; }
@@ -72,7 +38,6 @@ public sealed unsafe class VulkanManager {
 	private readonly RateGpuSuitabilityDelegate? rateGpuSuitability;
 
 	internal VulkanManager(GameClient game, VulkanStartupSettings vulkanSettings) {
-		this.game = game;
 		PresentMode = vulkanSettings.PresentMode;
 		MaxFramesInFlight = vulkanSettings.MaxFramesInFlight;
 
@@ -81,27 +46,47 @@ public sealed unsafe class VulkanManager {
 		rateGpuSuitability = vulkanSettings.RateGpuSuitability;
 
 		// layers/extensions
-		HashSet<string> requiredInstanceLayerProperties = new(RequiredEngineInstanceLayerProperties);
+		HashSet<string> requiredEngineInstanceLayerProperties = new([
+#if DEBUG
+				"VK_LAYER_KHRONOS_validation", // if OpenTK defines this somewhere, i could not find it
+#endif
+		]);
+
+		HashSet<string> requiredEngineInstanceExtensionProperties = new([
+				Vk.KhrSurfaceExtensionName, //
+				Vk.KhrGetSurfaceCapabilities2ExtensionName,
+#if DEBUG
+				Vk.ExtDebugUtilsExtensionName,
+#endif
+		]);
+
+		if (game.IsGlfwEnabled) { requiredEngineInstanceExtensionProperties.UnionWith(GLFW.GetRequiredInstanceExtensions()); }
+
+		HashSet<string> requiredEngineDeviceExtensionProperties = new([
+				Vk.KhrSwapchainExtensionName, //
+				Vk.KhrDynamicRenderingExtensionName,
+		]);
+
+		HashSet<string> requiredInstanceLayerProperties = new(requiredEngineInstanceLayerProperties);
 		requiredInstanceLayerProperties.UnionWith(vulkanSettings.RequiredInstanceLayerProperties);
 		RequiredInstanceLayerProperties = requiredInstanceLayerProperties.ToArray();
 
-		HashSet<string> requiredInstanceExtensionProperties = new(RequiredEngineInstanceExtensionProperties);
+		HashSet<string> requiredInstanceExtensionProperties = new(requiredEngineInstanceExtensionProperties);
 		requiredInstanceExtensionProperties.UnionWith(vulkanSettings.RequiredInstanceExtensionProperties);
 		RequiredInstanceExtensionProperties = requiredInstanceExtensionProperties.ToArray();
 
-		HashSet<string> requiredDeviceExtensionProperties = new(RequiredEngineDeviceExtensionProperties);
+		HashSet<string> requiredDeviceExtensionProperties = new(requiredEngineDeviceExtensionProperties);
 		requiredDeviceExtensionProperties.UnionWith(vulkanSettings.RequiredDeviceExtensionProperties);
 		RequiredDeviceExtensionProperties = requiredDeviceExtensionProperties.ToArray();
 
-		// get vulkan api version
-		VkH.GetApiVersion(out uint apiVersion, out _, out byte major, out ushort minor, out ushort patch);
-		Logger.Debug($"- Version: {apiVersion} ({major}.{minor}.{patch})");
-
 		// check for instance/extension properties
-		VkLayerProperties[] availableInstanceLayerProperties = CheckForInstanceLayerProperties();
-		VkExtensionProperties[] availableInstanceExtensionProperties = CheckForInstanceExtensionProperties();
+		VkLayerProperties[] availableInstanceLayerProperties = GetAvailableInstanceLayerProperties();
 		PrintInstanceLayerProperties(availableInstanceLayerProperties);
+		VkExtensionProperties[] availableInstanceExtensionProperties = GetAvailableInstanceExtensionProperties();
 		PrintInstanceExtensionProperties(availableInstanceExtensionProperties);
+
+		CheckForInstanceLayerProperties(availableInstanceLayerProperties);
+		CheckForInstanceExtensionProperties(availableInstanceExtensionProperties);
 
 		// create instance
 		VulkanInstance = new(game, vulkanSettings, this);
@@ -135,29 +120,41 @@ public sealed unsafe class VulkanManager {
 	}
 
 	[MustUseReturnValue]
-	private VkLayerProperties[] CheckForInstanceLayerProperties() {
-		VkLayerProperties[] availableInstanceLayerProperties = GetAvailableInstanceLayerProperties();
+	private static VkLayerProperties[] GetAvailableInstanceLayerProperties() {
+		uint layerCount;
+		Vk.EnumerateInstanceLayerProperties(&layerCount, null);
 
+		if (layerCount == 0) { return Array.Empty<VkLayerProperties>(); }
+
+		VkLayerProperties[] layerProperties = new VkLayerProperties[layerCount];
+		fixed (VkLayerProperties* layerPropertiesPtr = layerProperties) {
+			Vk.EnumerateInstanceLayerProperties(&layerCount, layerPropertiesPtr);
+			return layerProperties;
+		}
+	}
+
+	[MustUseReturnValue]
+	private static VkExtensionProperties[] GetAvailableInstanceExtensionProperties() {
+		uint extensionCount;
+		Vk.EnumerateInstanceExtensionProperties(null, &extensionCount, null);
+
+		if (extensionCount == 0) { return Array.Empty<VkExtensionProperties>(); }
+
+		VkExtensionProperties[] extensionProperties = new VkExtensionProperties[extensionCount];
+		fixed (VkExtensionProperties* extensionPropertiesPtr = extensionProperties) {
+			Vk.EnumerateInstanceExtensionProperties(null, &extensionCount, extensionPropertiesPtr);
+			return extensionProperties;
+		}
+	}
+
+	private void CheckForInstanceLayerProperties(VkLayerProperties[] availableInstanceLayerProperties) {
 		if (availableInstanceLayerProperties.Length == 0) { throw new VulkanException("Could not find any instance layer properties"); }
 		if (!CheckSupportForInstanceLayerProperties(availableInstanceLayerProperties, RequiredInstanceLayerProperties, out string[]? missingLayers)) {
 			foreach (string missingLayer in missingLayers) { Logger.Warn($"Layer \'{missingLayer}\' is not available"); } // TODO allow user to decide what to do for each missing
 			throw new VulkanException("Requested validation layers are not available");
 		}
 
-		return availableInstanceLayerProperties;
-
-		static VkLayerProperties[] GetAvailableInstanceLayerProperties() {
-			uint layerCount;
-			Vk.EnumerateInstanceLayerProperties(&layerCount, null);
-
-			if (layerCount == 0) { return Array.Empty<VkLayerProperties>(); }
-
-			VkLayerProperties[] layerProperties = new VkLayerProperties[layerCount];
-			fixed (VkLayerProperties* layerPropertiesPtr = layerProperties) {
-				Vk.EnumerateInstanceLayerProperties(&layerCount, layerPropertiesPtr);
-				return layerProperties;
-			}
-		}
+		return;
 
 		static bool CheckSupportForInstanceLayerProperties(VkLayerProperties[] layerProperties, string[] wantedLayers, [NotNullWhen(false)] out string[]? missing) {
 			List<string> missingList = new();
@@ -181,30 +178,14 @@ public sealed unsafe class VulkanManager {
 		}
 	}
 
-	[MustUseReturnValue]
-	private VkExtensionProperties[] CheckForInstanceExtensionProperties() {
-		VkExtensionProperties[] availableInstanceExtensionProperties = GetAvailableInstanceExtensionProperties();
-
+	private void CheckForInstanceExtensionProperties(VkExtensionProperties[] availableInstanceExtensionProperties) {
 		if (availableInstanceExtensionProperties.Length == 0) { throw new VulkanException("Could not find any instance extension properties"); }
 		if (!CheckSupportForInstanceExtensionProperties(availableInstanceExtensionProperties, RequiredInstanceExtensionProperties, out string[]? missingExtensions)) {
 			foreach (string missingExtension in missingExtensions) { Logger.Warn($"Extension \'{missingExtension}\' is not available"); } // TODO allow user to decide what to do for each missing
 			throw new VulkanException("Requested instance extensions are not available");
 		}
 
-		return availableInstanceExtensionProperties;
-
-		static VkExtensionProperties[] GetAvailableInstanceExtensionProperties() {
-			uint extensionCount;
-			Vk.EnumerateInstanceExtensionProperties(null, &extensionCount, null);
-
-			if (extensionCount == 0) { return Array.Empty<VkExtensionProperties>(); }
-
-			VkExtensionProperties[] extensionProperties = new VkExtensionProperties[extensionCount];
-			fixed (VkExtensionProperties* extensionPropertiesPtr = extensionProperties) {
-				Vk.EnumerateInstanceExtensionProperties(null, &extensionCount, extensionPropertiesPtr);
-				return extensionProperties;
-			}
-		}
+		return;
 
 		static bool CheckSupportForInstanceExtensionProperties(VkExtensionProperties[] extensionProperties, string[] wantedExtensions, [NotNullWhen(false)] out string[]? missing) {
 			List<string> missingList = new();
@@ -235,7 +216,7 @@ public sealed unsafe class VulkanManager {
 			arr[i] = Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)]);
 		}
 
-		Logger.Trace($"- The following instance layer properties are available: {arr.ElementsAsString()}");
+		Logger.Trace($"The following instance layer properties are available: {arr.ElementsAsString()}");
 	}
 
 	private static void PrintInstanceExtensionProperties(VkExtensionProperties[] extensionProperties) {
@@ -245,7 +226,7 @@ public sealed unsafe class VulkanManager {
 			arr[i] = Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)]);
 		}
 
-		Logger.Trace($"- The following instance extension properties are available: {arr.ElementsAsString()}");
+		Logger.Trace($"The following instance extension properties are available: {arr.ElementsAsString()}");
 	}
 
 	[MustUseReturnValue]

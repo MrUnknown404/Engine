@@ -1,4 +1,3 @@
-using Engine4.Client.Graphics._Test;
 using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.Client.Rendering;
 using Engine4.IO;
@@ -16,17 +15,19 @@ public sealed unsafe class VulkanRenderer {
 
 	public Color4 ClearColor { get; }
 	public ulong FrameCount { get; private set; }
-	public bool IsFrameBufferSizeDirty { get; protected set; } // TODO move? set on resize
+	public bool IsFrameBufferSizeDirty { get; private set; } // TODO move? set on resize
 
-	private readonly VulkanResourceManager resourceManager;
+	public VulkanResourceManager ResourceManager { get; }
 	private readonly SurfaceReadyPhysicalGpu physicalGpu;
 	private readonly LogicalGpu logicalGpu;
-	internal readonly Window Window;
+	private readonly Window window;
 	private readonly Surface surface;
-	internal readonly SwapChain SwapChain;
+	private readonly SwapChain swapChain;
 
-	private readonly List<RenderPass> renderPasses; // TODO make sure this supports adding/removing at runtime
-	private readonly RenderGraph3 renderGraph;
+	// TODO create render graph system
+	[Obsolete]
+	private readonly List<RenderPass> renderPasses = new();
+	private DepthImage? depthImage;
 
 	private readonly GraphicsCommandPool graphicsCommandPool;
 	private readonly TransferCommandPool transferCommandPool;
@@ -40,11 +41,8 @@ public sealed unsafe class VulkanRenderer {
 	private readonly Semaphore[] renderFinishedSemaphores;
 	private uint swapChainImageIndex;
 
-	// TODO easy depth image
-	private DepthImage? depthImage; // TODO merge into render graph?
-
-	internal VulkanRenderer(string debugName, VulkanManager vulkanManager, Window window, Color4 clearColor, Action<RenderGraph3, VulkanRenderer> setupRenderGraph, params RenderPass[] renderPasses) {
-		Window = window;
+	internal VulkanRenderer(string debugName, VulkanManager vulkanManager, Window window, Color4 clearColor) {
+		this.window = window;
 		ClearColor = clearColor;
 
 		// TODO log
@@ -52,27 +50,26 @@ public sealed unsafe class VulkanRenderer {
 		SurfaceReadyPhysicalGpu[] capableGpus = vulkanManager.GetCapableGpus(surface);
 		physicalGpu = vulkanManager.SelectGpu(capableGpus) ?? throw new Engine4Exception("Failed to select gpu");
 		logicalGpu = new(physicalGpu, vulkanManager);
-		SwapChain = new(window, physicalGpu, logicalGpu, surface, vulkanManager.PresentMode);
-		renderFinishedSemaphores = logicalGpu.ResourceManager.CreateSemaphores("Render Finished Semaphore", 0, (uint)SwapChain.Images.Length);
+		swapChain = new(window, physicalGpu, logicalGpu, surface, vulkanManager.PresentMode);
+		renderFinishedSemaphores = logicalGpu.ResourceManager.CreateSemaphores("Render Finished Semaphore", 0, (uint)swapChain.Images.Length);
 
-		resourceManager = logicalGpu.ResourceManager;
-		this.renderPasses = new(renderPasses);
+		ResourceManager = logicalGpu.ResourceManager;
 		maxFramesInFlight = vulkanManager.MaxFramesInFlight;
 
-		renderGraph = new(this, resourceManager);
-		setupRenderGraph.Invoke(renderGraph, this);
-
 		// TODO logging
-		graphicsCommandPool = resourceManager.CreateGraphicsCommandPool($"{debugName} Graphics Command Pool", VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit);
-		transferCommandPool = resourceManager.CreateTransferCommandPool($"{debugName} Transfer Command Pool", VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit);
+		graphicsCommandPool = ResourceManager.CreateGraphicsCommandPool($"{debugName} Graphics Command Pool", VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit);
+		transferCommandPool = ResourceManager.CreateTransferCommandPool($"{debugName} Transfer Command Pool", VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit);
 
 		GraphicsCommandBuffer[] graphicsCommandBuffers = graphicsCommandPool.CreateCommandBuffers(maxFramesInFlight, VkCommandBufferLevel.CommandBufferLevelPrimary);
-		Semaphore[] imageAvailableSemaphores = resourceManager.CreateSemaphores($"{debugName} Image Available Semaphore", 0, maxFramesInFlight);
-		Fence[] inFlightFences = resourceManager.CreateFences($"{debugName} In Flight Fence", maxFramesInFlight, VkFenceCreateFlagBits.FenceCreateSignaledBit);
+		Semaphore[] imageAvailableSemaphores = ResourceManager.CreateSemaphores($"{debugName} Image Available Semaphore", 0, maxFramesInFlight);
+		Fence[] inFlightFences = ResourceManager.CreateFences($"{debugName} In Flight Fence", maxFramesInFlight, VkFenceCreateFlagBits.FenceCreateSignaledBit);
 
 		framesInFlight = new FrameInFlight[maxFramesInFlight];
 		for (int i = 0; i < maxFramesInFlight; i++) { framesInFlight[i] = new(graphicsCommandBuffers[i], imageAvailableSemaphores[i], inFlightFences[i]); }
 	}
+
+	public void AddRenderPass(RenderPass renderPass) => renderPasses.Add(renderPass);
+	public void RemoveRenderPass(RenderPass renderPass) => throw new NotImplementedException(); // TODO
 
 	internal void InternalRender(float delta) {
 		if (Render(delta)) { FrameCount++; }
@@ -114,7 +111,7 @@ public sealed unsafe class VulkanRenderer {
 	private void SyncResources() { } // TODO
 
 	private bool TryBeginFrame(FrameInFlight frame) {
-		VkResult result = SwapChain.AcquireNextImage(frame.ImageAvailableSemaphore, out swapChainImageIndex);
+		VkResult result = swapChain.AcquireNextImage(frame.ImageAvailableSemaphore, out swapChainImageIndex);
 		if (result == VkResult.ErrorOutOfDateKhr) {
 			InvalidateSwapChain();
 			return false;
@@ -132,20 +129,20 @@ public sealed unsafe class VulkanRenderer {
 				dstStageMask = VkPipelineStageFlagBits2.PipelineStage2TopOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
 				oldLayout = VkImageLayout.ImageLayoutUndefined,
 				newLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
-				image = GetSwapChainImage(),
+				image = swapChain.Images[swapChainImageIndex],
 				subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 		};
 
 		graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier, });
 
-		// graphicsCommandBuffer.CmdBeginRendering(swapChain.Extent, swapChain.ImageViews[swapChainImageIndex], ClearColor, depthImage?.Image, new(1, 0)); // TODO use depth image
+		graphicsCommandBuffer.CmdBeginRendering(swapChain.Extent, GetSwapChainImageView(), ClearColor, depthImage?.Image, new(1, 0)); // TODO use depth image
 	}
 
 	private void DrawFrame(GraphicsCommandBuffer commandBuffer) {
 		// RecordCommandBuffer(graphicsCommandBuffer); // TODO draw
 		// renderGraph.Render(graphicsCommandBuffer, LogicalGpu.GraphicsQueue, LogicalGpu.TransferQueue);
 
-		renderGraph.Render(commandBuffer);
+		foreach (RenderPass renderPass in renderPasses) { renderPass.RecordCommandBuffer(commandBuffer); }
 
 		// commandBuffer.CmdBeginRendering();
 		// // draw
@@ -153,14 +150,14 @@ public sealed unsafe class VulkanRenderer {
 	}
 
 	private void EndFrame(GraphicsCommandBuffer graphicsCommandBuffer) {
-		// graphicsCommandBuffer.CmdEndRendering();
+		graphicsCommandBuffer.CmdEndRendering();
 
 		VkImageMemoryBarrier2 imageMemoryBarrier = new() {
 				srcAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
 				srcStageMask = VkPipelineStageFlagBits2.PipelineStage2BottomOfPipeBit | VkPipelineStageFlagBits2.PipelineStage2ColorAttachmentOutputBit,
 				oldLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
 				newLayout = VkImageLayout.ImageLayoutPresentSrcKhr,
-				image = GetSwapChainImage(),
+				image = swapChain.Images[swapChainImageIndex],
 				subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 		};
 
@@ -189,7 +186,7 @@ public sealed unsafe class VulkanRenderer {
 	}
 
 	private void PresentFrame() {
-		VkSwapchainKHR swapChain = SwapChain.VkSwapChain;
+		VkSwapchainKHR swapChain = this.swapChain.VkSwapChain;
 		VkSemaphore waitSemaphore = renderFinishedSemaphores[swapChainImageIndex].VkSemaphore;
 
 		VkResult result;
@@ -207,20 +204,20 @@ public sealed unsafe class VulkanRenderer {
 	private void InvalidateSwapChain() {
 		Logger.Trace("Swapchain is invalid. Recreating...");
 
-		SwapChain.Recreate();
+		swapChain.Recreate();
 		// DepthImage?.Recreate(SwapChain.Extent);
 	}
 
 	public VkFormat GetDepthFormat() => physicalGpu.DepthFormat;
-	public VkFormat GetSwapChainFormat() => SwapChain.ImageFormat;
 
-	internal VkImage GetSwapChainImage() => SwapChain.Images[swapChainImageIndex];
-	internal VkImageView GetSwapChainImageView() => SwapChain.ImageViews[swapChainImageIndex];
+	public VkExtent2D GetSwapChainExtent() => swapChain.Extent;
+	public VkFormat GetSwapChainFormat() => swapChain.ImageFormat;
+	public VkImageView GetSwapChainImageView() => swapChain.ImageViews[swapChainImageIndex];
 
 	internal void Cleanup() {
 		Vk.DeviceWaitIdle(logicalGpu.VkLogicalDevice);
 
-		SwapChain.Cleanup();
+		swapChain.Cleanup();
 		surface.Cleanup();
 
 		logicalGpu.Cleanup();

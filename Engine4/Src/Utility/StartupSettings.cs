@@ -10,7 +10,7 @@ public abstract class StartupSettings {
 	public LoggingSettings LoggingSettings { get; init; } = new();
 
 	protected internal virtual void PrintValues() {
-		Logger.Debug($"- {nameof(MainThreadName)}: {MainThreadName}");
+		Logger.Trace($"- {nameof(MainThreadName)}: {MainThreadName}");
 		LoggingSettings.PrintValue();
 	}
 }

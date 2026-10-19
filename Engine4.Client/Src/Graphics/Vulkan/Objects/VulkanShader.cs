@@ -7,6 +7,8 @@ using Silk.NET.Shaderc;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
+// TODO look into VK_EXT_shader_object. see https://www.khronos.org/blog/you-can-use-vulkan-without-pipelines-today
+
 public unsafe class VulkanShader : VulkanResource {
 	public const string ShaderEntryPoint = "main";
 
@@ -30,7 +32,7 @@ public unsafe class VulkanShader : VulkanResource {
 
 	[MustUseReturnValue]
 	private static VkShaderModule CreateShaderModule(Shaderc shaderc, LogicalGpu logicalGpu, string fileLocation, Assembly assembly, ShaderLanguage shaderLang, ShaderType shaderType, string debugName) {
-		using Stream? shaderStream = AssetH.GetAssetStream($"{fileLocation}.{shaderType.FileExtension}.{shaderLang.FileExtension}", assembly);
+		using Stream? shaderStream = AssetH.GetAssetStream($"Shaders.{fileLocation}.{shaderType.FileExtension}.{shaderLang.FileExtension}", assembly);
 		if (shaderStream == null) { throw new Exception(); } // TODO exception
 
 		return shaderLang switch {

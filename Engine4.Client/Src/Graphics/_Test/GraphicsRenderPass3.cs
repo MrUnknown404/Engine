@@ -8,6 +8,8 @@ public abstract class GraphicsRenderPass3 : RenderPass3 {
 	protected internal RenderGraph3.TextureHandle? DepthImageHandle { get; private set; } // should only graphics have this stuff?
 	protected internal VkClearDepthStencilValue? DepthStencil { get; private set; }
 
+	protected GraphicsRenderPass3(RenderGraph3 renderGraph) : base(renderGraph) { }
+
 	public void SetDepthImage(RenderGraph3.TextureHandle depthImageHandle, VkClearDepthStencilValue depthStencil) {
 		DepthImageHandle = depthImageHandle;
 		DepthStencil = depthStencil;

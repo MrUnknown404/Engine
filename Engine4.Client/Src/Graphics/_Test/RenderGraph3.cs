@@ -26,7 +26,7 @@ public sealed unsafe class RenderGraph3 {
 
 	internal RenderGraph3(VulkanRenderer vulkanRenderer, VulkanResourceManager resourceManager) {
 		this.vulkanRenderer = vulkanRenderer;
-		this.ResourceManager = resourceManager;
+		ResourceManager = resourceManager;
 	}
 
 	[MustUseReturnValue]
@@ -86,8 +86,6 @@ public sealed unsafe class RenderGraph3 {
 			throw new Exception(); // TODO exception
 		}
 
-		renderPass.RenderGraph = this;
-
 		isDirty = true;
 		return handle;
 	}
@@ -115,7 +113,7 @@ public sealed unsafe class RenderGraph3 {
 	public VulkanTexture GetTexture(TextureHandle handle) => (GetResource(handle) as ImageResourceData ?? throw new InvalidCastException()).Texture;
 
 	private void Compile(IEnumerable<RenderPass3> allRenderPasses, out RenderPass3[] outSortedRenderPasses) {
-		// this should make vulkan resources
+		// TODO logging
 
 		List<RenderPass3> enabledPasses = new();
 		foreach (RenderPass3 renderPass in allRenderPasses) {
@@ -123,6 +121,8 @@ public sealed unsafe class RenderGraph3 {
 		}
 
 		outSortedRenderPasses = SortRenderPasses(enabledPasses);
+		// TODO print results for debugging
+
 		CreateResources();
 		CalculateResourceLifetimes();
 		CreateBarriers();
@@ -135,7 +135,7 @@ public sealed unsafe class RenderGraph3 {
 			GraphicsRenderPass3? graphicsPass = renderPass as GraphicsRenderPass3;
 
 			if (graphicsPass != null) {
-				VkExtent2D extent = vulkanRenderer.SwapChain.Extent;
+				VkExtent2D extent = vulkanRenderer.GetSwapChainExtent();
 
 				// TODO are these graphics only?
 				commandBuffer.CmdSetViewport(0, 0, extent.width, extent.height, 0, 1); // TODO configurable? right now i can't change the depth
@@ -341,19 +341,19 @@ public sealed unsafe class RenderGraph3 {
 	}
 
 	private void CalculateResourceLifetimes() {
-		for (uint passIndex = 0; passIndex < cachedSortedPasses.Length; passIndex++) {
-			RenderPass3 pass = cachedSortedPasses[passIndex];
+		for (uint i = 0; i < cachedSortedPasses.Length; i++) {
+			RenderPass3 pass = cachedSortedPasses[i];
 
 			foreach (ReadData read in pass.Inputs) {
 				ResourceData resource = cachedResources[read.ResourceHandle];
-				resource.FirstUsePass = uint.Min(resource.FirstUsePass, passIndex);
-				resource.LastUsePass = uint.Max(resource.LastUsePass, passIndex);
+				resource.FirstUsePass = uint.Min(resource.FirstUsePass, i);
+				resource.LastUsePass = uint.Max(resource.LastUsePass, i);
 			}
 
 			foreach (WriteData write in pass.Outputs) {
 				ResourceData resource = cachedResources[write.ResourceHandle];
-				resource.FirstUsePass = uint.Min(resource.FirstUsePass, passIndex);
-				resource.LastUsePass = uint.Max(resource.LastUsePass, passIndex);
+				resource.FirstUsePass = uint.Min(resource.FirstUsePass, i);
+				resource.LastUsePass = uint.Max(resource.LastUsePass, i);
 			}
 		}
 	}
@@ -488,8 +488,8 @@ public sealed unsafe class RenderGraph3 {
 	}
 
 	public abstract class ResourceData {
-		public uint FirstUsePass { get; internal set; }
-		public uint LastUsePass { get; internal set; }
+		public uint FirstUsePass { get; internal set; } // TODO these aren't actually used atm
+		public uint LastUsePass { get; internal set; } // ^
 		public VkAccessFlagBits2 CurrentAccessMask { get; internal set; }
 		public VkPipelineStageFlagBits2 CurrentStageMask { get; internal set; }
 		public bool Persistent { get; init; } // TODO if this flag is enabled, don't clean

@@ -27,6 +27,8 @@ public static class LoggerH {
 
 		AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
 
+		string? fileName = null;
+
 		LogManager.Setup().SetupLogFactory(builder => {
 			if (settings.TimeSource != null) { builder.SetTimeSource(settings.TimeSource); }
 			builder.AddCallSiteHiddenClassType(typeof(LoggerH)); // not sure if this will break anything below
@@ -59,8 +61,12 @@ public static class LoggerH {
 			if (settings.PrintToConsole) { builder.ForLogger().FilterMinLevel(settings.ConsoleLogLevel).FilterDynamicIgnore(static _ => IsConsoleLoggingPaused).WriteToColoredConsole(layout: layout); }
 
 			if (settings.PrintToFile) {
-				builder.ForLogger().FilterMinLevel(settings.FileLogLevel).WriteToFile(layout: layout, fileName: $"{settings.LogFileDirectory}/{DateTime.Now.ToString(settings.LogFileDateFormat)}.{settings.LogFileExtension}",
-					maxArchiveFiles: settings.MaxLogFiles - 1);
+				fileName = $"{DateTime.Now.ToString(settings.LogFileDateFormat)}.{settings.LogFileExtension}";
+				builder.ForLogger().FilterMinLevel(settings.FileLogLevel).WriteToFile(layout: layout, fileName: $"{settings.LogFileDirectory}/{fileName}", maxArchiveFiles: settings.MaxLogFiles - 1);
+
+				string latestLog = $"{settings.LogFileDirectory}/Latest.{settings.LogFileExtension}";
+				if (File.Exists(latestLog)) { File.Delete(latestLog); }
+				File.CreateSymbolicLink(latestLog, fileName); // i don't understand why i don't need the log directory included in the target path
 			}
 
 			// database output?

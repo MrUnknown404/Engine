@@ -24,6 +24,7 @@ public sealed class LoggingSettings {
 
 	public bool PrintToConsole { get; init; } = true;
 	public bool PrintToFile { get; init; } = true;
+	public bool CreateSymlink { get; init; } = true;
 
 	public LogLevel ConsoleLogLevel { get; init; } =
 #if DEBUG
@@ -42,7 +43,7 @@ public sealed class LoggingSettings {
 	public TimeSource? TimeSource { get; init; }
 
 	internal void PrintValue() {
-		Logger.Debug($"- {nameof(ConsoleLogLevel)}: {ConsoleLogLevel.Name}");
-		Logger.Debug($"- {nameof(FileLogLevel)}: {FileLogLevel.Name}");
+		Logger.Trace($"- {nameof(ConsoleLogLevel)}: {ConsoleLogLevel.Name}");
+		Logger.Trace($"- {nameof(FileLogLevel)}: {FileLogLevel.Name}");
 	}
 }
