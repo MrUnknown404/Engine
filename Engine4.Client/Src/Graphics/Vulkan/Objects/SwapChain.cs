@@ -108,7 +108,7 @@ public unsafe class SwapChain {
 					createInfo with { imageSharingMode = VkSharingMode.SharingModeExclusive, };
 
 			VkSwapchainKHR swapChain;
-			VkH.CheckSuccess(Vk.CreateSwapchainKHR(logicalGpu.VkLogicalDevice, &createInfo, null, &swapChain), "Failed to create swap chain");
+			VkH.ThrowIfNotSuccess(Vk.CreateSwapchainKHR(logicalGpu.VkLogicalDevice, &createInfo, null, &swapChain), "Failed to create swap chain");
 			return swapChain;
 		}
 
@@ -189,7 +189,7 @@ public unsafe class SwapChain {
 
 		VkImage[] swapChainImages = new VkImage[swapChainImageCount];
 		fixed (VkImage* swapChainImagesPtr = swapChainImages) {
-			VkH.CheckSuccess(Vk.GetSwapchainImagesKHR(logicalGpu.VkLogicalDevice, vkSwapChain, &swapChainImageCount, swapChainImagesPtr), "Failed to get swap chain images");
+			VkH.ThrowIfNotSuccess(Vk.GetSwapchainImagesKHR(logicalGpu.VkLogicalDevice, vkSwapChain, &swapChainImageCount, swapChainImagesPtr), "Failed to get swap chain images");
 			return swapChainImages;
 		}
 	}
@@ -214,7 +214,7 @@ public unsafe class SwapChain {
 						subresourceRange = new() { aspectMask = aspectMask, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 				};
 
-				VkH.CheckSuccess(Vk.CreateImageView(logicalGpu.VkLogicalDevice, &createInfo, null, &imageViewsPtr[i]), "Failed to create image view");
+				VkH.ThrowIfNotSuccess(Vk.CreateImageView(logicalGpu.VkLogicalDevice, &createInfo, null, &imageViewsPtr[i]), "Failed to create image view");
 			}
 		}
 

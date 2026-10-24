@@ -7,11 +7,11 @@ public unsafe class VulkanBuffer : VulkanResource {
 	private VkBuffer vkBuffer;
 	private VkDeviceMemory deviceMemory;
 
-	public VkBuffer VkBuffer { get => vkBuffer; private set => vkBuffer = value; }
-	public VkDeviceMemory DeviceMemory { get => deviceMemory; private set => deviceMemory = value; }
+	public VkBuffer VkBuffer => vkBuffer;
+	public VkDeviceMemory DeviceMemory => deviceMemory;
 	public ulong Size { get; private set; }
 
-	protected override ulong Handle => VkBuffer.Handle;
+	public override ulong Handle => VkBuffer.Handle;
 
 	private readonly LogicalGpu logicalGpu;
 	private readonly VkBufferCreateFlagBits createFlags;
@@ -82,7 +82,7 @@ public unsafe class VulkanBuffer : VulkanResource {
 		};
 
 		VkDevice logicalDevice = logicalGpu.VkLogicalDevice;
-		fixed (VkBuffer* pVkBuffer = &vkBuffer) { VkH.CheckSuccess(Vk.CreateBuffer(logicalDevice, &bufferCreateInfo, null, pVkBuffer), "Failed to create buffer"); }
+		fixed (VkBuffer* pVkBuffer = &vkBuffer) { VkH.ThrowIfNotSuccess(Vk.CreateBuffer(logicalDevice, &bufferCreateInfo, null, pVkBuffer), "Failed to create buffer"); }
 
 		VkBufferMemoryRequirementsInfo2 bufferMemoryRequirementsInfo2 = new() { buffer = vkBuffer, };
 		VkMemoryRequirements2 memoryRequirements2 = new();

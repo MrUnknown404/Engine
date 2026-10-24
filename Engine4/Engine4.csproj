@@ -2,7 +2,7 @@
 	<PropertyGroup>
 		<OutputType>Library</OutputType>
 		<TargetFramework>net10.0</TargetFramework>
-		<LangVersion>preview</LangVersion>
+		<LangVersion>14</LangVersion>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<WarningsAsErrors>nullable</WarningsAsErrors>
@@ -16,10 +16,16 @@
 		<PackageReference Include="JetBrains.Annotations" Version="2025.2.4" PrivateAssets="all"/>
 		<PackageReference Include="NLog" Version="5.5.1"/>
 		<PackageReference Include="ObjectLayoutInspector" Version="0.1.4"/>
+		<PackageReference Include="ZLinq" Version="1.5.6"/>
+		<PackageReference Include="ZLinq.DropInGenerator" Version="1.5.6">
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
 
 		<ProjectReference Include="..\..\USharpLibs-Common\USharpLibs-Common.csproj"/>
 
 		<EmbeddedResource Include="Assets\**"/>
+
+		<Using Remove="System.Linq"/>
 	</ItemGroup>
 
 	<!-- OS specific stuff -->

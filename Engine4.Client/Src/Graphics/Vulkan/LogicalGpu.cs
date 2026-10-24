@@ -48,7 +48,7 @@ public unsafe class LogicalGpu {
 		};
 
 		VkDevice logicalDevice;
-		VkH.CheckSuccess(Vk.CreateDevice(physicalGpu.VkPhysicalDevice, &deviceCreateInfo, null, &logicalDevice), "Failed to create logical device");
+		VkH.ThrowIfNotSuccess(Vk.CreateDevice(physicalGpu.VkPhysicalDevice, &deviceCreateInfo, null, &logicalDevice), "Failed to create logical device");
 
 		VkLogicalDevice = logicalDevice;
 		GraphicsQueue = GetDeviceQueue(logicalDevice, queueFamilyIndices.GraphicsFamily);
@@ -78,7 +78,7 @@ public unsafe class LogicalGpu {
 		//  The right way to allocate memory for a large number of objects at the same time is to create a custom allocator that splits up a single allocation
 		//  among many different objects by using the offset parameters that we've seen in many functions."
 		VkDeviceMemory deviceMemory;
-		VkH.CheckSuccess(Vk.AllocateMemory(VkLogicalDevice, &memoryAllocateInfo, null, &deviceMemory), "Failed to allocate gpu memory");
+		VkH.ThrowIfNotSuccess(Vk.AllocateMemory(VkLogicalDevice, &memoryAllocateInfo, null, &deviceMemory), "Failed to allocate gpu memory");
 		return deviceMemory;
 
 		[MustUseReturnValue]
@@ -93,12 +93,12 @@ public unsafe class LogicalGpu {
 
 	public void BindBufferMemory(VkBuffer buffer, VkDeviceMemory deviceMemory) {
 		VkBindBufferMemoryInfo bindBufferMemoryInfo = new() { buffer = buffer, memory = deviceMemory, };
-		VkH.CheckSuccess(Vk.BindBufferMemory2(VkLogicalDevice, 1, &bindBufferMemoryInfo), "Failed to bind buffer memory");
+		VkH.ThrowIfNotSuccess(Vk.BindBufferMemory2(VkLogicalDevice, 1, &bindBufferMemoryInfo), "Failed to bind buffer memory");
 	}
 
 	public void BindImageMemory(VkImage image, VkDeviceMemory deviceMemory) {
 		VkBindImageMemoryInfo bindImageMemoryInfo = new() { image = image, memory = deviceMemory, };
-		VkH.CheckSuccess(Vk.BindImageMemory2(VkLogicalDevice, 1, &bindImageMemoryInfo), "Failed to bind image memory");
+		VkH.ThrowIfNotSuccess(Vk.BindImageMemory2(VkLogicalDevice, 1, &bindImageMemoryInfo), "Failed to bind image memory");
 	}
 
 	internal void Cleanup() {

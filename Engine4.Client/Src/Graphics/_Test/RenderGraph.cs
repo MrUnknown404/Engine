@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using Engine4.Client.Graphics.Vulkan;
 using Engine4.Client.Graphics.Vulkan.Objects;
@@ -420,10 +421,13 @@ public unsafe class RenderGraph {
 						};
 
 						// TODO queue object. queue for each renderPass.RenderPassStage? or always use graphics?
-						Vk.QueueSubmit(renderPass.RenderPassStage switch {
+
+						RenderPassStage stage = renderPass.RenderPassStage;
+
+						Vk.QueueSubmit(stage switch {
 								RenderPassStage.Compute or RenderPassStage.Graphics => graphicsQueue,
 								RenderPassStage.Transfer => transferQueue,
-								_ => throw new ArgumentOutOfRangeException(),
+								_ => throw new InvalidEnumArgumentException(nameof(stage)),
 						}, 1, &submitInfo, VkFence.Zero);
 					}
 				}

@@ -18,7 +18,7 @@ public sealed unsafe class VulkanDebugMessenger {
 		VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(messageSeverity, messageType);
 		VkDebugUtilsMessengerEXT debugMessenger;
 
-		VkH.CheckSuccess(Vk.CreateDebugUtilsMessengerEXT(vulkanInstance.VkInstance, &messengerCreateInfo, null, &debugMessenger), "Failed to create debug messenger");
+		VkH.ThrowIfNotSuccess(Vk.CreateDebugUtilsMessengerEXT(vulkanInstance.VkInstance, &messengerCreateInfo, null, &debugMessenger), "Failed to create debug messenger");
 		vkDebugMessenger = debugMessenger;
 	}
 
@@ -36,7 +36,7 @@ public sealed unsafe class VulkanDebugMessenger {
 				VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypePerformanceBitExt => "Performance",
 				VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeValidationBitExt => "Validation",
 				_ => throw new ArgumentOutOfRangeException(nameof(messageType), messageType, null),
-		}}] - {Marshal.PtrToStringAnsi((IntPtr)pCallbackData->pMessage) ?? throw new Exception()}"; // TODO merge into regular printing?
+		}}] - {Marshal.PtrToStringAnsi((IntPtr)pCallbackData->pMessage) ?? throw new Exception()}";
 
 		switch (messageSeverity) {
 			case >= VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityErrorBitExt: Logger.Error(message); break;

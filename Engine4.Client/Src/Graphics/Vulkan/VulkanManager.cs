@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Engine4.Client.Graphics.Vulkan.Objects;
@@ -150,7 +151,7 @@ public sealed unsafe class VulkanManager {
 	private void CheckForInstanceLayerProperties(VkLayerProperties[] availableInstanceLayerProperties) {
 		if (availableInstanceLayerProperties.Length == 0) { throw new VulkanException("Could not find any instance layer properties"); }
 		if (!CheckSupportForInstanceLayerProperties(availableInstanceLayerProperties, RequiredInstanceLayerProperties, out string[]? missingLayers)) {
-			foreach (string missingLayer in missingLayers) { Logger.Warn($"Layer \'{missingLayer}\' is not available"); } // TODO allow user to decide what to do for each missing
+			foreach (string missingLayer in missingLayers) { Logger.Fatal($"Layer \'{missingLayer}\' is not available"); } // TODO allow user to decide what to do for each missing
 			throw new VulkanException("Requested validation layers are not available");
 		}
 
@@ -181,7 +182,7 @@ public sealed unsafe class VulkanManager {
 	private void CheckForInstanceExtensionProperties(VkExtensionProperties[] availableInstanceExtensionProperties) {
 		if (availableInstanceExtensionProperties.Length == 0) { throw new VulkanException("Could not find any instance extension properties"); }
 		if (!CheckSupportForInstanceExtensionProperties(availableInstanceExtensionProperties, RequiredInstanceExtensionProperties, out string[]? missingExtensions)) {
-			foreach (string missingExtension in missingExtensions) { Logger.Warn($"Extension \'{missingExtension}\' is not available"); } // TODO allow user to decide what to do for each missing
+			foreach (string missingExtension in missingExtensions) { Logger.Fatal($"Extension \'{missingExtension}\' is not available"); } // TODO allow user to decide what to do for each missing
 			throw new VulkanException("Requested instance extensions are not available");
 		}
 
@@ -194,7 +195,7 @@ public sealed unsafe class VulkanManager {
 				bool found = false;
 
 				foreach (VkExtensionProperties properties in extensionProperties) {
-					ReadOnlySpan<byte> extensionName = properties.extensionName; // TODO this has a desc. what is it?
+					ReadOnlySpan<byte> extensionName = properties.extensionName;
 					if (Encoding.UTF8.GetString(extensionName[..extensionName.IndexOf((byte)0)]) == wantedExtension) {
 						found = true;
 						break;
@@ -321,7 +322,9 @@ public sealed unsafe class VulkanManager {
 	}
 
 	private void PrintPhysicalGpus() {
-		// TODO
+		foreach (PhysicalGpu physicalGpu in physicalGpus) {
+			// TODO print gpus. support more verbose & simplified printing
+		}
 	}
 
 	internal SurfaceReadyPhysicalGpu[] GetCapableGpus(Surface surface) {
@@ -355,7 +358,7 @@ public sealed unsafe class VulkanManager {
 			}
 		}
 
-		[MustUseReturnValue] // TODO split this for the 2 physical gpu classes. make a version of QueueFamilyIndices that doesn't use present queue?
+		[MustUseReturnValue]
 		static bool FindQueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, [NotNullWhen(true)] out QueueFamilyIndices? queueFamilyIndices) {
 			uint? graphicsFamily = null;
 			uint? presentFamily = null;
@@ -401,7 +404,7 @@ public sealed unsafe class VulkanManager {
 				}
 
 				return bestDevice;
-			default: throw new ArgumentOutOfRangeException();
+			default: throw new InvalidEnumArgumentException();
 		}
 	}
 

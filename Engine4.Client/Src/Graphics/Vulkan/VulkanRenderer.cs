@@ -24,7 +24,7 @@ public sealed unsafe class VulkanRenderer {
 	private readonly Surface surface;
 	private readonly SwapChain swapChain;
 
-	// TODO create render graph system
+	// TODO replace this render pass system with a render graph system
 	[Obsolete]
 	private readonly List<RenderPass> renderPasses = new();
 	private DepthImage? depthImage;
@@ -45,7 +45,7 @@ public sealed unsafe class VulkanRenderer {
 		this.window = window;
 		ClearColor = clearColor;
 
-		// TODO log
+		// TODO logging
 		surface = new(vulkanManager.VulkanInstance, window);
 		SurfaceReadyPhysicalGpu[] capableGpus = vulkanManager.GetCapableGpus(surface);
 		physicalGpu = vulkanManager.SelectGpu(capableGpus) ?? throw new Engine4Exception("Failed to select gpu");
@@ -56,11 +56,10 @@ public sealed unsafe class VulkanRenderer {
 		ResourceManager = logicalGpu.ResourceManager;
 		maxFramesInFlight = vulkanManager.MaxFramesInFlight;
 
-		// TODO logging
 		graphicsCommandPool = ResourceManager.CreateGraphicsCommandPool($"{debugName} Graphics Command Pool", VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit);
 		transferCommandPool = ResourceManager.CreateTransferCommandPool($"{debugName} Transfer Command Pool", VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit);
 
-		GraphicsCommandBuffer[] graphicsCommandBuffers = graphicsCommandPool.CreateCommandBuffers(maxFramesInFlight, VkCommandBufferLevel.CommandBufferLevelPrimary);
+		GraphicsCommandBuffer[] graphicsCommandBuffers = graphicsCommandPool.CreateCommandBuffers($"{debugName} Graphics Command Buffer", maxFramesInFlight, VkCommandBufferLevel.CommandBufferLevelPrimary);
 		Semaphore[] imageAvailableSemaphores = ResourceManager.CreateSemaphores($"{debugName} Image Available Semaphore", 0, maxFramesInFlight);
 		Fence[] inFlightFences = ResourceManager.CreateFences($"{debugName} In Flight Fence", maxFramesInFlight, VkFenceCreateFlagBits.FenceCreateSignaledBit);
 
@@ -69,7 +68,7 @@ public sealed unsafe class VulkanRenderer {
 	}
 
 	public void AddRenderPass(RenderPass renderPass) => renderPasses.Add(renderPass);
-	public void RemoveRenderPass(RenderPass renderPass) => throw new NotImplementedException(); // TODO
+	public void RemoveRenderPass(RenderPass renderPass) => renderPasses.Remove(renderPass);
 
 	internal void InternalRender(float delta) {
 		if (Render(delta)) { FrameCount++; }
@@ -89,7 +88,6 @@ public sealed unsafe class VulkanRenderer {
 
 			// update buffers/etc
 			UpdateBuffers(delta);
-			SyncResources(); // TODO how do i handle this?
 
 			// draw
 			GraphicsCommandBuffer graphicsCommandBuffer = frame.GraphicsCommandBuffer;
@@ -107,22 +105,21 @@ public sealed unsafe class VulkanRenderer {
 		return false;
 	}
 
-	private void UpdateBuffers(float delta) { } // TODO
-	private void SyncResources() { } // TODO
+	private void UpdateBuffers(float delta) { } // TODO implement a way of updating buffers
 
 	private bool TryBeginFrame(FrameInFlight frame) {
 		VkResult result = swapChain.AcquireNextImage(frame.ImageAvailableSemaphore, out swapChainImageIndex);
 		if (result == VkResult.ErrorOutOfDateKhr) {
 			InvalidateSwapChain();
 			return false;
-		} else if (result != VkResult.SuboptimalKhr) { VkH.CheckSuccess(result, "Failed to acquire next swap chain image"); }
+		} else if (result != VkResult.SuboptimalKhr) { VkH.ThrowIfNotSuccess(result, "Failed to acquire next swap chain image"); }
 
 		return true;
 	}
 
 	private void BeginFrame(GraphicsCommandBuffer graphicsCommandBuffer) {
 		graphicsCommandBuffer.ResetCommandBuffer();
-		VkH.CheckSuccess(graphicsCommandBuffer.BeginCommandBuffer(0), "Failed to begin command buffer");
+		VkH.ThrowIfNotSuccess(graphicsCommandBuffer.BeginCommandBuffer(0), "Failed to begin command buffer");
 
 		VkImageMemoryBarrier2 imageMemoryBarrier = new() {
 				dstAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
@@ -135,18 +132,11 @@ public sealed unsafe class VulkanRenderer {
 
 		graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier, });
 
-		graphicsCommandBuffer.CmdBeginRendering(swapChain.Extent, GetSwapChainImageView(), ClearColor, depthImage?.Image, new(1, 0)); // TODO use depth image
+		graphicsCommandBuffer.CmdBeginRendering(swapChain.Extent, GetSwapChainImageView(), ClearColor, depthImage?.Image, new(1, 0));
 	}
 
 	private void DrawFrame(GraphicsCommandBuffer commandBuffer) {
-		// RecordCommandBuffer(graphicsCommandBuffer); // TODO draw
-		// renderGraph.Render(graphicsCommandBuffer, LogicalGpu.GraphicsQueue, LogicalGpu.TransferQueue);
-
 		foreach (RenderPass renderPass in renderPasses) { renderPass.RecordCommandBuffer(commandBuffer); }
-
-		// commandBuffer.CmdBeginRendering();
-		// // draw
-		// commandBuffer.CmdEndRendering();
 	}
 
 	private void EndFrame(GraphicsCommandBuffer graphicsCommandBuffer) {
@@ -163,7 +153,7 @@ public sealed unsafe class VulkanRenderer {
 
 		graphicsCommandBuffer.CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier, });
 
-		VkH.CheckSuccess(graphicsCommandBuffer.EndCommandBuffer(), "Failed to end command buffer");
+		VkH.ThrowIfNotSuccess(graphicsCommandBuffer.EndCommandBuffer(), "Failed to end command buffer");
 	}
 
 	private void SubmitQueue(FrameInFlight frame) {
@@ -198,7 +188,7 @@ public sealed unsafe class VulkanRenderer {
 		if (result is VkResult.ErrorOutOfDateKhr or VkResult.SuboptimalKhr || IsFrameBufferSizeDirty) {
 			IsFrameBufferSizeDirty = false;
 			InvalidateSwapChain();
-		} else { VkH.CheckSuccess(result, "Failed to present queue"); }
+		} else { VkH.ThrowIfNotSuccess(result, "Failed to present queue"); }
 	}
 
 	private void InvalidateSwapChain() {
@@ -213,6 +203,8 @@ public sealed unsafe class VulkanRenderer {
 	public VkExtent2D GetSwapChainExtent() => swapChain.Extent;
 	public VkFormat GetSwapChainFormat() => swapChain.ImageFormat;
 	public VkImageView GetSwapChainImageView() => swapChain.ImageViews[swapChainImageIndex];
+
+	internal void TryCleanup() => ResourceManager.TryCleanup();
 
 	internal void Cleanup() {
 		Vk.DeviceWaitIdle(logicalGpu.VkLogicalDevice);

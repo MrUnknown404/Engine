@@ -9,8 +9,6 @@ using Semaphore = Engine4.Client.Graphics.Vulkan.Objects.Semaphore;
 
 namespace Engine4.Client.Graphics.Vulkan;
 
-// TODO add the ability to manually flag resources for destruction
-
 public sealed class VulkanResourceManager {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Vulkan);
 
@@ -81,22 +79,26 @@ public sealed class VulkanResourceManager {
 	[MustUseReturnValue]
 	public Semaphore[] CreateSemaphores(string debugName, VkSemaphoreCreateFlags semaphoreCreateFlags, uint count) {
 		Semaphore[] semaphores = new Semaphore[count];
-		for (uint i = 0; i < count; i++) { semaphores[i] = CreateSemaphore($"{debugName} [{i}]", semaphoreCreateFlags); }
+		for (uint i = 0; i < count; i++) { semaphores[i] = new($"{debugName} [{i}]", logicalGpu, semaphoreCreateFlags); }
+		Add(semaphores);
 		return semaphores;
 	}
 
 	[MustUseReturnValue]
 	public Fence[] CreateFences(string debugName, uint count, VkFenceCreateFlagBits fenceCreateFlags) {
 		Fence[] fences = new Fence[count];
-		for (uint i = 0; i < count; i++) { fences[i] = CreateFence($"{debugName} [{i}]", fenceCreateFlags); }
+		for (uint i = 0; i < count; i++) { fences[i] = new($"{debugName} [{i}]", logicalGpu, fenceCreateFlags); }
+		Add(fences);
 		return fences;
 	}
 
 	private void Add<T>(T resource) where T : VulkanResource => GetResourceList<T>().Add(resource);
+	private void Add<T>(T[] resource) where T : VulkanResource => GetResourceList<T>().Add(resource);
 
-	public void Destroy<T>(T resource) where T : VulkanResource {
-		if (!GetResourceList<T>().Remove(resource)) { Logger.Warn($"Failed to destroy resource: {resource.DebugName}. Unknown Resource"); }
-	}
+	public void EnqueueDestroy<T>(T resource) where T : VulkanResource => GetResourceList<T>().EnqueueRemove(resource);
+
+	/// <summary> Does not call Vk.DeviceWaitIdle() </summary>
+	public void DestroyNow<T>(T resource) where T : VulkanResource => GetResourceList<T>().RemoveNow(resource);
 
 	private ResourceList<T> GetResourceList<T>() where T : VulkanResource {
 		if (resourceLists.TryGetValue(typeof(T), out IResourceList? list)) { return list as ResourceList<T> ?? throw new InvalidCastException(); }
@@ -105,10 +107,20 @@ public sealed class VulkanResourceManager {
 		return list as ResourceList<T> ?? throw new InvalidCastException();
 	}
 
-	internal void Cleanup() {
-		foreach (IResourceList resourceList in resourceLists.Values) {
-			Logger.Trace($"- Cleaning up resource: {resourceList.DebugName}");
-			resourceList.Cleanup();
+	internal void TryCleanup() {
+		bool hasWaited = false;
+
+		foreach (IResourceList resourceList in resourceLists.Values.Where(static resourceList => resourceList.HasResourcesToCleanUp)) {
+			if (!hasWaited) {
+				Vk.DeviceWaitIdle(logicalGpu.VkLogicalDevice);
+				hasWaited = true;
+			}
+
+			resourceList.TryCleanup();
 		}
+	}
+
+	internal void Cleanup() {
+		foreach (IResourceList resourceList in resourceLists.Values) { resourceList.Cleanup(); }
 	}
 }

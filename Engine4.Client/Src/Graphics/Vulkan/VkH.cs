@@ -5,7 +5,7 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan;
 
-// TODO rethink the visibility of vulkan objects.
+// TODO rethink the visibility of vulkan object parameters.
 //  right now i have everything internal so only the engine uses the core components.
 //  should i keep that or expose them so the user can call "unsupported" vulkan methods?
 
@@ -42,5 +42,7 @@ public static unsafe class VkH {
 		return new(variant, major, minor, patch);
 	}
 
-	public static bool CheckSuccess(VkResult result, string failedMessage) => result == VkResult.Success ? true : throw new VulkanException($"{failedMessage}. Reason: {result}");
+	public static void ThrowIfNotSuccess(VkResult result, string failedMessage) {
+		if (result != VkResult.Success) { throw new VulkanException($"{failedMessage}. Reason: {result}"); }
+	}
 }

@@ -47,6 +47,6 @@ public sealed class VulkanStartupSettings {
 	}
 
 	internal void PrintValues() {
-		// TODO
+		// TODO print values
 	}
 }

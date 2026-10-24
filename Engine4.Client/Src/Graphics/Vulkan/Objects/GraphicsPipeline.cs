@@ -5,10 +5,10 @@ using OpenTK.Graphics.Vulkan;
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public unsafe class GraphicsPipeline : VulkanResource {
+	public override ulong Handle => Pipeline.Handle;
+
 	internal VkPipeline Pipeline { get; }
 	internal VkPipelineLayout Layout { get; }
-
-	protected override ulong Handle => Pipeline.Handle;
 
 	private readonly LogicalGpu logicalGpu;
 
@@ -38,7 +38,8 @@ public unsafe class GraphicsPipeline : VulkanResource {
 				if (pushConstantRanges != null) { layoutCreateInfo = layoutCreateInfo with { pushConstantRangeCount = (uint)pushConstantRanges.Length, pPushConstantRanges = pPushConstantRange, }; }
 
 				VkPipelineLayout layout;
-				return VkH.CheckSuccess(Vk.CreatePipelineLayout(logicalGpu.VkLogicalDevice, &layoutCreateInfo, null, &layout), "Failed to create pipeline layout") ? layout : throw new Exception(); // TODO exception
+				VkH.ThrowIfNotSuccess(Vk.CreatePipelineLayout(logicalGpu.VkLogicalDevice, &layoutCreateInfo, null, &layout), "Failed to create pipeline layout");
+				return layout;
 			}
 		}
 	}
@@ -150,9 +151,8 @@ public unsafe class GraphicsPipeline : VulkanResource {
 					};
 
 					VkPipeline graphicsPipeline;
-					return VkH.CheckSuccess(Vk.CreateGraphicsPipelines(logicalGpu.VkLogicalDevice, VkPipelineCache.Zero, 1, &graphicsPipelineCreateInfo, null, &graphicsPipeline), "Failed to create graphics pipeline") ?
-							graphicsPipeline :
-							throw new Exception(); // TODO exception
+					VkH.ThrowIfNotSuccess(Vk.CreateGraphicsPipelines(logicalGpu.VkLogicalDevice, VkPipelineCache.Zero, 1, &graphicsPipelineCreateInfo, null, &graphicsPipeline), "Failed to create graphics pipeline");
+					return graphicsPipeline;
 				}
 			}
 		}

@@ -10,7 +10,7 @@ public unsafe interface IVertex {
 			where T : unmanaged, IVertex => [ new() { binding = binding, stride = (uint)sizeof(T), inputRate = vertexInputRate, }, ];
 
 	protected static VkVertexInputAttributeDescription[] CreateAttributeDescriptions(uint binding, (VkFormat, byte)[] formats) {
-		if (formats.Length == 0) { throw new ArgumentException(); }
+		if (formats.Length == 0) { throw new ArgumentException("Formats cannot be empty", nameof(formats)); }
 
 		VkVertexInputAttributeDescription[] attributeDescriptions = new VkVertexInputAttributeDescription[formats.Length];
 		uint offset = 0;

@@ -99,7 +99,7 @@ public readonly record struct Version4Interweaved : IPackableVersion {
 		Release = release;
 		Major = major;
 		Minor = minor;
-		Hotfix = hotfix is >= 'a' and <= 'z' or char.MinValue ? hotfix : throw new ArgumentOutOfRangeException(nameof(Hotfix), $"{nameof(Hotfix)} is limited to [a-z]");
+		Hotfix = hotfix is >= 'a' and <= 'z' or char.MinValue ? hotfix : throw new ArgumentOutOfRangeException(nameof(hotfix), $"{nameof(Hotfix)} is limited to [a-z]");
 	}
 
 	public override int GetHashCode() => (int)Packed;

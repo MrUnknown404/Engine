@@ -2,41 +2,35 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
-public abstract unsafe class CommandPool : VulkanResource {
-	protected override ulong Handle => vkCommandPool.Handle;
+public abstract unsafe class CommandPool<T> : VulkanResource where T : CommandBuffer {
+	public override ulong Handle => VkCommandPool.Handle;
 
-	protected List<CommandBuffer> CommandBuffers { get; } = new();
+	protected ResourceList<T> CommandBuffers { get; } = new();
 
-	private readonly LogicalGpu logicalGpu;
-	private readonly VkCommandPool vkCommandPool;
+	protected LogicalGpu LogicalGpu { get; }
+	protected VkCommandPool VkCommandPool { get; }
 
 	protected CommandPool(string debugName, LogicalGpu logicalGpu, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamily) : base(debugName) {
-		this.logicalGpu = logicalGpu;
+		LogicalGpu = logicalGpu;
 
 		VkCommandPoolCreateInfo commandPoolCreateInfo = new() { flags = commandPoolCreateFlags, queueFamilyIndex = queueFamily, };
 		VkCommandPool commandPool;
-		VkH.CheckSuccess(Vk.CreateCommandPool(logicalGpu.VkLogicalDevice, &commandPoolCreateInfo, null, &commandPool), "Failed to create command pool");
-		vkCommandPool = commandPool;
+		VkH.ThrowIfNotSuccess(Vk.CreateCommandPool(logicalGpu.VkLogicalDevice, &commandPoolCreateInfo, null, &commandPool), "Failed to create command pool");
+		VkCommandPool = commandPool;
 	}
 
 	internal VkCommandBuffer[] InternalCreateCommandBuffers(byte count, VkCommandBufferLevel level) {
-		VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = vkCommandPool, level = level, commandBufferCount = count, };
+		VkCommandBufferAllocateInfo commandBufferAllocateInfo = new() { commandPool = VkCommandPool, level = level, commandBufferCount = count, };
 		VkCommandBuffer[] commandBuffers = new VkCommandBuffer[count];
 
 		fixed (VkCommandBuffer* commandBuffersPtr = commandBuffers) {
-			VkH.CheckSuccess(Vk.AllocateCommandBuffers(logicalGpu.VkLogicalDevice, &commandBufferAllocateInfo, commandBuffersPtr), "Failed to allocate command buffers");
+			VkH.ThrowIfNotSuccess(Vk.AllocateCommandBuffers(LogicalGpu.VkLogicalDevice, &commandBufferAllocateInfo, commandBuffersPtr), "Failed to allocate command buffers");
 			return commandBuffers;
 		}
 	}
 
 	protected internal override void Cleanup() {
-		VkDevice logicalDevice = logicalGpu.VkLogicalDevice;
-
-		if (CommandBuffers.Count != 0) { // cleanup buffers
-			VkCommandBuffer[] commandBuffers = CommandBuffers.Select(static b => b.VkCommandBuffer).ToArray();
-			fixed (VkCommandBuffer* commandBufferPtr = commandBuffers) { Vk.FreeCommandBuffers(logicalDevice, vkCommandPool, (uint)commandBuffers.Length, commandBufferPtr); }
-		}
-
-		Vk.DestroyCommandPool(logicalDevice, vkCommandPool, null);
+		CommandBuffers.Cleanup();
+		Vk.DestroyCommandPool(LogicalGpu.VkLogicalDevice, VkCommandPool, null);
 	}
 }

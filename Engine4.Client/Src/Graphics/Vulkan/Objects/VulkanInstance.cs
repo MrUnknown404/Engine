@@ -40,7 +40,7 @@ public sealed unsafe class VulkanInstance {
 		};
 
 		VkInstance vkInstance;
-		VkH.CheckSuccess(Vk.CreateInstance(&instanceCreateInfo, null, &vkInstance), "Failed to create instance");
+		VkH.ThrowIfNotSuccess(Vk.CreateInstance(&instanceCreateInfo, null, &vkInstance), "Failed to create instance");
 		VkInstance = vkInstance;
 	}
 

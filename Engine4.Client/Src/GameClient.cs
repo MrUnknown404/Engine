@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Engine4.Client.Graphics.Vulkan;
 using Engine4.Client.Utility;
 using Engine4.IO;
@@ -73,6 +74,9 @@ public abstract class GameClient : GameCore {
 			i--;
 		}
 
+		// try clean up resources
+		foreach (VulkanRenderer renderer in renderers) { renderer.TryCleanup(); } // can call Vk.DeviceWaitIdle()
+
 		base.InternalUpdate();
 	}
 
@@ -108,12 +112,15 @@ public abstract class GameClient : GameCore {
 		return renderer;
 	}
 
+	[SuppressMessage("ReSharper", "HeuristicUnreachableCode")]
 	private void SetupGlfw() {
+#pragma warning disable CS0162 // Unreachable code detected
 		switch (Engine4.OperatingSystem) {
 			case OperatingSystem.Linux: GLFW.InitHint(InitHintPlatform.Platform, Platform.Wayland); break;
 			case OperatingSystem.Windows: break; // nothing atm
 			default: throw new ArgumentOutOfRangeException();
 		}
+#pragma warning restore CS0162 // Unreachable code detected
 
 		GLFW.SetErrorCallback(GlfwErrorCallback);
 		GLFW.Init();

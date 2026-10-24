@@ -3,8 +3,9 @@ using OpenTK.Graphics.Vulkan;
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public unsafe class Semaphore : VulkanResource {
+	public override ulong Handle => VkSemaphore.Handle;
+
 	internal VkSemaphore VkSemaphore { get; }
-	protected override ulong Handle => VkSemaphore.Handle;
 
 	private readonly LogicalGpu logicalGpu;
 
@@ -13,7 +14,7 @@ public unsafe class Semaphore : VulkanResource {
 
 		VkSemaphoreCreateInfo semaphoreCreateInfo = new() { flags = semaphoreCreateFlags, };
 		VkSemaphore semaphore;
-		VkH.CheckSuccess(Vk.CreateSemaphore(logicalGpu.VkLogicalDevice, &semaphoreCreateInfo, null, &semaphore), "Failed to create semaphore");
+		VkH.ThrowIfNotSuccess(Vk.CreateSemaphore(logicalGpu.VkLogicalDevice, &semaphoreCreateInfo, null, &semaphore), "Failed to create semaphore");
 		VkSemaphore = semaphore;
 	}
 

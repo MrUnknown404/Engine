@@ -3,10 +3,10 @@ using OpenTK.Graphics.Vulkan;
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public unsafe class Fence : VulkanResource {
-	private readonly VkFence vkFence;
+	public override ulong Handle => VkFence.Handle;
 
+	private readonly VkFence vkFence;
 	internal VkFence VkFence => vkFence;
-	protected override ulong Handle => VkFence.Handle;
 
 	private readonly LogicalGpu logicalGpu;
 
@@ -15,7 +15,7 @@ public unsafe class Fence : VulkanResource {
 
 		VkFenceCreateInfo fenceCreateInfo = new() { flags = fenceCreateFlags, };
 		VkFence fence;
-		VkH.CheckSuccess(Vk.CreateFence(logicalGpu.VkLogicalDevice, &fenceCreateInfo, null, &fence), "Failed to create fence");
+		VkH.ThrowIfNotSuccess(Vk.CreateFence(logicalGpu.VkLogicalDevice, &fenceCreateInfo, null, &fence), "Failed to create fence");
 		vkFence = fence;
 	}
 
