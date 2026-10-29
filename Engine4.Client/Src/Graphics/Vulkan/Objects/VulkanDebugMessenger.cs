@@ -10,10 +10,10 @@ namespace Engine4.Client.Graphics.Vulkan.Objects;
 public sealed unsafe class VulkanDebugMessenger {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Vulkan);
 
+	private static readonly string[] MessageTypesCache;
+
 	private readonly VkDebugUtilsMessengerEXT vkDebugMessenger;
 	private readonly VulkanInstance vulkanInstance;
-
-	private static readonly string[] MessageTypesCache;
 
 	static VulkanDebugMessenger() {
 		const uint HighestValue = (uint)(VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeGeneralBitExt |

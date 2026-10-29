@@ -50,8 +50,8 @@ public sealed unsafe class VulkanRenderer {
 
 	internal VulkanRenderer(string debugName, VulkanManager vulkanManager, Shaderc shaderc, Window window, Color4 clearColor) {
 		VulkanManager = vulkanManager;
-		this.window = window;
 		ClearColor = clearColor;
+		this.window = window;
 
 		// TODO logging
 		surface = new(vulkanManager.VulkanInstance, window);

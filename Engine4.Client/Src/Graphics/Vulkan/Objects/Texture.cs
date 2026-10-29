@@ -1,44 +1,51 @@
-using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
-public unsafe class Texture : VulkanResource { // TODO
-	public override ulong Handle => Image.Handle;
+public unsafe class Texture : VulkanResource {
+	private readonly VkImage image;
+	private readonly VkImageView imageView;
+	private readonly VkDeviceMemory deviceMemory;
 
-	public VkImage Image { get; }
-	public VkImageViewCreateInfo ViewCreateInfo { get; }
-	public VkFormat Format { get; }
-	public VkImageTiling Tiling { get; }
-	public VkImageAspectFlagBits AspectMask { get; }
+	public VkImage Image => image;
+	public VkImageView ImageView => imageView;
+	public VkDeviceMemory DeviceMemory => deviceMemory;
+
+	public VkFormat ImageFormat { get; }
+	public VkImageTiling ImageTiling { get; }
+	public VkImageAspectFlagBits ImageAspectMask { get; }
 
 	public ushort Width { get; }
 	public ushort Height { get; }
 
+	public override ulong Handle => Image.Handle;
+
 	private readonly LogicalGpu logicalGpu;
 
 	internal Texture(string debugName, LogicalGpu logicalGpu, ushort width, ushort height, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlagBits usageFlags,
-		VkImageAspectFlagBits aspectMask) : base(debugName) {
+		VkImageAspectFlagBits imageAspectMask) : base(debugName) {
 		this.logicalGpu = logicalGpu;
-		Image = CreateImage(logicalGpu, width, height, imageFormat, imageTiling, usageFlags, aspectMask);
-		ViewCreateInfo = CreateViewCreateInfo(Image, Format, AspectMask);
 		Width = width;
 		Height = height;
-		Format = imageFormat;
-		Tiling = imageTiling;
-		AspectMask = aspectMask;
+		ImageFormat = imageFormat;
+		ImageTiling = imageTiling;
+		ImageAspectMask = imageAspectMask;
+
+		CreateImage(logicalGpu, width, height, imageFormat, imageTiling, usageFlags, imageAspectMask, out image, out imageView, out deviceMemory);
 	}
 
 	protected internal override void Cleanup() {
 		VkDevice logicalDevice = logicalGpu.VkLogicalDevice;
 
-		// Vk.DestroyImageView(logicalDevice, ImageView, null);
+		Vk.DestroyImageView(logicalDevice, ImageView, null);
 		Vk.DestroyImage(logicalDevice, Image, null);
-		// Vk.FreeMemory(logicalDevice, ImageMemory, null);
+		Vk.FreeMemory(logicalDevice, DeviceMemory, null);
 	}
 
-	[MustUseReturnValue]
-	private static VkImage CreateImage(LogicalGpu logicalGpu, ushort width, ushort height, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlagBits usageFlags, VkImageAspectFlagBits aspectMask) {
+	private static void CreateImage(LogicalGpu logicalGpu, ushort width, ushort height, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlagBits usageFlags, VkImageAspectFlagBits aspectMask,
+		out VkImage image, out VkImageView imageView, out VkDeviceMemory deviceMemory) {
+		VkDevice logicalDevice = logicalGpu.VkLogicalDevice;
+
 		VkImageCreateInfo imageCreateInfo = new() {
 				imageType = VkImageType.ImageType2D,
 				format = imageFormat,
@@ -53,29 +60,34 @@ public unsafe class Texture : VulkanResource { // TODO
 				arrayLayers = 1,
 		};
 
-		VkImage image;
-		VkH.ThrowIfNotSuccess(Vk.CreateImage(logicalGpu.VkLogicalDevice, &imageCreateInfo, null, &image), ""); // todo explain
-		return image; // TODO device memory
-	}
+		fixed (VkImage* pImage = &image) { VkH.ThrowIfNotSuccess(Vk.CreateImage(logicalDevice, &imageCreateInfo, null, pImage), "Failed to create image"); }
 
-	[MustUseReturnValue]
-	private static VkImageViewCreateInfo CreateViewCreateInfo(VkImage image, VkFormat format, VkImageAspectFlagBits aspectMask) =>
-			new() {
-					image = image,
-					viewType = VkImageViewType.ImageViewType2D,
-					format = format,
-					components = new() {
-							r = VkComponentSwizzle.ComponentSwizzleIdentity, //
-							g = VkComponentSwizzle.ComponentSwizzleIdentity,
-							b = VkComponentSwizzle.ComponentSwizzleIdentity,
-							a = VkComponentSwizzle.ComponentSwizzleIdentity,
-					},
-					subresourceRange = new() {
-							aspectMask = aspectMask, //
-							baseMipLevel = 0,
-							levelCount = 1,
-							baseArrayLayer = 0,
-							layerCount = 1,
-					},
-			};
+		VkImageViewCreateInfo imageViewCreateInfo = new() {
+				image = image,
+				viewType = VkImageViewType.ImageViewType2D,
+				format = imageFormat,
+				components = new() {
+						r = VkComponentSwizzle.ComponentSwizzleIdentity, //
+						g = VkComponentSwizzle.ComponentSwizzleIdentity,
+						b = VkComponentSwizzle.ComponentSwizzleIdentity,
+						a = VkComponentSwizzle.ComponentSwizzleIdentity,
+				},
+				subresourceRange = new() {
+						aspectMask = aspectMask, //
+						baseMipLevel = 0,
+						levelCount = 1,
+						baseArrayLayer = 0,
+						layerCount = 1,
+				},
+		};
+
+		fixed (VkImageView* pImageView = &imageView) { VkH.ThrowIfNotSuccess(Vk.CreateImageView(logicalDevice, &imageViewCreateInfo, null, pImageView), "Failed to create image view"); }
+
+		VkImageMemoryRequirementsInfo2 imageMemoryRequirements = new() { image = image, };
+		VkMemoryRequirements2 memoryRequirements2 = new();
+		Vk.GetImageMemoryRequirements2(logicalGpu.VkLogicalDevice, &imageMemoryRequirements, &memoryRequirements2);
+
+		deviceMemory = logicalGpu.CreateDeviceMemory(memoryRequirements2, VkMemoryPropertyFlagBits.MemoryPropertyDeviceLocalBit);
+		logicalGpu.BindImageMemory(image, deviceMemory);
+	}
 }
