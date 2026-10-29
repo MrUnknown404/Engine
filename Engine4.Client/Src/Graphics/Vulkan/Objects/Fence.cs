@@ -19,8 +19,6 @@ public unsafe class Fence : VulkanResource {
 		vkFence = fence;
 	}
 
-	protected internal override void Cleanup() => Vk.DestroyFence(logicalGpu.VkLogicalDevice, VkFence, null);
-
 	public void Wait(bool waitAll, ulong timeout) {
 		fixed (VkFence* fencePtr = &vkFence) { Vk.WaitForFences(logicalGpu.VkLogicalDevice, 1u, fencePtr, waitAll ? VkH.True : VkH.False, timeout); }
 	}
@@ -28,4 +26,6 @@ public unsafe class Fence : VulkanResource {
 	public void Reset() {
 		fixed (VkFence* fencePtr = &vkFence) { Vk.ResetFences(logicalGpu.VkLogicalDevice, 1, fencePtr); }
 	}
+
+	protected internal override void Cleanup() => Vk.DestroyFence(logicalGpu.VkLogicalDevice, VkFence, null);
 }

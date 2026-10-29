@@ -6,17 +6,15 @@ using OpenTK.Graphics.Vulkan;
 namespace Engine4.Client.Graphics.Vulkan;
 
 public unsafe class LogicalGpu {
-	internal VkDevice VkLogicalDevice { get; }
-	internal VkQueue GraphicsQueue { get; } // TODO queue objects?
-	internal VkQueue PresentQueue { get; }
-	internal VkQueue TransferQueue { get; }
+	public VkDevice VkLogicalDevice { get; }
+	public VkQueue GraphicsQueue { get; } // TODO queue objects?
+	public VkQueue PresentQueue { get; }
+	public VkQueue TransferQueue { get; }
 
-	internal VulkanResourceManager ResourceManager { get; }
 	private readonly SurfaceReadyPhysicalGpu physicalGpu;
 
 	internal LogicalGpu(SurfaceReadyPhysicalGpu physicalGpu, VulkanManager vulkanManager) {
 		this.physicalGpu = physicalGpu;
-		ResourceManager = new(physicalGpu, this, vulkanManager.Shaderc);
 
 		QueueFamilyIndices queueFamilyIndices = physicalGpu.QueueFamilyIndices;
 		HashSet<uint> queueFamilies = [ queueFamilyIndices.GraphicsFamily, queueFamilyIndices.PresentFamily, queueFamilyIndices.TransferFamily, ];
@@ -101,9 +99,5 @@ public unsafe class LogicalGpu {
 		VkH.ThrowIfNotSuccess(Vk.BindImageMemory2(VkLogicalDevice, 1, &bindImageMemoryInfo), "Failed to bind image memory");
 	}
 
-	internal void Cleanup() {
-		ResourceManager.Cleanup();
-
-		Vk.DestroyDevice(VkLogicalDevice, null);
-	}
+	internal void Cleanup() => Vk.DestroyDevice(VkLogicalDevice, null);
 }

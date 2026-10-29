@@ -8,8 +8,8 @@ using Semaphore = Engine4.Client.Graphics.Vulkan.Objects.Semaphore;
 namespace Engine4.Client.Graphics.Vulkan;
 
 public sealed class VulkanResourceManager {
-	private SurfaceReadyPhysicalGpu physicalGpu;
-	private LogicalGpu logicalGpu;
+	private readonly SurfaceReadyPhysicalGpu physicalGpu;
+	private readonly LogicalGpu logicalGpu;
 	private readonly Shaderc shaderc;
 
 	private readonly Dictionary<Type, IResourceList> resourceLists = new();

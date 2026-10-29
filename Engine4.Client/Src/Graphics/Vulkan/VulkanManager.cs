@@ -10,8 +10,6 @@ using NLog;
 using OpenTK.Graphics;
 using OpenTK.Graphics.Vulkan;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using Silk.NET.Core.Loader;
-using Silk.NET.Shaderc;
 using USharpLibs.Common.Utils;
 
 namespace Engine4.Client.Graphics.Vulkan;
@@ -19,27 +17,33 @@ namespace Engine4.Client.Graphics.Vulkan;
 public sealed unsafe class VulkanManager {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
 
-	public VkPresentModeKHR PresentMode { get; } // TODO support setting this at runtime
-	public byte MaxFramesInFlight { get; }
-
+	// properties
 	public readonly string[] RequiredInstanceLayerProperties;
 	public readonly string[] RequiredInstanceExtensionProperties;
 	public readonly string[] RequiredDeviceExtensionProperties;
 
-	public Shaderc Shaderc { get; }
+	public VkPresentModeKHR PresentMode { get; } // TODO support setting this at runtime
+	public bool AllowEnableAnisotropy { get; }
 
+	public byte MaxFramesInFlight { get; } // move?
+
+	// objects
 	public VulkanInstance VulkanInstance { get; }
+
+	private readonly PhysicalGpu[] physicalGpus;
+
 #if DEBUG
 	private readonly VulkanDebugMessenger debugMessenger;
 #endif
-	private readonly PhysicalGpu[] physicalGpus;
 
+	// other
 	private readonly SelectGpuMode selectGpuMode;
 	private readonly SelectGpuDelegate? getManualGpuFunc;
 	private readonly RateGpuSuitabilityDelegate? rateGpuSuitability;
 
 	internal VulkanManager(GameClient game, VulkanStartupSettings vulkanStartupSettings) {
 		PresentMode = vulkanStartupSettings.PresentMode;
+		AllowEnableAnisotropy = vulkanStartupSettings.AllowEnableAnisotropy;
 		MaxFramesInFlight = vulkanStartupSettings.MaxFramesInFlight;
 
 		selectGpuMode = vulkanStartupSettings.SelectGpuMode;
@@ -102,16 +106,10 @@ public sealed unsafe class VulkanManager {
 		physicalGpus = GetSuitablePhysicalGpus(VulkanInstance, vulkanStartupSettings);
 		Logger.Trace($"Sorted {physicalGpus.Length} physical gpus");
 		PrintPhysicalGpus();
-
-		// shaderc
-		Shaderc = new(Shaderc.CreateDefaultContext(new ShadercSearchPathContainer().GetLibraryNames()));
 	}
 
 	internal void Cleanup() {
-		Logger.Trace("- Cleaning up final resources...");
-
-		Logger.Trace("- Cleaning up Shaderc...");
-		Shaderc.Dispose();
+		Logger.Trace("Cleaning up final resources...");
 
 		Logger.Trace("- Cleaning up debugger...");
 		debugMessenger.Cleanup();
@@ -406,14 +404,5 @@ public sealed unsafe class VulkanManager {
 				return bestDevice;
 			default: throw new InvalidEnumArgumentException();
 		}
-	}
-
-	private class ShadercSearchPathContainer : SearchPathContainer {
-		public override string[] Linux => new[] { "libshaderc_shared.so", "libshaderc.so", };
-		public override string[] MacOS => new[] { "libshaderc_shared.dylib", };
-		public override string[] Android => new[] { "libshaderc_shared.so", };
-		public override string[] IOS => new[] { string.Empty, };
-		public override string[] Windows64 => new[] { "shaderc_shared.dll", };
-		public override string[] Windows86 => new[] { "shaderc_shared.dll", };
 	}
 }

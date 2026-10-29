@@ -9,6 +9,8 @@ using Engine4.Utility.Versions;
 using NLog;
 using OpenTK.Graphics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using Silk.NET.Core.Loader;
+using Silk.NET.Shaderc;
 using OperatingSystem = Engine4.Utility.Compatability.OperatingSystem;
 using ImGuiNet = Hexa.NET.ImGui.ImGui;
 
@@ -28,10 +30,11 @@ public abstract class GameClient : GameCore {
 	private readonly Dictionary<Window, VulkanRenderer> windowToRenderer = new();
 
 	protected VulkanManager? VulkanManager { get; private set; }
+	protected Shaderc Shaderc { get; }
 
 	protected bool AnyWindowsExist => windows.Count != 0;
 
-	protected GameClient(string name, IPackableVersion version) : base(name, version) { }
+	protected GameClient(string name, IPackableVersion version) : base(name, version) => Shaderc = new(Shaderc.CreateDefaultContext(new ShadercSearchPathContainer().GetLibraryNames()));
 
 	protected sealed override void SetupInternals(StartupSettings coreSettings) {
 		if (coreSettings is not ClientStartupSettings clientSettings) { throw new ArgumentException($"{nameof(coreSettings)} needs to be of type {nameof(ClientStartupSettings)}"); }
@@ -96,7 +99,7 @@ public abstract class GameClient : GameCore {
 		window = new(title, width, height, setWindowHints);
 
 		Logger.Debug("Creating renderer...");
-		renderer = new(rendererName, VulkanManager ?? throw new IllegalStateException(), window, clearColor);
+		renderer = new(rendererName, VulkanManager ?? throw new IllegalStateException(), Shaderc, window, clearColor);
 
 		windows.Add(window);
 		renderers.Add(renderer);
@@ -157,6 +160,9 @@ public abstract class GameClient : GameCore {
 	protected sealed override void InternalCleanup() {
 		base.InternalCleanup();
 
+		Logger.Trace("Cleaning up Shaderc...");
+		Shaderc.Dispose();
+
 		if (IsVulkanEnabled) {
 			Logger.Trace("Cleaning up Vulkan...");
 
@@ -185,4 +191,13 @@ public abstract class GameClient : GameCore {
 
 	private static readonly Logger GlfwLogger = LoggerH.GetLogger(LogSource.Glfw);
 	private static void GlfwErrorCallback(ErrorCode error, string description) => GlfwLogger.Error($"[{error}] {description}");
+
+	private class ShadercSearchPathContainer : SearchPathContainer {
+		public override string[] Linux => new[] { "libshaderc_shared.so", "libshaderc.so", };
+		public override string[] MacOS => new[] { "libshaderc_shared.dylib", };
+		public override string[] Android => new[] { "libshaderc_shared.so", };
+		public override string[] IOS => new[] { string.Empty, };
+		public override string[] Windows64 => new[] { "shaderc_shared.dll", };
+		public override string[] Windows86 => new[] { "shaderc_shared.dll", };
+	}
 }

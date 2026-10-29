@@ -1,37 +1,38 @@
 using Engine4.Client.Graphics.ImGui;
 using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.Client.Rendering;
-using Engine4.IO;
 using Engine4.Utility.Exceptions;
 using Engine4.Utility.Math;
 using Hexa.NET.ImGui;
-using NLog;
 using OpenTK.Graphics.Vulkan;
+using Silk.NET.Shaderc;
 using Semaphore = Engine4.Client.Graphics.Vulkan.Objects.Semaphore;
 
 namespace Engine4.Client.Graphics.Vulkan;
 
 // TODO add way of rendering to a texture or convert to ascii then display to console
 public sealed unsafe class VulkanRenderer {
-	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
+	// public objects
+	public VulkanResourceManager ResourceManager { get; }
 
+	// properties
 	public Color4 ClearColor { get; }
 	public ulong FrameCount { get; private set; }
 
-	public VulkanResourceManager ResourceManager { get; }
+	// vulkan objects
 	private readonly SurfaceReadyPhysicalGpu physicalGpu;
 	private readonly LogicalGpu logicalGpu;
 	private readonly Window window;
 	private readonly Surface surface;
 	private readonly SwapChain swapChain;
 
+	private readonly GraphicsCommandPool graphicsCommandPool;
+	private readonly TransferCommandPool transferCommandPool;
+
 	// TODO replace this render pass system with a render graph system
 	[Obsolete]
 	private readonly List<RenderPass> renderPasses = new();
 	private DepthImage? depthImage;
-
-	private readonly GraphicsCommandPool graphicsCommandPool;
-	private readonly TransferCommandPool transferCommandPool;
 
 	// frames in flight
 	private readonly FrameInFlight[] framesInFlight;
@@ -46,7 +47,7 @@ public sealed unsafe class VulkanRenderer {
 	private readonly ImGuiBackend imGuiBackend; // TODO use
 	private readonly ImGuiRenderer imGuiRenderer; // ^
 
-	internal VulkanRenderer(string debugName, VulkanManager vulkanManager, Window window, Color4 clearColor) {
+	internal VulkanRenderer(string debugName, VulkanManager vulkanManager, Shaderc shaderc, Window window, Color4 clearColor) {
 		this.window = window;
 		ClearColor = clearColor;
 
@@ -55,10 +56,11 @@ public sealed unsafe class VulkanRenderer {
 		SurfaceReadyPhysicalGpu[] capableGpus = vulkanManager.GetCapableGpus(surface);
 		physicalGpu = vulkanManager.SelectGpu(capableGpus) ?? throw new Engine4Exception("Failed to select gpu");
 		logicalGpu = new(physicalGpu, vulkanManager);
-		swapChain = new(window, physicalGpu, logicalGpu, surface, vulkanManager.PresentMode);
-		renderFinishedSemaphores = logicalGpu.ResourceManager.CreateSemaphores("Render Finished Semaphore", 0, swapChain.ImageCount);
+		ResourceManager = new(physicalGpu, logicalGpu, shaderc);
 
-		ResourceManager = logicalGpu.ResourceManager;
+		swapChain = new(window, physicalGpu, logicalGpu, surface, vulkanManager.PresentMode);
+		renderFinishedSemaphores = ResourceManager.CreateSemaphores("Render Finished Semaphore", 0, swapChain.ImageCount);
+
 		maxFramesInFlight = vulkanManager.MaxFramesInFlight;
 
 		graphicsCommandPool = ResourceManager.CreateGraphicsCommandPool($"{debugName} Graphics Command Pool", VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit);
@@ -232,6 +234,8 @@ public sealed unsafe class VulkanRenderer {
 		// resources
 		swapChain.Cleanup();
 		surface.Cleanup();
+
+		ResourceManager.Cleanup();
 
 		logicalGpu.Cleanup();
 	}

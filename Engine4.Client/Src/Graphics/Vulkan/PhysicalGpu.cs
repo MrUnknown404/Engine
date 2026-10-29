@@ -3,10 +3,10 @@ using OpenTK.Graphics.Vulkan;
 namespace Engine4.Client.Graphics.Vulkan;
 
 public unsafe class PhysicalGpu {
-	internal VkPhysicalDevice VkPhysicalDevice { get; }
-	internal VkPhysicalDeviceProperties2 PhysicalDeviceProperties2 { get; }
-	internal VkPhysicalDeviceFeatures2 PhysicalDeviceFeatures2 { get; }
-	internal VkPhysicalDeviceMemoryProperties2 PhysicalDeviceMemoryProperties2 { get; }
+	public VkPhysicalDevice VkPhysicalDevice { get; }
+	public VkPhysicalDeviceProperties2 PhysicalDeviceProperties2 { get; }
+	public VkPhysicalDeviceFeatures2 PhysicalDeviceFeatures2 { get; }
+	public VkPhysicalDeviceMemoryProperties2 PhysicalDeviceMemoryProperties2 { get; }
 
 	protected PhysicalGpu(VkPhysicalDevice vkPhysicalDevice, VkPhysicalDeviceProperties2 physicalDeviceProperties2, VkPhysicalDeviceFeatures2 physicalDeviceFeatures2) {
 		VkPhysicalDevice = vkPhysicalDevice;
