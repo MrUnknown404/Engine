@@ -65,7 +65,7 @@ public unsafe class VulkanBuffer : VulkanResource {
 	[MustUseReturnValue]
 	public ulong GetBufferDeviceAddress() {
 		VkBufferDeviceAddressInfo bufferDeviceAddressInfo = new() { buffer = VkBuffer, };
-		return Vk.GetBufferDeviceAddress(logicalGpu.VkLogicalDevice, &bufferDeviceAddressInfo);
+		return Vk.GetBufferDeviceAddress(logicalGpu.VkLogicalDevice, &bufferDeviceAddressInfo); // TODO cache?
 	}
 
 	// uint64_t getBufferDeviceAddress(vks::Buffer &buffer) {

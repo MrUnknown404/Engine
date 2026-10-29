@@ -28,11 +28,33 @@ public unsafe class LogicalGpu {
 		}
 
 		// TODO allow these to be editable
-		VkPhysicalDeviceVulkan11Features physicalDeviceVulkan11Features = new() { shaderDrawParameters = VkH.True, };
-		VkPhysicalDeviceVulkan12Features physicalDeviceVulkan12Features = new() { pNext = &physicalDeviceVulkan11Features, drawIndirectCount = VkH.True, scalarBlockLayout = VkH.True, };
-		VkPhysicalDeviceVulkan13Features physicalDeviceVulkan13Features = new() { pNext = &physicalDeviceVulkan12Features, synchronization2 = VkH.True, dynamicRendering = VkH.True, };
-		VkPhysicalDeviceVulkan14Features physicalDeviceVulkan14Features = new() { pNext = &physicalDeviceVulkan13Features, dynamicRenderingLocalRead = VkH.True, };
-		VkPhysicalDeviceFeatures physicalDeviceFeatures = new() { samplerAnisotropy = VkH.True, multiDrawIndirect = VkH.True, };
+		VkPhysicalDeviceVulkan11Features physicalDeviceVulkan11Features = new() {
+				// pNext = ,
+				shaderDrawParameters = VkH.True,
+		};
+
+		VkPhysicalDeviceVulkan12Features physicalDeviceVulkan12Features = new() {
+				pNext = &physicalDeviceVulkan11Features, //
+				drawIndirectCount = VkH.True,
+				scalarBlockLayout = VkH.True,
+				shaderSampledImageArrayNonUniformIndexing = VkH.True,
+		};
+
+		VkPhysicalDeviceVulkan13Features physicalDeviceVulkan13Features = new() {
+				pNext = &physicalDeviceVulkan12Features, //
+				synchronization2 = VkH.True,
+				dynamicRendering = VkH.True,
+		};
+
+		VkPhysicalDeviceVulkan14Features physicalDeviceVulkan14Features = new() {
+				pNext = &physicalDeviceVulkan13Features, //
+				dynamicRenderingLocalRead = VkH.True,
+		};
+
+		VkPhysicalDeviceFeatures physicalDeviceFeatures = new() {
+				samplerAnisotropy = VkH.True, //
+				multiDrawIndirect = VkH.True,
+		};
 
 		using StringArrayUtf8Ptr requiredDeviceExtensionPropertiesPtr = new(vulkanManager.RequiredDeviceExtensionProperties);
 

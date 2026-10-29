@@ -1,3 +1,4 @@
+using Engine4.Client.Graphics._Test;
 using Engine4.Client.Utility.Extensions;
 using Engine4.Utility.Math;
 using OpenTK.Graphics.Vulkan;
@@ -63,8 +64,15 @@ public unsafe class GraphicsCommandBuffer : CommandBuffer {
 	}
 
 	// push constants
+	[Obsolete]
 	public void CmdPushConstants<T>(VkPipelineLayout pipelineLayout, VkShaderStageFlagBits shaderStageFlags, T data, uint offset = 0) where T : unmanaged =>
 			Vk.CmdPushConstants(VkCommandBuffer, pipelineLayout, shaderStageFlags, offset, (uint)sizeof(T), &data);
+
+	// push data
+	public void CmdPushData<T>(T data, uint offset = 0) where T : unmanaged {
+		VkPushDataInfoEXT pushDataInfo = new() { data = new() { address = &data, size = (nuint)sizeof(T), }, offset = offset, };
+		Vk.CmdPushDataEXT(VkCommandBuffer, &pushDataInfo);
+	}
 
 	// bind pipeline
 	public void CmdBindGraphicsPipeline(GraphicsPipeline graphicsPipeline) => Vk.CmdBindPipeline(VkCommandBuffer, VkPipelineBindPoint.PipelineBindPointGraphics, graphicsPipeline.Pipeline);
@@ -85,6 +93,32 @@ public unsafe class GraphicsCommandBuffer : CommandBuffer {
 
 			Vk.CmdBindDescriptorSets2(VkCommandBuffer, &bindDescriptorSetsInfo);
 		}
+	}
+
+	public void CmdBindSamplerHeap(SamplerDescriptors samplerDescriptors) {
+		VkBindHeapInfoEXT bindHeapInfo = new() {
+				heapRange = new() {
+						address = samplerDescriptors.DeviceAddress, //
+						size = samplerDescriptors.SamplerHeapBuffer.Size,
+				},
+				reservedRangeOffset = samplerDescriptors.SamplerHeapBuffer.Size - samplerDescriptors.MinHeapReservedRange,
+				reservedRangeSize = samplerDescriptors.MinHeapReservedRange,
+		};
+
+		Vk.CmdBindSamplerHeapEXT(VkCommandBuffer, &bindHeapInfo);
+	}
+
+	public void CmdBindResourceHeap(ResourceDescriptors resourceDescriptors) {
+		VkBindHeapInfoEXT bindHeapInfo = new() {
+				heapRange = new() {
+						address = resourceDescriptors.DeviceAddress, //
+						size = resourceDescriptors.ResourceHeapBuffer.Size,
+				},
+				reservedRangeOffset = resourceDescriptors.ResourceHeapBuffer.Size - resourceDescriptors.MinHeapReservedRange,
+				reservedRangeSize = resourceDescriptors.MinHeapReservedRange,
+		};
+
+		Vk.CmdBindResourceHeapEXT(VkCommandBuffer, &bindHeapInfo);
 	}
 
 	// bind vertex
