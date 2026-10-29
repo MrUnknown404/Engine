@@ -13,6 +13,7 @@ namespace Engine4.Client.Graphics.Vulkan;
 // TODO add way of rendering to a texture or convert to ascii then display to console
 public sealed unsafe class VulkanRenderer {
 	// public objects
+	public VulkanManager VulkanManager { get; }
 	public VulkanResourceManager ResourceManager { get; }
 
 	// properties
@@ -20,8 +21,8 @@ public sealed unsafe class VulkanRenderer {
 	public ulong FrameCount { get; private set; }
 
 	// vulkan objects
-	private readonly SurfaceReadyPhysicalGpu physicalGpu;
-	private readonly LogicalGpu logicalGpu;
+	public SurfaceReadyPhysicalGpu PhysicalGpu { get; }
+	public LogicalGpu LogicalGpu { get; }
 	private readonly Window window;
 	private readonly Surface surface;
 	private readonly SwapChain swapChain;
@@ -48,17 +49,18 @@ public sealed unsafe class VulkanRenderer {
 	private readonly ImGuiRenderer imGuiRenderer; // ^
 
 	internal VulkanRenderer(string debugName, VulkanManager vulkanManager, Shaderc shaderc, Window window, Color4 clearColor) {
+		VulkanManager = vulkanManager;
 		this.window = window;
 		ClearColor = clearColor;
 
 		// TODO logging
 		surface = new(vulkanManager.VulkanInstance, window);
 		SurfaceReadyPhysicalGpu[] capableGpus = vulkanManager.GetCapableGpus(surface);
-		physicalGpu = vulkanManager.SelectGpu(capableGpus) ?? throw new Engine4Exception("Failed to select gpu");
-		logicalGpu = new(physicalGpu, vulkanManager);
-		ResourceManager = new(physicalGpu, logicalGpu, shaderc);
+		PhysicalGpu = vulkanManager.SelectGpu(capableGpus) ?? throw new Engine4Exception("Failed to select gpu");
+		LogicalGpu = new(PhysicalGpu, vulkanManager);
+		ResourceManager = new(PhysicalGpu, LogicalGpu, shaderc);
 
-		swapChain = new(window, physicalGpu, logicalGpu, surface, vulkanManager.PresentMode);
+		swapChain = new(window, PhysicalGpu, LogicalGpu, surface, vulkanManager.PresentMode);
 		renderFinishedSemaphores = ResourceManager.CreateSemaphores("Render Finished Semaphore", 0, swapChain.ImageCount);
 
 		maxFramesInFlight = vulkanManager.MaxFramesInFlight;
@@ -188,7 +190,7 @@ public sealed unsafe class VulkanRenderer {
 				pSignalSemaphores = &signalSemaphore,
 		};
 
-		Vk.QueueSubmit(logicalGpu.GraphicsQueue, 1, &submitInfo, frame.InFlightFence.VkFence);
+		Vk.QueueSubmit(LogicalGpu.GraphicsQueue, 1, &submitInfo, frame.InFlightFence.VkFence);
 	}
 
 	private void PresentFrame() {
@@ -198,7 +200,7 @@ public sealed unsafe class VulkanRenderer {
 		VkResult result;
 		fixed (uint* swapChainImageIndexPtr = &swapChainImageIndex) {
 			VkPresentInfoKHR presentInfo = new() { waitSemaphoreCount = 1, pWaitSemaphores = &waitSemaphore, swapchainCount = 1, pSwapchains = &swapChain, pImageIndices = swapChainImageIndexPtr, };
-			result = Vk.QueuePresentKHR(logicalGpu.PresentQueue, &presentInfo);
+			result = Vk.QueuePresentKHR(LogicalGpu.PresentQueue, &presentInfo);
 		}
 
 		if (result is VkResult.ErrorOutOfDateKhr or VkResult.SuboptimalKhr || window.IsFrameBufferSizeDirty) {
@@ -216,7 +218,7 @@ public sealed unsafe class VulkanRenderer {
 		imGuiBackend.Resize(window);
 	}
 
-	public VkFormat GetDepthFormat() => physicalGpu.DepthFormat;
+	public VkFormat GetDepthFormat() => PhysicalGpu.DepthFormat;
 
 	public VkExtent2D GetSwapChainExtent() => swapChain.Extent;
 	public VkFormat GetSwapChainFormat() => swapChain.ImageFormat;
@@ -225,7 +227,7 @@ public sealed unsafe class VulkanRenderer {
 	internal void TryCleanup() => ResourceManager.TryCleanup();
 
 	internal void Cleanup() {
-		Vk.DeviceWaitIdle(logicalGpu.VkLogicalDevice);
+		Vk.DeviceWaitIdle(LogicalGpu.VkLogicalDevice);
 
 		// imgui
 		imGuiRenderer.Cleanup();
@@ -237,7 +239,7 @@ public sealed unsafe class VulkanRenderer {
 
 		ResourceManager.Cleanup();
 
-		logicalGpu.Cleanup();
+		LogicalGpu.Cleanup();
 	}
 
 	private class FrameInFlight {

@@ -20,12 +20,12 @@ public unsafe class DescriptorSetLayout : VulkanResource {
 
 	[MustUseReturnValue]
 	private static VkDescriptorSetLayout CreateDescriptorSetLayout(LogicalGpu logicalGpu, DescriptorSetInfo[] descriptorSets) {
-		VkDescriptorSetLayoutBinding[] bindings = descriptorSets.Select(static info => new VkDescriptorSetLayoutBinding {
+		VkDescriptorSetLayoutBinding[] descriptorSetLayoutBindings = descriptorSets.Select(static info => new VkDescriptorSetLayoutBinding {
 				binding = info.BindingLocation, descriptorType = info.DescriptorType, stageFlags = info.StageFlags, descriptorCount = 1,
 		}).ToArray();
 
-		fixed (VkDescriptorSetLayoutBinding* bindingsPtr = bindings) {
-			VkDescriptorSetLayoutCreateInfo layoutCreateInfo = new() { bindingCount = (uint)bindings.Length, pBindings = bindingsPtr, };
+		fixed (VkDescriptorSetLayoutBinding* pDescriptorSetLayoutBindings = descriptorSetLayoutBindings) {
+			VkDescriptorSetLayoutCreateInfo layoutCreateInfo = new() { bindingCount = (uint)descriptorSetLayoutBindings.Length, pBindings = pDescriptorSetLayoutBindings, };
 			VkDescriptorSetLayout descriptorSetLayout;
 			VkH.ThrowIfNotSuccess(Vk.CreateDescriptorSetLayout(logicalGpu.VkLogicalDevice, &layoutCreateInfo, null, &descriptorSetLayout), "Failed to create descriptor set layout");
 			return descriptorSetLayout;

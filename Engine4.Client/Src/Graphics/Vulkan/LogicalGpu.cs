@@ -69,7 +69,7 @@ public unsafe class LogicalGpu {
 		VkMemoryRequirements memoryRequirements = memoryRequirements2.memoryRequirements;
 
 		VkMemoryAllocateInfo memoryAllocateInfo = new() {
-				allocationSize = memoryRequirements.size, memoryTypeIndex = FindMemoryType(physicalGpu.PhysicalDeviceMemoryProperties2.memoryProperties, memoryRequirements.memoryTypeBits, memoryPropertyFlags),
+				allocationSize = memoryRequirements.size, memoryTypeIndex = FindMemoryType(physicalGpu.MemoryProperties2.memoryProperties, memoryRequirements.memoryTypeBits, memoryPropertyFlags),
 		};
 
 		// TODO "It should be noted that in a real world application, you're not supposed to actually call vkAllocateMemory for every individual buffer.

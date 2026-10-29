@@ -502,7 +502,7 @@ public unsafe class RenderGraph {
 		public VkImageLayout InitialLayout { get; }
 		public VkImageLayout FinalLayout { get; }
 
-		public VulkanTexture Texture { get; }
+		public Texture Texture { get; }
 
 		public ImageResourceData(VulkanResourceManager resourceManager, string resourceName, VkFormat format, VkExtent2D extent, VkImageUsageFlagBits usage, VkImageLayout initialLayout, VkImageLayout finalLayout) {
 			Format = format;
@@ -510,7 +510,7 @@ public unsafe class RenderGraph {
 			Usage = usage;
 			InitialLayout = initialLayout;
 			FinalLayout = finalLayout;
-			Texture = resourceManager.CreateTexture(resourceName);
+			Texture = null!; //resourceManager.CreateTexture(resourceName);
 		}
 	}
 }

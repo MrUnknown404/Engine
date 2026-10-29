@@ -57,7 +57,7 @@ public sealed unsafe class RenderGraph3 {
 	}
 
 	[MustUseReturnValue]
-	public TextureHandle AddPersistentTexture(string resourceName, VulkanTexture texture) {
+	public TextureHandle AddPersistentTexture(string resourceName, Texture texture) {
 		TextureHandle handle = new(resourceName);
 		if (!persistentResources.TryAdd(handle, new ImageResourceData(texture) { Persistent = true, })) { throw new Exception(); } // TODO exception
 
@@ -110,7 +110,7 @@ public sealed unsafe class RenderGraph3 {
 	public VulkanBuffer GetBuffer(BufferHandle handle) => (GetResource(handle) as BufferResourceData ?? throw new InvalidCastException()).Buffer;
 
 	[MustUseReturnValue]
-	public VulkanTexture GetTexture(TextureHandle handle) => (GetResource(handle) as ImageResourceData ?? throw new InvalidCastException()).Texture;
+	public Texture GetTexture(TextureHandle handle) => (GetResource(handle) as ImageResourceData ?? throw new InvalidCastException()).Texture;
 
 	private void Compile(IEnumerable<RenderPass3> allRenderPasses, out RenderPass3[] outSortedRenderPasses) {
 		// TODO logging
@@ -162,7 +162,7 @@ public sealed unsafe class RenderGraph3 {
 
 				if (graphicsPass is { DepthImageHandle: { } depthImageHandle, DepthStencil: { } depthStencil, }) {
 					depthAttachment = new() {
-							imageView = GetTexture(depthImageHandle).View,
+							imageView = default, // GetTexture(depthImageHandle).View,
 							imageLayout = VkImageLayout.ImageLayoutAttachmentOptimalKhr,
 							loadOp = VkAttachmentLoadOp.AttachmentLoadOpClear,
 							storeOp = VkAttachmentStoreOp.AttachmentStoreOpStore,
@@ -332,7 +332,7 @@ public sealed unsafe class RenderGraph3 {
 			cachedResources.Add(handle, resourceCreationData switch { // TODO union?
 					BufferCreationData bufferCreationData => new BufferResourceData(ResourceManager.CreateBuffer(handle.Name, bufferCreationData.Size, bufferCreationData.UsageFlags, bufferCreationData.CreateFlags,
 						bufferCreationData.MemoryPropertyFlags)),
-					TextureCreationData textureCreationData => new ImageResourceData(ResourceManager.CreateTexture(handle.Name)),
+					TextureCreationData textureCreationData => null!, // new ImageResourceData(ResourceManager.CreateTexture(handle.Name)),
 					_ => throw new ArgumentOutOfRangeException(nameof(resourceCreationData)),
 			});
 		}
@@ -506,10 +506,10 @@ public sealed unsafe class RenderGraph3 {
 	}
 
 	public sealed class ImageResourceData : ResourceData {
-		public VulkanTexture Texture { get; }
+		public Texture Texture { get; }
 		public VkImageLayout CurrentLayout { get; set; }
 
-		internal ImageResourceData(VulkanTexture texture) => Texture = texture;
+		internal ImageResourceData(Texture texture) => Texture = texture;
 	}
 
 	public abstract class ResourceCreationData {

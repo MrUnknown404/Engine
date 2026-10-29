@@ -13,6 +13,20 @@ public sealed unsafe class VulkanDebugMessenger {
 	private readonly VkDebugUtilsMessengerEXT vkDebugMessenger;
 	private readonly VulkanInstance vulkanInstance;
 
+	private static readonly string[] MessageTypesCache;
+
+	static VulkanDebugMessenger() {
+		const uint HighestValue = (uint)(VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeGeneralBitExt |
+										 VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeValidationBitExt |
+										 VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypePerformanceBitExt |
+										 VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeDeviceAddressBindingBitExt);
+
+		MessageTypesCache = new string[HighestValue];
+		MessageTypesCache[0] = "Unknown";
+
+		for (int i = 1; i < HighestValue; i++) { MessageTypesCache[i] = ((VkDebugUtilsMessageTypeFlagBitsEXT)i).ToString().Replace("DebugUtilsMessageType", string.Empty).Replace("BitExt", string.Empty); }
+	}
+
 	internal VulkanDebugMessenger(VulkanInstance vulkanInstance, VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagBitsEXT messageType) {
 		this.vulkanInstance = vulkanInstance;
 		VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(messageSeverity, messageType);
@@ -30,13 +44,7 @@ public sealed unsafe class VulkanDebugMessenger {
 
 	[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl), })]
 	private static int VulkanDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagBitsEXT messageType, VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
-		string message = $"[{messageType switch {
-				VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeDeviceAddressBindingBitExt => "Device Address Binding",
-				VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeGeneralBitExt => "General",
-				VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypePerformanceBitExt => "Performance",
-				VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeValidationBitExt => "Validation",
-				_ => throw new ArgumentOutOfRangeException(nameof(messageType), messageType, null),
-		}}] - {Marshal.PtrToStringAnsi((IntPtr)pCallbackData->pMessage) ?? throw new Exception()}";
+		string message = $"[{MessageTypesCache[(uint)messageType]}] - {Marshal.PtrToStringAnsi((IntPtr)pCallbackData->pMessage) ?? throw new Exception()}";
 
 		switch (messageSeverity) {
 			case >= VkDebugUtilsMessageSeverityFlagBitsEXT.DebugUtilsMessageSeverityErrorBitExt: Logger.Error(message); break;

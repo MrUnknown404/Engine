@@ -50,16 +50,18 @@ public sealed class VulkanResourceManager {
 
 	[MustUseReturnValue]
 	public VulkanBuffer CreateBuffer(string debugName, ulong size, VkBufferUsageFlagBits2 usageFlags, VkBufferCreateFlagBits createFlags, VkMemoryPropertyFlagBits memoryPropertyFlags) {
-		VulkanBuffer vulkanBuffer = new(debugName, logicalGpu, size, usageFlags, createFlags, memoryPropertyFlags);
-		Add(vulkanBuffer);
-		return vulkanBuffer;
+		VulkanBuffer buffer = new(debugName, logicalGpu, size, usageFlags, createFlags, memoryPropertyFlags);
+		Add(buffer);
+		return buffer;
 	}
 
 	[MustUseReturnValue]
-	public VulkanTexture CreateTexture(string debugName) => throw new NotImplementedException(); // TODO
-
-	[MustUseReturnValue]
-	public TextureSampler CreateTextureSampler(string debugName) => throw new NotImplementedException(); // TODO
+	public Texture CreateTexture(string debugName, ushort width, ushort height, VkFormat imageFormat, VkImageTiling imageTiling = VkImageTiling.ImageTilingOptimal,
+		VkImageUsageFlagBits usageFlags = VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits aspectMask = VkImageAspectFlagBits.ImageAspectColorBit) {
+		Texture texture = new(debugName, logicalGpu, width, height, imageFormat, imageTiling, usageFlags, aspectMask);
+		Add(texture);
+		return texture;
+	}
 
 	[Obsolete]
 	[MustUseReturnValue]

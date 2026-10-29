@@ -58,7 +58,6 @@ public sealed unsafe class VulkanManager {
 		]);
 
 		HashSet<string> requiredEngineInstanceExtensionProperties = new([
-				Vk.KhrSurfaceExtensionName, //
 				Vk.KhrGetSurfaceCapabilities2ExtensionName,
 #if DEBUG
 				Vk.ExtDebugUtilsExtensionName,
@@ -69,7 +68,6 @@ public sealed unsafe class VulkanManager {
 
 		HashSet<string> requiredEngineDeviceExtensionProperties = new([
 				Vk.KhrSwapchainExtensionName, //
-				Vk.KhrDynamicRenderingExtensionName,
 		]);
 
 		HashSet<string> requiredInstanceLayerProperties = new(requiredEngineInstanceLayerProperties);

@@ -3,13 +3,12 @@ using System.Runtime.InteropServices;
 using Engine4.Client.Graphics.Vulkan;
 using Engine4.Client.Graphics.Vulkan.Objects;
 using Hexa.NET.ImGui;
-using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 using USharpLibs.Common.Math;
 
 namespace Engine4.Client.Graphics.ImGui;
 
-public unsafe class ImGuiRenderer {
+public unsafe class ImGuiRenderer { // TODO
 	private const string ImGuiAssetName = "ImGui";
 
 	private readonly VulkanResourceManager resourceManager;
@@ -105,16 +104,16 @@ public unsafe class ImGuiRenderer {
 		// TODO
 	}
 
-	[MustUseReturnValue]
-	private IntPtr AddTexture(VulkanTexture image, byte maxFramesInFlight) { // TODO add remove
-		DescriptorPool descriptorPool = resourceManager.CreateDescriptorPool($"{ImGuiAssetName} Image Descriptor Pool", [ VkDescriptorType.DescriptorTypeSampledImage, ], 1, maxFramesInFlight); // TODO use existing pool
-		DescriptorSets descriptorSets = descriptorPool.AllocateDescriptorSets(imageDescriptorSetsLayout);
-		descriptorSets.UpdateDescriptorSet(0, image.View);
-
-		nint id = imageDescriptors.Count;
-		imageDescriptors[id] = descriptorSets;
-		return id;
-	}
+	// [MustUseReturnValue]
+	// private IntPtr AddTexture(Texture image, byte maxFramesInFlight) { // TODO add remove
+	// 	DescriptorPool descriptorPool = resourceManager.CreateDescriptorPool($"{ImGuiAssetName} Image Descriptor Pool", [ VkDescriptorType.DescriptorTypeSampledImage, ], 1, maxFramesInFlight); // TODO use existing pool
+	// 	DescriptorSets descriptorSets = descriptorPool.AllocateDescriptorSets(imageDescriptorSetsLayout);
+	// 	descriptorSets.UpdateDescriptorSet(0, image.View);
+	//
+	// 	nint id = imageDescriptors.Count;
+	// 	imageDescriptors[id] = descriptorSets;
+	// 	return id;
+	// }
 
 	private static void CreatePipeline(VulkanResourceManager resourceManager, VkFormat swapFormatImageFormat, byte maxFramesInFlight, ImGuiFragmentShaderConstants shaderConstants, out GraphicsPipeline graphicsPipeline,
 		out DescriptorSets samplerDescriptorSet, out DescriptorSetLayout imageDescriptorSetLayout) {

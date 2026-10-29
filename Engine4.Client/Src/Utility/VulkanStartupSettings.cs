@@ -37,7 +37,7 @@ public sealed class VulkanStartupSettings {
 	public RateGpuSuitabilityDelegate? RateGpuSuitability { get; init; } = DefaultRateGpuSuitability;
 
 	private static int DefaultRateGpuSuitability(SurfaceReadyPhysicalGpu physicalGpu) {
-		VkPhysicalDeviceProperties deviceProperties = physicalGpu.PhysicalDeviceProperties2.properties;
+		VkPhysicalDeviceProperties deviceProperties = physicalGpu.Properties2.properties;
 		int score = 0;
 
 		if (deviceProperties.deviceType == VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu) { score += 1000; } // prioritize discreate

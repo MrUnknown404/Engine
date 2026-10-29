@@ -62,6 +62,21 @@ public unsafe class VulkanBuffer : VulkanResource {
 		Vk.UnmapMemory2(logicalGpu.VkLogicalDevice, &memoryUnmapInfo);
 	}
 
+	[MustUseReturnValue]
+	public ulong GetBufferDeviceAddress() {
+		VkBufferDeviceAddressInfo bufferDeviceAddressInfo = new() { buffer = VkBuffer, };
+		return Vk.GetBufferDeviceAddress(logicalGpu.VkLogicalDevice, &bufferDeviceAddressInfo);
+	}
+
+	// uint64_t getBufferDeviceAddress(vks::Buffer &buffer) {
+	// 	VkBufferDeviceAddressInfoKHR bufferDeviceAI{ .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = buffer.buffer
+	// 	}
+	//
+	// 	;
+	// 	buffer.deviceAddress = vkGetBufferDeviceAddress(device, &bufferDeviceAI);
+	// 	return buffer.deviceAddress;
+	// }
+
 	protected internal override void Cleanup() {
 		VkDevice logicalDevice = logicalGpu.VkLogicalDevice;
 		Vk.DestroyBuffer(logicalDevice, VkBuffer, null);
