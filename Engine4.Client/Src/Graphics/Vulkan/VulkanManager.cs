@@ -26,9 +26,9 @@ public sealed unsafe class VulkanManager {
 	public readonly string[] RequiredInstanceExtensionProperties;
 	public readonly string[] RequiredDeviceExtensionProperties;
 
-	internal Shaderc Shaderc { get; }
+	public Shaderc Shaderc { get; }
 
-	internal VulkanInstance VulkanInstance { get; }
+	public VulkanInstance VulkanInstance { get; }
 #if DEBUG
 	private readonly VulkanDebugMessenger debugMessenger;
 #endif
@@ -38,13 +38,13 @@ public sealed unsafe class VulkanManager {
 	private readonly SelectGpuDelegate? getManualGpuFunc;
 	private readonly RateGpuSuitabilityDelegate? rateGpuSuitability;
 
-	internal VulkanManager(GameClient game, VulkanStartupSettings vulkanSettings) {
-		PresentMode = vulkanSettings.PresentMode;
-		MaxFramesInFlight = vulkanSettings.MaxFramesInFlight;
+	internal VulkanManager(GameClient game, VulkanStartupSettings vulkanStartupSettings) {
+		PresentMode = vulkanStartupSettings.PresentMode;
+		MaxFramesInFlight = vulkanStartupSettings.MaxFramesInFlight;
 
-		selectGpuMode = vulkanSettings.SelectGpuMode;
-		getManualGpuFunc = vulkanSettings.GetManualGpuFunc;
-		rateGpuSuitability = vulkanSettings.RateGpuSuitability;
+		selectGpuMode = vulkanStartupSettings.SelectGpuMode;
+		getManualGpuFunc = vulkanStartupSettings.GetManualGpuFunc;
+		rateGpuSuitability = vulkanStartupSettings.RateGpuSuitability;
 
 		// layers/extensions
 		HashSet<string> requiredEngineInstanceLayerProperties = new([
@@ -69,15 +69,15 @@ public sealed unsafe class VulkanManager {
 		]);
 
 		HashSet<string> requiredInstanceLayerProperties = new(requiredEngineInstanceLayerProperties);
-		requiredInstanceLayerProperties.UnionWith(vulkanSettings.RequiredInstanceLayerProperties);
+		requiredInstanceLayerProperties.UnionWith(vulkanStartupSettings.RequiredInstanceLayerProperties);
 		RequiredInstanceLayerProperties = requiredInstanceLayerProperties.ToArray();
 
 		HashSet<string> requiredInstanceExtensionProperties = new(requiredEngineInstanceExtensionProperties);
-		requiredInstanceExtensionProperties.UnionWith(vulkanSettings.RequiredInstanceExtensionProperties);
+		requiredInstanceExtensionProperties.UnionWith(vulkanStartupSettings.RequiredInstanceExtensionProperties);
 		RequiredInstanceExtensionProperties = requiredInstanceExtensionProperties.ToArray();
 
 		HashSet<string> requiredDeviceExtensionProperties = new(requiredEngineDeviceExtensionProperties);
-		requiredDeviceExtensionProperties.UnionWith(vulkanSettings.RequiredDeviceExtensionProperties);
+		requiredDeviceExtensionProperties.UnionWith(vulkanStartupSettings.RequiredDeviceExtensionProperties);
 		RequiredDeviceExtensionProperties = requiredDeviceExtensionProperties.ToArray();
 
 		// check for instance/extension properties
@@ -90,16 +90,16 @@ public sealed unsafe class VulkanManager {
 		CheckForInstanceExtensionProperties(availableInstanceExtensionProperties);
 
 		// create instance
-		VulkanInstance = new(game, vulkanSettings, this);
+		VulkanInstance = new(game, vulkanStartupSettings, this);
 		VKLoader.SetInstance(VulkanInstance.VkInstance); // set opentk instance
 		Logger.Trace("Created VkInstance");
 
 		// debugger
-		debugMessenger = new(VulkanInstance, vulkanSettings.EnabledDebugMessageSeverities, vulkanSettings.EnabledDebugMessageTypes);
+		debugMessenger = new(VulkanInstance, vulkanStartupSettings.EnabledDebugMessageSeverities, vulkanStartupSettings.EnabledDebugMessageTypes);
 		Logger.Trace("Created Vulkan Debug Messenger");
 
 		// get physical gpus
-		physicalGpus = GetSuitablePhysicalGpus(VulkanInstance, vulkanSettings);
+		physicalGpus = GetSuitablePhysicalGpus(VulkanInstance, vulkanStartupSettings);
 		Logger.Trace($"Sorted {physicalGpus.Length} physical gpus");
 		PrintPhysicalGpus();
 
@@ -231,7 +231,7 @@ public sealed unsafe class VulkanManager {
 	}
 
 	[MustUseReturnValue]
-	private PhysicalGpu[] GetSuitablePhysicalGpus(VulkanInstance vulkanInstance, VulkanStartupSettings vulkanSettings) {
+	private PhysicalGpu[] GetSuitablePhysicalGpus(VulkanInstance vulkanInstance, VulkanStartupSettings vulkanStartupSettings) {
 		VkPhysicalDevice[] availablePhysicalDevices = GetAvailablePhysicalDevices(vulkanInstance);
 
 		List<PhysicalGpu> physicalGpus = new();
@@ -243,8 +243,8 @@ public sealed unsafe class VulkanManager {
 
 			PhysicalGpuProperties properties = new(physicalDeviceProperties2, physicalDeviceFeatures2);
 
-			if (!IsPhysicalDeviceSuitableForEngine(vulkanSettings, properties)) { continue; }
-			if (!vulkanSettings.IsPhysicalDeviceSuitable?.Invoke(properties) ?? false) { continue; }
+			if (!IsPhysicalDeviceSuitableForEngine(vulkanStartupSettings, properties)) { continue; }
+			if (!vulkanStartupSettings.IsPhysicalDeviceSuitable?.Invoke(properties) ?? false) { continue; }
 
 			VkExtensionProperties[] physicalDeviceExtensionProperties = GetPhysicalDeviceExtensionProperties(physicalDevice);
 			if (physicalDeviceExtensionProperties.Length == 0) { continue; }
@@ -271,7 +271,7 @@ public sealed unsafe class VulkanManager {
 		}
 
 		[MustUseReturnValue]
-		static bool IsPhysicalDeviceSuitableForEngine(VulkanStartupSettings vulkanSettings, PhysicalGpuProperties physicalGpuProperties) {
+		static bool IsPhysicalDeviceSuitableForEngine(VulkanStartupSettings vulkanStartupSettings, PhysicalGpuProperties physicalGpuProperties) {
 			VkPhysicalDeviceProperties properties = physicalGpuProperties.PhysicalDeviceProperties2.properties;
 			VkPhysicalDeviceFeatures features = physicalGpuProperties.PhysicalDeviceFeatures2.features;
 
@@ -279,7 +279,7 @@ public sealed unsafe class VulkanManager {
 					or VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu
 					or VkPhysicalDeviceType.PhysicalDeviceTypeVirtualGpu;
 
-			if (vulkanSettings.AllowEnableAnisotropy) { isValid &= features.samplerAnisotropy == Vk.True; }
+			if (vulkanStartupSettings.AllowEnableAnisotropy) { isValid &= features.samplerAnisotropy == Vk.True; }
 
 			return isValid;
 		}

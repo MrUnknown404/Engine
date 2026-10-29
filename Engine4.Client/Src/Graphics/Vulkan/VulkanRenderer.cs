@@ -1,8 +1,10 @@
+using Engine4.Client.Graphics.ImGui;
 using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.Client.Rendering;
 using Engine4.IO;
 using Engine4.Utility.Exceptions;
 using Engine4.Utility.Math;
+using Hexa.NET.ImGui;
 using NLog;
 using OpenTK.Graphics.Vulkan;
 using Semaphore = Engine4.Client.Graphics.Vulkan.Objects.Semaphore;
@@ -15,7 +17,6 @@ public sealed unsafe class VulkanRenderer {
 
 	public Color4 ClearColor { get; }
 	public ulong FrameCount { get; private set; }
-	public bool IsFrameBufferSizeDirty { get; private set; } // TODO move? set on resize
 
 	public VulkanResourceManager ResourceManager { get; }
 	private readonly SurfaceReadyPhysicalGpu physicalGpu;
@@ -41,6 +42,10 @@ public sealed unsafe class VulkanRenderer {
 	private readonly Semaphore[] renderFinishedSemaphores;
 	private uint swapChainImageIndex;
 
+	// imgui
+	private readonly ImGuiBackend imGuiBackend; // TODO use
+	private readonly ImGuiRenderer imGuiRenderer; // ^
+
 	internal VulkanRenderer(string debugName, VulkanManager vulkanManager, Window window, Color4 clearColor) {
 		this.window = window;
 		ClearColor = clearColor;
@@ -51,7 +56,7 @@ public sealed unsafe class VulkanRenderer {
 		physicalGpu = vulkanManager.SelectGpu(capableGpus) ?? throw new Engine4Exception("Failed to select gpu");
 		logicalGpu = new(physicalGpu, vulkanManager);
 		swapChain = new(window, physicalGpu, logicalGpu, surface, vulkanManager.PresentMode);
-		renderFinishedSemaphores = logicalGpu.ResourceManager.CreateSemaphores("Render Finished Semaphore", 0, (uint)swapChain.Images.Length);
+		renderFinishedSemaphores = logicalGpu.ResourceManager.CreateSemaphores("Render Finished Semaphore", 0, swapChain.ImageCount);
 
 		ResourceManager = logicalGpu.ResourceManager;
 		maxFramesInFlight = vulkanManager.MaxFramesInFlight;
@@ -65,6 +70,10 @@ public sealed unsafe class VulkanRenderer {
 
 		framesInFlight = new FrameInFlight[maxFramesInFlight];
 		for (int i = 0; i < maxFramesInFlight; i++) { framesInFlight[i] = new(graphicsCommandBuffers[i], imageAvailableSemaphores[i], inFlightFences[i]); }
+
+		// imgui
+		imGuiBackend = new(window);
+		imGuiRenderer = new(ResourceManager, GetSwapChainFormat(), maxFramesInFlight, new(true));
 	}
 
 	public void AddRenderPass(RenderPass renderPass) => renderPasses.Add(renderPass);
@@ -88,11 +97,16 @@ public sealed unsafe class VulkanRenderer {
 
 			// update buffers/etc
 			UpdateBuffers(delta);
+			bool hasImGuiDrawData = imGuiBackend.NewFrame(out ImDrawDataPtr? imDrawData);
+			if (hasImGuiDrawData) { imGuiRenderer.CopyBuffers(imDrawData!.Value, delta); } // not null if true
 
 			// draw
 			GraphicsCommandBuffer graphicsCommandBuffer = frame.GraphicsCommandBuffer;
 			BeginFrame(graphicsCommandBuffer);
+
 			DrawFrame(graphicsCommandBuffer);
+			if (hasImGuiDrawData) { imGuiRenderer.DrawFrame(graphicsCommandBuffer, currentFrameInFlight, imDrawData!.Value); } // not null if true
+
 			EndFrame(graphicsCommandBuffer);
 			SubmitQueue(frame);
 
@@ -185,17 +199,19 @@ public sealed unsafe class VulkanRenderer {
 			result = Vk.QueuePresentKHR(logicalGpu.PresentQueue, &presentInfo);
 		}
 
-		if (result is VkResult.ErrorOutOfDateKhr or VkResult.SuboptimalKhr || IsFrameBufferSizeDirty) {
-			IsFrameBufferSizeDirty = false;
+		if (result is VkResult.ErrorOutOfDateKhr or VkResult.SuboptimalKhr || window.IsFrameBufferSizeDirty) {
+			window.IsFrameBufferSizeDirty = false;
 			InvalidateSwapChain();
 		} else { VkH.ThrowIfNotSuccess(result, "Failed to present queue"); }
 	}
 
 	private void InvalidateSwapChain() {
-		Logger.Trace("Swapchain is invalid. Recreating...");
+		// Logger.Trace("Swapchain is invalid. Recreating...");
 
 		swapChain.Recreate();
 		// DepthImage?.Recreate(SwapChain.Extent);
+
+		imGuiBackend.Resize(window);
 	}
 
 	public VkFormat GetDepthFormat() => physicalGpu.DepthFormat;
@@ -209,6 +225,11 @@ public sealed unsafe class VulkanRenderer {
 	internal void Cleanup() {
 		Vk.DeviceWaitIdle(logicalGpu.VkLogicalDevice);
 
+		// imgui
+		imGuiRenderer.Cleanup();
+		imGuiBackend.Cleanup();
+
+		// resources
 		swapChain.Cleanup();
 		surface.Cleanup();
 

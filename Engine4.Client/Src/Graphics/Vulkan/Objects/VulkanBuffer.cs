@@ -50,14 +50,14 @@ public unsafe class VulkanBuffer : VulkanResource {
 	}
 
 	[MustUseReturnValue]
-	private void* MapMemory(ulong size, ulong offset = 0) {
+	public void* MapMemory(ulong size, ulong offset = 0) {
 		VkMemoryMapInfo memoryMapInfo = new() { memory = DeviceMemory, size = size, offset = offset, };
 		void* dstPtr;
 		Vk.MapMemory2(logicalGpu.VkLogicalDevice, &memoryMapInfo, &dstPtr);
 		return dstPtr;
 	}
 
-	private void UnmapMemory() {
+	public void UnmapMemory() {
 		VkMemoryUnmapInfo memoryUnmapInfo = new() { memory = DeviceMemory, };
 		Vk.UnmapMemory2(logicalGpu.VkLogicalDevice, &memoryUnmapInfo);
 	}

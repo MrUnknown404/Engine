@@ -34,8 +34,9 @@ public unsafe class VulkanShader : VulkanResource {
 
 	[MustUseReturnValue]
 	private static VkShaderModule CreateShaderModule(Shaderc shaderc, LogicalGpu logicalGpu, string fileLocation, Assembly assembly, ShaderLanguage shaderLang, ShaderType shaderType, string debugName) {
-		using Stream? shaderStream = AssetH.GetAssetStream($"Shaders.{fileLocation}.{shaderType.FileExtension}.{shaderLang.FileExtension}", assembly);
-		if (shaderStream == null) { throw new Engine4Exception("Failed to create asset stream"); }
+		string fullFileLocation = $"Shaders.{fileLocation}.{shaderType.FileExtension}.{shaderLang.FileExtension}";
+		using Stream? shaderStream = AssetH.GetAssetStream(fullFileLocation, assembly);
+		if (shaderStream == null) { throw new Engine4Exception($"Failed to create asset stream at: '{fullFileLocation}' in assembly: {assembly.GetName().Name}"); }
 
 		return shaderLang switch {
 				ShaderLanguage.Glsl or ShaderLanguage.Hlsl => CompileShader(shaderc, logicalGpu, shaderStream, debugName, shaderLang, shaderType),

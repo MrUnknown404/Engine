@@ -69,6 +69,24 @@ public unsafe class GraphicsCommandBuffer : CommandBuffer {
 	// bind pipeline
 	public void CmdBindGraphicsPipeline(GraphicsPipeline graphicsPipeline) => Vk.CmdBindPipeline(VkCommandBuffer, VkPipelineBindPoint.PipelineBindPointGraphics, graphicsPipeline.Pipeline);
 
+	// bind descriptor sets
+	[Obsolete]
+	public void CmdBindDescriptorSet(VkPipelineLayout pipelineLayout, VkDescriptorSet descriptorSet, VkShaderStageFlagBits shaderStageFlags, uint firstSet = 0) {
+		VkBindDescriptorSetsInfo bindDescriptorSetsInfo = new() { layout = pipelineLayout, descriptorSetCount = 1, pDescriptorSets = &descriptorSet, firstSet = firstSet, stageFlags = shaderStageFlags, };
+		Vk.CmdBindDescriptorSets2(VkCommandBuffer, &bindDescriptorSetsInfo);
+	}
+
+	[Obsolete]
+	public void CmdBindDescriptorSets(VkPipelineLayout pipelineLayout, VkDescriptorSet[] descriptorSets, VkShaderStageFlagBits shaderStageFlags, uint firstSet = 0) {
+		fixed (VkDescriptorSet* pDescriptorSets = descriptorSets) {
+			VkBindDescriptorSetsInfo bindDescriptorSetsInfo = new() {
+					layout = pipelineLayout, descriptorSetCount = (uint)descriptorSets.Length, pDescriptorSets = pDescriptorSets, firstSet = firstSet, stageFlags = shaderStageFlags,
+			};
+
+			Vk.CmdBindDescriptorSets2(VkCommandBuffer, &bindDescriptorSetsInfo);
+		}
+	}
+
 	// bind vertex
 	public void CmdBindVertexBuffer(VulkanBuffer buffer, uint firstBinding, ulong offset = 0) {
 		VkBuffer vkBuffer = buffer.VkBuffer;

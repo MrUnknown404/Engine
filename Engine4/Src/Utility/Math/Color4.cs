@@ -19,6 +19,13 @@ public readonly record struct Color4 {
 		A = vector.W;
 	}
 
+	public Color4(Vec4<float> vec4) {
+		R = vec4.X;
+		G = vec4.Y;
+		B = vec4.Z;
+		A = vec4.W;
+	}
+
 	public Color4(float r, float g, float b, float a) {
 		R = r;
 		G = g;

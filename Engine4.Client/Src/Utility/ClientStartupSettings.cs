@@ -7,14 +7,25 @@ namespace Engine4.Client.Utility;
 public sealed class ClientStartupSettings : StartupSettings {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
 
-	public VulkanStartupSettings? VulkanSettings { get; init; }
+	/// <summary> Enables the use of Windows </summary>
+	public bool EnableGlfw { get; init; }
+	/// <summary> Enables the use of Vulkan. Set by setting <see cref="VulkanSettings"/> to not null </summary>
+	public bool EnableVulkan { get; private init; }
 
-	public bool LoadGlfw { get; init; }
+	public VulkanStartupSettings? VulkanSettings {
+		get;
+		init {
+			field = value;
+			EnableVulkan = field != null;
+		}
+	}
 
 	protected override void PrintValues() {
-		base.PrintValues();
+		base.PrintValues(); //
 
-		Logger.Debug($"- {nameof(LoadGlfw)}: {LoadGlfw}");
+		Logger.Trace($"- {nameof(EnableGlfw)}: {EnableGlfw}");
+		Logger.Trace($"- {nameof(EnableVulkan)}: {EnableVulkan}");
+
 		VulkanSettings?.PrintValues();
 	}
 }

@@ -10,17 +10,18 @@ using NLog;
 using OpenTK.Graphics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using OperatingSystem = Engine4.Utility.Compatability.OperatingSystem;
+using ImGuiNet = Hexa.NET.ImGui.ImGui;
 
 namespace Engine4.Client;
 
-// https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/Engine_Architecture/05_rendering_pipeline.html read
+// TODO https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/Engine_Architecture/05_rendering_pipeline.html read
 
 public abstract class GameClient : GameCore {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
 
 	// windowing & graphics
 	public bool IsGlfwEnabled { get; private set; } // note: not set until SetupInternals()
-	public bool IsVulkanEnabled { get; private set; }
+	public bool IsVulkanEnabled { get; private set; } // ^
 
 	private readonly List<Window> windows = new(); // TODO window/renderer should impl HashCode
 	private readonly List<VulkanRenderer> renderers = new(); // TODO allow removal
@@ -37,18 +38,15 @@ public abstract class GameClient : GameCore {
 
 		base.SetupInternals(coreSettings);
 
-		if (clientSettings.LoadGlfw) {
-			Logger.Debug("Loading Glfw...");
-			IsGlfwEnabled = true;
+		if (clientSettings.EnableGlfw) {
+			if (!clientSettings.EnableVulkan) { Logger.Warn("Glfw is enabled but Vulkan is not. Vulkan is required to draw to a Window"); }
 
 			SetupGlfw();
 		}
 
-		if (clientSettings.VulkanSettings != null) {
-			Logger.Debug("Loading Vulkan...");
-			IsVulkanEnabled = true;
-
-			SetupVulkan(clientSettings.VulkanSettings);
+		if (clientSettings.EnableVulkan) {
+			SetupVulkan(clientSettings.VulkanSettings ?? throw new IllegalStateException());
+			SetupImGui();
 		}
 	}
 
@@ -88,32 +86,28 @@ public abstract class GameClient : GameCore {
 		foreach (VulkanRenderer renderer in renderers) { renderer.InternalRender(delta); } // TODO time individual renderers
 	}
 
-	protected Window CreateWindow(string title, ushort width, ushort height) {
-		if (!IsGlfwEnabled) { throw new Engine4Exception($"Cannot create a {nameof(Window)} when Glfw is not loaded"); }
+	protected void CreateWindow(string title, ushort width, ushort height, string rendererName, Color4 clearColor, out Window window, out VulkanRenderer renderer, Action? setWindowHints = null) {
+		if (!IsGlfwEnabled) { throw new Engine4Exception($"Cannot create a {nameof(Window)} when Glfw is not enabled"); }
+		if (!IsVulkanEnabled) { throw new Engine4Exception($"Cannot create a {nameof(VulkanRenderer)} when Vulkan is not enabled"); }
+
 		if (VulkanManager == null) { throw new IllegalStateException(); }
 
 		Logger.Debug("Creating window...");
-		Window window = new(title, width, height);
-
-		windows.Add(window);
-		return window;
-	}
-
-	protected VulkanRenderer CreateRenderer(string debugName, Window window, Color4 clearColor) {
-		if (!IsVulkanEnabled) { throw new Engine4Exception($"Cannot create a {nameof(VulkanRenderer)} when Vulkan is not loaded"); }
-		if (VulkanManager == null) { throw new IllegalStateException(); }
+		window = new(title, width, height, setWindowHints);
 
 		Logger.Debug("Creating renderer...");
-		VulkanRenderer renderer = new(debugName, VulkanManager, window, clearColor);
+		renderer = new(rendererName, VulkanManager ?? throw new IllegalStateException(), window, clearColor);
 
+		windows.Add(window);
 		renderers.Add(renderer);
 		windowToRenderer.Add(window, renderer);
-
-		return renderer;
 	}
 
 	[SuppressMessage("ReSharper", "HeuristicUnreachableCode")]
 	private void SetupGlfw() {
+		Logger.Debug("Glfw is enabled. Loading Glfw...");
+		IsGlfwEnabled = true;
+
 #pragma warning disable CS0162 // Unreachable code detected
 		switch (Engine4.OperatingSystem) {
 			case OperatingSystem.Linux: GLFW.InitHint(InitHintPlatform.Platform, Platform.Wayland); break;
@@ -144,7 +138,10 @@ public abstract class GameClient : GameCore {
 		Logger.Debug($"GLFW successfully set up. Version: {GLFW.GetVersionString()}, Platform: {GLFW.GetPlatform()}");
 	}
 
-	private void SetupVulkan(VulkanStartupSettings vulkanSettings) {
+	private void SetupVulkan(VulkanStartupSettings vulkanStartupSettings) {
+		Logger.Debug("Vulkan is enabled. Loading Vulkan...");
+		IsVulkanEnabled = true;
+
 		Logger.Trace("Loading Vulkan bindings...");
 		VKLoader.Init();
 
@@ -152,9 +149,10 @@ public abstract class GameClient : GameCore {
 		VkH.GetApiVersion(out uint apiVersion, out _, out byte major, out ushort minor, out ushort patch);
 		Logger.Debug($"- Version: {major}.{minor}.{patch} ({apiVersion})");
 
-		VulkanManager = new(this, vulkanSettings);
-		// TODO print version
+		VulkanManager = new(this, vulkanStartupSettings);
 	}
+
+	private void SetupImGui() => Logger.Debug($"- ImGui Version: {ImGuiNet.GetVersionS()}");
 
 	protected sealed override void InternalCleanup() {
 		base.InternalCleanup();

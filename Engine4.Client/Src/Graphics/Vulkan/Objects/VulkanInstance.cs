@@ -6,7 +6,7 @@ namespace Engine4.Client.Graphics.Vulkan.Objects;
 public sealed unsafe class VulkanInstance {
 	internal VkInstance VkInstance { get; }
 
-	internal VulkanInstance(GameClient game, VulkanStartupSettings vulkanSettings, VulkanManager vulkanManager) {
+	internal VulkanInstance(GameClient game, VulkanStartupSettings vulkanStartupSettings, VulkanManager vulkanManager) {
 		using StringUtf8Ptr appNamePtr = new(game.Name);
 		using StringUtf8Ptr engineNamePtr = new(Engine4.Name);
 
@@ -25,7 +25,7 @@ public sealed unsafe class VulkanInstance {
 		using StringArrayUtf8Ptr requiredInstanceExtensionPropertiesPtr = new(requiredInstanceExtensionProperties);
 
 #if DEBUG
-		VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo = VulkanDebugMessenger.CreateDebugUtilsMessengerCreateInfoEXT(vulkanSettings.EnabledDebugMessageSeverities, vulkanSettings.EnabledDebugMessageTypes);
+		VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo = VulkanDebugMessenger.CreateDebugUtilsMessengerCreateInfoEXT(vulkanStartupSettings.EnabledDebugMessageSeverities, vulkanStartupSettings.EnabledDebugMessageTypes);
 #endif
 
 		VkInstanceCreateInfo instanceCreateInfo = new() {

@@ -17,6 +17,12 @@ public readonly record struct Color3 {
 		B = vector.Z;
 	}
 
+	public Color3(Vec3<float> vec3) {
+		R = vec3.X;
+		G = vec3.Y;
+		B = vec3.Z;
+	}
+
 	public Color3(float r, float g, float b) {
 		R = r;
 		G = g;

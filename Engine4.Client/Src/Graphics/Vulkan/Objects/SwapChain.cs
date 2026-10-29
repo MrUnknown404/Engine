@@ -23,6 +23,8 @@ public unsafe class SwapChain {
 	internal VkImage[] Images { get; private set; }
 	internal VkImageView[] ImageViews { get; private set; }
 
+	public uint ImageCount { get; private set; }
+
 	internal SwapChain(Window window, SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, Surface surface, VkPresentModeKHR presentMode) {
 		this.window = window;
 		this.physicalGpu = physicalGpu;
@@ -35,14 +37,13 @@ public unsafe class SwapChain {
 		Extent = swapChainExtent;
 		Images = GetSwapChainImages(logicalGpu, VkSwapChain);
 		ImageViews = CreateImageViews(logicalGpu, Images, ImageFormat, VkImageAspectFlagBits.ImageAspectColorBit);
+		ImageCount = (uint)Images.Length;
 	}
 
 	internal void Recreate() {
 		Vk.DeviceWaitIdle(logicalGpu.VkLogicalDevice);
 
 		VkSwapchainKHR vkSwapChain = CreateSwapChain(window, physicalGpu, logicalGpu, surface, presentMode, out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat, null, VkSwapChain);
-
-		Logger.Trace("Recreated swap chain");
 
 		Cleanup();
 
@@ -51,6 +52,7 @@ public unsafe class SwapChain {
 		Extent = swapChainExtent;
 		Images = GetSwapChainImages(logicalGpu, VkSwapChain);
 		ImageViews = CreateImageViews(logicalGpu, Images, swapChainImageFormat, VkImageAspectFlagBits.ImageAspectColorBit);
+		ImageCount = (uint)Images.Length;
 	}
 
 	[MustUseReturnValue]

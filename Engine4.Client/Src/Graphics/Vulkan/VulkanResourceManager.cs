@@ -1,8 +1,6 @@
 using System.Reflection;
 using Engine4.Client.Graphics.Vulkan.Objects;
-using Engine4.IO;
 using JetBrains.Annotations;
-using NLog;
 using OpenTK.Graphics.Vulkan;
 using Silk.NET.Shaderc;
 using Semaphore = Engine4.Client.Graphics.Vulkan.Objects.Semaphore;
@@ -10,10 +8,8 @@ using Semaphore = Engine4.Client.Graphics.Vulkan.Objects.Semaphore;
 namespace Engine4.Client.Graphics.Vulkan;
 
 public sealed class VulkanResourceManager {
-	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Vulkan);
-
-	private readonly SurfaceReadyPhysicalGpu physicalGpu;
-	private readonly LogicalGpu logicalGpu;
+	private SurfaceReadyPhysicalGpu physicalGpu;
+	private LogicalGpu logicalGpu;
 	private readonly Shaderc shaderc;
 
 	private readonly Dictionary<Type, IResourceList> resourceLists = new();
@@ -63,6 +59,25 @@ public sealed class VulkanResourceManager {
 	public VulkanTexture CreateTexture(string debugName) => throw new NotImplementedException(); // TODO
 
 	[MustUseReturnValue]
+	public TextureSampler CreateTextureSampler(string debugName) => throw new NotImplementedException(); // TODO
+
+	[Obsolete]
+	[MustUseReturnValue]
+	public DescriptorSetLayout CreateDescriptorSetLayout(string debugName, DescriptorSetInfo[] descriptorSets) {
+		DescriptorSetLayout descriptorSetLayout = new(debugName, logicalGpu, descriptorSets);
+		Add(descriptorSetLayout);
+		return descriptorSetLayout;
+	}
+
+	[Obsolete]
+	[MustUseReturnValue]
+	public DescriptorPool CreateDescriptorPool(string debugName, VkDescriptorType[] descriptorSetTypes, uint count, byte maxFramesInFlight, VkDescriptorPoolCreateFlagBits descriptorPoolCreateFlags = 0) {
+		DescriptorPool descriptorPool = new(debugName, logicalGpu, count, descriptorSetTypes, maxFramesInFlight, descriptorPoolCreateFlags);
+		Add(descriptorPool);
+		return descriptorPool;
+	}
+
+	[MustUseReturnValue]
 	public Semaphore CreateSemaphore(string debugName, VkSemaphoreCreateFlags semaphoreCreateFlags) {
 		Semaphore semaphore = new(debugName, logicalGpu, semaphoreCreateFlags);
 		Add(semaphore);
@@ -100,6 +115,7 @@ public sealed class VulkanResourceManager {
 	/// <summary> Does not call Vk.DeviceWaitIdle() </summary>
 	public void DestroyNow<T>(T resource) where T : VulkanResource => GetResourceList<T>().RemoveNow(resource);
 
+	[MustUseReturnValue]
 	private ResourceList<T> GetResourceList<T>() where T : VulkanResource {
 		if (resourceLists.TryGetValue(typeof(T), out IResourceList? list)) { return list as ResourceList<T> ?? throw new InvalidCastException(); }
 		list = new ResourceList<T>();

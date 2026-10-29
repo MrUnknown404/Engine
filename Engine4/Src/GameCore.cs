@@ -11,8 +11,6 @@ using NLog;
 
 namespace Engine4;
 
-// TODO print engine/game details
-
 public abstract class GameCore {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
 
