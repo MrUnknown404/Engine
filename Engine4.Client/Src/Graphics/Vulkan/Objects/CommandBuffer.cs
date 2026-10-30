@@ -3,15 +3,14 @@ using OpenTK.Graphics.Vulkan;
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public abstract unsafe class CommandBuffer : VulkanResource {
-	public override ulong Handle => (ulong)VkCommandBuffer.Handle;
-
 	private readonly VkCommandBuffer vkCommandBuffer;
-	internal VkCommandBuffer VkCommandBuffer => vkCommandBuffer;
+	public VkCommandBuffer VkCommandBuffer => vkCommandBuffer;
+	public override ulong Handle => (ulong)VkCommandBuffer.Handle;
 
 	private readonly LogicalGpu logicalGpu;
 	private readonly VkCommandPool vkCommandPool;
 
-	protected CommandBuffer(string debugName, LogicalGpu logicalGpu, VkCommandPool vkCommandPool, VkCommandBuffer commandBuffer) : base(debugName) {
+	protected CommandBuffer(LogicalGpu logicalGpu, VkCommandPool vkCommandPool, VkCommandBuffer commandBuffer) {
 		this.logicalGpu = logicalGpu;
 		this.vkCommandPool = vkCommandPool;
 		vkCommandBuffer = commandBuffer;

@@ -11,18 +11,18 @@ namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 // TODO look into VK_EXT_shader_object. see https://www.khronos.org/blog/you-can-use-vulkan-without-pipelines-today
 
-public unsafe class VulkanShader : VulkanResource {
+public sealed unsafe class Shader : NamedVulkanResource {
 	public const string ShaderEntryPoint = "main";
+
+	public VkShaderModule ShaderModule { get; }
+	public ShaderType ShaderType { get; }
+	public VkSpecializationInfo? SpecializationInfo { get; }
 
 	public override ulong Handle => ShaderModule.Handle;
 
-	internal VkShaderModule ShaderModule { get; }
-	internal ShaderType ShaderType { get; }
-	internal VkSpecializationInfo? SpecializationInfo { get; }
-
 	private readonly LogicalGpu logicalGpu;
 
-	internal VulkanShader(string debugName, Shaderc shaderc, LogicalGpu logicalGpu, Assembly assembly, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType,
+	internal Shader(string debugName, Shaderc shaderc, LogicalGpu logicalGpu, Assembly assembly, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType,
 		VkSpecializationInfo? specializationInfo) : base(debugName) {
 		this.logicalGpu = logicalGpu;
 		ShaderModule = CreateShaderModule(shaderc, logicalGpu, fileLocation, assembly, shaderLang, shaderType, debugName);

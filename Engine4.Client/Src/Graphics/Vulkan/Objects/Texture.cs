@@ -2,7 +2,7 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
-public unsafe class Texture : VulkanResource {
+public sealed unsafe class Texture : NamedVulkanResource {
 	private readonly VkImage image;
 	private readonly VkImageView imageView;
 	private readonly VkDeviceMemory deviceMemory;
@@ -46,6 +46,7 @@ public unsafe class Texture : VulkanResource {
 		out VkImage image, out VkImageView imageView, out VkDeviceMemory deviceMemory) {
 		VkDevice logicalDevice = logicalGpu.VkLogicalDevice;
 
+		// image
 		VkImageCreateInfo imageCreateInfo = new() {
 				imageType = VkImageType.ImageType2D,
 				format = imageFormat,
@@ -62,6 +63,15 @@ public unsafe class Texture : VulkanResource {
 
 		fixed (VkImage* pImage = &image) { VkH.ThrowIfNotSuccess(Vk.CreateImage(logicalDevice, &imageCreateInfo, null, pImage), "Failed to create image"); }
 
+		// memory
+		VkImageMemoryRequirementsInfo2 imageMemoryRequirements = new() { image = image, };
+		VkMemoryRequirements2 memoryRequirements2 = new();
+		Vk.GetImageMemoryRequirements2(logicalGpu.VkLogicalDevice, &imageMemoryRequirements, &memoryRequirements2);
+
+		deviceMemory = logicalGpu.CreateDeviceMemory(memoryRequirements2, VkMemoryPropertyFlagBits.MemoryPropertyDeviceLocalBit);
+		logicalGpu.BindImageMemory(image, deviceMemory);
+
+		// view
 		VkImageViewCreateInfo imageViewCreateInfo = new() {
 				image = image,
 				viewType = VkImageViewType.ImageViewType2D,
@@ -82,12 +92,5 @@ public unsafe class Texture : VulkanResource {
 		};
 
 		fixed (VkImageView* pImageView = &imageView) { VkH.ThrowIfNotSuccess(Vk.CreateImageView(logicalDevice, &imageViewCreateInfo, null, pImageView), "Failed to create image view"); }
-
-		VkImageMemoryRequirementsInfo2 imageMemoryRequirements = new() { image = image, };
-		VkMemoryRequirements2 memoryRequirements2 = new();
-		Vk.GetImageMemoryRequirements2(logicalGpu.VkLogicalDevice, &imageMemoryRequirements, &memoryRequirements2);
-
-		deviceMemory = logicalGpu.CreateDeviceMemory(memoryRequirements2, VkMemoryPropertyFlagBits.MemoryPropertyDeviceLocalBit);
-		logicalGpu.BindImageMemory(image, deviceMemory);
 	}
 }

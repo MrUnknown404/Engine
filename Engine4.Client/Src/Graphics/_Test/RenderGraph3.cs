@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Engine4.Client.Graphics.Rendering;
 using Engine4.Client.Graphics.Vulkan;
 using Engine4.Client.Graphics.Vulkan.Objects;
 using JetBrains.Annotations;
@@ -11,7 +12,7 @@ public sealed unsafe class RenderGraph3 {
 	// TODO should i be using semaphores or pipeline barriers?
 	//   vulkan tut uses both. i should probably use both
 
-	private readonly VulkanRenderer vulkanRenderer;
+	private readonly Renderer renderer;
 	internal VulkanResourceManager ResourceManager { get; }
 
 	// dynamic
@@ -24,8 +25,8 @@ public sealed unsafe class RenderGraph3 {
 	private RenderPass3[] cachedSortedPasses = Array.Empty<RenderPass3>();
 	private bool isDirty;
 
-	internal RenderGraph3(VulkanRenderer vulkanRenderer, VulkanResourceManager resourceManager) {
-		this.vulkanRenderer = vulkanRenderer;
+	internal RenderGraph3(Renderer renderer, VulkanResourceManager resourceManager) {
+		this.renderer = renderer;
 		ResourceManager = resourceManager;
 	}
 
@@ -135,7 +136,7 @@ public sealed unsafe class RenderGraph3 {
 			GraphicsRenderPass3? graphicsPass = renderPass as GraphicsRenderPass3;
 
 			if (graphicsPass != null) {
-				VkExtent2D extent = vulkanRenderer.GetSwapChainExtent();
+				VkExtent2D extent = renderer.GetSwapChainExtent();
 
 				// TODO are these graphics only?
 				commandBuffer.CmdSetViewport(0, 0, extent.width, extent.height, 0, 1); // TODO configurable? right now i can't change the depth
@@ -152,7 +153,7 @@ public sealed unsafe class RenderGraph3 {
 
 				if (graphicsPass.ClearColor is { } clearColor) {
 					colorAttachment = new() {
-							imageView = vulkanRenderer.GetSwapChainImageView(),
+							imageView = renderer.GetSwapChainImageView(),
 							imageLayout = VkImageLayout.ImageLayoutAttachmentOptimalKhr,
 							loadOp = VkAttachmentLoadOp.AttachmentLoadOpClear,
 							storeOp = VkAttachmentStoreOp.AttachmentStoreOpStore,

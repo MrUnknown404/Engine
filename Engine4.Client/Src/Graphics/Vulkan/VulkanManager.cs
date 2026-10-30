@@ -1,15 +1,14 @@
-using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Engine4.Client.Graphics.Vulkan.Objects;
-using Engine4.Client.Utility;
 using Engine4.Client.Utility.Exceptions;
 using Engine4.IO;
 using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics;
 using OpenTK.Graphics.Vulkan;
-using OpenTK.Windowing.GraphicsLibraryFramework;
+using Silk.NET.Core.Loader;
+using Silk.NET.Shaderc;
 using USharpLibs.Common.Utils;
 
 namespace Engine4.Client.Graphics.Vulkan;
@@ -17,18 +16,11 @@ namespace Engine4.Client.Graphics.Vulkan;
 public sealed unsafe class VulkanManager {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
 
-	// properties
-	public readonly string[] RequiredInstanceLayerProperties;
-	public readonly string[] RequiredInstanceExtensionProperties;
-	public readonly string[] RequiredDeviceExtensionProperties;
-
-	public VkPresentModeKHR PresentMode { get; } // TODO support setting this at runtime
-	public bool AllowEnableAnisotropy { get; }
-
-	public byte MaxFramesInFlight { get; } // move?
+	public VulkanSettings VulkanSettings { get; }
 
 	// objects
 	public VulkanInstance VulkanInstance { get; }
+	public Shaderc Shaderc { get; }
 
 	private readonly PhysicalGpu[] physicalGpus;
 
@@ -36,51 +28,9 @@ public sealed unsafe class VulkanManager {
 	private readonly VulkanDebugMessenger debugMessenger;
 #endif
 
-	// other
-	private readonly SelectGpuMode selectGpuMode;
-	private readonly SelectGpuDelegate? getManualGpuFunc;
-	private readonly RateGpuSuitabilityDelegate? rateGpuSuitability;
-
-	internal VulkanManager(GameClient game, VulkanStartupSettings vulkanStartupSettings) {
-		PresentMode = vulkanStartupSettings.PresentMode;
-		AllowEnableAnisotropy = vulkanStartupSettings.AllowEnableAnisotropy;
-		MaxFramesInFlight = vulkanStartupSettings.MaxFramesInFlight;
-
-		selectGpuMode = vulkanStartupSettings.SelectGpuMode;
-		getManualGpuFunc = vulkanStartupSettings.GetManualGpuFunc;
-		rateGpuSuitability = vulkanStartupSettings.RateGpuSuitability;
-
-		// layers/extensions
-		HashSet<string> requiredEngineInstanceLayerProperties = new([
-#if DEBUG
-				"VK_LAYER_KHRONOS_validation", // if OpenTK defines this somewhere, i could not find it
-#endif
-		]);
-
-		HashSet<string> requiredEngineInstanceExtensionProperties = new([
-				Vk.KhrGetSurfaceCapabilities2ExtensionName,
-#if DEBUG
-				Vk.ExtDebugUtilsExtensionName,
-#endif
-		]);
-
-		if (game.IsGlfwEnabled) { requiredEngineInstanceExtensionProperties.UnionWith(GLFW.GetRequiredInstanceExtensions()); }
-
-		HashSet<string> requiredEngineDeviceExtensionProperties = new([
-				Vk.KhrSwapchainExtensionName, //
-		]);
-
-		HashSet<string> requiredInstanceLayerProperties = new(requiredEngineInstanceLayerProperties);
-		requiredInstanceLayerProperties.UnionWith(vulkanStartupSettings.RequiredInstanceLayerProperties);
-		RequiredInstanceLayerProperties = requiredInstanceLayerProperties.ToArray();
-
-		HashSet<string> requiredInstanceExtensionProperties = new(requiredEngineInstanceExtensionProperties);
-		requiredInstanceExtensionProperties.UnionWith(vulkanStartupSettings.RequiredInstanceExtensionProperties);
-		RequiredInstanceExtensionProperties = requiredInstanceExtensionProperties.ToArray();
-
-		HashSet<string> requiredDeviceExtensionProperties = new(requiredEngineDeviceExtensionProperties);
-		requiredDeviceExtensionProperties.UnionWith(vulkanStartupSettings.RequiredDeviceExtensionProperties);
-		RequiredDeviceExtensionProperties = requiredDeviceExtensionProperties.ToArray();
+	internal VulkanManager(GameClient game, SetupVulkanSettings setupVulkanSettings) {
+		VulkanSettings = setupVulkanSettings.ToReadonly(game.IsGlfwEnabled);
+		VulkanSettings.PrintValues();
 
 		// check for instance/extension properties
 		VkLayerProperties[] availableInstanceLayerProperties = GetAvailableInstanceLayerProperties();
@@ -88,29 +38,42 @@ public sealed unsafe class VulkanManager {
 		VkExtensionProperties[] availableInstanceExtensionProperties = GetAvailableInstanceExtensionProperties();
 		PrintInstanceExtensionProperties(availableInstanceExtensionProperties);
 
-		CheckForInstanceLayerProperties(availableInstanceLayerProperties);
-		CheckForInstanceExtensionProperties(availableInstanceExtensionProperties);
+		CheckForInstanceLayerProperties(availableInstanceLayerProperties, VulkanSettings.RequiredInstanceLayerProperties);
+		CheckForInstanceExtensionProperties(availableInstanceExtensionProperties, VulkanSettings.RequiredInstanceExtensionProperties);
+
+
 
 		// create instance
-		VulkanInstance = new(game, vulkanStartupSettings, this);
+		VulkanInstance = new(game.Name, game.Version, setupVulkanSettings, VulkanSettings);
 		VKLoader.SetInstance(VulkanInstance.VkInstance); // set opentk instance
 		Logger.Trace("Created VkInstance");
 
 		// debugger
-		debugMessenger = new(VulkanInstance, vulkanStartupSettings.EnabledDebugMessageSeverities, vulkanStartupSettings.EnabledDebugMessageTypes);
+#if DEBUG
+		debugMessenger = new(VulkanInstance, setupVulkanSettings);
 		Logger.Trace("Created Vulkan Debug Messenger");
+#endif
 
 		// get physical gpus
-		physicalGpus = GetSuitablePhysicalGpus(VulkanInstance, vulkanStartupSettings);
+		physicalGpus = GetSuitablePhysicalGpus(VulkanInstance, VulkanSettings, setupVulkanSettings.IsPhysicalDeviceSuitable);
 		Logger.Trace($"Sorted {physicalGpus.Length} physical gpus");
 		PrintPhysicalGpus();
+
+		// shaderc
+		Shaderc = new(Shaderc.CreateDefaultContext(new ShadercSearchPathContainer().GetLibraryNames()));
+		// TODO print version
 	}
 
 	internal void Cleanup() {
 		Logger.Trace("Cleaning up final resources...");
 
+		Logger.Trace("- Cleaning up Shaderc...");
+		Shaderc.Dispose();
+
+#if DEBUG
 		Logger.Trace("- Cleaning up debugger...");
 		debugMessenger.Cleanup();
+#endif
 
 		Logger.Trace("- Cleaning up instance...");
 		VulkanInstance.Cleanup();
@@ -144,9 +107,9 @@ public sealed unsafe class VulkanManager {
 		}
 	}
 
-	private void CheckForInstanceLayerProperties(VkLayerProperties[] availableInstanceLayerProperties) {
+	private static void CheckForInstanceLayerProperties(VkLayerProperties[] availableInstanceLayerProperties, string[] wantedInstanceLayerProperties) {
 		if (availableInstanceLayerProperties.Length == 0) { throw new VulkanException("Could not find any instance layer properties"); }
-		if (!CheckSupportForInstanceLayerProperties(availableInstanceLayerProperties, RequiredInstanceLayerProperties, out string[]? missingLayers)) {
+		if (!CheckSupportForInstanceLayerProperties(availableInstanceLayerProperties, wantedInstanceLayerProperties, out string[]? missingLayers)) {
 			foreach (string missingLayer in missingLayers) { Logger.Fatal($"Layer \'{missingLayer}\' is not available"); } // TODO allow user to decide what to do for each missing
 			throw new VulkanException("Requested validation layers are not available");
 		}
@@ -175,9 +138,9 @@ public sealed unsafe class VulkanManager {
 		}
 	}
 
-	private void CheckForInstanceExtensionProperties(VkExtensionProperties[] availableInstanceExtensionProperties) {
+	private static void CheckForInstanceExtensionProperties(VkExtensionProperties[] availableInstanceExtensionProperties, string[] wantedInstanceExtensionProperties) {
 		if (availableInstanceExtensionProperties.Length == 0) { throw new VulkanException("Could not find any instance extension properties"); }
-		if (!CheckSupportForInstanceExtensionProperties(availableInstanceExtensionProperties, RequiredInstanceExtensionProperties, out string[]? missingExtensions)) {
+		if (!CheckSupportForInstanceExtensionProperties(availableInstanceExtensionProperties, wantedInstanceExtensionProperties, out string[]? missingExtensions)) {
 			foreach (string missingExtension in missingExtensions) { Logger.Fatal($"Extension \'{missingExtension}\' is not available"); } // TODO allow user to decide what to do for each missing
 			throw new VulkanException("Requested instance extensions are not available");
 		}
@@ -227,7 +190,7 @@ public sealed unsafe class VulkanManager {
 	}
 
 	[MustUseReturnValue]
-	private PhysicalGpu[] GetSuitablePhysicalGpus(VulkanInstance vulkanInstance, VulkanStartupSettings vulkanStartupSettings) {
+	private static PhysicalGpu[] GetSuitablePhysicalGpus(VulkanInstance vulkanInstance, VulkanSettings vulkanSettings, IsPhysicalDeviceSuitableDelegate? isPhysicalDeviceSuitable) {
 		VkPhysicalDevice[] availablePhysicalDevices = GetAvailablePhysicalDevices(vulkanInstance);
 
 		List<PhysicalGpu> physicalGpus = new();
@@ -239,13 +202,13 @@ public sealed unsafe class VulkanManager {
 
 			PhysicalGpuProperties properties = new(physicalDeviceProperties2, physicalDeviceFeatures2);
 
-			if (!IsPhysicalDeviceSuitableForEngine(vulkanStartupSettings, properties)) { continue; }
-			if (!vulkanStartupSettings.IsPhysicalDeviceSuitable?.Invoke(properties) ?? false) { continue; }
+			if (!IsPhysicalDeviceSuitableForEngine(vulkanSettings, properties)) { continue; }
+			if (!isPhysicalDeviceSuitable?.Invoke(properties) ?? false) { continue; }
 
 			VkExtensionProperties[] physicalDeviceExtensionProperties = GetPhysicalDeviceExtensionProperties(physicalDevice);
 			if (physicalDeviceExtensionProperties.Length == 0) { continue; }
 
-			if (!CheckDeviceExtensionSupport(physicalDeviceExtensionProperties, RequiredDeviceExtensionProperties, out _)) { continue; } // TODO allow the user to handle missing?
+			if (!CheckDeviceExtensionSupport(physicalDeviceExtensionProperties, vulkanSettings.RequiredDeviceExtensionProperties, out _)) { continue; } // TODO allow the user to handle missing?
 
 			physicalGpus.Add(new(physicalDevice, properties));
 		}
@@ -267,7 +230,7 @@ public sealed unsafe class VulkanManager {
 		}
 
 		[MustUseReturnValue]
-		static bool IsPhysicalDeviceSuitableForEngine(VulkanStartupSettings vulkanStartupSettings, PhysicalGpuProperties physicalGpuProperties) {
+		static bool IsPhysicalDeviceSuitableForEngine(VulkanSettings vulkanSettings, PhysicalGpuProperties physicalGpuProperties) {
 			VkPhysicalDeviceProperties properties = physicalGpuProperties.PhysicalDeviceProperties2.properties;
 			VkPhysicalDeviceFeatures features = physicalGpuProperties.PhysicalDeviceFeatures2.features;
 
@@ -275,7 +238,7 @@ public sealed unsafe class VulkanManager {
 					or VkPhysicalDeviceType.PhysicalDeviceTypeDiscreteGpu
 					or VkPhysicalDeviceType.PhysicalDeviceTypeVirtualGpu;
 
-			if (vulkanStartupSettings.AllowEnableAnisotropy) { isValid &= features.samplerAnisotropy == Vk.True; }
+			if (vulkanSettings.AllowEnableAnisotropy) { isValid &= features.samplerAnisotropy == Vk.True; }
 
 			return isValid;
 		}
@@ -383,24 +346,28 @@ public sealed unsafe class VulkanManager {
 	}
 
 	internal SurfaceReadyPhysicalGpu? SelectGpu(SurfaceReadyPhysicalGpu[] capableGpus) {
-		switch (selectGpuMode) {
-			case SelectGpuMode.Manual: return getManualGpuFunc?.Invoke(capableGpus);
-			case SelectGpuMode.HighestRated:
-				if (rateGpuSuitability == null) { return null; }
+		if (VulkanSettings.GetManualGpuFunc is { } getManualGpuFunc) { return getManualGpuFunc.Invoke(capableGpus); }
 
-				SurfaceReadyPhysicalGpu? bestDevice = null;
-				int bestDeviceScore = int.MinValue;
+		SurfaceReadyPhysicalGpu? bestDevice = null;
+		int bestDeviceScore = int.MinValue;
 
-				foreach (SurfaceReadyPhysicalGpu device in capableGpus) {
-					int score = rateGpuSuitability(device);
-					if (score > bestDeviceScore) {
-						bestDevice = device;
-						bestDeviceScore = score;
-					}
-				}
-
-				return bestDevice;
-			default: throw new InvalidEnumArgumentException();
+		foreach (SurfaceReadyPhysicalGpu device in capableGpus) {
+			int score = VulkanSettings.RateGpuSuitability(device);
+			if (score > bestDeviceScore) {
+				bestDevice = device;
+				bestDeviceScore = score;
+			}
 		}
+
+		return bestDevice;
+	}
+
+	private class ShadercSearchPathContainer : SearchPathContainer {
+		public override string[] Linux => new[] { "libshaderc_shared.so", "libshaderc.so", }; // some distros (mine) use different file names
+		public override string[] MacOS => new[] { "libshaderc_shared.dylib", };
+		public override string[] Android => new[] { "libshaderc_shared.so", };
+		public override string[] IOS => new[] { string.Empty, };
+		public override string[] Windows64 => new[] { "shaderc_shared.dll", };
+		public override string[] Windows86 => new[] { "shaderc_shared.dll", };
 	}
 }

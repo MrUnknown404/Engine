@@ -2,29 +2,26 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
-public unsafe class Fence : VulkanResource {
-	public override ulong Handle => VkFence.Handle;
-
+public sealed unsafe class Fence : VulkanResource {
 	private readonly VkFence vkFence;
-	internal VkFence VkFence => vkFence;
+	public VkFence VkFence => vkFence;
+	public override ulong Handle => VkFence.Handle;
 
 	private readonly LogicalGpu logicalGpu;
 
-	internal Fence(string debugName, LogicalGpu logicalGpu, VkFenceCreateFlagBits fenceCreateFlags) : base(debugName) {
+	internal Fence(LogicalGpu logicalGpu, VkFenceCreateFlagBits fenceCreateFlags) {
 		this.logicalGpu = logicalGpu;
 
 		VkFenceCreateInfo fenceCreateInfo = new() { flags = fenceCreateFlags, };
-		VkFence fence;
-		VkH.ThrowIfNotSuccess(Vk.CreateFence(logicalGpu.VkLogicalDevice, &fenceCreateInfo, null, &fence), "Failed to create fence");
-		vkFence = fence;
+		fixed (VkFence* pVkFence = &vkFence) { VkH.ThrowIfNotSuccess(Vk.CreateFence(logicalGpu.VkLogicalDevice, &fenceCreateInfo, null, pVkFence), "Failed to create fence"); }
 	}
 
 	public void Wait(bool waitAll, ulong timeout) {
-		fixed (VkFence* fencePtr = &vkFence) { Vk.WaitForFences(logicalGpu.VkLogicalDevice, 1u, fencePtr, waitAll ? VkH.True : VkH.False, timeout); }
+		fixed (VkFence* pVkFence = &vkFence) { Vk.WaitForFences(logicalGpu.VkLogicalDevice, 1u, pVkFence, waitAll ? VkH.True : VkH.False, timeout); }
 	}
 
 	public void Reset() {
-		fixed (VkFence* fencePtr = &vkFence) { Vk.ResetFences(logicalGpu.VkLogicalDevice, 1, fencePtr); }
+		fixed (VkFence* pVkFence = &vkFence) { Vk.ResetFences(logicalGpu.VkLogicalDevice, 1, pVkFence); }
 	}
 
 	protected internal override void Cleanup() => Vk.DestroyFence(logicalGpu.VkLogicalDevice, VkFence, null);

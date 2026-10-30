@@ -5,7 +5,7 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 using USharpLibs.Common.Math;
 using GlfwWindow = OpenTK.Windowing.GraphicsLibraryFramework.Window;
 
-namespace Engine4.Client;
+namespace Engine4.Client.Windowing;
 
 public unsafe class Window {
 	private readonly GlfwWindow* glfwWindow;

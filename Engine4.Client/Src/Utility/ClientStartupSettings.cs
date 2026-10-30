@@ -1,3 +1,4 @@
+using Engine4.Client.Graphics.Vulkan;
 using Engine4.IO;
 using Engine4.Utility;
 using NLog;
@@ -12,7 +13,7 @@ public sealed class ClientStartupSettings : StartupSettings {
 	/// <summary> Enables the use of Vulkan. Set by setting <see cref="VulkanSettings"/> to not null </summary>
 	public bool EnableVulkan { get; private init; }
 
-	public VulkanStartupSettings? VulkanSettings {
+	public SetupVulkanSettings? VulkanSettings {
 		get;
 		init {
 			field = value;

@@ -11,7 +11,7 @@ public unsafe class DescriptorSetLayout : VulkanResource {
 
 	private readonly LogicalGpu logicalGpu;
 
-	internal DescriptorSetLayout(string debugName, LogicalGpu logicalGpu, DescriptorSetInfo[] descriptorSets) : base(debugName) {
+	internal DescriptorSetLayout(LogicalGpu logicalGpu, DescriptorSetInfo[] descriptorSets) {
 		this.logicalGpu = logicalGpu;
 		VkDescriptorSetLayout = CreateDescriptorSetLayout(logicalGpu, descriptorSets);
 	}

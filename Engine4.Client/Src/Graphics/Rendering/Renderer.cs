@@ -1,17 +1,17 @@
 using Engine4.Client.Graphics.ImGui;
+using Engine4.Client.Graphics.Vulkan;
 using Engine4.Client.Graphics.Vulkan.Objects;
-using Engine4.Client.Rendering;
+using Engine4.Client.Windowing;
 using Engine4.Utility.Exceptions;
 using Engine4.Utility.Math;
 using Hexa.NET.ImGui;
 using OpenTK.Graphics.Vulkan;
-using Silk.NET.Shaderc;
 using Semaphore = Engine4.Client.Graphics.Vulkan.Objects.Semaphore;
 
-namespace Engine4.Client.Graphics.Vulkan;
+namespace Engine4.Client.Graphics.Rendering;
 
 // TODO add way of rendering to a texture or convert to ascii then display to console
-public sealed unsafe class VulkanRenderer {
+public sealed unsafe class Renderer {
 	// public objects
 	public VulkanManager VulkanManager { get; }
 	public VulkanResourceManager ResourceManager { get; }
@@ -48,7 +48,7 @@ public sealed unsafe class VulkanRenderer {
 	private readonly ImGuiBackend imGuiBackend; // TODO use
 	private readonly ImGuiRenderer imGuiRenderer; // ^
 
-	internal VulkanRenderer(string debugName, VulkanManager vulkanManager, Shaderc shaderc, Window window, Color4 clearColor) {
+	internal Renderer(VulkanManager vulkanManager, Window window, Color4 clearColor) {
 		VulkanManager = vulkanManager;
 		ClearColor = clearColor;
 		this.window = window;
@@ -56,21 +56,21 @@ public sealed unsafe class VulkanRenderer {
 		// TODO logging
 		surface = new(vulkanManager.VulkanInstance, window);
 		SurfaceReadyPhysicalGpu[] capableGpus = vulkanManager.GetCapableGpus(surface);
-		PhysicalGpu = vulkanManager.SelectGpu(capableGpus) ?? throw new Engine4Exception("Failed to select gpu");
-		LogicalGpu = new(PhysicalGpu, vulkanManager);
-		ResourceManager = new(PhysicalGpu, LogicalGpu, shaderc);
+		PhysicalGpu = VulkanManager.SelectGpu(capableGpus) ?? throw new Engine4Exception("Failed to select gpu");
+		LogicalGpu = new(PhysicalGpu, vulkanManager.VulkanSettings);
+		ResourceManager = new(PhysicalGpu, LogicalGpu, vulkanManager.Shaderc);
 
-		swapChain = new(window, PhysicalGpu, LogicalGpu, surface, vulkanManager.PresentMode);
-		renderFinishedSemaphores = ResourceManager.CreateSemaphores("Render Finished Semaphore", 0, swapChain.ImageCount);
+		swapChain = new(window, PhysicalGpu, LogicalGpu, surface, vulkanManager.VulkanSettings.PresentMode);
+		renderFinishedSemaphores = ResourceManager.CreateSemaphores(0, swapChain.ImageCount);
 
-		maxFramesInFlight = vulkanManager.MaxFramesInFlight;
+		maxFramesInFlight = vulkanManager.VulkanSettings.MaxFramesInFlight;
 
-		graphicsCommandPool = ResourceManager.CreateGraphicsCommandPool($"{debugName} Graphics Command Pool", VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit);
-		transferCommandPool = ResourceManager.CreateTransferCommandPool($"{debugName} Transfer Command Pool", VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit);
+		graphicsCommandPool = ResourceManager.CreateGraphicsCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit);
+		transferCommandPool = ResourceManager.CreateTransferCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit);
 
-		GraphicsCommandBuffer[] graphicsCommandBuffers = graphicsCommandPool.CreateCommandBuffers($"{debugName} Graphics Command Buffer", maxFramesInFlight, VkCommandBufferLevel.CommandBufferLevelPrimary);
-		Semaphore[] imageAvailableSemaphores = ResourceManager.CreateSemaphores($"{debugName} Image Available Semaphore", 0, maxFramesInFlight);
-		Fence[] inFlightFences = ResourceManager.CreateFences($"{debugName} In Flight Fence", maxFramesInFlight, VkFenceCreateFlagBits.FenceCreateSignaledBit);
+		GraphicsCommandBuffer[] graphicsCommandBuffers = graphicsCommandPool.CreateCommandBuffers(maxFramesInFlight, VkCommandBufferLevel.CommandBufferLevelPrimary);
+		Semaphore[] imageAvailableSemaphores = ResourceManager.CreateSemaphores(0, maxFramesInFlight);
+		Fence[] inFlightFences = ResourceManager.CreateFences(VkFenceCreateFlagBits.FenceCreateSignaledBit, maxFramesInFlight);
 
 		framesInFlight = new FrameInFlight[maxFramesInFlight];
 		for (int i = 0; i < maxFramesInFlight; i++) { framesInFlight[i] = new(graphicsCommandBuffers[i], imageAvailableSemaphores[i], inFlightFences[i]); }

@@ -1,48 +1,47 @@
 using Engine4.Client.Utility;
+using Engine4.Utility.Versions;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
-public sealed unsafe class VulkanInstance {
-	internal VkInstance VkInstance { get; }
+public sealed unsafe class VulkanInstance : VulkanResource {
+	private readonly VkInstance vkInstance;
+	public VkInstance VkInstance => vkInstance;
+	public override ulong Handle => (ulong)VkInstance.Handle;
 
-	internal VulkanInstance(GameClient game, VulkanStartupSettings vulkanStartupSettings, VulkanManager vulkanManager) {
-		using StringUtf8Ptr appNamePtr = new(game.Name);
+	internal VulkanInstance(string appName, IPackableVersion appVersion, SetupVulkanSettings setupVulkanSettings, VulkanSettings vulkanSettings) {
+		using StringUtf8Ptr appNamePtr = new(appName);
 		using StringUtf8Ptr engineNamePtr = new(Engine4.Name);
 
 		VkApplicationInfo applicationInfo = new() {
 				pApplicationName = appNamePtr, //
-				applicationVersion = game.Version.Packed,
+				applicationVersion = appVersion.Packed,
 				pEngineName = engineNamePtr,
 				engineVersion = Engine4.Version.Packed,
 				apiVersion = Vk.MAKE_API_VERSION(0, 1, 4, 0),
 		};
 
-		string[] requiredInstanceLayerProperties = vulkanManager.RequiredInstanceLayerProperties;
-		string[] requiredInstanceExtensionProperties = vulkanManager.RequiredInstanceExtensionProperties;
-
-		using StringArrayUtf8Ptr requiredInstanceLayerPropertiesPtr = new(requiredInstanceLayerProperties);
-		using StringArrayUtf8Ptr requiredInstanceExtensionPropertiesPtr = new(requiredInstanceExtensionProperties);
+		using StringArrayUtf8Ptr requiredInstanceLayerPropertiesPtr = new(vulkanSettings.RequiredInstanceLayerProperties);
+		using StringArrayUtf8Ptr requiredInstanceExtensionPropertiesPtr = new(vulkanSettings.RequiredInstanceExtensionProperties);
 
 #if DEBUG
-		VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo = VulkanDebugMessenger.CreateDebugUtilsMessengerCreateInfoEXT(vulkanStartupSettings.EnabledDebugMessageSeverities, vulkanStartupSettings.EnabledDebugMessageTypes);
+		VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo =
+				VulkanDebugMessenger.CreateDebugUtilsMessengerCreateInfoEXT(setupVulkanSettings.EnabledDebugMessageSeverities, setupVulkanSettings.EnabledDebugMessageTypes);
 #endif
 
 		VkInstanceCreateInfo instanceCreateInfo = new() {
 				pApplicationInfo = &applicationInfo, //
 #if DEBUG
-				pNext = &debugMessengerCreateInfo,
+				pNext = &messengerCreateInfo,
 #endif
 				ppEnabledLayerNames = requiredInstanceLayerPropertiesPtr,
-				enabledLayerCount = (uint)requiredInstanceLayerProperties.Length,
+				enabledLayerCount = (uint)vulkanSettings.RequiredInstanceLayerProperties.Length,
 				ppEnabledExtensionNames = requiredInstanceExtensionPropertiesPtr,
-				enabledExtensionCount = (uint)requiredInstanceExtensionProperties.Length,
+				enabledExtensionCount = (uint)vulkanSettings.RequiredInstanceExtensionProperties.Length,
 		};
 
-		VkInstance vkInstance;
-		VkH.ThrowIfNotSuccess(Vk.CreateInstance(&instanceCreateInfo, null, &vkInstance), "Failed to create instance");
-		VkInstance = vkInstance;
+		fixed (VkInstance* pVkInstance = &vkInstance) { VkH.ThrowIfNotSuccess(Vk.CreateInstance(&instanceCreateInfo, null, pVkInstance), "Failed to create instance"); }
 	}
 
-	internal void Cleanup() => Vk.DestroyInstance(VkInstance, null);
+	protected internal override void Cleanup() => Vk.DestroyInstance(VkInstance, null);
 }

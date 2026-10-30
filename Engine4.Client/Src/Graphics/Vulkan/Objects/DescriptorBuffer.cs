@@ -3,7 +3,7 @@ using OpenTK.Graphics.Vulkan;
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 [Obsolete]
-public unsafe class DescriptorBuffer : VulkanResource {
+public unsafe class DescriptorBuffer : NamedVulkanResource {
 	public VkDescriptorType DescriptorType { get; }
 	public VulkanBuffer Buffer { get; }
 

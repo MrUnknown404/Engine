@@ -3,14 +3,14 @@ using OpenTK.Graphics.Vulkan;
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public abstract unsafe class CommandPool<T> : VulkanResource where T : CommandBuffer {
-	public override ulong Handle => VkCommandPool.Handle;
-
 	protected ResourceList<T> CommandBuffers { get; } = new();
 
-	protected LogicalGpu LogicalGpu { get; }
-	protected VkCommandPool VkCommandPool { get; }
+	public VkCommandPool VkCommandPool { get; }
+	public override ulong Handle => VkCommandPool.Handle;
 
-	protected CommandPool(string debugName, LogicalGpu logicalGpu, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamily) : base(debugName) {
+	protected LogicalGpu LogicalGpu { get; }
+
+	protected CommandPool(LogicalGpu logicalGpu, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamily) {
 		LogicalGpu = logicalGpu;
 
 		VkCommandPoolCreateInfo commandPoolCreateInfo = new() { flags = commandPoolCreateFlags, queueFamilyIndex = queueFamily, };

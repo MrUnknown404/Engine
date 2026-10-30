@@ -21,15 +21,15 @@ public sealed class VulkanResourceManager {
 	}
 
 	[MustUseReturnValue]
-	public GraphicsCommandPool CreateGraphicsCommandPool(string debugName, VkCommandPoolCreateFlagBits commandPoolCreateFlags) {
-		GraphicsCommandPool graphicsCommandPool = new(debugName, logicalGpu, commandPoolCreateFlags, physicalGpu.QueueFamilyIndices.GraphicsFamily);
+	public GraphicsCommandPool CreateGraphicsCommandPool(VkCommandPoolCreateFlagBits commandPoolCreateFlags) {
+		GraphicsCommandPool graphicsCommandPool = new(logicalGpu, commandPoolCreateFlags, physicalGpu.QueueFamilyIndices.GraphicsFamily);
 		Add(graphicsCommandPool);
 		return graphicsCommandPool;
 	}
 
 	[MustUseReturnValue]
-	public TransferCommandPool CreateTransferCommandPool(string debugName, VkCommandPoolCreateFlagBits commandPoolCreateFlags) {
-		TransferCommandPool transferCommandPool = new(debugName, logicalGpu, commandPoolCreateFlags, physicalGpu.QueueFamilyIndices.TransferFamily);
+	public TransferCommandPool CreateTransferCommandPool(VkCommandPoolCreateFlagBits commandPoolCreateFlags) {
+		TransferCommandPool transferCommandPool = new(logicalGpu, commandPoolCreateFlags, physicalGpu.QueueFamilyIndices.TransferFamily);
 		Add(transferCommandPool);
 		return transferCommandPool;
 	}
@@ -42,8 +42,8 @@ public sealed class VulkanResourceManager {
 	}
 
 	[MustUseReturnValue]
-	public VulkanShader CreateShader(string debugName, Assembly assembly, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, VkSpecializationInfo? specializationInfo = null) {
-		VulkanShader shader = new(debugName, shaderc, logicalGpu, assembly, fileLocation, shaderLang, shaderType, specializationInfo);
+	public Shader CreateShader(string debugName, Assembly assembly, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType, VkSpecializationInfo? specializationInfo = null) {
+		Shader shader = new(debugName, shaderc, logicalGpu, assembly, fileLocation, shaderLang, shaderType, specializationInfo);
 		Add(shader);
 		return shader;
 	}
@@ -65,46 +65,46 @@ public sealed class VulkanResourceManager {
 
 	[Obsolete]
 	[MustUseReturnValue]
-	public DescriptorSetLayout CreateDescriptorSetLayout(string debugName, DescriptorSetInfo[] descriptorSets) {
-		DescriptorSetLayout descriptorSetLayout = new(debugName, logicalGpu, descriptorSets);
+	public DescriptorSetLayout CreateDescriptorSetLayout(DescriptorSetInfo[] descriptorSets) {
+		DescriptorSetLayout descriptorSetLayout = new(logicalGpu, descriptorSets);
 		Add(descriptorSetLayout);
 		return descriptorSetLayout;
 	}
 
 	[Obsolete]
 	[MustUseReturnValue]
-	public DescriptorPool CreateDescriptorPool(string debugName, VkDescriptorType[] descriptorSetTypes, uint count, byte maxFramesInFlight, VkDescriptorPoolCreateFlagBits descriptorPoolCreateFlags = 0) {
-		DescriptorPool descriptorPool = new(debugName, logicalGpu, count, descriptorSetTypes, maxFramesInFlight, descriptorPoolCreateFlags);
+	public DescriptorPool CreateDescriptorPool(VkDescriptorType[] descriptorSetTypes, uint count, byte maxFramesInFlight, VkDescriptorPoolCreateFlagBits descriptorPoolCreateFlags = 0) {
+		DescriptorPool descriptorPool = new(logicalGpu, count, descriptorSetTypes, maxFramesInFlight, descriptorPoolCreateFlags);
 		Add(descriptorPool);
 		return descriptorPool;
 	}
 
 	[MustUseReturnValue]
-	public Semaphore CreateSemaphore(string debugName, VkSemaphoreCreateFlags semaphoreCreateFlags) {
-		Semaphore semaphore = new(debugName, logicalGpu, semaphoreCreateFlags);
+	public Semaphore CreateSemaphore(VkSemaphoreCreateFlags semaphoreCreateFlags) {
+		Semaphore semaphore = new(logicalGpu, semaphoreCreateFlags);
 		Add(semaphore);
 		return semaphore;
 	}
 
 	[MustUseReturnValue]
-	public Fence CreateFence(string debugName, VkFenceCreateFlagBits fenceCreateFlags) {
-		Fence fence = new(debugName, logicalGpu, fenceCreateFlags);
+	public Fence CreateFence(VkFenceCreateFlagBits fenceCreateFlags) {
+		Fence fence = new(logicalGpu, fenceCreateFlags);
 		Add(fence);
 		return fence;
 	}
 
 	[MustUseReturnValue]
-	public Semaphore[] CreateSemaphores(string debugName, VkSemaphoreCreateFlags semaphoreCreateFlags, uint count) {
+	public Semaphore[] CreateSemaphores(VkSemaphoreCreateFlags semaphoreCreateFlags, uint count) {
 		Semaphore[] semaphores = new Semaphore[count];
-		for (uint i = 0; i < count; i++) { semaphores[i] = new($"{debugName} [{i}]", logicalGpu, semaphoreCreateFlags); }
+		for (uint i = 0; i < count; i++) { semaphores[i] = new(logicalGpu, semaphoreCreateFlags); }
 		Add(semaphores);
 		return semaphores;
 	}
 
 	[MustUseReturnValue]
-	public Fence[] CreateFences(string debugName, uint count, VkFenceCreateFlagBits fenceCreateFlags) {
+	public Fence[] CreateFences(VkFenceCreateFlagBits fenceCreateFlags, uint count) {
 		Fence[] fences = new Fence[count];
-		for (uint i = 0; i < count; i++) { fences[i] = new($"{debugName} [{i}]", logicalGpu, fenceCreateFlags); }
+		for (uint i = 0; i < count; i++) { fences[i] = new(logicalGpu, fenceCreateFlags); }
 		Add(fences);
 		return fences;
 	}

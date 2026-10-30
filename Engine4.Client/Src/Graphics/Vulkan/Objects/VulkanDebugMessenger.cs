@@ -7,12 +7,15 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
-public sealed unsafe class VulkanDebugMessenger {
+public sealed unsafe class VulkanDebugMessenger : VulkanResource {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Vulkan);
 
 	private static readonly string[] MessageTypesCache;
 
 	private readonly VkDebugUtilsMessengerEXT vkDebugMessenger;
+	public VkDebugUtilsMessengerEXT VkDebugMessenger => vkDebugMessenger;
+	public override ulong Handle => VkDebugMessenger.Handle;
+
 	private readonly VulkanInstance vulkanInstance;
 
 	static VulkanDebugMessenger() {
@@ -27,16 +30,16 @@ public sealed unsafe class VulkanDebugMessenger {
 		for (int i = 1; i < HighestValue; i++) { MessageTypesCache[i] = ((VkDebugUtilsMessageTypeFlagBitsEXT)i).ToString().Replace("DebugUtilsMessageType", string.Empty).Replace("BitExt", string.Empty); }
 	}
 
-	internal VulkanDebugMessenger(VulkanInstance vulkanInstance, VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagBitsEXT messageType) {
+	internal VulkanDebugMessenger(VulkanInstance vulkanInstance, SetupVulkanSettings setupVulkanSettings) {
 		this.vulkanInstance = vulkanInstance;
-		VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(messageSeverity, messageType);
-		VkDebugUtilsMessengerEXT debugMessenger;
 
-		VkH.ThrowIfNotSuccess(Vk.CreateDebugUtilsMessengerEXT(vulkanInstance.VkInstance, &messengerCreateInfo, null, &debugMessenger), "Failed to create debug messenger");
-		vkDebugMessenger = debugMessenger;
+		VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(setupVulkanSettings.EnabledDebugMessageSeverities, setupVulkanSettings.EnabledDebugMessageTypes);
+		fixed (VkDebugUtilsMessengerEXT* pVkDebugMessenger = &vkDebugMessenger) {
+			VkH.ThrowIfNotSuccess(Vk.CreateDebugUtilsMessengerEXT(vulkanInstance.VkInstance, &messengerCreateInfo, null, pVkDebugMessenger), "Failed to create debug messenger");
+		}
 	}
 
-	internal void Cleanup() => Vk.DestroyDebugUtilsMessengerEXT(vulkanInstance.VkInstance, vkDebugMessenger, null);
+	protected internal override void Cleanup() => Vk.DestroyDebugUtilsMessengerEXT(vulkanInstance.VkInstance, VkDebugMessenger, null);
 
 	[MustUseReturnValue]
 	internal static VkDebugUtilsMessengerCreateInfoEXT CreateDebugUtilsMessengerCreateInfoEXT(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagBitsEXT messageType) =>

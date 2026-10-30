@@ -5,8 +5,8 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
-public unsafe class GraphicsCommandBuffer : CommandBuffer {
-	internal GraphicsCommandBuffer(string debugName, LogicalGpu logicalGpu, VkCommandPool vkCommandPool, VkCommandBuffer commandBuffer) : base(debugName, logicalGpu, vkCommandPool, commandBuffer) { }
+public sealed unsafe class GraphicsCommandBuffer : CommandBuffer {
+	internal GraphicsCommandBuffer(LogicalGpu logicalGpu, VkCommandPool vkCommandPool, VkCommandBuffer commandBuffer) : base(logicalGpu, vkCommandPool, commandBuffer) { }
 
 	// begin/end rendering
 	public void CmdBeginRendering(VkExtent2D extent, VkImageView colorImageView, Color4 clearColor, VkImageView? depthImageView, VkClearDepthStencilValue? depthStencil) {

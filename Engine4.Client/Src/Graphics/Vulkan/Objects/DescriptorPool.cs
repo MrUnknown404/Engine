@@ -12,8 +12,7 @@ public unsafe class DescriptorPool : VulkanResource {
 	private readonly LogicalGpu logicalGpu;
 	private readonly byte maxFramesInFlight;
 
-	internal DescriptorPool(string debugName, LogicalGpu logicalGpu, uint poolCount, VkDescriptorType[] descriptorTypes, byte maxFramesInFlight, VkDescriptorPoolCreateFlagBits descriptorPoolCreateFlags) :
-			base(debugName) {
+	internal DescriptorPool(LogicalGpu logicalGpu, uint poolCount, VkDescriptorType[] descriptorTypes, byte maxFramesInFlight, VkDescriptorPoolCreateFlagBits descriptorPoolCreateFlags) {
 		VkDescriptorPool = CreateDescriptorPool(logicalGpu, poolCount, descriptorTypes, maxFramesInFlight, descriptorPoolCreateFlags);
 		this.logicalGpu = logicalGpu;
 		this.maxFramesInFlight = maxFramesInFlight;

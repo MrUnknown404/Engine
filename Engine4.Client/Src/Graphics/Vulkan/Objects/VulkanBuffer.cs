@@ -3,28 +3,31 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
-public unsafe class VulkanBuffer : VulkanResource {
+public sealed unsafe class VulkanBuffer : NamedVulkanResource {
 	private VkBuffer vkBuffer;
 	private VkDeviceMemory deviceMemory;
 
 	public VkBuffer VkBuffer => vkBuffer;
 	public VkDeviceMemory DeviceMemory => deviceMemory;
+
+	public VkBufferCreateFlagBits CreateFlags { get; }
+	public VkBufferUsageFlagBits2 UsageFlags { get; }
+	public VkMemoryPropertyFlagBits MemoryPropertyFlags { get; }
+
 	public ulong Size { get; private set; }
 
 	public override ulong Handle => VkBuffer.Handle;
 
 	private readonly LogicalGpu logicalGpu;
-	private readonly VkBufferCreateFlagBits createFlags;
-	private readonly VkBufferUsageFlagBits2 usageFlags;
-	private readonly VkMemoryPropertyFlagBits memoryPropertyFlags;
 
 	internal VulkanBuffer(string debugName, LogicalGpu logicalGpu, ulong size, VkBufferUsageFlagBits2 usageFlags, VkBufferCreateFlagBits createFlags, VkMemoryPropertyFlagBits memoryPropertyFlags) : base(debugName) {
 		this.logicalGpu = logicalGpu;
-		this.createFlags = createFlags;
-		CreateBuffer(logicalGpu, size, usageFlags, createFlags, memoryPropertyFlags, out vkBuffer, out deviceMemory);
+		CreateFlags = createFlags;
 		Size = size;
-		this.usageFlags = usageFlags;
-		this.memoryPropertyFlags = memoryPropertyFlags;
+		UsageFlags = usageFlags;
+		MemoryPropertyFlags = memoryPropertyFlags;
+
+		CreateBuffer(logicalGpu, size, usageFlags, createFlags, memoryPropertyFlags, out vkBuffer, out deviceMemory);
 	}
 
 	public void Copy(void* data, ulong size, ulong offset) {
@@ -45,7 +48,7 @@ public unsafe class VulkanBuffer : VulkanResource {
 		Vk.DeviceWaitIdle(logicalGpu.VkLogicalDevice); // clean assumes this was already called
 		Cleanup();
 
-		CreateBuffer(logicalGpu, size, usageFlags, createFlags, memoryPropertyFlags, out vkBuffer, out deviceMemory);
+		CreateBuffer(logicalGpu, size, UsageFlags, CreateFlags, MemoryPropertyFlags, out vkBuffer, out deviceMemory);
 		Size = size;
 	}
 
@@ -67,15 +70,6 @@ public unsafe class VulkanBuffer : VulkanResource {
 		VkBufferDeviceAddressInfo bufferDeviceAddressInfo = new() { buffer = VkBuffer, };
 		return Vk.GetBufferDeviceAddress(logicalGpu.VkLogicalDevice, &bufferDeviceAddressInfo); // TODO cache?
 	}
-
-	// uint64_t getBufferDeviceAddress(vks::Buffer &buffer) {
-	// 	VkBufferDeviceAddressInfoKHR bufferDeviceAI{ .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = buffer.buffer
-	// 	}
-	//
-	// 	;
-	// 	buffer.deviceAddress = vkGetBufferDeviceAddress(device, &bufferDeviceAI);
-	// 	return buffer.deviceAddress;
-	// }
 
 	protected internal override void Cleanup() {
 		VkDevice logicalDevice = logicalGpu.VkLogicalDevice;

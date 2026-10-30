@@ -2,20 +2,18 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
-public unsafe class Semaphore : VulkanResource {
+public sealed unsafe class Semaphore : VulkanResource {
+	private readonly VkSemaphore vkSemaphore;
+	public VkSemaphore VkSemaphore => vkSemaphore;
 	public override ulong Handle => VkSemaphore.Handle;
-
-	internal VkSemaphore VkSemaphore { get; }
 
 	private readonly LogicalGpu logicalGpu;
 
-	internal Semaphore(string debugName, LogicalGpu logicalGpu, VkSemaphoreCreateFlags semaphoreCreateFlags) : base(debugName) {
+	internal Semaphore(LogicalGpu logicalGpu, VkSemaphoreCreateFlags semaphoreCreateFlags) {
 		this.logicalGpu = logicalGpu;
 
 		VkSemaphoreCreateInfo semaphoreCreateInfo = new() { flags = semaphoreCreateFlags, };
-		VkSemaphore semaphore;
-		VkH.ThrowIfNotSuccess(Vk.CreateSemaphore(logicalGpu.VkLogicalDevice, &semaphoreCreateInfo, null, &semaphore), "Failed to create semaphore");
-		VkSemaphore = semaphore;
+		fixed (VkSemaphore* pVkSemaphore = &vkSemaphore) { VkH.ThrowIfNotSuccess(Vk.CreateSemaphore(logicalGpu.VkLogicalDevice, &semaphoreCreateInfo, null, pVkSemaphore), "Failed to create semaphore"); }
 	}
 
 	protected internal override void Cleanup() => Vk.DestroySemaphore(logicalGpu.VkLogicalDevice, VkSemaphore, null);

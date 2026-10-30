@@ -1,6 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
+using Engine4.Client.Graphics.Rendering;
 using Engine4.Client.Graphics.Vulkan;
 using Engine4.Client.Utility;
+using Engine4.Client.Windowing;
 using Engine4.IO;
 using Engine4.Utility;
 using Engine4.Utility.Exceptions;
@@ -9,10 +11,8 @@ using Engine4.Utility.Versions;
 using NLog;
 using OpenTK.Graphics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using Silk.NET.Core.Loader;
-using Silk.NET.Shaderc;
-using OperatingSystem = Engine4.Utility.Compatability.OperatingSystem;
 using ImGuiNet = Hexa.NET.ImGui.ImGui;
+using Window = Engine4.Client.Windowing.Window;
 
 namespace Engine4.Client;
 
@@ -25,16 +25,16 @@ public abstract class GameClient : GameCore {
 	public bool IsGlfwEnabled { get; private set; } // note: not set until SetupInternals()
 	public bool IsVulkanEnabled { get; private set; } // ^
 
-	private readonly List<Window> windows = new(); // TODO window/renderer should impl HashCode
-	private readonly List<VulkanRenderer> renderers = new(); // TODO allow removal
-	private readonly Dictionary<Window, VulkanRenderer> windowToRenderer = new();
+	private readonly List<Window> windows = new();
+	private readonly List<Renderer> renderers = new();
+	private readonly Dictionary<Window, Renderer> windowToRenderer = new(); // TODO window/renderer should impl HashCode
 
 	protected VulkanManager? VulkanManager { get; private set; }
-	protected Shaderc Shaderc { get; }
+	protected GlfwManager? GlfwManager { get; private set; }
 
 	protected bool AnyWindowsExist => windows.Count != 0;
 
-	protected GameClient(string name, IPackableVersion version) : base(name, version) => Shaderc = new(Shaderc.CreateDefaultContext(new ShadercSearchPathContainer().GetLibraryNames()));
+	protected GameClient(string name, IPackableVersion version) : base(name, version) { }
 
 	protected sealed override void SetupInternals(StartupSettings coreSettings) {
 		if (coreSettings is not ClientStartupSettings clientSettings) { throw new ArgumentException($"{nameof(coreSettings)} needs to be of type {nameof(ClientStartupSettings)}"); }
@@ -63,7 +63,7 @@ public abstract class GameClient : GameCore {
 
 			Logger.Debug("Found window to close. Closing it...");
 
-			if (windowToRenderer.TryGetValue(window, out VulkanRenderer? renderer)) {
+			if (windowToRenderer.TryGetValue(window, out Renderer? renderer)) {
 				Logger.Trace("- Window has a renderer. Cleaning that first...");
 
 				renderer.Cleanup(); // calls Vk.DeviceWaitIdle()
@@ -76,7 +76,7 @@ public abstract class GameClient : GameCore {
 		}
 
 		// try clean up resources
-		foreach (VulkanRenderer renderer in renderers) { renderer.TryCleanup(); } // can call Vk.DeviceWaitIdle()
+		foreach (Renderer renderer in renderers) { renderer.TryCleanup(); } // can call Vk.DeviceWaitIdle()
 
 		base.InternalUpdate();
 	}
@@ -86,12 +86,12 @@ public abstract class GameClient : GameCore {
 	}
 
 	protected sealed override void Render(float delta) {
-		foreach (VulkanRenderer renderer in renderers) { renderer.InternalRender(delta); } // TODO time individual renderers
+		foreach (Renderer renderer in renderers) { renderer.InternalRender(delta); } // TODO time individual renderers
 	}
 
-	protected void CreateWindow(string title, ushort width, ushort height, string rendererName, Color4 clearColor, out Window window, out VulkanRenderer renderer, Action? setWindowHints = null) {
+	protected void CreateWindow(string title, ushort width, ushort height, Color4 clearColor, out Window window, out Renderer renderer, Action? setWindowHints = null) {
 		if (!IsGlfwEnabled) { throw new Engine4Exception($"Cannot create a {nameof(Window)} when Glfw is not enabled"); }
-		if (!IsVulkanEnabled) { throw new Engine4Exception($"Cannot create a {nameof(VulkanRenderer)} when Vulkan is not enabled"); }
+		if (!IsVulkanEnabled) { throw new Engine4Exception($"Cannot create a {nameof(Renderer)} when Vulkan is not enabled"); }
 
 		if (VulkanManager == null) { throw new IllegalStateException(); }
 
@@ -99,7 +99,7 @@ public abstract class GameClient : GameCore {
 		window = new(title, width, height, setWindowHints);
 
 		Logger.Debug("Creating renderer...");
-		renderer = new(rendererName, VulkanManager ?? throw new IllegalStateException(), Shaderc, window, clearColor);
+		renderer = new(VulkanManager ?? throw new IllegalStateException(), window, clearColor);
 
 		windows.Add(window);
 		renderers.Add(renderer);
@@ -111,37 +111,11 @@ public abstract class GameClient : GameCore {
 		Logger.Debug("Glfw is enabled. Loading Glfw...");
 		IsGlfwEnabled = true;
 
-#pragma warning disable CS0162 // Unreachable code detected
-		switch (Engine4.OperatingSystem) {
-			case OperatingSystem.Linux: GLFW.InitHint(InitHintPlatform.Platform, Platform.Wayland); break;
-			case OperatingSystem.Windows: break; // nothing atm
-			default: throw new ArgumentOutOfRangeException();
-		}
-#pragma warning restore CS0162 // Unreachable code detected
-
-		GLFW.SetErrorCallback(GlfwErrorCallback);
-		GLFW.Init();
-
-		// prefer wayland over x11. Renderdoc uses x11 (pain).
-		// if GLFW doesn't have any instance extensions then try again with x11.
-		// this is basically done to check if we're using Renderdoc.
-		// if there's a better way of doing this lemme know.
-		if (GLFW.GetRequiredInstanceExtensions().Length == 0) {
-			Logger.Warn("Failed to find GLFW instance extensions. Attempting to try again with X11.");
-			GLFW.Terminate();
-
-			GLFW.InitHint(InitHintPlatform.Platform, Platform.X11);
-			GLFW.Init();
-
-			if (GLFW.GetRequiredInstanceExtensions().Length == 0) { throw new Engine4Exception("Failed to setup GLFW"); }
-		}
-
+		GlfwManager = new();
 		PollEvents = GLFW.PollEvents;
-
-		Logger.Debug($"GLFW successfully set up. Version: {GLFW.GetVersionString()}, Platform: {GLFW.GetPlatform()}");
 	}
 
-	private void SetupVulkan(VulkanStartupSettings vulkanStartupSettings) {
+	private void SetupVulkan(SetupVulkanSettings vulkanSettings) {
 		Logger.Debug("Vulkan is enabled. Loading Vulkan...");
 		IsVulkanEnabled = true;
 
@@ -152,16 +126,13 @@ public abstract class GameClient : GameCore {
 		VkH.GetApiVersion(out uint apiVersion, out _, out byte major, out ushort minor, out ushort patch);
 		Logger.Debug($"- Version: {major}.{minor}.{patch} ({apiVersion})");
 
-		VulkanManager = new(this, vulkanStartupSettings);
+		VulkanManager = new(this, vulkanSettings);
 	}
 
 	private void SetupImGui() => Logger.Debug($"- ImGui Version: {ImGuiNet.GetVersionS()}");
 
 	protected sealed override void InternalCleanup() {
 		base.InternalCleanup();
-
-		Logger.Trace("Cleaning up Shaderc...");
-		Shaderc.Dispose();
 
 		if (IsVulkanEnabled) {
 			Logger.Trace("Cleaning up Vulkan...");
@@ -170,7 +141,7 @@ public abstract class GameClient : GameCore {
 
 			if (IsGlfwEnabled) {
 				Logger.Trace($"- Cleaning up {renderers.Count} renderers...");
-				foreach (VulkanRenderer renderer in renderers) {
+				foreach (Renderer renderer in renderers) {
 					renderer.Cleanup(); // calls Vk.DeviceWaitIdle()
 				}
 			}
@@ -187,17 +158,5 @@ public abstract class GameClient : GameCore {
 			GLFW.Terminate();
 			GLFW.SetErrorCallback(null);
 		}
-	}
-
-	private static readonly Logger GlfwLogger = LoggerH.GetLogger(LogSource.Glfw);
-	private static void GlfwErrorCallback(ErrorCode error, string description) => GlfwLogger.Error($"[{error}] {description}");
-
-	private class ShadercSearchPathContainer : SearchPathContainer {
-		public override string[] Linux => new[] { "libshaderc_shared.so", "libshaderc.so", };
-		public override string[] MacOS => new[] { "libshaderc_shared.dylib", };
-		public override string[] Android => new[] { "libshaderc_shared.so", };
-		public override string[] IOS => new[] { string.Empty, };
-		public override string[] Windows64 => new[] { "shaderc_shared.dll", };
-		public override string[] Windows86 => new[] { "shaderc_shared.dll", };
 	}
 }

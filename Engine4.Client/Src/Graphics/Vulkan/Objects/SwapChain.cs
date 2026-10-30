@@ -1,29 +1,28 @@
 using System.Diagnostics.CodeAnalysis;
-using Engine4.IO;
+using Engine4.Client.Windowing;
 using Engine4.Utility.Exceptions;
 using JetBrains.Annotations;
-using NLog;
 using OpenTK.Graphics.Vulkan;
 using USharpLibs.Common.Math;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
-public unsafe class SwapChain {
-	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Vulkan);
-
+public sealed unsafe class SwapChain : VulkanResource {
 	private readonly Window window;
 	private readonly SurfaceReadyPhysicalGpu physicalGpu;
 	private readonly LogicalGpu logicalGpu;
 	private readonly Surface surface;
 	private readonly VkPresentModeKHR presentMode;
 
-	internal VkSwapchainKHR VkSwapChain { get; private set; }
-	internal VkFormat ImageFormat { get; private set; }
-	internal VkExtent2D Extent { get; private set; }
-	internal VkImage[] Images { get; private set; }
-	internal VkImageView[] ImageViews { get; private set; }
+	public VkSwapchainKHR VkSwapChain { get; private set; }
+	public VkFormat ImageFormat { get; private set; }
+	public VkExtent2D Extent { get; private set; }
+	public VkImage[] Images { get; private set; }
+	public VkImageView[] ImageViews { get; private set; }
 
 	public uint ImageCount { get; private set; }
+
+	public override ulong Handle => VkSwapChain.Handle;
 
 	internal SwapChain(Window window, SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, Surface surface, VkPresentModeKHR presentMode) {
 		this.window = window;
@@ -63,7 +62,7 @@ public unsafe class SwapChain {
 		return result;
 	}
 
-	internal void Cleanup() {
+	protected internal override void Cleanup() {
 		VkDevice logicalDevice = logicalGpu.VkLogicalDevice;
 		Vk.DestroySwapchainKHR(logicalDevice, VkSwapChain, null);
 		foreach (VkImageView imageView in ImageViews) { Vk.DestroyImageView(logicalDevice, imageView, null); }
@@ -201,7 +200,6 @@ public unsafe class SwapChain {
 		VkImageView[] imageViews = new VkImageView[images.Length];
 
 		fixed (VkImageView* imageViewsPtr = imageViews) {
-			// ReSharper disable once LoopCanBeConvertedToQuery // lies
 			for (int i = 0; i < images.Length; i++) {
 				VkImageViewCreateInfo createInfo = new() {
 						image = images[i],

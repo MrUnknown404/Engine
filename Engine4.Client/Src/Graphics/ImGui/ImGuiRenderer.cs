@@ -11,23 +11,23 @@ namespace Engine4.Client.Graphics.ImGui;
 public unsafe class ImGuiRenderer { // TODO
 	private const string ImGuiAssetName = "ImGui";
 
-	private readonly VulkanResourceManager resourceManager;
-
-	private readonly GraphicsPipeline graphicsPipeline;
-
-	private readonly DescriptorSets samplerDescriptorSets;
-	private readonly DescriptorSetLayout imageDescriptorSetsLayout;
-
-	private readonly VulkanBuffer vertexBuffer; // TODO Frames-in-flight? i think i read somewhere i should? look into
-	private readonly VulkanBuffer indexBuffer; // ^
-
-	private readonly Dictionary<nint, DescriptorSets> imageDescriptors = new();
+	// private readonly VulkanResourceManager resourceManager;
+	//
+	// private readonly GraphicsPipeline graphicsPipeline;
+	//
+	// private readonly DescriptorSets samplerDescriptorSets;
+	// private readonly DescriptorSetLayout imageDescriptorSetsLayout;
+	//
+	// private readonly VulkanBuffer vertexBuffer; // TODO Frames-in-flight? i think i read somewhere i should? look into
+	// private readonly VulkanBuffer indexBuffer; // ^
+	//
+	// private readonly Dictionary<nint, DescriptorSets> imageDescriptors = new();
 
 	public ImGuiRenderer(VulkanResourceManager resourceManager, VkFormat swapChainImageFormat, byte maxFramesInFlight, ImGuiFragmentShaderConstants shaderConstants) {
-		this.resourceManager = resourceManager;
-
-		CreatePipeline(resourceManager, swapChainImageFormat, maxFramesInFlight, shaderConstants, out graphicsPipeline, out samplerDescriptorSets, out imageDescriptorSetsLayout);
-		CreateBuffers(resourceManager, out vertexBuffer, out indexBuffer);
+		// this.resourceManager = resourceManager;
+		//
+		// CreatePipeline(resourceManager, swapChainImageFormat, maxFramesInFlight, shaderConstants, out graphicsPipeline, out samplerDescriptorSets, out imageDescriptorSetsLayout);
+		// CreateBuffers(resourceManager, out vertexBuffer, out indexBuffer);
 		// CreateFont(resourceManager, out VulkanTexture fontImage, out TextureSampler textureSampler);
 
 		// samplerDescriptorSets.UpdateDescriptorSet(0, textureSampler.Sampler);
@@ -35,26 +35,26 @@ public unsafe class ImGuiRenderer { // TODO
 	}
 
 	internal void CopyBuffers(ImDrawDataPtr imDrawData, float delta) {
-		if (imDrawData.TotalVtxCount > (uint)(vertexBuffer.Size / (uint)sizeof(ImDrawVert))) { vertexBuffer.Resize((ulong)(imDrawData.TotalVtxCount * sizeof(ImDrawVert))); }
-		if (imDrawData.TotalIdxCount > (uint)(indexBuffer.Size / sizeof(ushort))) { indexBuffer.Resize((ulong)(imDrawData.TotalIdxCount * sizeof(ushort))); }
-
-		// do i copy just when the data is different? i feel like i should but i don't know how to check that easily
-
-		ImDrawVert* vertexBufferMap = (ImDrawVert*)vertexBuffer.MapMemory(vertexBuffer.Size);
-		ushort* indexBufferMap = (ushort*)indexBuffer.MapMemory(indexBuffer.Size);
-
-		for (int i = 0; i < imDrawData.CmdLists.Size; i++) {
-			ImDrawListPtr drawList = imDrawData.CmdLists[i];
-
-			Buffer.MemoryCopy(drawList.VtxBuffer.Data, vertexBufferMap, vertexBuffer.Size, (ulong)(drawList.VtxBuffer.Size * sizeof(ImDrawVert)));
-			Buffer.MemoryCopy(drawList.IdxBuffer.Data, indexBufferMap, indexBuffer.Size, (ulong)(drawList.IdxBuffer.Size * sizeof(ushort)));
-
-			vertexBufferMap += drawList.VtxBuffer.Size;
-			indexBufferMap += drawList.IdxBuffer.Size;
-		}
-
-		vertexBuffer.UnmapMemory();
-		indexBuffer.UnmapMemory();
+		// if (imDrawData.TotalVtxCount > (uint)(vertexBuffer.Size / (uint)sizeof(ImDrawVert))) { vertexBuffer.Resize((ulong)(imDrawData.TotalVtxCount * sizeof(ImDrawVert))); }
+		// if (imDrawData.TotalIdxCount > (uint)(indexBuffer.Size / sizeof(ushort))) { indexBuffer.Resize((ulong)(imDrawData.TotalIdxCount * sizeof(ushort))); }
+		//
+		// // do i copy just when the data is different? i feel like i should but i don't know how to check that easily
+		//
+		// ImDrawVert* vertexBufferMap = (ImDrawVert*)vertexBuffer.MapMemory(vertexBuffer.Size);
+		// ushort* indexBufferMap = (ushort*)indexBuffer.MapMemory(indexBuffer.Size);
+		//
+		// for (int i = 0; i < imDrawData.CmdLists.Size; i++) {
+		// 	ImDrawListPtr drawList = imDrawData.CmdLists[i];
+		//
+		// 	Buffer.MemoryCopy(drawList.VtxBuffer.Data, vertexBufferMap, vertexBuffer.Size, (ulong)(drawList.VtxBuffer.Size * sizeof(ImDrawVert)));
+		// 	Buffer.MemoryCopy(drawList.IdxBuffer.Data, indexBufferMap, indexBuffer.Size, (ulong)(drawList.IdxBuffer.Size * sizeof(ushort)));
+		//
+		// 	vertexBufferMap += drawList.VtxBuffer.Size;
+		// 	indexBufferMap += drawList.IdxBuffer.Size;
+		// }
+		//
+		// vertexBuffer.UnmapMemory();
+		// indexBuffer.UnmapMemory();
 	}
 
 	internal void DrawFrame(GraphicsCommandBuffer commandBuffer, byte frameIndex, ImDrawDataPtr imDrawData) {
@@ -121,16 +121,13 @@ public unsafe class ImGuiRenderer { // TODO
 		VkSpecializationInfo specializationInfo = new() { dataSize = (nuint)sizeof(ImGuiFragmentShaderConstants), mapEntryCount = 1, pMapEntries = &specializationMapEntry, pData = &shaderConstants, };
 
 		Assembly assembly = typeof(ImGuiRenderer).Assembly;
-		VulkanShader vertexShader = resourceManager.CreateShader($"{ImGuiAssetName} Vertex Shader", assembly, ImGuiAssetName, ShaderLanguage.Glsl, ShaderType.Vertex, specializationInfo);
-		VulkanShader fragmentShader = resourceManager.CreateShader($"{ImGuiAssetName} Fragment Shader", assembly, ImGuiAssetName, ShaderLanguage.Glsl, ShaderType.Fragment);
+		Shader vertexShader = resourceManager.CreateShader($"{ImGuiAssetName} Vertex Shader", assembly, ImGuiAssetName, ShaderLanguage.Glsl, ShaderType.Vertex, specializationInfo);
+		Shader fragmentShader = resourceManager.CreateShader($"{ImGuiAssetName} Fragment Shader", assembly, ImGuiAssetName, ShaderLanguage.Glsl, ShaderType.Fragment);
 
-		DescriptorSetLayout samplerDescriptorSetLayout =
-				resourceManager.CreateDescriptorSetLayout($"{ImGuiAssetName} Sampler Descriptor Set Layout", [ new(VkDescriptorType.DescriptorTypeSampler, VkShaderStageFlagBits.ShaderStageFragmentBit, 0), ]);
+		DescriptorSetLayout samplerDescriptorSetLayout = resourceManager.CreateDescriptorSetLayout([ new(VkDescriptorType.DescriptorTypeSampler, VkShaderStageFlagBits.ShaderStageFragmentBit, 0), ]);
+		imageDescriptorSetLayout = resourceManager.CreateDescriptorSetLayout([ new(VkDescriptorType.DescriptorTypeSampledImage, VkShaderStageFlagBits.ShaderStageFragmentBit, 0), ]);
 
-		imageDescriptorSetLayout =
-				resourceManager.CreateDescriptorSetLayout($"{ImGuiAssetName} Image Descriptor Set Layout", [ new(VkDescriptorType.DescriptorTypeSampledImage, VkShaderStageFlagBits.ShaderStageFragmentBit, 0), ]);
-
-		DescriptorPool descriptorPool = resourceManager.CreateDescriptorPool($"{ImGuiAssetName} Sampler Descriptor Pool", [ VkDescriptorType.DescriptorTypeSampler, ], 1, maxFramesInFlight);
+		DescriptorPool descriptorPool = resourceManager.CreateDescriptorPool([ VkDescriptorType.DescriptorTypeSampler, ], 1, maxFramesInFlight);
 
 		samplerDescriptorSet = descriptorPool.AllocateDescriptorSets(samplerDescriptorSetLayout);
 

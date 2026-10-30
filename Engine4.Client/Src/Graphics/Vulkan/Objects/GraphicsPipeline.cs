@@ -4,11 +4,12 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
-public unsafe class GraphicsPipeline : VulkanResource {
+public sealed unsafe class GraphicsPipeline : NamedVulkanResource {
+	public VkPipeline Pipeline { get; }
 	public override ulong Handle => Pipeline.Handle;
 
-	internal VkPipeline Pipeline { get; }
-	internal VkPipelineLayout Layout { get; }
+	[Obsolete]
+	public VkPipelineLayout Layout { get; }
 
 	private readonly LogicalGpu logicalGpu;
 
@@ -44,13 +45,14 @@ public unsafe class GraphicsPipeline : VulkanResource {
 		}
 	}
 
+	// TODO see if i can clean this up a little bit
 	[MustUseReturnValue]
 	private static VkPipeline CreatePipeline(LogicalGpu logicalGpu, Settings settings, VkPipelineLayout pipelineLayout, VkFormat? depthFormat) {
-		using StringUtf8Ptr entryPoint = new(VulkanShader.ShaderEntryPoint);
+		using StringUtf8Ptr entryPoint = new(Shader.ShaderEntryPoint);
 
-		VkPipelineShaderStageCreateInfo* shaderStageCreateInfos = stackalloc VkPipelineShaderStageCreateInfo[settings.Shaders.Length];
+		VkPipelineShaderStageCreateInfo* pShaderStageCreateInfos = stackalloc VkPipelineShaderStageCreateInfo[settings.Shaders.Length];
 		for (int i = 0; i < settings.Shaders.Length; i++) {
-			VulkanShader shader = settings.Shaders[i];
+			Shader shader = settings.Shaders[i];
 
 			VkPipelineShaderStageCreateInfo shaderStageCreateInfo = new() {
 					// flags = , any flags?
@@ -61,15 +63,24 @@ public unsafe class GraphicsPipeline : VulkanResource {
 
 			if (shader.SpecializationInfo is { } specializationInfo) { shaderStageCreateInfo = shaderStageCreateInfo with { pSpecializationInfo = &specializationInfo, }; }
 
-			shaderStageCreateInfos[i] = shaderStageCreateInfo;
+			pShaderStageCreateInfos[i] = shaderStageCreateInfo;
 		}
 
-		VkFormat swapChainImageFormat = settings.SwapChainImageFormat;
-		VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo = new() { topology = settings.Topology, };
-		VkPipelineViewportStateCreateInfo viewportStateCreateInfo = new() { viewportCount = 1, scissorCount = 1, };
-		VkPipelineRenderingCreateInfo renderingCreateInfo = new() { colorAttachmentCount = 1, pColorAttachmentFormats = &swapChainImageFormat, };
+		VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo = new() {
+				topology = settings.Topology, //
+		};
 
-		if (depthFormat != null) { renderingCreateInfo = renderingCreateInfo with { depthAttachmentFormat = depthFormat.Value, }; }
+		VkPipelineViewportStateCreateInfo viewportStateCreateInfo = new() {
+				viewportCount = 1, //
+				scissorCount = 1,
+		};
+
+		VkFormat swapChainImageFormat = settings.SwapChainImageFormat;
+		VkPipelineRenderingCreateInfo renderingCreateInfo = new() {
+				colorAttachmentCount = 1, //
+				pColorAttachmentFormats = &swapChainImageFormat,
+				depthAttachmentFormat = depthFormat ?? default,
+		};
 
 		VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = new() {
 				rasterizerDiscardEnable = settings.EnableRasterizerDiscard ? VkH.True : VkH.False,
@@ -105,7 +116,12 @@ public unsafe class GraphicsPipeline : VulkanResource {
 		};
 
 		// float* blendConstants = stackalloc float[4] { 0, 0, 0, 0, }; // TODO do i want this?
-		VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = new() { logicOpEnable = VkH.False, logicOp = VkLogicOp.LogicOpCopy, attachmentCount = 1, pAttachments = &colorBlendAttachmentState, };
+		VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = new() {
+				logicOpEnable = VkH.False, //
+				logicOp = VkLogicOp.LogicOpCopy,
+				attachmentCount = 1,
+				pAttachments = &colorBlendAttachmentState,
+		};
 
 		// i'm not sure if this should be created if we aren't using depth testing? idk
 		VkPipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo = new() {
@@ -123,7 +139,10 @@ public unsafe class GraphicsPipeline : VulkanResource {
 		fixed (VkDynamicState* pDynamicStates = settings.DynamicStates) {
 			fixed (VkVertexInputAttributeDescription* pAttributeDescriptions = settings.VertexAttributeDescriptions) {
 				fixed (VkVertexInputBindingDescription* pVertexBindingDescription = settings.VertexBindingDescriptions) {
-					VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = new() { dynamicStateCount = (uint)settings.DynamicStates.Length, pDynamicStates = pDynamicStates, };
+					VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = new() {
+							dynamicStateCount = (uint)settings.DynamicStates.Length, //
+							pDynamicStates = pDynamicStates,
+					};
 
 					VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = new() {
 							vertexBindingDescriptionCount = (uint)settings.VertexBindingDescriptions.Length,
@@ -135,7 +154,7 @@ public unsafe class GraphicsPipeline : VulkanResource {
 					VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo = new() {
 							pNext = &renderingCreateInfo,
 							stageCount = (uint)settings.Shaders.Length,
-							pStages = shaderStageCreateInfos,
+							pStages = pShaderStageCreateInfos,
 							pVertexInputState = &vertexInputStateCreateInfo,
 							pInputAssemblyState = &inputAssemblyStateCreateInfo,
 							pViewportState = &viewportStateCreateInfo,
@@ -165,7 +184,7 @@ public unsafe class GraphicsPipeline : VulkanResource {
 		public VkPrimitiveTopology Topology { get; init; } = VkPrimitiveTopology.PrimitiveTopologyTriangleList;
 		public VkVertexInputAttributeDescription[] VertexAttributeDescriptions { get; }
 		public VkVertexInputBindingDescription[] VertexBindingDescriptions { get; }
-		public VulkanShader[] Shaders { get; }
+		public Shader[] Shaders { get; }
 		public VkFormat SwapChainImageFormat { get; }
 
 		// Rasterization
@@ -219,7 +238,7 @@ public unsafe class GraphicsPipeline : VulkanResource {
 		public VkDescriptorSetLayout[]? DescriptorSetLayouts { get; init; } // TODO look into the new Descriptor Heaps
 		public VkPushConstantRange[]? PushConstantRanges { get; init; }
 
-		public Settings(string debugName, VkFormat swapChainImageFormat, VulkanShader[] shaders, VkVertexInputAttributeDescription[] vertexAttributeDescriptions,
+		public Settings(string debugName, VkFormat swapChainImageFormat, Shader[] shaders, VkVertexInputAttributeDescription[] vertexAttributeDescriptions,
 			VkVertexInputBindingDescription[] vertexBindingDescriptions) {
 			DebugName = debugName;
 			SwapChainImageFormat = swapChainImageFormat;

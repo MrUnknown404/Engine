@@ -161,7 +161,7 @@ public unsafe class RenderGraph {
 
 			for (uint i = 0; i < passCount; i++) {
 				foreach (uint dependency in dependencies[i]) {
-					semaphores.Add(resourceManager.CreateSemaphore($"RenderGraph Pass[{i}] ({dependency})", 0));
+					semaphores.Add(resourceManager.CreateSemaphore(0));
 					semaphoreSignalWaitPairs.Add(new(dependency, i));
 				}
 			}

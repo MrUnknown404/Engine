@@ -1,3 +1,4 @@
+using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.Client.Utility;
 using Engine4.Client.Utility.Exceptions;
 using JetBrains.Annotations;
@@ -5,15 +6,17 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan;
 
-public unsafe class LogicalGpu {
+public sealed unsafe class LogicalGpu : VulkanResource {
 	public VkDevice VkLogicalDevice { get; }
-	public VkQueue GraphicsQueue { get; } // TODO queue objects?
+	public VkQueue GraphicsQueue { get; } // TODO queue objects
 	public VkQueue PresentQueue { get; }
 	public VkQueue TransferQueue { get; }
 
+	public override ulong Handle => (ulong)VkLogicalDevice.Handle;
+
 	private readonly SurfaceReadyPhysicalGpu physicalGpu;
 
-	internal LogicalGpu(SurfaceReadyPhysicalGpu physicalGpu, VulkanManager vulkanManager) {
+	internal LogicalGpu(SurfaceReadyPhysicalGpu physicalGpu, VulkanSettings vulkanSettings) {
 		this.physicalGpu = physicalGpu;
 
 		QueueFamilyIndices queueFamilyIndices = physicalGpu.QueueFamilyIndices;
@@ -56,7 +59,7 @@ public unsafe class LogicalGpu {
 				multiDrawIndirect = VkH.True,
 		};
 
-		using StringArrayUtf8Ptr requiredDeviceExtensionPropertiesPtr = new(vulkanManager.RequiredDeviceExtensionProperties);
+		using StringArrayUtf8Ptr requiredDeviceExtensionPropertiesPtr = new(vulkanSettings.RequiredDeviceExtensionProperties);
 
 		VkDeviceCreateInfo deviceCreateInfo = new() {
 				pNext = &physicalDeviceVulkan14Features,
@@ -64,7 +67,7 @@ public unsafe class LogicalGpu {
 				queueCreateInfoCount = (uint)queueFamilies.Count,
 				pEnabledFeatures = &physicalDeviceFeatures,
 				ppEnabledExtensionNames = requiredDeviceExtensionPropertiesPtr,
-				enabledExtensionCount = (uint)vulkanManager.RequiredDeviceExtensionProperties.Length,
+				enabledExtensionCount = (uint)vulkanSettings.RequiredDeviceExtensionProperties.Length,
 		};
 
 		VkDevice logicalDevice;
@@ -121,5 +124,5 @@ public unsafe class LogicalGpu {
 		VkH.ThrowIfNotSuccess(Vk.BindImageMemory2(VkLogicalDevice, 1, &bindImageMemoryInfo), "Failed to bind image memory");
 	}
 
-	internal void Cleanup() => Vk.DestroyDevice(VkLogicalDevice, null);
+	protected internal override void Cleanup() => Vk.DestroyDevice(VkLogicalDevice, null);
 }

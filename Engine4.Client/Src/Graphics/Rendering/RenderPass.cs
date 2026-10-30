@@ -1,11 +1,9 @@
 using Engine4.Client.Graphics.Vulkan.Objects;
 
-namespace Engine4.Client.Rendering;
+namespace Engine4.Client.Graphics.Rendering;
 
 public abstract class RenderPass { // TODO abstract?
-	public GraphicsPipeline GraphicsPipeline { get; set; }
-
-	protected RenderPass(GraphicsPipeline graphicsPipeline) => GraphicsPipeline = graphicsPipeline;
+	protected abstract GraphicsPipeline GraphicsPipeline { get; }
 
 	protected internal abstract void RecordCommandBuffer(GraphicsCommandBuffer commandBuffer);
 }
