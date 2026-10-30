@@ -41,8 +41,6 @@ public sealed unsafe class VulkanManager {
 		CheckForInstanceLayerProperties(availableInstanceLayerProperties, VulkanSettings.RequiredInstanceLayerProperties);
 		CheckForInstanceExtensionProperties(availableInstanceExtensionProperties, VulkanSettings.RequiredInstanceExtensionProperties);
 
-
-
 		// create instance
 		VulkanInstance = new(game.Name, game.Version, setupVulkanSettings, VulkanSettings);
 		VKLoader.SetInstance(VulkanInstance.VkInstance); // set opentk instance
