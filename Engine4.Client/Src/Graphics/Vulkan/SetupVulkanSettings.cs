@@ -5,9 +5,9 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 namespace Engine4.Client.Graphics.Vulkan;
 
 public class SetupVulkanSettings {
-	public string[] RequiredInstanceLayerProperties { get; init; } = [ ];
-	public string[] RequiredInstanceExtensionProperties { get; init; } = [ ];
-	public string[] RequiredDeviceExtensionProperties { get; init; } = [ ];
+	public string[] RequiredInstanceLayerProperties { get; init; } = Array.Empty<string>();
+	public string[] RequiredInstanceExtensionProperties { get; init; } = Array.Empty<string>();
+	public string[] RequiredDeviceExtensionProperties { get; init; } = Array.Empty<string>();
 
 	public VkPresentModeKHR PresentMode { get; init; } = VkPresentModeKHR.PresentModeImmediateKhr; // TODO support setting this at runtime
 	public bool AllowEnableAnisotropy { get; init; } = true;
@@ -32,33 +32,30 @@ public class SetupVulkanSettings {
 	[MustUseReturnValue]
 	public VulkanSettings ToReadonly(bool isGlfwEnabled) {
 		// engine extensions
-		HashSet<string> requiredEngineInstanceLayerProperties = new([
+		HashSet<string> requiredInstanceLayerProperties = new([
 #if DEBUG
 				"VK_LAYER_KHRONOS_validation", // if OpenTK defines this somewhere, i could not find it
 #endif
 		]);
 
-		HashSet<string> requiredEngineInstanceExtensionProperties = new([
+		requiredInstanceLayerProperties.UnionWith(RequiredInstanceLayerProperties);
+
+		HashSet<string> requiredInstanceExtensionProperties = new([
 				Vk.KhrGetSurfaceCapabilities2ExtensionName,
 #if DEBUG
 				Vk.ExtDebugUtilsExtensionName,
 #endif
 		]);
 
-		if (isGlfwEnabled) { requiredEngineInstanceExtensionProperties.UnionWith(GLFW.GetRequiredInstanceExtensions()); }
+		requiredInstanceExtensionProperties.UnionWith(RequiredInstanceExtensionProperties);
 
-		HashSet<string> requiredEngineDeviceExtensionProperties = new([
+		HashSet<string> requiredDeviceExtensionProperties = new([
 				Vk.KhrSwapchainExtensionName, //
 		]);
 
-		HashSet<string> requiredInstanceLayerProperties = new(requiredEngineInstanceLayerProperties);
-		requiredInstanceLayerProperties.UnionWith(RequiredInstanceLayerProperties);
-
-		HashSet<string> requiredInstanceExtensionProperties = new(requiredEngineInstanceExtensionProperties);
-		requiredInstanceExtensionProperties.UnionWith(RequiredInstanceExtensionProperties);
-
-		HashSet<string> requiredDeviceExtensionProperties = new(requiredEngineDeviceExtensionProperties);
 		requiredDeviceExtensionProperties.UnionWith(RequiredDeviceExtensionProperties);
+
+		if (isGlfwEnabled) { requiredInstanceExtensionProperties.UnionWith(GLFW.GetRequiredInstanceExtensions()); }
 
 		return new() {
 				RequiredInstanceLayerProperties = requiredInstanceLayerProperties.ToArray(),
