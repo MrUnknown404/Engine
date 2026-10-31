@@ -32,10 +32,10 @@ public sealed unsafe class SwapChain : VulkanResource {
 		this.presentMode = presentMode;
 
 		VkSwapChain = CreateSwapChain(window, physicalGpu, logicalGpu, surface, presentMode, out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat);
+		Images = GetSwapChainImages(logicalGpu, VkSwapChain);
+		ImageViews = CreateImageViews(logicalGpu, Images, swapChainImageFormat, VkImageAspectFlagBits.ImageAspectColorBit);
 		ImageFormat = swapChainImageFormat;
 		Extent = swapChainExtent;
-		Images = GetSwapChainImages(logicalGpu, VkSwapChain);
-		ImageViews = CreateImageViews(logicalGpu, Images, ImageFormat, VkImageAspectFlagBits.ImageAspectColorBit);
 		ImageCount = (uint)Images.Length;
 	}
 

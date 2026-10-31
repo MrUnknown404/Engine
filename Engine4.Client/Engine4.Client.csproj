@@ -9,6 +9,7 @@
 		<RootNamespace>Engine4.Client</RootNamespace>
 		<AssemblyName>Engine4.Client</AssemblyName>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<PlatformTarget>x64</PlatformTarget> <!-- Code is assuming 64 bit everywhere -->
 	</PropertyGroup>
 
 	<!-- Includes -->

@@ -7,12 +7,10 @@ using OpenTK.Graphics.Vulkan;
 namespace Engine4.Client.Graphics.Vulkan;
 
 public sealed unsafe class LogicalGpu : VulkanResource {
-	private readonly VkDevice vkLogicalDevice;
-
-	public VkDevice VkLogicalDevice => vkLogicalDevice;
-	public VkQueue GraphicsQueue { get; } // TODO queue objects
-	public VkQueue PresentQueue { get; }
-	public VkQueue TransferQueue { get; }
+	public VkDevice VkLogicalDevice { get; }
+	public Queue GraphicsQueue { get; } // TODO queue objects
+	public Queue PresentQueue { get; }
+	public Queue TransferQueue { get; }
 
 	public override ulong Handle => (ulong)VkLogicalDevice.Handle;
 
@@ -20,25 +18,35 @@ public sealed unsafe class LogicalGpu : VulkanResource {
 
 	internal LogicalGpu(SurfaceReadyPhysicalGpu physicalGpu, VulkanSettings vulkanSettings) {
 		this.physicalGpu = physicalGpu;
+		VkLogicalDevice = CreateLogicalDevice(physicalGpu, vulkanSettings);
 
 		QueueFamilyIndices queueFamilyIndices = physicalGpu.QueueFamilyIndices;
-		HashSet<uint> queueFamilies = [ queueFamilyIndices.GraphicsFamily, queueFamilyIndices.PresentFamily, queueFamilyIndices.TransferFamily, ];
-		VkDeviceQueueCreateInfo* deviceQueueCreateInfo = stackalloc VkDeviceQueueCreateInfo[queueFamilies.Count];
+		GraphicsQueue = new(this, queueFamilyIndices.GraphicsFamily);
+		PresentQueue = new(this, queueFamilyIndices.PresentFamily);
+		TransferQueue = new(this, queueFamilyIndices.TransferFamily);
+	}
+
+	[MustUseReturnValue]
+	private static VkDevice CreateLogicalDevice(SurfaceReadyPhysicalGpu physicalGpu, VulkanSettings vulkanSettings) {
+		uint[] uniqueQueueFamilyIndices = physicalGpu.QueueFamilyIndices.ToUniqueFamilies();
+		VkDeviceQueueCreateInfo* deviceQueueCreateInfo = stackalloc VkDeviceQueueCreateInfo[uniqueQueueFamilyIndices.Length];
 		float queuePriority = 1f;
 
-		int i = 0;
-		foreach (uint queueFamily in queueFamilies) {
-			deviceQueueCreateInfo[i] = new() { queueFamilyIndex = queueFamily, queueCount = 1, pQueuePriorities = &queuePriority, };
-			i++;
-		}
+		for (int i = 0; i < uniqueQueueFamilyIndices.Length; i++) { deviceQueueCreateInfo[i] = new() { queueFamilyIndex = uniqueQueueFamilyIndices[i], queueCount = 1, pQueuePriorities = &queuePriority, }; }
 
-		// TODO allow these to be editable
-		VkPhysicalDeviceVulkan11Features physicalDeviceVulkan11Features = new() {
+		VkPhysicalDeviceDescriptorHeapFeaturesEXT physicalDeviceDescriptorHeapFeatures = new() {
 				// pNext = ,
+				descriptorHeap = VkH.True,
+		};
+
+		PhysicalDeviceSettings deviceSettings = vulkanSettings.PhysicalDeviceSettings;
+
+		VkPhysicalDeviceVulkan11Features physicalDeviceVulkan11Features = deviceSettings.Vulkan11Features with {
+				pNext = &physicalDeviceDescriptorHeapFeatures, //
 				shaderDrawParameters = VkH.True,
 		};
 
-		VkPhysicalDeviceVulkan12Features physicalDeviceVulkan12Features = new() {
+		VkPhysicalDeviceVulkan12Features physicalDeviceVulkan12Features = deviceSettings.Vulkan12Features with {
 				pNext = &physicalDeviceVulkan11Features, //
 				drawIndirectCount = VkH.True,
 				scalarBlockLayout = VkH.True,
@@ -46,18 +54,18 @@ public sealed unsafe class LogicalGpu : VulkanResource {
 				bufferDeviceAddress = VkH.True,
 		};
 
-		VkPhysicalDeviceVulkan13Features physicalDeviceVulkan13Features = new() {
+		VkPhysicalDeviceVulkan13Features physicalDeviceVulkan13Features = deviceSettings.Vulkan13Features with {
 				pNext = &physicalDeviceVulkan12Features, //
 				synchronization2 = VkH.True,
 				dynamicRendering = VkH.True,
 		};
 
-		VkPhysicalDeviceVulkan14Features physicalDeviceVulkan14Features = new() {
+		VkPhysicalDeviceVulkan14Features physicalDeviceVulkan14Features = deviceSettings.Vulkan14Features with {
 				pNext = &physicalDeviceVulkan13Features, //
 				dynamicRenderingLocalRead = VkH.True,
 		};
 
-		VkPhysicalDeviceFeatures physicalDeviceFeatures = new() {
+		VkPhysicalDeviceFeatures physicalDeviceFeatures = deviceSettings.PhysicalDeviceFeatures with {
 				samplerAnisotropy = VkH.True, //
 				multiDrawIndirect = VkH.True,
 		};
@@ -66,28 +74,16 @@ public sealed unsafe class LogicalGpu : VulkanResource {
 
 		VkDeviceCreateInfo deviceCreateInfo = new() {
 				pNext = &physicalDeviceVulkan14Features,
+				queueCreateInfoCount = (uint)uniqueQueueFamilyIndices.Length,
 				pQueueCreateInfos = deviceQueueCreateInfo,
-				queueCreateInfoCount = (uint)queueFamilies.Count,
 				pEnabledFeatures = &physicalDeviceFeatures,
-				ppEnabledExtensionNames = requiredDeviceExtensionPropertiesPtr,
 				enabledExtensionCount = (uint)vulkanSettings.RequiredDeviceExtensionProperties.Length,
+				ppEnabledExtensionNames = requiredDeviceExtensionPropertiesPtr,
 		};
 
-		fixed (VkDevice* pLogicalDevice = &vkLogicalDevice) { VkH.ThrowIfNotSuccess(Vk.CreateDevice(physicalGpu.VkPhysicalDevice, &deviceCreateInfo, null, pLogicalDevice), "Failed to create logical device"); }
-
-		GraphicsQueue = GetDeviceQueue(VkLogicalDevice, queueFamilyIndices.GraphicsFamily);
-		PresentQueue = GetDeviceQueue(VkLogicalDevice, queueFamilyIndices.PresentFamily);
-		TransferQueue = GetDeviceQueue(VkLogicalDevice, queueFamilyIndices.TransferFamily);
-
-		return;
-
-		[MustUseReturnValue]
-		static VkQueue GetDeviceQueue(VkDevice logicalDevice, uint queueFamilyIndex) {
-			VkDeviceQueueInfo2 deviceQueueInfo2 = new() { queueFamilyIndex = queueFamilyIndex, };
-			VkQueue queue;
-			Vk.GetDeviceQueue2(logicalDevice, &deviceQueueInfo2, &queue);
-			return queue;
-		}
+		VkDevice logicalDevice;
+		VkH.ThrowIfNotSuccess(Vk.CreateDevice(physicalGpu.VkPhysicalDevice, &deviceCreateInfo, null, &logicalDevice), "Failed to create logical device");
+		return logicalDevice;
 	}
 
 	[MustUseReturnValue]

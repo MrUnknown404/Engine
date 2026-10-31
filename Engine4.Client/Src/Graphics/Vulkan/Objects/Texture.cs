@@ -32,6 +32,7 @@ public sealed unsafe class Texture : NamedVulkanResource {
 		ImageAspectMask = imageAspectMask;
 
 		CreateImage(logicalGpu, width, height, imageFormat, imageTiling, usageFlags, imageAspectMask, out image, out imageView, out deviceMemory);
+		// TODO method for copying data to image
 	}
 
 	protected internal override void Cleanup() {

@@ -175,7 +175,7 @@ public sealed unsafe class Renderer {
 	}
 
 	private void SubmitQueue(FrameInFlight frame) {
-		VkPipelineStageFlagBits* waitStages = stackalloc VkPipelineStageFlagBits[1] { VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, };
+		VkPipelineStageFlagBits* pWaitStages = stackalloc VkPipelineStageFlagBits[1] { VkPipelineStageFlagBits.PipelineStageColorAttachmentOutputBit, };
 		VkSemaphore signalSemaphore = renderFinishedSemaphores[swapChainImageIndex].VkSemaphore; // lots of copying. can i fix that?
 		VkSemaphore waitSemaphore = frame.ImageAvailableSemaphore.VkSemaphore;
 		VkCommandBuffer commandBuffer = frame.GraphicsCommandBuffer.VkCommandBuffer;
@@ -183,24 +183,29 @@ public sealed unsafe class Renderer {
 		VkSubmitInfo submitInfo = new() {
 				waitSemaphoreCount = 1,
 				pWaitSemaphores = &waitSemaphore,
-				pWaitDstStageMask = waitStages,
+				pWaitDstStageMask = pWaitStages,
 				commandBufferCount = 1,
 				pCommandBuffers = &commandBuffer,
 				signalSemaphoreCount = 1,
 				pSignalSemaphores = &signalSemaphore,
 		};
 
-		Vk.QueueSubmit(LogicalGpu.GraphicsQueue, 1, &submitInfo, frame.InFlightFence.VkFence);
+		LogicalGpu.GraphicsQueue.Submit(submitInfo, frame.InFlightFence);
 	}
 
 	private void PresentFrame() {
-		VkSwapchainKHR swapChain = this.swapChain.VkSwapChain;
-		VkSemaphore waitSemaphore = renderFinishedSemaphores[swapChainImageIndex].VkSemaphore;
-
 		VkResult result;
-		fixed (uint* swapChainImageIndexPtr = &swapChainImageIndex) {
-			VkPresentInfoKHR presentInfo = new() { waitSemaphoreCount = 1, pWaitSemaphores = &waitSemaphore, swapchainCount = 1, pSwapchains = &swapChain, pImageIndices = swapChainImageIndexPtr, };
-			result = Vk.QueuePresentKHR(LogicalGpu.PresentQueue, &presentInfo);
+		fixed (uint* pSwapChainImageIndex = &swapChainImageIndex) {
+			VkSwapchainKHR swapChain = this.swapChain.VkSwapChain;
+			VkSemaphore waitSemaphore = renderFinishedSemaphores[swapChainImageIndex].VkSemaphore;
+
+			result = LogicalGpu.PresentQueue.Present(new() {
+					waitSemaphoreCount = 1, //
+					pWaitSemaphores = &waitSemaphore,
+					swapchainCount = 1,
+					pSwapchains = &swapChain,
+					pImageIndices = pSwapChainImageIndex,
+			});
 		}
 
 		if (result is VkResult.ErrorOutOfDateKhr or VkResult.SuboptimalKhr || window.IsFrameBufferSizeDirty) {

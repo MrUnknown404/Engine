@@ -11,5 +11,6 @@ public readonly record struct QueueFamilyIndices {
 		PresentFamily = presentFamily;
 	}
 
+	// quick way of getting uniques. there's probably a better way to do this without crafting a hashset
 	public uint[] ToUniqueFamilies() => new HashSet<uint>([ GraphicsFamily, TransferFamily, PresentFamily, ]).ToArray();
 }

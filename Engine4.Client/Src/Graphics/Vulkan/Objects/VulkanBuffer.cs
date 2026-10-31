@@ -4,14 +4,11 @@ using OpenTK.Graphics.Vulkan;
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public sealed unsafe class VulkanBuffer : NamedVulkanResource {
-	private VkBuffer vkBuffer;
-	private VkDeviceMemory deviceMemory;
+	public VkBuffer VkBuffer { get; private set; }
+	public VkDeviceMemory DeviceMemory { get; private set; }
 
-	public VkBuffer VkBuffer => vkBuffer;
-	public VkDeviceMemory DeviceMemory => deviceMemory;
-
-	public VkBufferCreateFlagBits CreateFlags { get; }
 	public VkBufferUsageFlagBits2 UsageFlags { get; }
+	public VkBufferCreateFlagBits CreateFlags { get; }
 	public VkMemoryPropertyFlagBits MemoryPropertyFlags { get; }
 
 	public ulong Size { get; private set; }
@@ -22,12 +19,14 @@ public sealed unsafe class VulkanBuffer : NamedVulkanResource {
 
 	internal VulkanBuffer(string debugName, LogicalGpu logicalGpu, ulong size, VkBufferUsageFlagBits2 usageFlags, VkBufferCreateFlagBits createFlags, VkMemoryPropertyFlagBits memoryPropertyFlags) : base(debugName) {
 		this.logicalGpu = logicalGpu;
-		CreateFlags = createFlags;
-		Size = size;
 		UsageFlags = usageFlags;
+		CreateFlags = createFlags;
 		MemoryPropertyFlags = memoryPropertyFlags;
+		Size = size;
 
-		CreateBuffer(logicalGpu, size, usageFlags, createFlags, memoryPropertyFlags, out vkBuffer, out deviceMemory);
+		CreateBuffer(logicalGpu, size, usageFlags, createFlags, memoryPropertyFlags, out VkBuffer vkBuffer, out VkDeviceMemory deviceMemory);
+		VkBuffer = vkBuffer;
+		DeviceMemory = deviceMemory;
 	}
 
 	public void Copy(void* data, ulong size, ulong offset) {
@@ -45,10 +44,12 @@ public sealed unsafe class VulkanBuffer : NamedVulkanResource {
 	}
 
 	public void Resize(ulong size) {
-		Vk.DeviceWaitIdle(logicalGpu.VkLogicalDevice); // clean assumes this was already called
+		Vk.DeviceWaitIdle(logicalGpu.VkLogicalDevice); // clean assumes this was already called. TODO i could make a bulk resize method to avoid waiting every resize (which may be slow)
 		Cleanup();
 
-		CreateBuffer(logicalGpu, size, UsageFlags, CreateFlags, MemoryPropertyFlags, out vkBuffer, out deviceMemory);
+		CreateBuffer(logicalGpu, size, UsageFlags, CreateFlags, MemoryPropertyFlags, out VkBuffer vkBuffer, out VkDeviceMemory deviceMemory);
+		VkBuffer = vkBuffer;
+		DeviceMemory = deviceMemory;
 		Size = size;
 	}
 

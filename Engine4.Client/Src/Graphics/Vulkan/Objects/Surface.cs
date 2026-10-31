@@ -10,9 +10,8 @@ public sealed unsafe class Surface : VulkanResource {
 	private readonly VulkanInstance vulkanInstance;
 
 	internal Surface(VulkanInstance vulkanInstance, Window window) {
-		this.vulkanInstance = vulkanInstance;
-
 		VkSurface = window.CreateSurface(vulkanInstance);
+		this.vulkanInstance = vulkanInstance;
 	}
 
 	protected internal override void Cleanup() => Vk.DestroySurfaceKHR(vulkanInstance.VkInstance, VkSurface, null);

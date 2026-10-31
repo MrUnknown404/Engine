@@ -12,8 +12,7 @@ public sealed unsafe class VulkanDebugMessenger : VulkanResource {
 
 	private static readonly string[] MessageTypesCache;
 
-	private readonly VkDebugUtilsMessengerEXT vkDebugMessenger;
-	public VkDebugUtilsMessengerEXT VkDebugMessenger => vkDebugMessenger;
+	public VkDebugUtilsMessengerEXT VkDebugMessenger { get; }
 	public override ulong Handle => VkDebugMessenger.Handle;
 
 	private readonly VulkanInstance vulkanInstance;
@@ -30,16 +29,21 @@ public sealed unsafe class VulkanDebugMessenger : VulkanResource {
 		for (int i = 1; i < HighestValue; i++) { MessageTypesCache[i] = ((VkDebugUtilsMessageTypeFlagBitsEXT)i).ToString().Replace("DebugUtilsMessageType", string.Empty).Replace("BitExt", string.Empty); }
 	}
 
-	internal VulkanDebugMessenger(VulkanInstance vulkanInstance, SetupVulkanSettings setupVulkanSettings) {
+	internal VulkanDebugMessenger(VulkanInstance vulkanInstance, VkDebugUtilsMessageSeverityFlagBitsEXT enabledDebugMessageSeverities, VkDebugUtilsMessageTypeFlagBitsEXT enabledDebugMessageTypes) {
+		VkDebugMessenger = CreateDebugMessenger(vulkanInstance, enabledDebugMessageSeverities, enabledDebugMessageTypes);
 		this.vulkanInstance = vulkanInstance;
-
-		VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(setupVulkanSettings.EnabledDebugMessageSeverities, setupVulkanSettings.EnabledDebugMessageTypes);
-		fixed (VkDebugUtilsMessengerEXT* pVkDebugMessenger = &vkDebugMessenger) {
-			VkH.ThrowIfNotSuccess(Vk.CreateDebugUtilsMessengerEXT(vulkanInstance.VkInstance, &messengerCreateInfo, null, pVkDebugMessenger), "Failed to create debug messenger");
-		}
 	}
 
 	protected internal override void Cleanup() => Vk.DestroyDebugUtilsMessengerEXT(vulkanInstance.VkInstance, VkDebugMessenger, null);
+
+	[MustUseReturnValue]
+	private static VkDebugUtilsMessengerEXT CreateDebugMessenger(VulkanInstance vulkanInstance, VkDebugUtilsMessageSeverityFlagBitsEXT enabledDebugMessageSeverities,
+		VkDebugUtilsMessageTypeFlagBitsEXT enabledDebugMessageTypes) {
+		VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = CreateDebugUtilsMessengerCreateInfoEXT(enabledDebugMessageSeverities, enabledDebugMessageTypes);
+		VkDebugUtilsMessengerEXT vkDebugMessenger;
+		VkH.ThrowIfNotSuccess(Vk.CreateDebugUtilsMessengerEXT(vulkanInstance.VkInstance, &messengerCreateInfo, null, &vkDebugMessenger), "Failed to create debug messenger");
+		return vkDebugMessenger;
+	}
 
 	[MustUseReturnValue]
 	internal static VkDebugUtilsMessengerCreateInfoEXT CreateDebugUtilsMessengerCreateInfoEXT(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagBitsEXT messageType) =>

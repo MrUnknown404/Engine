@@ -11,8 +11,8 @@ public sealed unsafe class GraphicsPipeline : NamedVulkanResource {
 	private readonly LogicalGpu logicalGpu;
 
 	internal GraphicsPipeline(SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, Settings settings) : base(settings.DebugName) {
-		this.logicalGpu = logicalGpu;
 		Pipeline = CreatePipeline(logicalGpu, settings, physicalGpu.DepthFormat);
+		this.logicalGpu = logicalGpu;
 	}
 
 	protected internal override void Cleanup() {

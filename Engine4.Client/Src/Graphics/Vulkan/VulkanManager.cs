@@ -42,13 +42,13 @@ public sealed unsafe class VulkanManager {
 		CheckForInstanceExtensionProperties(availableInstanceExtensionProperties, VulkanSettings.RequiredInstanceExtensionProperties);
 
 		// create instance
-		VulkanInstance = new(game.Name, game.Version, setupVulkanSettings, VulkanSettings);
+		VulkanInstance = new(game.Name, game.Version, VulkanSettings, setupVulkanSettings.EnabledDebugMessageSeverities, setupVulkanSettings.EnabledDebugMessageTypes);
 		VKLoader.SetInstance(VulkanInstance.VkInstance); // set opentk instance
 		Logger.Trace("Created VkInstance");
 
 		// debugger
 #if DEBUG
-		debugMessenger = new(VulkanInstance, setupVulkanSettings);
+		debugMessenger = new(VulkanInstance, setupVulkanSettings.EnabledDebugMessageSeverities, setupVulkanSettings.EnabledDebugMessageTypes);
 		Logger.Trace("Created Vulkan Debug Messenger");
 #endif
 

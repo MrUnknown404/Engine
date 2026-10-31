@@ -29,6 +29,9 @@ public class SetupVulkanSettings {
 																						VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypeValidationBitExt |
 																						VkDebugUtilsMessageTypeFlagBitsEXT.DebugUtilsMessageTypePerformanceBitExt;
 
+	// device
+	public PhysicalDeviceSettings PhysicalDeviceSettings { get; init; } = new();
+
 	[MustUseReturnValue]
 	public VulkanSettings ToReadonly(bool isGlfwEnabled) {
 		// engine extensions
@@ -67,6 +70,7 @@ public class SetupVulkanSettings {
 				MaxFramesInFlight = MaxFramesInFlight,
 				GetManualGpuFunc = GetManualGpuFunc,
 				RateGpuSuitability = RateGpuSuitability,
+				PhysicalDeviceSettings = PhysicalDeviceSettings,
 		};
 	}
 

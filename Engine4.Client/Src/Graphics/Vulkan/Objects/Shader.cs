@@ -24,10 +24,10 @@ public sealed unsafe class Shader : NamedVulkanResource {
 
 	internal Shader(string debugName, Shaderc shaderc, LogicalGpu logicalGpu, Assembly assembly, string fileLocation, ShaderLanguage shaderLang, ShaderType shaderType,
 		VkSpecializationInfo? specializationInfo) : base(debugName) {
-		this.logicalGpu = logicalGpu;
 		ShaderModule = CreateShaderModule(shaderc, logicalGpu, fileLocation, assembly, shaderLang, shaderType, debugName);
 		ShaderType = shaderType;
 		SpecializationInfo = specializationInfo;
+		this.logicalGpu = logicalGpu;
 	}
 
 	protected internal override void Cleanup() => Vk.DestroyShaderModule(logicalGpu.VkLogicalDevice, ShaderModule, null);

@@ -1,15 +1,23 @@
 using Engine4.Client.Utility;
 using Engine4.Utility.Versions;
+using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public sealed unsafe class VulkanInstance : VulkanResource {
-	private readonly VkInstance vkInstance;
-	public VkInstance VkInstance => vkInstance;
+	public VkInstance VkInstance { get; }
 	public override ulong Handle => (ulong)VkInstance.Handle;
 
-	internal VulkanInstance(string appName, IPackableVersion appVersion, SetupVulkanSettings setupVulkanSettings, VulkanSettings vulkanSettings) {
+	internal VulkanInstance(string appName, IPackableVersion appVersion, VulkanSettings vulkanSettings, VkDebugUtilsMessageSeverityFlagBitsEXT enabledDebugMessageSeverities,
+		VkDebugUtilsMessageTypeFlagBitsEXT enabledDebugMessageTypes) =>
+			VkInstance = CreateInstance(appName, appVersion, vulkanSettings, enabledDebugMessageSeverities, enabledDebugMessageTypes);
+
+	protected internal override void Cleanup() => Vk.DestroyInstance(VkInstance, null);
+
+	[MustUseReturnValue]
+	private static VkInstance CreateInstance(string appName, IPackableVersion appVersion, VulkanSettings vulkanSettings, VkDebugUtilsMessageSeverityFlagBitsEXT enabledDebugMessageSeverities,
+		VkDebugUtilsMessageTypeFlagBitsEXT enabledDebugMessageTypes) {
 		using StringUtf8Ptr appNamePtr = new(appName);
 		using StringUtf8Ptr engineNamePtr = new(Engine4.Name);
 
@@ -25,8 +33,7 @@ public sealed unsafe class VulkanInstance : VulkanResource {
 		using StringArrayUtf8Ptr requiredInstanceExtensionPropertiesPtr = new(vulkanSettings.RequiredInstanceExtensionProperties);
 
 #if DEBUG
-		VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo =
-				VulkanDebugMessenger.CreateDebugUtilsMessengerCreateInfoEXT(setupVulkanSettings.EnabledDebugMessageSeverities, setupVulkanSettings.EnabledDebugMessageTypes);
+		VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = VulkanDebugMessenger.CreateDebugUtilsMessengerCreateInfoEXT(enabledDebugMessageSeverities, enabledDebugMessageTypes);
 #endif
 
 		VkInstanceCreateInfo instanceCreateInfo = new() {
@@ -40,8 +47,8 @@ public sealed unsafe class VulkanInstance : VulkanResource {
 				enabledExtensionCount = (uint)vulkanSettings.RequiredInstanceExtensionProperties.Length,
 		};
 
-		fixed (VkInstance* pVkInstance = &vkInstance) { VkH.ThrowIfNotSuccess(Vk.CreateInstance(&instanceCreateInfo, null, pVkInstance), "Failed to create instance"); }
+		VkInstance vkInstance;
+		VkH.ThrowIfNotSuccess(Vk.CreateInstance(&instanceCreateInfo, null, &vkInstance), "Failed to create instance");
+		return vkInstance;
 	}
-
-	protected internal override void Cleanup() => Vk.DestroyInstance(VkInstance, null);
 }

@@ -1,3 +1,4 @@
+using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
@@ -10,10 +11,8 @@ public sealed unsafe class Fence : VulkanResource {
 	private readonly LogicalGpu logicalGpu;
 
 	internal Fence(LogicalGpu logicalGpu, VkFenceCreateFlagBits fenceCreateFlags) {
+		vkFence = CreateFence(logicalGpu, fenceCreateFlags);
 		this.logicalGpu = logicalGpu;
-
-		VkFenceCreateInfo fenceCreateInfo = new() { flags = fenceCreateFlags, };
-		fixed (VkFence* pVkFence = &vkFence) { VkH.ThrowIfNotSuccess(Vk.CreateFence(logicalGpu.VkLogicalDevice, &fenceCreateInfo, null, pVkFence), "Failed to create fence"); }
 	}
 
 	public void Wait(bool waitAll, ulong timeout) {
@@ -25,4 +24,12 @@ public sealed unsafe class Fence : VulkanResource {
 	}
 
 	protected internal override void Cleanup() => Vk.DestroyFence(logicalGpu.VkLogicalDevice, VkFence, null);
+
+	[MustUseReturnValue]
+	private static VkFence CreateFence(LogicalGpu logicalGpu, VkFenceCreateFlagBits fenceCreateFlags) {
+		VkFenceCreateInfo fenceCreateInfo = new() { flags = fenceCreateFlags, };
+		VkFence vkFence;
+		VkH.ThrowIfNotSuccess(Vk.CreateFence(logicalGpu.VkLogicalDevice, &fenceCreateInfo, null, &vkFence), "Failed to create fence");
+		return vkFence;
+	}
 }
