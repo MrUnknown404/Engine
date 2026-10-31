@@ -9,6 +9,8 @@ public sealed unsafe class Queue : VulkanResource {
 
 	internal Queue(LogicalGpu logicalGpu, uint graphicsFamily) => VkQueue = GetDeviceQueue(logicalGpu.VkLogicalDevice, graphicsFamily);
 
+	// TODO easier submit command buffer method? Submit(CommandBuffer[])
+
 	public void Submit(VkSubmitInfo submitInfo, Fence? fence) => Vk.QueueSubmit(VkQueue, 1, &submitInfo, fence?.VkFence ?? VkFence.Zero);
 
 	public void Submit(VkSubmitInfo[] submitInfos, Fence? fence) {

@@ -4,6 +4,7 @@ using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.Client.Utility.Exceptions;
 using Engine4.Client.Utility.Extensions;
 using Engine4.IO;
+using Engine4.Utility.Exceptions;
 using JetBrains.Annotations;
 using NLog;
 using OpenTK.Graphics;
@@ -59,7 +60,9 @@ public sealed unsafe class VulkanManager {
 #endif
 
 		// get physical gpus
-		physicalGpus = GetSuitablePhysicalGpus(VulkanInstance, VulkanSettings, setupVulkanSettings.IsPhysicalDeviceSuitable);
+		physicalGpus = GetSuitablePhysicalGpus(VulkanInstance, VulkanSettings, setupVulkanSettings.IsPhysicalDeviceSuitable, out string[][] missingExtensions);
+		if (physicalGpus.Length == 0) { throw new Engine4Exception($"Failed to find any gpus. {missingExtensions.GetSizeAndElementsAsString(static r => r.GetSizeAndElementsAsString())}"); }
+
 		Logger.Trace($"Sorted {physicalGpus.Length} physical gpus");
 		PrintPhysicalGpus();
 	}
@@ -190,10 +193,12 @@ public sealed unsafe class VulkanManager {
 	}
 
 	[MustUseReturnValue]
-	private static PhysicalGpu[] GetSuitablePhysicalGpus(VulkanInstance vulkanInstance, VulkanSettings vulkanSettings, IsPhysicalDeviceSuitableDelegate? isPhysicalDeviceSuitable) {
+	private static PhysicalGpu[] GetSuitablePhysicalGpus(VulkanInstance vulkanInstance, VulkanSettings vulkanSettings, IsPhysicalDeviceSuitableDelegate? isPhysicalDeviceSuitable, out string[][] missingExtensions) {
 		VkPhysicalDevice[] availablePhysicalDevices = GetAvailablePhysicalDevices(vulkanInstance);
 
 		List<PhysicalGpu> physicalGpus = new();
+		List<string[]> missingExtensionsList = new();
+
 		foreach (VkPhysicalDevice physicalDevice in availablePhysicalDevices) {
 			VkPhysicalDeviceProperties2 physicalDeviceProperties2 = new();
 			VkPhysicalDeviceFeatures2 physicalDeviceFeatures2 = new();
@@ -201,17 +206,21 @@ public sealed unsafe class VulkanManager {
 			Vk.GetPhysicalDeviceFeatures2(physicalDevice, &physicalDeviceFeatures2);
 
 			PhysicalGpuProperties properties = new(physicalDeviceProperties2, physicalDeviceFeatures2);
-
 			if (!IsPhysicalDeviceSuitableForEngine(vulkanSettings, properties)) { continue; }
 			if (!isPhysicalDeviceSuitable?.Invoke(properties) ?? false) { continue; }
 
 			VkExtensionProperties[] physicalDeviceExtensionProperties = GetPhysicalDeviceExtensionProperties(physicalDevice);
 			if (physicalDeviceExtensionProperties.Length == 0) { continue; }
 
-			if (!CheckDeviceExtensionSupport(physicalDeviceExtensionProperties, vulkanSettings.RequiredDeviceExtensionProperties, out _)) { continue; } // TODO allow the user to handle missing?
+			if (!CheckDeviceExtensionSupport(physicalDeviceExtensionProperties, vulkanSettings.RequiredDeviceExtensionProperties, out string[]? missing)) {
+				missingExtensionsList.Add(missing);
+				continue;
+			}
 
 			physicalGpus.Add(new(physicalDevice, properties));
 		}
+
+		missingExtensions = physicalGpus.Count == 0 ? missingExtensionsList.ToArray() : Array.Empty<string[]>();
 
 		return physicalGpus.ToArray();
 

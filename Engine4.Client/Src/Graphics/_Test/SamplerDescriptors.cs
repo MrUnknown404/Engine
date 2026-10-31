@@ -15,18 +15,18 @@ public unsafe class SamplerDescriptors {
 	public ulong DeviceAddress { get; }
 	public ulong MinHeapReservedRange { get; }
 
-	private readonly ulong descriptorSize;
-	private readonly ulong descriptorHeapOffset;
+	private readonly ulong samplerDescriptorSize;
+	private readonly ulong samplerDescriptorHeapOffset;
 	private readonly ulong descriptorHeapSize;
 
 	public SamplerDescriptors(VulkanResourceManager resourceManager, SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, VkSamplerCreateInfo[] samplerCreateInfos) {
 		VkPhysicalDeviceDescriptorHeapPropertiesEXT descriptorHeapProperties = physicalGpu.DescriptorHeapProperties;
-		descriptorSize = AlignSize(descriptorHeapProperties.samplerDescriptorSize, descriptorHeapProperties.samplerDescriptorAlignment);
-		descriptorHeapOffset = 0;
-		descriptorHeapSize = AlignSize(descriptorSize * (ulong)samplerCreateInfos.Length + descriptorHeapProperties.minSamplerHeapReservedRange, descriptorHeapProperties.samplerHeapAlignment);
+		samplerDescriptorSize = AlignSize(descriptorHeapProperties.samplerDescriptorSize, descriptorHeapProperties.samplerDescriptorAlignment);
+		samplerDescriptorHeapOffset = 0;
+		descriptorHeapSize = AlignSize(samplerDescriptorSize * (ulong)samplerCreateInfos.Length + descriptorHeapProperties.minSamplerHeapReservedRange, descriptorHeapProperties.samplerHeapAlignment);
 
 		SamplerHeapBuffer = resourceManager.CreateBuffer($"{nameof(SamplerDescriptors)} Sampler Descriptor Heap Buffer", descriptorHeapSize,
-			VkBufferUsageFlagBits2.BufferUsage2SamplerDescriptorBufferBitExt | VkBufferUsageFlagBits2.BufferUsage2ShaderDeviceAddressBit, 0, VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit);
+			VkBufferUsageFlagBits2.BufferUsage2DescriptorHeapBitExt | VkBufferUsageFlagBits2.BufferUsage2ShaderDeviceAddressBit, 0, VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit);
 
 		UIntPtr bufferMap = (UIntPtr)SamplerHeapBuffer.MapMemory(Vk.WholeSize); // size?
 		DeviceAddress = SamplerHeapBuffer.GetBufferDeviceAddress();
@@ -35,8 +35,8 @@ public unsafe class SamplerDescriptors {
 		VkHostAddressRangeEXT[] samplerHostAddressRange = new VkHostAddressRangeEXT[samplerCreateInfos.Length];
 		for (int i = 0; i < samplerCreateInfos.Length; i++) {
 			samplerHostAddressRange[i] = new() {
-					address = (void*)(bufferMap + descriptorHeapOffset + descriptorSize * (ulong)i), //
-					size = (nuint)descriptorSize,
+					address = (void*)(bufferMap + samplerDescriptorHeapOffset + samplerDescriptorSize * (ulong)i), //
+					size = (nuint)samplerDescriptorSize,
 			};
 		}
 

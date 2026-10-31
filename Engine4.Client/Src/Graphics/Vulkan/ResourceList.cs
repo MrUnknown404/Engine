@@ -20,8 +20,6 @@ public class ResourceList<T> : IResourceList where T : VulkanResource {
 	private readonly List<T> resources = new();
 	private readonly Queue<T> resourcesToDestroy = new();
 
-
-
 	protected internal void Add(T resource) {
 		Logger.Trace($"Tracking {DebugName} {ResourceToName(resource)}");
 		resources.Add(resource);
@@ -42,6 +40,7 @@ public class ResourceList<T> : IResourceList where T : VulkanResource {
 		}
 	}
 
+	/// <summary> Does not call Vk.DeviceWaitIdle() </summary>
 	protected internal void RemoveNow(T resource) {
 		bool success = resources.Remove(resource);
 		if (success) {
@@ -52,7 +51,7 @@ public class ResourceList<T> : IResourceList where T : VulkanResource {
 		}
 	}
 
-	public virtual void TryCleanup() {
+	public void TryCleanup() {
 		if (resourcesToDestroy.Count == 0) { return; }
 
 		List<T> resources = new();
@@ -66,7 +65,7 @@ public class ResourceList<T> : IResourceList where T : VulkanResource {
 	}
 
 	// TODO add support for bulk cleanup objects
-	public virtual void Cleanup() {
+	public void Cleanup() {
 		List<T> resources = new();
 
 		foreach (T resource in this.resources) {

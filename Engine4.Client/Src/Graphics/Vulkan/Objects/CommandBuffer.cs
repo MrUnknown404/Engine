@@ -7,11 +7,14 @@ public abstract unsafe class CommandBuffer : VulkanResource {
 	public VkCommandBuffer VkCommandBuffer => vkCommandBuffer;
 	public override ulong Handle => (ulong)VkCommandBuffer.Handle;
 
-	private readonly LogicalGpu logicalGpu;
+	protected SurfaceReadyPhysicalGpu PhysicalGpu { get; }
+	protected LogicalGpu LogicalGpu { get; }
+
 	private readonly VkCommandPool vkCommandPool;
 
-	protected CommandBuffer(LogicalGpu logicalGpu, VkCommandPool vkCommandPool, VkCommandBuffer commandBuffer) {
-		this.logicalGpu = logicalGpu;
+	protected CommandBuffer(SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, VkCommandPool vkCommandPool, VkCommandBuffer commandBuffer) {
+		PhysicalGpu = physicalGpu;
+		LogicalGpu = logicalGpu;
 		this.vkCommandPool = vkCommandPool;
 		vkCommandBuffer = commandBuffer;
 	}
@@ -28,6 +31,6 @@ public abstract unsafe class CommandBuffer : VulkanResource {
 	public void CmdPipelineBarrier(VkDependencyInfo dependencyInfo) => Vk.CmdPipelineBarrier2(VkCommandBuffer, &dependencyInfo);
 
 	protected internal override void Cleanup() {
-		fixed (VkCommandBuffer* pVkCommandBuffer = &vkCommandBuffer) { Vk.FreeCommandBuffers(logicalGpu.VkLogicalDevice, vkCommandPool, 1, pVkCommandBuffer); }
+		fixed (VkCommandBuffer* pVkCommandBuffer = &vkCommandBuffer) { Vk.FreeCommandBuffers(LogicalGpu.VkLogicalDevice, vkCommandPool, 1, pVkCommandBuffer); }
 	}
 }

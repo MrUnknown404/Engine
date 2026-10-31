@@ -11,6 +11,7 @@ public unsafe class SurfaceReadyPhysicalGpu : PhysicalGpu {
 	public VkFormat DepthFormat { get; }
 
 	private readonly Surface surface; // TODO use this? or remove it?
+
 	private readonly Dictionary<VkDescriptorType, ulong> descriptorTypeSizes = new();
 
 	internal SurfaceReadyPhysicalGpu(PhysicalGpu physicalGpu, Surface surface, QueueFamilyIndices queueFamilyIndices) : base(physicalGpu.VkPhysicalDevice, physicalGpu.Properties2, physicalGpu.Features2) {
@@ -43,6 +44,16 @@ public unsafe class SurfaceReadyPhysicalGpu : PhysicalGpu {
 		void AddDescriptorType(VkDescriptorType descriptorType) => descriptorTypeSizes[descriptorType] = Vk.GetPhysicalDeviceDescriptorSizeEXT(VkPhysicalDevice, descriptorType);
 	}
 
+	/*
+	 *  */
+
+	/// <summary>
+	/// "This command is not intended for general use, and is for tools that already take advantage of tighter packing with other similar features (e.g. VK_EXT_descriptor_buffer) to optimize accesses in some cases.<br/>
+	/// Applications can safely ignore this function and are advised to do so, to avoid depending on non-portable packing."
+	/// </summary>
+	/// <remarks>
+	/// See <see href="https://docs.vulkan.org/refpages/latest/refpages/source/vkGetPhysicalDeviceDescriptorSizeEXT.html"/><br/>
+	/// </remarks>
 	[MustUseReturnValue]
 	public ulong GetDescriptorSize(VkDescriptorType descriptorType) => descriptorTypeSizes[descriptorType];
 

@@ -55,6 +55,7 @@ public sealed unsafe class Shader : NamedVulkanResource {
 			Compiler* compiler = shaderc.CompilerInitialize();
 			CompileOptions* options = shaderc.CompileOptionsInitialize();
 			shaderc.CompileOptionsSetSourceLanguage(options, shaderLang.Shaderc_SourceLanguage);
+			shaderc.CompileOptionsSetTargetEnv(options, TargetEnv.Vulkan, Vk.API_VERSION_1_4()); // use vulkan 1.4. needed for descriptor heaps
 
 			CompilationResult* compilationResult = shaderc.CompileIntoSpv(compiler, pSource, (nuint)source.Length, shaderType.Shaderc_ShaderKind, pShaderName, ShaderEntryPoint, options);
 			shaderc.CompileOptionsRelease(options);

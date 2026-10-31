@@ -15,10 +15,10 @@ public unsafe class ResourceDescriptors {
 	private readonly ulong imageDescriptorHeapOffset;
 	private readonly ulong descriptorHeapSize;
 
-	public ResourceDescriptors(VulkanResourceManager resourceManager, SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, Texture[] textures, VulkanBuffer[] buffers) {
+	public ResourceDescriptors(VulkanResourceManager resourceManager, SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, VulkanTexture[] textures, VulkanBuffer[] buffers) {
 		VkPhysicalDeviceDescriptorHeapPropertiesEXT descriptorHeapProperties = physicalGpu.DescriptorHeapProperties;
 
-		ulong count = (ulong)buffers.Length; // TODO what should this be?
+		ulong count = 1; // TODO what should this be?
 
 		bufferDescriptorSize = AlignSize(descriptorHeapProperties.bufferDescriptorSize, descriptorHeapProperties.bufferDescriptorAlignment);
 		imageDescriptorSize = AlignSize(descriptorHeapProperties.imageDescriptorSize, descriptorHeapProperties.imageDescriptorAlignment);
@@ -28,7 +28,7 @@ public unsafe class ResourceDescriptors {
 		descriptorHeapSize = AlignSize(imageDescriptorHeapOffset + imageDescriptorSize * count + descriptorHeapProperties.minResourceHeapReservedRange, descriptorHeapProperties.resourceHeapAlignment);
 
 		ResourceHeapBuffer = resourceManager.CreateBuffer($"{nameof(SamplerDescriptors)} Resource Descriptor Heap Buffer", descriptorHeapSize,
-			VkBufferUsageFlagBits2.BufferUsage2ResourceDescriptorBufferBitExt | VkBufferUsageFlagBits2.BufferUsage2ShaderDeviceAddressBit, 0, VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit);
+			VkBufferUsageFlagBits2.BufferUsage2DescriptorHeapBitExt | VkBufferUsageFlagBits2.BufferUsage2ShaderDeviceAddressBit, 0, VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit);
 
 		UIntPtr bufferMap = (UIntPtr)ResourceHeapBuffer.MapMemory(Vk.WholeSize); // size?
 		DeviceAddress = ResourceHeapBuffer.GetBufferDeviceAddress();
@@ -48,7 +48,7 @@ public unsafe class ResourceDescriptors {
 
 		// images
 		for (int i = 0; i < textures.Length; i++) {
-			Texture texture = textures[i];
+			VulkanTexture texture = textures[i];
 
 			VkImageViewCreateInfo imageViewCreateInfo = new() {
 					image = texture.Image,

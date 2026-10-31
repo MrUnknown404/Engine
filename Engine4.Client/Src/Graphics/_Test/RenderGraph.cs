@@ -298,7 +298,7 @@ public unsafe class RenderGraph {
 								newLayout = VkImageLayout.ImageLayoutShaderReadOnlyOptimal,
 								srcQueueFamilyIndex = Vk.QueueFamilyIgnored,
 								dstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-								image = imageResource.Texture.Image,
+								image = imageResource.VulkanTexture.Image,
 								subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 								srcAccessMask = VkAccessFlagBits2.Access2MemoryWriteBit,
 								dstAccessMask = VkAccessFlagBits2.Access2ShaderReadBit,
@@ -338,7 +338,7 @@ public unsafe class RenderGraph {
 								newLayout = VkImageLayout.ImageLayoutColorAttachmentOptimal,
 								srcQueueFamilyIndex = Vk.QueueFamilyIgnored,
 								dstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-								image = imageResource.Texture.Image,
+								image = imageResource.VulkanTexture.Image,
 								subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 								srcAccessMask = VkAccessFlagBits2.Access2MemoryReadBit,
 								dstAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
@@ -379,7 +379,7 @@ public unsafe class RenderGraph {
 								newLayout = imageResource.FinalLayout,
 								srcQueueFamilyIndex = Vk.QueueFamilyIgnored,
 								dstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-								image = imageResource.Texture.Image,
+								image = imageResource.VulkanTexture.Image,
 								subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 								srcAccessMask = VkAccessFlagBits2.Access2ColorAttachmentWriteBit,
 								dstAccessMask = VkAccessFlagBits2.Access2MemoryReadBit,
@@ -502,7 +502,7 @@ public unsafe class RenderGraph {
 		public VkImageLayout InitialLayout { get; }
 		public VkImageLayout FinalLayout { get; }
 
-		public Texture Texture { get; }
+		public VulkanTexture VulkanTexture { get; }
 
 		public ImageResourceData(VulkanResourceManager resourceManager, string resourceName, VkFormat format, VkExtent2D extent, VkImageUsageFlagBits usage, VkImageLayout initialLayout, VkImageLayout finalLayout) {
 			Format = format;
@@ -510,7 +510,7 @@ public unsafe class RenderGraph {
 			Usage = usage;
 			InitialLayout = initialLayout;
 			FinalLayout = finalLayout;
-			Texture = null!; //resourceManager.CreateTexture(resourceName);
+			VulkanTexture = null!; //resourceManager.CreateTexture(resourceName);
 		}
 	}
 }

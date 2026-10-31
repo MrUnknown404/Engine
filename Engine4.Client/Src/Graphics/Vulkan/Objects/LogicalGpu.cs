@@ -1,11 +1,15 @@
 using Engine4.Client.Utility;
 using Engine4.Client.Utility.Exceptions;
+using Engine4.IO;
 using JetBrains.Annotations;
+using NLog;
 using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public sealed unsafe class LogicalGpu : VulkanResource {
+	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
+
 	public VkDevice VkLogicalDevice { get; }
 	public Queue GraphicsQueue { get; }
 	public Queue PresentQueue { get; }
@@ -24,6 +28,8 @@ public sealed unsafe class LogicalGpu : VulkanResource {
 		PresentQueue = new(this, queueFamilyIndices.PresentFamily);
 		TransferQueue = new(this, queueFamilyIndices.TransferFamily);
 	}
+
+	public void WaitIdle() => Vk.DeviceWaitIdle(VkLogicalDevice);
 
 	[MustUseReturnValue]
 	private static VkDevice CreateLogicalDevice(SurfaceReadyPhysicalGpu physicalGpu, VulkanSettings vulkanSettings) {
@@ -121,9 +127,9 @@ public sealed unsafe class LogicalGpu : VulkanResource {
 		return deviceMemory;
 
 		[MustUseReturnValue]
-		static uint FindMemoryType(VkPhysicalDeviceMemoryProperties memoryProperties, uint typeFilter, VkMemoryPropertyFlagBits memoryPropertyFlag) {
+		static uint FindMemoryType(VkPhysicalDeviceMemoryProperties memoryProperties, uint typeFilter, VkMemoryPropertyFlagBits memoryPropertyFlags) {
 			for (int i = 0; i < memoryProperties.memoryTypeCount; i++) {
-				if ((typeFilter & (1 << i)) != 0 && (memoryProperties.memoryTypes[i].propertyFlags & memoryPropertyFlag) == memoryPropertyFlag) { return (uint)i; }
+				if ((typeFilter & (1 << i)) != 0 && (memoryProperties.memoryTypes[i].propertyFlags & memoryPropertyFlags) == memoryPropertyFlags) { return (uint)i; }
 			}
 
 			throw new VulkanException("Failed to find suitable memory type");

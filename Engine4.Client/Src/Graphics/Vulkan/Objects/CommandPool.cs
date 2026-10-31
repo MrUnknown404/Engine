@@ -7,11 +7,14 @@ public abstract unsafe class CommandPool<T> : VulkanResource where T : CommandBu
 	public VkCommandPool VkCommandPool { get; }
 	public override ulong Handle => VkCommandPool.Handle;
 
+	// TODO this is dumb. this does not support EnqueueDestroy
 	protected ResourceList<T> CommandBuffers { get; } = new();
+	protected SurfaceReadyPhysicalGpu PhysicalGpu { get; }
 	protected LogicalGpu LogicalGpu { get; }
 
-	protected CommandPool(LogicalGpu logicalGpu, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamily) {
+	protected CommandPool(SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, VkCommandPoolCreateFlagBits commandPoolCreateFlags, uint queueFamily) {
 		VkCommandPool = CreateCommandPool(logicalGpu, commandPoolCreateFlags, queueFamily);
+		PhysicalGpu = physicalGpu;
 		LogicalGpu = logicalGpu;
 	}
 

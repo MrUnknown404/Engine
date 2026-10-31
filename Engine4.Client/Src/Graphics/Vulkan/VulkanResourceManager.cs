@@ -22,14 +22,14 @@ public sealed class VulkanResourceManager {
 
 	[MustUseReturnValue]
 	public GraphicsCommandPool CreateGraphicsCommandPool(VkCommandPoolCreateFlagBits commandPoolCreateFlags) {
-		GraphicsCommandPool graphicsCommandPool = new(logicalGpu, commandPoolCreateFlags, physicalGpu.QueueFamilyIndices.GraphicsFamily);
+		GraphicsCommandPool graphicsCommandPool = new(physicalGpu, logicalGpu, commandPoolCreateFlags, physicalGpu.QueueFamilyIndices.GraphicsFamily);
 		Add(graphicsCommandPool);
 		return graphicsCommandPool;
 	}
 
 	[MustUseReturnValue]
 	public TransferCommandPool CreateTransferCommandPool(VkCommandPoolCreateFlagBits commandPoolCreateFlags) {
-		TransferCommandPool transferCommandPool = new(logicalGpu, commandPoolCreateFlags, physicalGpu.QueueFamilyIndices.TransferFamily);
+		TransferCommandPool transferCommandPool = new(this, physicalGpu, logicalGpu, commandPoolCreateFlags, physicalGpu.QueueFamilyIndices.TransferFamily);
 		Add(transferCommandPool);
 		return transferCommandPool;
 	}
@@ -56,9 +56,9 @@ public sealed class VulkanResourceManager {
 	}
 
 	[MustUseReturnValue]
-	public Texture CreateTexture(string debugName, ushort width, ushort height, VkFormat imageFormat, VkImageTiling imageTiling = VkImageTiling.ImageTilingOptimal,
+	public VulkanTexture CreateTexture(string debugName, ushort width, ushort height, VkFormat imageFormat, VkImageTiling imageTiling = VkImageTiling.ImageTilingOptimal,
 		VkImageUsageFlagBits usageFlags = VkImageUsageFlagBits.ImageUsageSampledBit, VkImageAspectFlagBits aspectMask = VkImageAspectFlagBits.ImageAspectColorBit) {
-		Texture texture = new(debugName, logicalGpu, width, height, imageFormat, imageTiling, usageFlags, aspectMask);
+		VulkanTexture texture = new(debugName, logicalGpu, width, height, imageFormat, imageTiling, usageFlags, aspectMask);
 		Add(texture);
 		return texture;
 	}
@@ -130,7 +130,7 @@ public sealed class VulkanResourceManager {
 
 		foreach (IResourceList resourceList in resourceLists.Values.Where(static resourceList => resourceList.HasResourcesToCleanUp)) {
 			if (!hasWaited) {
-				Vk.DeviceWaitIdle(logicalGpu.VkLogicalDevice);
+				logicalGpu.WaitIdle();
 				hasWaited = true;
 			}
 

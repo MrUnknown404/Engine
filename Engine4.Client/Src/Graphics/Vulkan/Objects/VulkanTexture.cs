@@ -2,7 +2,7 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
-public sealed unsafe class Texture : NamedVulkanResource {
+public sealed unsafe class VulkanTexture : NamedVulkanResource {
 	private readonly VkImage image;
 	private readonly VkImageView imageView;
 	private readonly VkDeviceMemory deviceMemory;
@@ -22,7 +22,7 @@ public sealed unsafe class Texture : NamedVulkanResource {
 
 	private readonly LogicalGpu logicalGpu;
 
-	internal Texture(string debugName, LogicalGpu logicalGpu, ushort width, ushort height, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlagBits usageFlags,
+	internal VulkanTexture(string debugName, LogicalGpu logicalGpu, ushort width, ushort height, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlagBits usageFlags,
 		VkImageAspectFlagBits imageAspectMask) : base(debugName) {
 		this.logicalGpu = logicalGpu;
 		Width = width;

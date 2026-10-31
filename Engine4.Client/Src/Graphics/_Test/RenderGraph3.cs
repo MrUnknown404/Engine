@@ -58,7 +58,7 @@ public sealed unsafe class RenderGraph3 {
 	}
 
 	[MustUseReturnValue]
-	public TextureHandle AddPersistentTexture(string resourceName, Texture texture) {
+	public TextureHandle AddPersistentTexture(string resourceName, VulkanTexture texture) {
 		TextureHandle handle = new(resourceName);
 		if (!persistentResources.TryAdd(handle, new ImageResourceData(texture) { Persistent = true, })) { throw new Exception(); } // TODO exception
 
@@ -111,7 +111,7 @@ public sealed unsafe class RenderGraph3 {
 	public VulkanBuffer GetBuffer(BufferHandle handle) => (GetResource(handle) as BufferResourceData ?? throw new InvalidCastException()).Buffer;
 
 	[MustUseReturnValue]
-	public Texture GetTexture(TextureHandle handle) => (GetResource(handle) as ImageResourceData ?? throw new InvalidCastException()).Texture;
+	public VulkanTexture GetTexture(TextureHandle handle) => (GetResource(handle) as ImageResourceData ?? throw new InvalidCastException()).VulkanTexture;
 
 	private void Compile(IEnumerable<RenderPass3> allRenderPasses, out RenderPass3[] outSortedRenderPasses) {
 		// TODO logging
@@ -384,7 +384,7 @@ public sealed unsafe class RenderGraph3 {
 									dstStageMask = read.StageMask,
 									srcQueueFamilyIndex = Vk.QueueFamilyIgnored,
 									dstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-									image = imageResource.Texture.Image,
+									image = imageResource.VulkanTexture.Image,
 									subresourceRange = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
 									oldLayout = imageResource.CurrentLayout,
 									newLayout = imageRead.ExpectedLayout,
@@ -507,10 +507,10 @@ public sealed unsafe class RenderGraph3 {
 	}
 
 	public sealed class ImageResourceData : ResourceData {
-		public Texture Texture { get; }
+		public VulkanTexture VulkanTexture { get; }
 		public VkImageLayout CurrentLayout { get; set; }
 
-		internal ImageResourceData(Texture texture) => Texture = texture;
+		internal ImageResourceData(VulkanTexture texture) => VulkanTexture = texture;
 	}
 
 	public abstract class ResourceCreationData {

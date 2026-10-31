@@ -40,7 +40,7 @@ public sealed unsafe class SwapChain : VulkanResource {
 	}
 
 	internal void Recreate() {
-		Vk.DeviceWaitIdle(logicalGpu.VkLogicalDevice);
+		logicalGpu.WaitIdle();
 
 		VkSwapchainKHR vkSwapChain = CreateSwapChain(window, physicalGpu, logicalGpu, surface, presentMode, out VkExtent2D swapChainExtent, out VkFormat swapChainImageFormat, null, VkSwapChain);
 

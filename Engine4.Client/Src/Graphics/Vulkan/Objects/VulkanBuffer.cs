@@ -29,7 +29,7 @@ public sealed unsafe class VulkanBuffer : NamedVulkanResource {
 		DeviceMemory = deviceMemory;
 	}
 
-	public void Copy(void* data, ulong size, ulong offset) {
+	public void Copy(void* data, ulong size, ulong offset = 0) {
 		void* dstPtr = MapMemory(size, offset);
 		Buffer.MemoryCopy(data, dstPtr, size, size);
 		UnmapMemory();
@@ -44,7 +44,7 @@ public sealed unsafe class VulkanBuffer : NamedVulkanResource {
 	}
 
 	public void Resize(ulong size) {
-		Vk.DeviceWaitIdle(logicalGpu.VkLogicalDevice); // clean assumes this was already called. TODO i could make a bulk resize method to avoid waiting every resize (which may be slow)
+		logicalGpu.WaitIdle(); // clean assumes this was already called. TODO i could make a bulk resize method to avoid waiting every resize (which may be slow)
 		Cleanup();
 
 		CreateBuffer(logicalGpu, size, UsageFlags, CreateFlags, MemoryPropertyFlags, out VkBuffer vkBuffer, out VkDeviceMemory deviceMemory);

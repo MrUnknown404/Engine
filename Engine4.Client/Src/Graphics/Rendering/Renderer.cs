@@ -27,8 +27,8 @@ public sealed unsafe class Renderer {
 	private readonly Surface surface;
 	private readonly SwapChain swapChain;
 
-	private readonly GraphicsCommandPool graphicsCommandPool;
-	private readonly TransferCommandPool transferCommandPool;
+	public GraphicsCommandPool GraphicsCommandPool { get; }
+	public TransferCommandPool TransferCommandPool { get; }
 
 	// TODO replace this render pass system with a render graph system
 	[Obsolete]
@@ -56,6 +56,8 @@ public sealed unsafe class Renderer {
 		// TODO logging
 		surface = new(vulkanManager.VulkanInstance, window);
 		SurfaceReadyPhysicalGpu[] capableGpus = vulkanManager.GetCapableGpus(surface);
+		if (capableGpus.Length == 0) { throw new Engine4Exception("Failed to find any suitable gpus"); }
+
 		PhysicalGpu = VulkanManager.SelectGpu(capableGpus) ?? throw new Engine4Exception("Failed to select gpu");
 		LogicalGpu = new(PhysicalGpu, vulkanManager.VulkanSettings);
 		ResourceManager = new(PhysicalGpu, LogicalGpu, vulkanManager.Shaderc);
@@ -65,10 +67,10 @@ public sealed unsafe class Renderer {
 
 		maxFramesInFlight = vulkanManager.VulkanSettings.MaxFramesInFlight;
 
-		graphicsCommandPool = ResourceManager.CreateGraphicsCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit);
-		transferCommandPool = ResourceManager.CreateTransferCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit);
+		GraphicsCommandPool = ResourceManager.CreateGraphicsCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateResetCommandBufferBit);
+		TransferCommandPool = ResourceManager.CreateTransferCommandPool(VkCommandPoolCreateFlagBits.CommandPoolCreateTransientBit);
 
-		GraphicsCommandBuffer[] graphicsCommandBuffers = graphicsCommandPool.CreateCommandBuffers(maxFramesInFlight, VkCommandBufferLevel.CommandBufferLevelPrimary);
+		GraphicsCommandBuffer[] graphicsCommandBuffers = GraphicsCommandPool.CreateCommandBuffers(maxFramesInFlight, VkCommandBufferLevel.CommandBufferLevelPrimary);
 		Semaphore[] imageAvailableSemaphores = ResourceManager.CreateSemaphores(0, maxFramesInFlight);
 		Fence[] inFlightFences = ResourceManager.CreateFences(VkFenceCreateFlagBits.FenceCreateSignaledBit, maxFramesInFlight);
 
@@ -232,7 +234,7 @@ public sealed unsafe class Renderer {
 	internal void TryCleanup() => ResourceManager.TryCleanup();
 
 	internal void Cleanup() {
-		Vk.DeviceWaitIdle(LogicalGpu.VkLogicalDevice);
+		LogicalGpu.WaitIdle();
 
 		// imgui
 		imGuiRenderer.Cleanup();
