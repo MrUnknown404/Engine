@@ -1,10 +1,9 @@
-using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.Client.Utility;
 using Engine4.Client.Utility.Exceptions;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine4.Client.Graphics.Vulkan;
+namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public sealed unsafe class LogicalGpu : VulkanResource {
 	public VkDevice VkLogicalDevice { get; }
@@ -34,12 +33,26 @@ public sealed unsafe class LogicalGpu : VulkanResource {
 
 		for (int i = 0; i < uniqueQueueFamilyIndices.Length; i++) { deviceQueueCreateInfo[i] = new() { queueFamilyIndex = uniqueQueueFamilyIndices[i], queueCount = 1, pQueuePriorities = &queuePriority, }; }
 
-		VkPhysicalDeviceDescriptorHeapFeaturesEXT physicalDeviceDescriptorHeapFeatures = new() {
-				// pNext = ,
-				descriptorHeap = VkH.True,
+		PhysicalDeviceSettings deviceSettings = vulkanSettings.PhysicalDeviceSettings;
+
+		VkPhysicalDeviceShaderUntypedPointersFeaturesKHR physicalDeviceShaderUntypedPointersFeatures = new() {
+				shaderUntypedPointers = VkH.True, //
 		};
 
-		PhysicalDeviceSettings deviceSettings = vulkanSettings.PhysicalDeviceSettings;
+		VkPhysicalDeviceFeatures physicalDeviceFeatures = deviceSettings.PhysicalDeviceFeatures with {
+				samplerAnisotropy = VkH.True, //
+				multiDrawIndirect = VkH.True,
+		};
+
+		VkPhysicalDeviceFeatures2 physicalDeviceFeatures2 = new() {
+				pNext = &physicalDeviceShaderUntypedPointersFeatures, //
+				features = physicalDeviceFeatures,
+		};
+
+		VkPhysicalDeviceDescriptorHeapFeaturesEXT physicalDeviceDescriptorHeapFeatures = new() {
+				pNext = &physicalDeviceFeatures2, //
+				descriptorHeap = VkH.True,
+		};
 
 		VkPhysicalDeviceVulkan11Features physicalDeviceVulkan11Features = deviceSettings.Vulkan11Features with {
 				pNext = &physicalDeviceDescriptorHeapFeatures, //
@@ -65,18 +78,12 @@ public sealed unsafe class LogicalGpu : VulkanResource {
 				dynamicRenderingLocalRead = VkH.True,
 		};
 
-		VkPhysicalDeviceFeatures physicalDeviceFeatures = deviceSettings.PhysicalDeviceFeatures with {
-				samplerAnisotropy = VkH.True, //
-				multiDrawIndirect = VkH.True,
-		};
-
 		using StringArrayUtf8Ptr requiredDeviceExtensionPropertiesPtr = new(vulkanSettings.RequiredDeviceExtensionProperties);
 
 		VkDeviceCreateInfo deviceCreateInfo = new() {
 				pNext = &physicalDeviceVulkan14Features,
 				queueCreateInfoCount = (uint)uniqueQueueFamilyIndices.Length,
 				pQueueCreateInfos = deviceQueueCreateInfo,
-				pEnabledFeatures = &physicalDeviceFeatures,
 				enabledExtensionCount = (uint)vulkanSettings.RequiredDeviceExtensionProperties.Length,
 				ppEnabledExtensionNames = requiredDeviceExtensionPropertiesPtr,
 		};

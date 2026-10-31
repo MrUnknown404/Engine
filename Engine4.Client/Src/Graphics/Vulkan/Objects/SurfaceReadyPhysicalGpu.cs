@@ -1,9 +1,8 @@
-using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.Utility.Exceptions;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine4.Client.Graphics.Vulkan;
+namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public unsafe class SurfaceReadyPhysicalGpu : PhysicalGpu {
 	public VkPhysicalDeviceMemoryProperties2 MemoryProperties2 { get; }

@@ -1,3 +1,4 @@
+using Engine4.Client.Graphics.Vulkan.Objects;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
 using OpenTK.Windowing.GraphicsLibraryFramework;
@@ -5,6 +6,23 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 namespace Engine4.Client.Graphics.Vulkan;
 
 public class SetupVulkanSettings {
+	private static readonly string[] EngineRequiredInstanceLayerProperties = [
+#if DEBUG
+			"VK_LAYER_KHRONOS_validation", // if OpenTK defines this somewhere, i could not find it
+#endif
+	];
+	private static readonly string[] EngineRequiredInstanceExtensionProperties = [
+			Vk.KhrGetSurfaceCapabilities2ExtensionName,
+#if DEBUG
+			Vk.ExtDebugUtilsExtensionName,
+#endif
+	];
+	private static readonly string[] EngineRequiredDeviceExtensionProperties = [
+			Vk.KhrSwapchainExtensionName, //
+			Vk.ExtDescriptorHeapExtensionName, //
+			Vk.KhrShaderUntypedPointersExtensionName,
+	];
+
 	public string[] RequiredInstanceLayerProperties { get; init; } = Array.Empty<string>();
 	public string[] RequiredInstanceExtensionProperties { get; init; } = Array.Empty<string>();
 	public string[] RequiredDeviceExtensionProperties { get; init; } = Array.Empty<string>();
@@ -35,31 +53,15 @@ public class SetupVulkanSettings {
 	[MustUseReturnValue]
 	public VulkanSettings ToReadonly(bool isGlfwEnabled) {
 		// engine extensions
-		HashSet<string> requiredInstanceLayerProperties = new([
-#if DEBUG
-				"VK_LAYER_KHRONOS_validation", // if OpenTK defines this somewhere, i could not find it
-#endif
-		]);
-
+		HashSet<string> requiredInstanceLayerProperties = new(EngineRequiredInstanceLayerProperties);
 		requiredInstanceLayerProperties.UnionWith(RequiredInstanceLayerProperties);
 
-		HashSet<string> requiredInstanceExtensionProperties = new([
-				Vk.KhrGetSurfaceCapabilities2ExtensionName,
-#if DEBUG
-				Vk.ExtDebugUtilsExtensionName,
-#endif
-		]);
-
+		HashSet<string> requiredInstanceExtensionProperties = new(EngineRequiredInstanceExtensionProperties);
 		requiredInstanceExtensionProperties.UnionWith(RequiredInstanceExtensionProperties);
-
-		HashSet<string> requiredDeviceExtensionProperties = new([
-				Vk.KhrSwapchainExtensionName, //
-				Vk.ExtDescriptorHeapExtensionName,
-		]);
-
-		requiredDeviceExtensionProperties.UnionWith(RequiredDeviceExtensionProperties);
-
 		if (isGlfwEnabled) { requiredInstanceExtensionProperties.UnionWith(GLFW.GetRequiredInstanceExtensions()); }
+
+		HashSet<string> requiredDeviceExtensionProperties = new(EngineRequiredDeviceExtensionProperties);
+		requiredDeviceExtensionProperties.UnionWith(RequiredDeviceExtensionProperties);
 
 		return new() {
 				RequiredInstanceLayerProperties = requiredInstanceLayerProperties.ToArray(),

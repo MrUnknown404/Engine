@@ -294,7 +294,7 @@ public sealed unsafe class VulkanManager {
 			if (!FindQueueFamilies(physicalDevice, surface.VkSurface, out QueueFamilyIndices? queueFamilyIndices)) { continue; }
 
 			// any other checks?
-			// TODO how do i properly query for support? i don't think i was doing it correctly. see https://github.com/MrUnknown404/Engine/blob/main/Src/Client/Graphics/Vulkan/SwapChain.cs#L72
+			// TODO how do i properly query for support?
 
 			boundPhysicalGpus.Add(new(physicalGpu, surface, queueFamilyIndices.Value));
 		}
