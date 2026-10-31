@@ -8,49 +8,27 @@ public sealed unsafe class GraphicsPipeline : NamedVulkanResource {
 	public VkPipeline Pipeline { get; }
 	public override ulong Handle => Pipeline.Handle;
 
-	[Obsolete]
-	public VkPipelineLayout Layout { get; }
-
 	private readonly LogicalGpu logicalGpu;
 
 	internal GraphicsPipeline(SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, Settings settings) : base(settings.DebugName) {
 		this.logicalGpu = logicalGpu;
-		Layout = CreateLayout(logicalGpu, settings);
-		Pipeline = CreatePipeline(logicalGpu, settings, Layout, physicalGpu.DepthFormat);
+		Pipeline = CreatePipeline(logicalGpu, settings, physicalGpu.DepthFormat);
 	}
 
 	protected internal override void Cleanup() {
 		VkDevice logicalDevice = logicalGpu.VkLogicalDevice;
 
-		Vk.DestroyPipelineLayout(logicalDevice, Layout, null);
 		Vk.DestroyPipeline(logicalDevice, Pipeline, null);
-	}
-
-	[MustUseReturnValue]
-	private static VkPipelineLayout CreateLayout(LogicalGpu logicalGpu, Settings settings) {
-		VkDescriptorSetLayout[]? descriptorSetLayouts = settings.DescriptorSetLayouts;
-		VkPushConstantRange[]? pushConstantRanges = settings.PushConstantRanges;
-
-		fixed (VkDescriptorSetLayout* pDescriptorSetLayout = descriptorSetLayouts) {
-			fixed (VkPushConstantRange* pPushConstantRange = pushConstantRanges) {
-				VkPipelineLayoutCreateInfo layoutCreateInfo = new() { /* flags = , any flags? */ };
-
-				if (descriptorSetLayouts != null) { layoutCreateInfo = layoutCreateInfo with { setLayoutCount = (uint)descriptorSetLayouts.Length, pSetLayouts = pDescriptorSetLayout, }; }
-				if (pushConstantRanges != null) { layoutCreateInfo = layoutCreateInfo with { pushConstantRangeCount = (uint)pushConstantRanges.Length, pPushConstantRanges = pPushConstantRange, }; }
-
-				VkPipelineLayout layout;
-				VkH.ThrowIfNotSuccess(Vk.CreatePipelineLayout(logicalGpu.VkLogicalDevice, &layoutCreateInfo, null, &layout), "Failed to create pipeline layout");
-				return layout;
-			}
-		}
 	}
 
 	// TODO see if i can clean this up a little bit
 	[MustUseReturnValue]
-	private static VkPipeline CreatePipeline(LogicalGpu logicalGpu, Settings settings, VkPipelineLayout pipelineLayout, VkFormat? depthFormat) {
+	private static VkPipeline CreatePipeline(LogicalGpu logicalGpu, Settings settings, VkFormat depthFormat) {
 		using StringUtf8Ptr entryPoint = new(Shader.ShaderEntryPoint);
 
 		VkPipelineShaderStageCreateInfo* pShaderStageCreateInfos = stackalloc VkPipelineShaderStageCreateInfo[settings.Shaders.Length];
+		VkSpecializationInfo* pSpecializationInfo = stackalloc VkSpecializationInfo[settings.Shaders.Length]; // sparse
+
 		for (int i = 0; i < settings.Shaders.Length; i++) {
 			Shader shader = settings.Shaders[i];
 
@@ -61,13 +39,17 @@ public sealed unsafe class GraphicsPipeline : NamedVulkanResource {
 					pName = entryPoint,
 			};
 
-			if (shader.SpecializationInfo is { } specializationInfo) { shaderStageCreateInfo = shaderStageCreateInfo with { pSpecializationInfo = &specializationInfo, }; }
+			if (shader.SpecializationInfo is { } specializationInfo) {
+				pSpecializationInfo[i] = specializationInfo;
+				shaderStageCreateInfo = shaderStageCreateInfo with { pSpecializationInfo = &pSpecializationInfo[i], };
+			}
 
 			pShaderStageCreateInfos[i] = shaderStageCreateInfo;
 		}
 
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo = new() {
 				topology = settings.Topology, //
+				primitiveRestartEnable = settings.EnablePrimitiveRestart ? VkH.True : VkH.False,
 		};
 
 		VkPipelineViewportStateCreateInfo viewportStateCreateInfo = new() {
@@ -79,7 +61,7 @@ public sealed unsafe class GraphicsPipeline : NamedVulkanResource {
 		VkPipelineRenderingCreateInfo renderingCreateInfo = new() {
 				colorAttachmentCount = 1, //
 				pColorAttachmentFormats = &swapChainImageFormat,
-				depthAttachmentFormat = depthFormat ?? default,
+				depthAttachmentFormat = depthFormat,
 		};
 
 		VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = new() {
@@ -136,6 +118,11 @@ public sealed unsafe class GraphicsPipeline : NamedVulkanResource {
 				back = settings.StencilBack,
 		};
 
+		VkPipelineCreateFlags2CreateInfo pipelineCreateFlags2CreateInfo = new() {
+				pNext = &renderingCreateInfo, //
+				flags = VkPipelineCreateFlagBits2.PipelineCreate2DescriptorHeapBitExt,
+		};
+
 		fixed (VkDynamicState* pDynamicStates = settings.DynamicStates) {
 			fixed (VkVertexInputAttributeDescription* pAttributeDescriptions = settings.VertexAttributeDescriptions) {
 				fixed (VkVertexInputBindingDescription* pVertexBindingDescription = settings.VertexBindingDescriptions) {
@@ -152,7 +139,7 @@ public sealed unsafe class GraphicsPipeline : NamedVulkanResource {
 					};
 
 					VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo = new() {
-							pNext = &renderingCreateInfo,
+							pNext = &pipelineCreateFlags2CreateInfo,
 							stageCount = (uint)settings.Shaders.Length,
 							pStages = pShaderStageCreateInfos,
 							pVertexInputState = &vertexInputStateCreateInfo,
@@ -163,7 +150,6 @@ public sealed unsafe class GraphicsPipeline : NamedVulkanResource {
 							pDepthStencilState = &depthStencilStateCreateInfo,
 							pColorBlendState = &colorBlendStateCreateInfo,
 							pDynamicState = &dynamicStateCreateInfo,
-							layout = pipelineLayout,
 							basePipelineHandle = VkPipeline.Zero,
 							basePipelineIndex = -1,
 							// flags = , if this is needed use VkPipelineCreateFlagBits2 instead
@@ -182,6 +168,7 @@ public sealed unsafe class GraphicsPipeline : NamedVulkanResource {
 
 		// Pipeline Input
 		public VkPrimitiveTopology Topology { get; init; } = VkPrimitiveTopology.PrimitiveTopologyTriangleList;
+		public bool EnablePrimitiveRestart { get; init; }
 		public VkVertexInputAttributeDescription[] VertexAttributeDescriptions { get; }
 		public VkVertexInputBindingDescription[] VertexBindingDescriptions { get; }
 		public Shader[] Shaders { get; }
@@ -236,10 +223,10 @@ public sealed unsafe class GraphicsPipeline : NamedVulkanResource {
 		// Resources
 		[Obsolete("Add support for the new descriptor heaps")]
 		public VkDescriptorSetLayout[]? DescriptorSetLayouts { get; init; } // TODO look into the new Descriptor Heaps
+		[Obsolete("^")]
 		public VkPushConstantRange[]? PushConstantRanges { get; init; }
 
-		public Settings(string debugName, VkFormat swapChainImageFormat, Shader[] shaders, VkVertexInputAttributeDescription[] vertexAttributeDescriptions,
-			VkVertexInputBindingDescription[] vertexBindingDescriptions) {
+		public Settings(string debugName, VkFormat swapChainImageFormat, Shader[] shaders, VkVertexInputAttributeDescription[] vertexAttributeDescriptions, VkVertexInputBindingDescription[] vertexBindingDescriptions) {
 			DebugName = debugName;
 			SwapChainImageFormat = swapChainImageFormat;
 			Shaders = shaders;

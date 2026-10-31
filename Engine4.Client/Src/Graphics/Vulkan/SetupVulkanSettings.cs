@@ -51,6 +51,7 @@ public class SetupVulkanSettings {
 
 		HashSet<string> requiredDeviceExtensionProperties = new([
 				Vk.KhrSwapchainExtensionName, //
+				Vk.ExtDescriptorHeapExtensionName,
 		]);
 
 		requiredDeviceExtensionProperties.UnionWith(RequiredDeviceExtensionProperties);

@@ -15,10 +15,15 @@ public unsafe class Window {
 	public Vec2<double> CursorPosition { get; private set; }
 
 	// i need to store these here otherwise i get a crash
+	[UsedImplicitly]
 	private readonly GLFWCallbacks.KeyCallback keyCallback;
+	[UsedImplicitly]
 	private readonly GLFWCallbacks.MouseButtonCallback mouseButtonCallback;
+	[UsedImplicitly]
 	private readonly GLFWCallbacks.CursorPosCallback cursorPosCallback;
+	[UsedImplicitly]
 	private readonly GLFWCallbacks.ScrollCallback scrollCallback;
+	[UsedImplicitly]
 	private readonly GLFWCallbacks.FramebufferSizeCallback framebufferSizeCallback;
 
 	public event OnKeyDelegate? OnKeyEvent;

@@ -7,7 +7,9 @@ using OpenTK.Graphics.Vulkan;
 namespace Engine4.Client.Graphics.Vulkan;
 
 public sealed unsafe class LogicalGpu : VulkanResource {
-	public VkDevice VkLogicalDevice { get; }
+	private readonly VkDevice vkLogicalDevice;
+
+	public VkDevice VkLogicalDevice => vkLogicalDevice;
 	public VkQueue GraphicsQueue { get; } // TODO queue objects
 	public VkQueue PresentQueue { get; }
 	public VkQueue TransferQueue { get; }
@@ -41,6 +43,7 @@ public sealed unsafe class LogicalGpu : VulkanResource {
 				drawIndirectCount = VkH.True,
 				scalarBlockLayout = VkH.True,
 				shaderSampledImageArrayNonUniformIndexing = VkH.True,
+				bufferDeviceAddress = VkH.True,
 		};
 
 		VkPhysicalDeviceVulkan13Features physicalDeviceVulkan13Features = new() {
@@ -70,13 +73,11 @@ public sealed unsafe class LogicalGpu : VulkanResource {
 				enabledExtensionCount = (uint)vulkanSettings.RequiredDeviceExtensionProperties.Length,
 		};
 
-		VkDevice logicalDevice;
-		VkH.ThrowIfNotSuccess(Vk.CreateDevice(physicalGpu.VkPhysicalDevice, &deviceCreateInfo, null, &logicalDevice), "Failed to create logical device");
+		fixed (VkDevice* pLogicalDevice = &vkLogicalDevice) { VkH.ThrowIfNotSuccess(Vk.CreateDevice(physicalGpu.VkPhysicalDevice, &deviceCreateInfo, null, pLogicalDevice), "Failed to create logical device"); }
 
-		VkLogicalDevice = logicalDevice;
-		GraphicsQueue = GetDeviceQueue(logicalDevice, queueFamilyIndices.GraphicsFamily);
-		PresentQueue = GetDeviceQueue(logicalDevice, queueFamilyIndices.PresentFamily);
-		TransferQueue = GetDeviceQueue(logicalDevice, queueFamilyIndices.TransferFamily);
+		GraphicsQueue = GetDeviceQueue(VkLogicalDevice, queueFamilyIndices.GraphicsFamily);
+		PresentQueue = GetDeviceQueue(VkLogicalDevice, queueFamilyIndices.PresentFamily);
+		TransferQueue = GetDeviceQueue(VkLogicalDevice, queueFamilyIndices.TransferFamily);
 
 		return;
 
@@ -93,8 +94,20 @@ public sealed unsafe class LogicalGpu : VulkanResource {
 	internal VkDeviceMemory CreateDeviceMemory(VkMemoryRequirements2 memoryRequirements2, VkMemoryPropertyFlagBits memoryPropertyFlags) {
 		VkMemoryRequirements memoryRequirements = memoryRequirements2.memoryRequirements;
 
+		VkMemoryAllocateFlagsInfo memoryAllocateFlagsInfo = new() {
+				/* See https://docs.vulkan.org/refpages/latest/refpages/source/VkMemoryAllocateFlagBits.html
+				 * "Setting VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT is not expected to reduce performance on any known implementation.
+				 * Applications should feel free to set it on every allocation, to help avoid needing to know in advance whether a device address will be needed for any buffer bound to the memory.
+				 * Some development and/or debugging tools, such as a capture/replay layer, might have overhead for memory allocated with this bit, as they might need to track the device addresses of those allocations.
+				 * However, this is not expected to be significant enough to be a reason for applications to avoid setting the bit unconditionally."
+				 */
+				flags = VkMemoryAllocateFlagBits.MemoryAllocateDeviceAddressBit,
+		};
+
 		VkMemoryAllocateInfo memoryAllocateInfo = new() {
-				allocationSize = memoryRequirements.size, memoryTypeIndex = FindMemoryType(physicalGpu.MemoryProperties2.memoryProperties, memoryRequirements.memoryTypeBits, memoryPropertyFlags),
+				pNext = &memoryAllocateFlagsInfo, //
+				allocationSize = memoryRequirements.size,
+				memoryTypeIndex = FindMemoryType(physicalGpu.MemoryProperties2.memoryProperties, memoryRequirements.memoryTypeBits, memoryPropertyFlags),
 		};
 
 		// TODO "It should be noted that in a real world application, you're not supposed to actually call vkAllocateMemory for every individual buffer.
