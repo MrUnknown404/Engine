@@ -21,7 +21,6 @@ public sealed unsafe class GraphicsPipeline : NamedVulkanResource {
 		Vk.DestroyPipeline(logicalDevice, Pipeline, null);
 	}
 
-	// TODO see if i can clean this up a little bit
 	[MustUseReturnValue]
 	private static VkPipeline CreatePipeline(LogicalGpu logicalGpu, Settings settings, VkFormat depthFormat) {
 		using StringUtf8Ptr entryPoint = new(Shader.ShaderEntryPoint);

@@ -152,11 +152,12 @@ public abstract class GameClient : GameCore {
 		if (IsGlfwEnabled) {
 			Logger.Trace("Cleaning up Glfw...");
 
+			if (GlfwManager == null) { throw new IllegalStateException(); } // if glfw is enabled these should not be null
+
 			Logger.Trace($"- Cleaning up {windows.Count} windows...");
 			foreach (Window window in windows) { window.Cleanup(); }
 
-			GLFW.Terminate();
-			GLFW.SetErrorCallback(null);
+			GlfwManager.Cleanup();
 		}
 	}
 }

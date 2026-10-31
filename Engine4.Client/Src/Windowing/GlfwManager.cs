@@ -7,8 +7,6 @@ using OperatingSystem = Engine4.Utility.Compatability.OperatingSystem;
 
 namespace Engine4.Client.Windowing;
 
-// TODO logging
-
 public sealed class GlfwManager {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
 

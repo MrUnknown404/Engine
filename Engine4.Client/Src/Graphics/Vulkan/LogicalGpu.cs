@@ -8,7 +8,7 @@ namespace Engine4.Client.Graphics.Vulkan;
 
 public sealed unsafe class LogicalGpu : VulkanResource {
 	public VkDevice VkLogicalDevice { get; }
-	public Queue GraphicsQueue { get; } // TODO queue objects
+	public Queue GraphicsQueue { get; }
 	public Queue PresentQueue { get; }
 	public Queue TransferQueue { get; }
 
@@ -17,8 +17,8 @@ public sealed unsafe class LogicalGpu : VulkanResource {
 	private readonly SurfaceReadyPhysicalGpu physicalGpu;
 
 	internal LogicalGpu(SurfaceReadyPhysicalGpu physicalGpu, VulkanSettings vulkanSettings) {
-		this.physicalGpu = physicalGpu;
 		VkLogicalDevice = CreateLogicalDevice(physicalGpu, vulkanSettings);
+		this.physicalGpu = physicalGpu;
 
 		QueueFamilyIndices queueFamilyIndices = physicalGpu.QueueFamilyIndices;
 		GraphicsQueue = new(this, queueFamilyIndices.GraphicsFamily);

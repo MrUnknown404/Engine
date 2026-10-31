@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Engine4.Client.Graphics.Vulkan.Objects;
 using Engine4.Client.Utility.Exceptions;
+using Engine4.Client.Utility.Extensions;
 using Engine4.IO;
 using JetBrains.Annotations;
 using NLog;
@@ -32,7 +33,12 @@ public sealed unsafe class VulkanManager {
 		VulkanSettings = setupVulkanSettings.ToReadonly(game.IsGlfwEnabled);
 		VulkanSettings.PrintValues();
 
-		// check for instance/extension properties
+		// shaderc
+		Shaderc = new(Shaderc.CreateDefaultContext(new ShadercSearchPathContainer().GetLibraryNames()));
+		Shaderc.GetSpvVersion(out uint version, out uint revision, out byte major, out byte minor);
+		Logger.Trace($"Shaderc setup. SPIR-V Version: {major}.{minor} (0x{version:X8}.{revision})");
+
+		// check for instance layer/extension properties
 		VkLayerProperties[] availableInstanceLayerProperties = GetAvailableInstanceLayerProperties();
 		PrintInstanceLayerProperties(availableInstanceLayerProperties);
 		VkExtensionProperties[] availableInstanceExtensionProperties = GetAvailableInstanceExtensionProperties();
@@ -46,8 +52,8 @@ public sealed unsafe class VulkanManager {
 		VKLoader.SetInstance(VulkanInstance.VkInstance); // set opentk instance
 		Logger.Trace("Created VkInstance");
 
-		// debugger
 #if DEBUG
+		// debugger
 		debugMessenger = new(VulkanInstance, setupVulkanSettings.EnabledDebugMessageSeverities, setupVulkanSettings.EnabledDebugMessageTypes);
 		Logger.Trace("Created Vulkan Debug Messenger");
 #endif
@@ -56,10 +62,6 @@ public sealed unsafe class VulkanManager {
 		physicalGpus = GetSuitablePhysicalGpus(VulkanInstance, VulkanSettings, setupVulkanSettings.IsPhysicalDeviceSuitable);
 		Logger.Trace($"Sorted {physicalGpus.Length} physical gpus");
 		PrintPhysicalGpus();
-
-		// shaderc
-		Shaderc = new(Shaderc.CreateDefaultContext(new ShadercSearchPathContainer().GetLibraryNames()));
-		// TODO print version
 	}
 
 	internal void Cleanup() {

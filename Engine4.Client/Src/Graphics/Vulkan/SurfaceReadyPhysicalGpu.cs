@@ -15,20 +15,13 @@ public unsafe class SurfaceReadyPhysicalGpu : PhysicalGpu {
 	private readonly Dictionary<VkDescriptorType, ulong> descriptorTypeSizes = new();
 
 	internal SurfaceReadyPhysicalGpu(PhysicalGpu physicalGpu, Surface surface, QueueFamilyIndices queueFamilyIndices) : base(physicalGpu.VkPhysicalDevice, physicalGpu.Properties2, physicalGpu.Features2) {
-		this.surface = surface;
-
-		VkPhysicalDeviceMemoryProperties2 physicalDeviceMemoryProperties2 = new();
-		Vk.GetPhysicalDeviceMemoryProperties2(VkPhysicalDevice, &physicalDeviceMemoryProperties2);
-		MemoryProperties2 = physicalDeviceMemoryProperties2;
-
-		VkPhysicalDeviceDescriptorHeapPropertiesEXT physicalDeviceDescriptorHeapProperties = new();
-		VkPhysicalDeviceProperties2 physicalDeviceProperties2 = new() { pNext = &physicalDeviceDescriptorHeapProperties, };
-		Vk.GetPhysicalDeviceProperties2(VkPhysicalDevice, &physicalDeviceProperties2);
-		DescriptorHeapProperties = physicalDeviceDescriptorHeapProperties;
-
+		MemoryProperties2 = GetMemoryProperties(physicalGpu);
+		DescriptorHeapProperties = GetDescriptorHeapProperties(physicalGpu);
 		QueueFamilyIndices = queueFamilyIndices;
 		DepthFormat = FindSupportedFormat([ VkFormat.FormatD32Sfloat, VkFormat.FormatD32SfloatS8Uint, VkFormat.FormatD24UnormS8Uint, ], VkImageTiling.ImageTilingOptimal,
 			VkFormatFeatureFlagBits.FormatFeatureDepthStencilAttachmentBit);
+
+		this.surface = surface;
 
 		// https://docs.vulkan.org/refpages/latest/refpages/source/vkGetPhysicalDeviceDescriptorSizeEXT.html#VUID-vkGetPhysicalDeviceDescriptorSizeEXT-type-11362
 		AddDescriptorType(VkDescriptorType.DescriptorTypeSampler);
@@ -70,5 +63,20 @@ public unsafe class SurfaceReadyPhysicalGpu : PhysicalGpu {
 		}
 
 		throw new Engine4Exception("Failed to find any supported formats");
+	}
+
+	[MustUseReturnValue]
+	private static VkPhysicalDeviceMemoryProperties2 GetMemoryProperties(PhysicalGpu physicalGpu) {
+		VkPhysicalDeviceMemoryProperties2 physicalDeviceMemoryProperties2 = new();
+		Vk.GetPhysicalDeviceMemoryProperties2(physicalGpu.VkPhysicalDevice, &physicalDeviceMemoryProperties2);
+		return physicalDeviceMemoryProperties2;
+	}
+
+	[MustUseReturnValue]
+	private static VkPhysicalDeviceDescriptorHeapPropertiesEXT GetDescriptorHeapProperties(PhysicalGpu physicalGpu) {
+		VkPhysicalDeviceDescriptorHeapPropertiesEXT physicalDeviceDescriptorHeapProperties = new();
+		VkPhysicalDeviceProperties2 physicalDeviceProperties2 = new() { pNext = &physicalDeviceDescriptorHeapProperties, };
+		Vk.GetPhysicalDeviceProperties2(physicalGpu.VkPhysicalDevice, &physicalDeviceProperties2);
+		return physicalDeviceDescriptorHeapProperties;
 	}
 }

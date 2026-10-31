@@ -5,10 +5,6 @@ using OpenTK.Graphics.Vulkan;
 
 namespace Engine4.Client.Graphics.Vulkan;
 
-// TODO rethink the visibility of vulkan object parameters.
-//  right now i have everything internal so only the engine uses the core components.
-//  should i keep that or expose them so the user can call "unsupported" vulkan methods?
-
 public static unsafe class VkH {
 	public const int True = (int)Vk.True;
 	public const int False = (int)Vk.False;
@@ -28,18 +24,22 @@ public static unsafe class VkH {
 	/// <seealso href="https://docs.vulkan.org/spec/latest/chapters/extensions.html#extendingvulkan-coreversions">Relevant Vulkan Specification</seealso>
 	[Pure]
 	public static void GetApiVersion(out uint version, out byte variant, out byte major, out ushort minor, out ushort patch) {
-		fixed (uint* versionPtr = &version) { Vk.EnumerateInstanceVersion(versionPtr); }
+		fixed (uint* pVersion = &version) { Vk.EnumerateInstanceVersion(pVersion); }
+		GetApiVersion(version, out variant, out major, out minor, out patch);
+	}
 
+	[Pure]
+	public static Version4<ushort> GetApiVersion(out uint version) {
+		GetApiVersion(out version, out byte variant, out byte major, out ushort minor, out ushort patch);
+		return new(variant, major, minor, patch);
+	}
+
+	[Pure]
+	public static void GetApiVersion(uint version, out byte variant, out byte major, out ushort minor, out ushort patch) {
 		variant = (byte)(version >> 29);
 		major = (byte)((version >> 22) & 0x7FU);
 		minor = (ushort)((version >> 12) & 0x3FFU);
 		patch = (ushort)(version & 0xFFFU);
-	}
-
-	[MustUseReturnValue]
-	public static Version4<ushort> GetApiVersion(out uint version) {
-		GetApiVersion(out version, out byte variant, out byte major, out ushort minor, out ushort patch);
-		return new(variant, major, minor, patch);
 	}
 
 	public static void ThrowIfNotSuccess(VkResult result, string failedMessage) {
