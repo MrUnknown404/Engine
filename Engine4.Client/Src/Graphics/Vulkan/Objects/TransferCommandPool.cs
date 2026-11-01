@@ -32,23 +32,25 @@ public sealed unsafe class TransferCommandPool : CommandPool<TransferCommandBuff
 	// public void CopyToImage(Texture image, QueueFamilyIndices queueFamilyIndices, Queue transferQueue, StbiImage stbiImage) =>
 	// 		CopyToImage(image, queueFamilyIndices, transferQueue, (uint)stbiImage.Width, (uint)stbiImage.Height, (byte)stbiImage.NumChannels, stbiImage.Data);
 
-	public void CopyToImage(VulkanTexture image, uint width, uint height, byte channels, ReadOnlySpan<byte> data) {
-		fixed (byte* pData = data) { CopyToImage(image, width, height, channels, pData); }
+	public void CopyToImage(VulkanTexture image, byte channels, ReadOnlySpan<byte> data) {
+		fixed (byte* pData = data) { CopyToImage(image, channels, pData); }
 	}
 
-	public void CopyToImage(VulkanTexture image, uint width, uint height, byte channels, void* data) {
+	// TODO store channels in image?
+	public void CopyToImage(VulkanTexture image, byte channels, void* data) {
 		// TODO persistent staging buffer? (also transferCommandBuffer?)
-		VulkanBuffer stagingBuffer = resourceManager.CreateBuffer("Temporary Image Staging Buffer", width * height * channels, VkBufferUsageFlagBits2.BufferUsage2TransferSrcBit, 0,
+		ulong bufferSize = (ulong)(image.Width * image.Height * channels);
+		VulkanBuffer stagingBuffer = resourceManager.CreateBuffer("Temporary Image Staging Buffer", bufferSize, VkBufferUsageFlagBits2.BufferUsage2TransferSrcBit, 0,
 			VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit);
 
-		stagingBuffer.Copy(data, width * height * channels);
+		stagingBuffer.Copy(data, bufferSize);
 
 		TransferCommandBuffer transferCommandBuffer = CreateCommandBuffer(VkCommandBufferLevel.CommandBufferLevelPrimary);
 		transferCommandBuffer.BeginCommandBuffer(VkCommandBufferUsageFlagBits.CommandBufferUsageOneTimeSubmitBit);
 
-		transferCommandBuffer.TransitionImageLayout(image.Image, image.ImageFormat, VkImageLayout.ImageLayoutUndefined, VkImageLayout.ImageLayoutTransferDstOptimal);
-		transferCommandBuffer.CmdCopyImage(stagingBuffer, image, width, height);
-		transferCommandBuffer.TransitionImageLayout(image.Image, image.ImageFormat, VkImageLayout.ImageLayoutTransferDstOptimal, VkImageLayout.ImageLayoutShaderReadOnlyOptimal);
+		transferCommandBuffer.TransitionImageLayout(image, VkImageLayout.ImageLayoutUndefined, VkImageLayout.ImageLayoutTransferDstOptimal);
+		transferCommandBuffer.CmdCopyImage(stagingBuffer, image);
+		transferCommandBuffer.TransitionImageLayout(image, VkImageLayout.ImageLayoutTransferDstOptimal, VkImageLayout.ImageLayoutShaderReadOnlyOptimal);
 
 		transferCommandBuffer.EndCommandBuffer();
 

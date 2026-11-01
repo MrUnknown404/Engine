@@ -63,22 +63,6 @@ public sealed class VulkanResourceManager {
 		return texture;
 	}
 
-	[Obsolete]
-	[MustUseReturnValue]
-	public DescriptorSetLayout CreateDescriptorSetLayout(DescriptorSetInfo[] descriptorSets) {
-		DescriptorSetLayout descriptorSetLayout = new(logicalGpu, descriptorSets);
-		Add(descriptorSetLayout);
-		return descriptorSetLayout;
-	}
-
-	[Obsolete]
-	[MustUseReturnValue]
-	public DescriptorPool CreateDescriptorPool(VkDescriptorType[] descriptorSetTypes, uint count, byte maxFramesInFlight, VkDescriptorPoolCreateFlagBits descriptorPoolCreateFlags = 0) {
-		DescriptorPool descriptorPool = new(logicalGpu, count, descriptorSetTypes, maxFramesInFlight, descriptorPoolCreateFlags);
-		Add(descriptorPool);
-		return descriptorPool;
-	}
-
 	[MustUseReturnValue]
 	public Semaphore CreateSemaphore(VkSemaphoreCreateFlags semaphoreCreateFlags) {
 		Semaphore semaphore = new(logicalGpu, semaphoreCreateFlags);

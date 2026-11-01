@@ -1,38 +1,28 @@
-using Engine4.Client.Graphics.Vulkan;
-using Engine4.Client.Graphics.Vulkan.Objects;
 using OpenTK.Graphics.Vulkan;
 
-namespace Engine4.Client.Graphics._Test;
+namespace Engine4.Client.Graphics.Vulkan.Objects;
 
-public unsafe class ResourceDescriptors {
-	public VulkanBuffer ResourceHeapBuffer { get; }
-	public ulong DeviceAddress { get; }
-	public ulong MinHeapReservedRange { get; }
+public sealed unsafe class ResourceDescriptors : DescriptorHeap {
+	public override VulkanBuffer HeapBuffer { get; }
+	public override ulong DeviceAddress { get; }
+	public override ulong MinHeapReservedRange { get; }
 
-	private readonly ulong bufferDescriptorSize;
-	private readonly ulong bufferDescriptorHeapOffset;
-	private readonly ulong imageDescriptorSize;
-	private readonly ulong imageDescriptorHeapOffset;
-	private readonly ulong descriptorHeapSize;
-
-	public ResourceDescriptors(VulkanResourceManager resourceManager, SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, VulkanTexture[] textures, VulkanBuffer[] buffers) {
+	public ResourceDescriptors(VulkanResourceManager resourceManager, SurfaceReadyPhysicalGpu physicalGpu, LogicalGpu logicalGpu, VulkanTexture[] textures, VulkanBuffer[] buffers) : base(resourceManager) {
 		VkPhysicalDeviceDescriptorHeapPropertiesEXT descriptorHeapProperties = physicalGpu.DescriptorHeapProperties;
+		MinHeapReservedRange = descriptorHeapProperties.minResourceHeapReservedRange;
 
-		ulong count = 1; // TODO what should this be?
+		ulong bufferDescriptorSize = AlignSize(descriptorHeapProperties.bufferDescriptorSize, descriptorHeapProperties.bufferDescriptorAlignment);
+		ulong imageDescriptorSize = AlignSize(descriptorHeapProperties.imageDescriptorSize, descriptorHeapProperties.imageDescriptorAlignment);
+		ulong imageDescriptorHeapOffset = AlignSize(bufferDescriptorSize * (ulong)buffers.Length, descriptorHeapProperties.imageDescriptorAlignment);
 
-		bufferDescriptorSize = AlignSize(descriptorHeapProperties.bufferDescriptorSize, descriptorHeapProperties.bufferDescriptorAlignment);
-		imageDescriptorSize = AlignSize(descriptorHeapProperties.imageDescriptorSize, descriptorHeapProperties.imageDescriptorAlignment);
-		bufferDescriptorHeapOffset = 0;
-		imageDescriptorHeapOffset = AlignSize(bufferDescriptorSize * count, descriptorHeapProperties.imageDescriptorAlignment);
+		ulong descriptorHeapSize = AlignSize(imageDescriptorHeapOffset + imageDescriptorSize * (ulong)textures.Length + descriptorHeapProperties.minResourceHeapReservedRange,
+			descriptorHeapProperties.resourceHeapAlignment);
 
-		descriptorHeapSize = AlignSize(imageDescriptorHeapOffset + imageDescriptorSize * count + descriptorHeapProperties.minResourceHeapReservedRange, descriptorHeapProperties.resourceHeapAlignment);
-
-		ResourceHeapBuffer = resourceManager.CreateBuffer($"{nameof(SamplerDescriptors)} Resource Descriptor Heap Buffer", descriptorHeapSize,
+		HeapBuffer = resourceManager.CreateBuffer($"{nameof(SamplerDescriptors)} Resource Descriptor Heap Buffer", descriptorHeapSize,
 			VkBufferUsageFlagBits2.BufferUsage2DescriptorHeapBitExt | VkBufferUsageFlagBits2.BufferUsage2ShaderDeviceAddressBit, 0, VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit);
 
-		UIntPtr bufferMap = (UIntPtr)ResourceHeapBuffer.MapMemory(Vk.WholeSize); // size?
-		DeviceAddress = ResourceHeapBuffer.GetBufferDeviceAddress();
-		MinHeapReservedRange = descriptorHeapProperties.minResourceHeapReservedRange;
+		UIntPtr bufferMap = (UIntPtr)HeapBuffer.MapMemory(Vk.WholeSize);
+		DeviceAddress = HeapBuffer.GetBufferDeviceAddress();
 
 		VkResourceDescriptorInfoEXT[] descriptorInfos = new VkResourceDescriptorInfoEXT[buffers.Length + textures.Length];
 		VkHostAddressRangeEXT[] hostAddressRanges = new VkHostAddressRangeEXT[buffers.Length + textures.Length];
@@ -90,10 +80,8 @@ public unsafe class ResourceDescriptors {
 
 		fixed (VkResourceDescriptorInfoEXT* pDescriptorInfos = descriptorInfos) {
 			fixed (VkHostAddressRangeEXT* pHostAddressRanges = hostAddressRanges) {
-				Vk.WriteResourceDescriptorsEXT(logicalGpu.VkLogicalDevice, (uint)descriptorInfos.Length, pDescriptorInfos, pHostAddressRanges); //
+				VkH.ThrowIfNotSuccess(Vk.WriteResourceDescriptorsEXT(logicalGpu.VkLogicalDevice, (uint)descriptorInfos.Length, pDescriptorInfos, pHostAddressRanges), "e"); // TODO explain
 			}
 		}
 	}
-
-	private static ulong AlignSize(ulong value, ulong alignment) => (value + alignment - 1) & ~(alignment - 1);
 }

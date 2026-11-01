@@ -4,11 +4,9 @@ namespace Engine4.Client.Graphics.Vulkan.Objects;
 
 public sealed unsafe class VulkanTexture : NamedVulkanResource {
 	private readonly VkImage image;
-	private readonly VkImageView imageView;
 	private readonly VkDeviceMemory deviceMemory;
 
 	public VkImage Image => image;
-	public VkImageView ImageView => imageView;
 	public VkDeviceMemory DeviceMemory => deviceMemory;
 
 	public VkFormat ImageFormat { get; }
@@ -31,20 +29,18 @@ public sealed unsafe class VulkanTexture : NamedVulkanResource {
 		ImageTiling = imageTiling;
 		ImageAspectMask = imageAspectMask;
 
-		CreateImage(logicalGpu, width, height, imageFormat, imageTiling, usageFlags, imageAspectMask, out image, out imageView, out deviceMemory);
-		// TODO method for copying data to image
+		CreateImage(logicalGpu, width, height, imageFormat, imageTiling, usageFlags, out image, out deviceMemory);
 	}
 
 	protected internal override void Cleanup() {
 		VkDevice logicalDevice = logicalGpu.VkLogicalDevice;
 
-		Vk.DestroyImageView(logicalDevice, ImageView, null);
 		Vk.DestroyImage(logicalDevice, Image, null);
 		Vk.FreeMemory(logicalDevice, DeviceMemory, null);
 	}
 
-	private static void CreateImage(LogicalGpu logicalGpu, ushort width, ushort height, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlagBits usageFlags, VkImageAspectFlagBits aspectMask,
-		out VkImage image, out VkImageView imageView, out VkDeviceMemory deviceMemory) {
+	private static void CreateImage(LogicalGpu logicalGpu, ushort width, ushort height, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlagBits usageFlags, out VkImage image,
+		out VkDeviceMemory deviceMemory) {
 		VkDevice logicalDevice = logicalGpu.VkLogicalDevice;
 
 		// image
@@ -71,27 +67,5 @@ public sealed unsafe class VulkanTexture : NamedVulkanResource {
 
 		deviceMemory = logicalGpu.CreateDeviceMemory(memoryRequirements2, VkMemoryPropertyFlagBits.MemoryPropertyDeviceLocalBit);
 		logicalGpu.BindImageMemory(image, deviceMemory);
-
-		// view
-		VkImageViewCreateInfo imageViewCreateInfo = new() {
-				image = image,
-				viewType = VkImageViewType.ImageViewType2D,
-				format = imageFormat,
-				components = new() {
-						r = VkComponentSwizzle.ComponentSwizzleIdentity, //
-						g = VkComponentSwizzle.ComponentSwizzleIdentity,
-						b = VkComponentSwizzle.ComponentSwizzleIdentity,
-						a = VkComponentSwizzle.ComponentSwizzleIdentity,
-				},
-				subresourceRange = new() {
-						aspectMask = aspectMask, //
-						baseMipLevel = 0,
-						levelCount = 1,
-						baseArrayLayer = 0,
-						layerCount = 1,
-				},
-		};
-
-		fixed (VkImageView* pImageView = &imageView) { VkH.ThrowIfNotSuccess(Vk.CreateImageView(logicalDevice, &imageViewCreateInfo, null, pImageView), "Failed to create image view"); }
 	}
 }

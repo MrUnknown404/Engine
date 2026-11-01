@@ -1,4 +1,3 @@
-using Engine4.Client.Graphics._Test;
 using Engine4.Client.Utility.Extensions;
 using Engine4.Utility.Math;
 using OpenTK.Graphics.Vulkan;
@@ -63,11 +62,6 @@ public sealed unsafe class GraphicsCommandBuffer : CommandBuffer {
 		fixed (VkRect2D* scissorPtr = scissors) { Vk.CmdSetScissor(VkCommandBuffer, firstScissor, (uint)scissors.Length, scissorPtr); }
 	}
 
-	// push constants
-	[Obsolete]
-	public void CmdPushConstants<T>(VkPipelineLayout pipelineLayout, VkShaderStageFlagBits shaderStageFlags, T data, uint offset = 0) where T : unmanaged =>
-			Vk.CmdPushConstants(VkCommandBuffer, pipelineLayout, shaderStageFlags, offset, (uint)sizeof(T), &data);
-
 	// push data
 	public void CmdPushData<T>(T data, uint offset = 0) where T : unmanaged {
 		VkPushDataInfoEXT pushDataInfo = new() { data = new() { address = &data, size = (nuint)sizeof(T), }, offset = offset, };
@@ -77,31 +71,14 @@ public sealed unsafe class GraphicsCommandBuffer : CommandBuffer {
 	// bind pipeline
 	public void CmdBindGraphicsPipeline(GraphicsPipeline graphicsPipeline) => Vk.CmdBindPipeline(VkCommandBuffer, VkPipelineBindPoint.PipelineBindPointGraphics, graphicsPipeline.Pipeline);
 
-	// bind descriptor sets
-	[Obsolete]
-	public void CmdBindDescriptorSet(VkPipelineLayout pipelineLayout, VkDescriptorSet descriptorSet, VkShaderStageFlagBits shaderStageFlags, uint firstSet = 0) {
-		VkBindDescriptorSetsInfo bindDescriptorSetsInfo = new() { layout = pipelineLayout, descriptorSetCount = 1, pDescriptorSets = &descriptorSet, firstSet = firstSet, stageFlags = shaderStageFlags, };
-		Vk.CmdBindDescriptorSets2(VkCommandBuffer, &bindDescriptorSetsInfo);
-	}
-
-	[Obsolete]
-	public void CmdBindDescriptorSets(VkPipelineLayout pipelineLayout, VkDescriptorSet[] descriptorSets, VkShaderStageFlagBits shaderStageFlags, uint firstSet = 0) {
-		fixed (VkDescriptorSet* pDescriptorSets = descriptorSets) {
-			VkBindDescriptorSetsInfo bindDescriptorSetsInfo = new() {
-					layout = pipelineLayout, descriptorSetCount = (uint)descriptorSets.Length, pDescriptorSets = pDescriptorSets, firstSet = firstSet, stageFlags = shaderStageFlags,
-			};
-
-			Vk.CmdBindDescriptorSets2(VkCommandBuffer, &bindDescriptorSetsInfo);
-		}
-	}
-
+	// bind descriptor heaps
 	public void CmdBindSamplerHeap(SamplerDescriptors samplerDescriptors) {
 		VkBindHeapInfoEXT bindHeapInfo = new() {
 				heapRange = new() {
 						address = samplerDescriptors.DeviceAddress, //
-						size = samplerDescriptors.SamplerHeapBuffer.Size,
+						size = samplerDescriptors.HeapBuffer.Size,
 				},
-				reservedRangeOffset = samplerDescriptors.SamplerHeapBuffer.Size - samplerDescriptors.MinHeapReservedRange,
+				reservedRangeOffset = samplerDescriptors.HeapBuffer.Size - samplerDescriptors.MinHeapReservedRange,
 				reservedRangeSize = samplerDescriptors.MinHeapReservedRange,
 		};
 
@@ -112,9 +89,9 @@ public sealed unsafe class GraphicsCommandBuffer : CommandBuffer {
 		VkBindHeapInfoEXT bindHeapInfo = new() {
 				heapRange = new() {
 						address = resourceDescriptors.DeviceAddress, //
-						size = resourceDescriptors.ResourceHeapBuffer.Size,
+						size = resourceDescriptors.HeapBuffer.Size,
 				},
-				reservedRangeOffset = resourceDescriptors.ResourceHeapBuffer.Size - resourceDescriptors.MinHeapReservedRange,
+				reservedRangeOffset = resourceDescriptors.HeapBuffer.Size - resourceDescriptors.MinHeapReservedRange,
 				reservedRangeSize = resourceDescriptors.MinHeapReservedRange,
 		};
 

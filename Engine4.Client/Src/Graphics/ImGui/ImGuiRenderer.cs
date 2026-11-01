@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Runtime.InteropServices;
 using Engine4.Client.Graphics.Vulkan;
 using Engine4.Client.Graphics.Vulkan.Objects;
@@ -8,7 +7,7 @@ using USharpLibs.Common.Math;
 
 namespace Engine4.Client.Graphics.ImGui;
 
-public unsafe class ImGuiRenderer { // TODO
+public class ImGuiRenderer { // TODO
 	private const string ImGuiAssetName = "ImGui";
 
 	// private readonly VulkanResourceManager resourceManager;
@@ -115,50 +114,50 @@ public unsafe class ImGuiRenderer { // TODO
 	// 	return id;
 	// }
 
-	private static void CreatePipeline(VulkanResourceManager resourceManager, VkFormat swapFormatImageFormat, byte maxFramesInFlight, ImGuiFragmentShaderConstants shaderConstants, out GraphicsPipeline graphicsPipeline,
-		out DescriptorSets samplerDescriptorSet, out DescriptorSetLayout imageDescriptorSetLayout) {
-		VkSpecializationMapEntry specializationMapEntry = new() { constantID = 0, offset = 0, size = sizeof(uint), };
-		VkSpecializationInfo specializationInfo = new() { dataSize = (nuint)sizeof(ImGuiFragmentShaderConstants), mapEntryCount = 1, pMapEntries = &specializationMapEntry, pData = &shaderConstants, };
-
-		Assembly assembly = typeof(ImGuiRenderer).Assembly;
-		Shader vertexShader = resourceManager.CreateShader($"{ImGuiAssetName} Vertex Shader", assembly, ImGuiAssetName, ShaderLanguage.Glsl, ShaderType.Vertex, specializationInfo);
-		Shader fragmentShader = resourceManager.CreateShader($"{ImGuiAssetName} Fragment Shader", assembly, ImGuiAssetName, ShaderLanguage.Glsl, ShaderType.Fragment);
-
-		DescriptorSetLayout samplerDescriptorSetLayout = resourceManager.CreateDescriptorSetLayout([ new(VkDescriptorType.DescriptorTypeSampler, VkShaderStageFlagBits.ShaderStageFragmentBit, 0), ]);
-		imageDescriptorSetLayout = resourceManager.CreateDescriptorSetLayout([ new(VkDescriptorType.DescriptorTypeSampledImage, VkShaderStageFlagBits.ShaderStageFragmentBit, 0), ]);
-
-		DescriptorPool descriptorPool = resourceManager.CreateDescriptorPool([ VkDescriptorType.DescriptorTypeSampler, ], 1, maxFramesInFlight);
-
-		samplerDescriptorSet = descriptorPool.AllocateDescriptorSets(samplerDescriptorSetLayout);
-
-		VkVertexInputAttributeDescription[] vertexAttributeDescriptions = [
-				new() { binding = 0, location = 0, format = VkFormat.FormatR32g32Sfloat, offset = 0, }, //
-				new() { binding = 0, location = 1, format = VkFormat.FormatR32g32Sfloat, offset = sizeof(float) * 2, }, //
-				new() { binding = 0, location = 2, format = VkFormat.FormatR8g8b8a8Unorm, offset = sizeof(float) * 4, },
-		];
-
-		VkVertexInputBindingDescription[] vertexBindingDescriptions = [ new() { binding = 0, stride = (uint)sizeof(ImDrawVert), inputRate = VkVertexInputRate.VertexInputRateVertex, }, ];
-
-		graphicsPipeline = resourceManager.CreateGraphicsPipeline(
-			new($"{ImGuiAssetName} Graphics Pipeline", swapFormatImageFormat, [ vertexShader, fragmentShader, ], vertexAttributeDescriptions, vertexBindingDescriptions) {
-					DescriptorSetLayouts = [ samplerDescriptorSetLayout.VkDescriptorSetLayout, imageDescriptorSetLayout.VkDescriptorSetLayout, ],
-					PushConstantRanges = [ new() { stageFlags = VkShaderStageFlagBits.ShaderStageVertexBit, offset = 0, size = (uint)sizeof(ImGuiPushConstants), }, ],
-					FrontFace = VkFrontFace.FrontFaceClockwise, // ??
-					CullMode = VkCullModeFlagBits.CullModeNone, // TODO getting weird artifacts without this set. figure out why and what i should be using
-					SrcAlphaBlendFactor = VkBlendFactor.BlendFactorOneMinusSrcAlpha,
-			});
-
-		resourceManager.EnqueueDestroy(vertexShader);
-		resourceManager.EnqueueDestroy(fragmentShader);
-	}
-
-	private static void CreateBuffers(VulkanResourceManager resourceManager, out VulkanBuffer vertexBuffer, out VulkanBuffer indexBuffer) {
-		vertexBuffer = resourceManager.CreateBuffer($"{ImGuiAssetName} Vertex Buffer", sizeof(uint), VkBufferUsageFlagBits2.BufferUsage2VertexBufferBit, 0,
-			VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit);
-
-		indexBuffer = resourceManager.CreateBuffer($"{ImGuiAssetName} Index Buffer", sizeof(uint), VkBufferUsageFlagBits2.BufferUsage2IndexBufferBit, 0,
-			VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit);
-	}
+	// private static void CreatePipeline(VulkanResourceManager resourceManager, VkFormat swapFormatImageFormat, byte maxFramesInFlight, ImGuiFragmentShaderConstants shaderConstants, out GraphicsPipeline graphicsPipeline,
+	// 	out DescriptorSets samplerDescriptorSet, out DescriptorSetLayout imageDescriptorSetLayout) {
+	// 	VkSpecializationMapEntry specializationMapEntry = new() { constantID = 0, offset = 0, size = sizeof(uint), };
+	// 	VkSpecializationInfo specializationInfo = new() { dataSize = (nuint)sizeof(ImGuiFragmentShaderConstants), mapEntryCount = 1, pMapEntries = &specializationMapEntry, pData = &shaderConstants, };
+	//
+	// 	Assembly assembly = typeof(ImGuiRenderer).Assembly;
+	// 	Shader vertexShader = resourceManager.CreateShader($"{ImGuiAssetName} Vertex Shader", assembly, ImGuiAssetName, ShaderLanguage.Glsl, ShaderType.Vertex, specializationInfo);
+	// 	Shader fragmentShader = resourceManager.CreateShader($"{ImGuiAssetName} Fragment Shader", assembly, ImGuiAssetName, ShaderLanguage.Glsl, ShaderType.Fragment);
+	//
+	// 	DescriptorSetLayout samplerDescriptorSetLayout = resourceManager.CreateDescriptorSetLayout([ new(VkDescriptorType.DescriptorTypeSampler, VkShaderStageFlagBits.ShaderStageFragmentBit, 0), ]);
+	// 	imageDescriptorSetLayout = resourceManager.CreateDescriptorSetLayout([ new(VkDescriptorType.DescriptorTypeSampledImage, VkShaderStageFlagBits.ShaderStageFragmentBit, 0), ]);
+	//
+	// 	DescriptorPool descriptorPool = resourceManager.CreateDescriptorPool([ VkDescriptorType.DescriptorTypeSampler, ], 1, maxFramesInFlight);
+	//
+	// 	samplerDescriptorSet = descriptorPool.AllocateDescriptorSets(samplerDescriptorSetLayout);
+	//
+	// 	VkVertexInputAttributeDescription[] vertexAttributeDescriptions = [
+	// 			new() { binding = 0, location = 0, format = VkFormat.FormatR32g32Sfloat, offset = 0, }, //
+	// 			new() { binding = 0, location = 1, format = VkFormat.FormatR32g32Sfloat, offset = sizeof(float) * 2, }, //
+	// 			new() { binding = 0, location = 2, format = VkFormat.FormatR8g8b8a8Unorm, offset = sizeof(float) * 4, },
+	// 	];
+	//
+	// 	VkVertexInputBindingDescription[] vertexBindingDescriptions = [ new() { binding = 0, stride = (uint)sizeof(ImDrawVert), inputRate = VkVertexInputRate.VertexInputRateVertex, }, ];
+	//
+	// 	graphicsPipeline = resourceManager.CreateGraphicsPipeline(
+	// 		new($"{ImGuiAssetName} Graphics Pipeline", swapFormatImageFormat, [ vertexShader, fragmentShader, ], vertexAttributeDescriptions, vertexBindingDescriptions) {
+	// 				DescriptorSetLayouts = [ samplerDescriptorSetLayout.VkDescriptorSetLayout, imageDescriptorSetLayout.VkDescriptorSetLayout, ],
+	// 				PushConstantRanges = [ new() { stageFlags = VkShaderStageFlagBits.ShaderStageVertexBit, offset = 0, size = (uint)sizeof(ImGuiPushConstants), }, ],
+	// 				FrontFace = VkFrontFace.FrontFaceClockwise, // ??
+	// 				CullMode = VkCullModeFlagBits.CullModeNone, // TODO getting weird artifacts without this set. figure out why and what i should be using
+	// 				SrcAlphaBlendFactor = VkBlendFactor.BlendFactorOneMinusSrcAlpha,
+	// 		});
+	//
+	// 	resourceManager.EnqueueDestroy(vertexShader);
+	// 	resourceManager.EnqueueDestroy(fragmentShader);
+	// }
+	//
+	// private static void CreateBuffers(VulkanResourceManager resourceManager, out VulkanBuffer vertexBuffer, out VulkanBuffer indexBuffer) {
+	// 	vertexBuffer = resourceManager.CreateBuffer($"{ImGuiAssetName} Vertex Buffer", sizeof(uint), VkBufferUsageFlagBits2.BufferUsage2VertexBufferBit, 0,
+	// 		VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit);
+	//
+	// 	indexBuffer = resourceManager.CreateBuffer($"{ImGuiAssetName} Index Buffer", sizeof(uint), VkBufferUsageFlagBits2.BufferUsage2IndexBufferBit, 0,
+	// 		VkMemoryPropertyFlagBits.MemoryPropertyHostVisibleBit | VkMemoryPropertyFlagBits.MemoryPropertyHostCoherentBit);
+	// }
 
 	// private static void CreateFont(ImGuiBackend imGuiBackend, VulkanResourceManager resourceManager, TransferCommandPool transferCommandPool, out VulkanTexture fontImage, out TextureSampler textureSampler) {
 	// 	imGuiBackend.SetContext(); // may be unnecessary?

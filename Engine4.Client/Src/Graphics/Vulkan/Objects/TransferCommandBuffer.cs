@@ -10,14 +10,19 @@ public sealed unsafe class TransferCommandBuffer : CommandBuffer {
 	// copying
 	// TODO copy buffer
 
-	public void CmdCopyImage(VulkanBuffer srcBuffer, VulkanTexture dstImage, uint width, uint height) {
+	public void CmdCopyImage(VulkanBuffer srcBuffer, VulkanTexture dstImage) {
 		VkBufferImageCopy2 copyImageInfo2 = new() {
 				bufferOffset = 0,
 				bufferRowLength = 0,
 				bufferImageHeight = 0,
-				imageSubresource = new() { aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, mipLevel = 0, baseArrayLayer = 0, layerCount = 1, },
+				imageSubresource = new() {
+						aspectMask = VkImageAspectFlagBits.ImageAspectColorBit, //
+						mipLevel = 0,
+						baseArrayLayer = 0,
+						layerCount = 1,
+				},
 				imageOffset = new(0, 0, 0),
-				imageExtent = new(width, height, 1),
+				imageExtent = new(dstImage.Width, dstImage.Height, 1),
 		};
 
 		VkCopyBufferToImageInfo2 copyBufferToImageInfo2 = new() {
@@ -31,8 +36,8 @@ public sealed unsafe class TransferCommandBuffer : CommandBuffer {
 		Vk.CmdCopyBufferToImage2(VkCommandBuffer, &copyBufferToImageInfo2);
 	}
 
-	public void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
-		VkImageMemoryBarrier2 imageMemoryBarrier2 = CreateImageBarrier(PhysicalGpu.QueueFamilyIndices, image, format, oldLayout, newLayout);
+	public void TransitionImageLayout(VulkanTexture image, VkImageLayout oldLayout, VkImageLayout newLayout) {
+		VkImageMemoryBarrier2 imageMemoryBarrier2 = CreateImageBarrier(PhysicalGpu.QueueFamilyIndices, image.Image, image.ImageFormat, oldLayout, newLayout);
 		CmdPipelineBarrier(new() { imageMemoryBarrierCount = 1, pImageMemoryBarriers = &imageMemoryBarrier2, });
 
 		return;
@@ -81,7 +86,13 @@ public sealed unsafe class TransferCommandBuffer : CommandBuffer {
 					srcQueueFamilyIndex = queueFamilyIndices.TransferFamily, // Vk.QueueFamilyIgnored
 					dstQueueFamilyIndex = queueFamilyIndices.GraphicsFamily,
 					image = image,
-					subresourceRange = new() { aspectMask = aspectMask, baseMipLevel = 0, levelCount = 1, baseArrayLayer = 0, layerCount = 1, },
+					subresourceRange = new() {
+							aspectMask = aspectMask, //
+							baseMipLevel = 0,
+							levelCount = 1,
+							baseArrayLayer = 0,
+							layerCount = 1,
+					},
 					srcAccessMask = srcAccessMask,
 					dstAccessMask = dstAccessMask,
 					srcStageMask = srcStageMask,

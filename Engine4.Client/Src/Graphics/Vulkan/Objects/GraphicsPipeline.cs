@@ -56,13 +56,6 @@ public sealed unsafe class GraphicsPipeline : NamedVulkanResource {
 				scissorCount = 1,
 		};
 
-		VkFormat swapChainImageFormat = settings.SwapChainImageFormat;
-		VkPipelineRenderingCreateInfo renderingCreateInfo = new() {
-				colorAttachmentCount = 1, //
-				pColorAttachmentFormats = &swapChainImageFormat,
-				depthAttachmentFormat = depthFormat,
-		};
-
 		VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = new() {
 				rasterizerDiscardEnable = settings.EnableRasterizerDiscard ? VkH.True : VkH.False,
 				polygonMode = settings.PolygonMode,
@@ -115,6 +108,13 @@ public sealed unsafe class GraphicsPipeline : NamedVulkanResource {
 				stencilTestEnable = settings.EnableStencilTest ? VkH.True : VkH.False,
 				front = settings.StencilFront,
 				back = settings.StencilBack,
+		};
+
+		VkFormat swapChainImageFormat = settings.SwapChainImageFormat;
+		VkPipelineRenderingCreateInfo renderingCreateInfo = new() {
+				colorAttachmentCount = 1, //
+				pColorAttachmentFormats = &swapChainImageFormat,
+				depthAttachmentFormat = depthFormat,
 		};
 
 		VkPipelineCreateFlags2CreateInfo pipelineCreateFlags2CreateInfo = new() {
