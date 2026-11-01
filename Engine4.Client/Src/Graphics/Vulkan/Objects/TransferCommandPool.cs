@@ -36,7 +36,7 @@ public sealed unsafe class TransferCommandPool : CommandPool<TransferCommandBuff
 		fixed (byte* pData = data) { CopyToImage(image, channels, pData); }
 	}
 
-	// TODO store channels in image?
+	// TODO store channels in image? or make a better way of calculating required buffer size for an image
 	public void CopyToImage(VulkanTexture image, byte channels, void* data) {
 		// TODO persistent staging buffer? (also transferCommandBuffer?)
 		ulong bufferSize = (ulong)(image.Width * image.Height * channels);
