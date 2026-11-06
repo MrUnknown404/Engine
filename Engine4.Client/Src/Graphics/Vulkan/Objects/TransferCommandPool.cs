@@ -1,5 +1,6 @@
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;
+using StbiSharp;
 
 namespace Engine4.Client.Graphics.Vulkan.Objects;
 
@@ -28,15 +29,20 @@ public sealed unsafe class TransferCommandPool : CommandPool<TransferCommandBuff
 		return buffer;
 	}
 
-	// TODO load image from file
-	// public void CopyToImage(Texture image, QueueFamilyIndices queueFamilyIndices, Queue transferQueue, StbiImage stbiImage) =>
-	// 		CopyToImage(image, queueFamilyIndices, transferQueue, (uint)stbiImage.Width, (uint)stbiImage.Height, (byte)stbiImage.NumChannels, stbiImage.Data);
+	public void CopyToImage(VulkanTexture image, StbiImage stbiImage) {
+		if (image.Width != stbiImage.Width || image.Height != stbiImage.Height) {
+			// TODO whats the best way to handle texture size mismatches? i'd like to be able to load a backup texture if something goes wrong
+			throw new Exception("mismatch size");
+		}
+
+		CopyToImage(image, (byte)stbiImage.NumChannels, stbiImage.Data);
+	}
 
 	public void CopyToImage(VulkanTexture image, byte channels, ReadOnlySpan<byte> data) {
 		fixed (byte* pData = data) { CopyToImage(image, channels, pData); }
 	}
 
-	// TODO store channels in image? or make a better way of calculating required buffer size for an image
+	// TODO store channels in image? or make a better way of calculating required buffer size for an image?
 	public void CopyToImage(VulkanTexture image, byte channels, void* data) {
 		// TODO persistent staging buffer? (also transferCommandBuffer?)
 		ulong bufferSize = (ulong)(image.Width * image.Height * channels);

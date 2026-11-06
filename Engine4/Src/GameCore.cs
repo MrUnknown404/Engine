@@ -11,6 +11,10 @@ using NLog;
 
 namespace Engine4;
 
+// TODO document everything
+// TODO add multithreading support for rendering/updating?
+// TODO add support for using https://github.com/Auburn/FastNoise2 (https://github.com/Auburn/FastNoise2Bindings)
+
 public abstract class GameCore {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
 

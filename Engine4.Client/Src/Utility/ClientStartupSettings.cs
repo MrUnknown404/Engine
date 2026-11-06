@@ -13,6 +13,8 @@ public sealed class ClientStartupSettings : StartupSettings {
 	/// <summary> Enables the use of Vulkan. Set by setting <see cref="VulkanSettings"/> to not null </summary>
 	public bool EnableVulkan { get; private init; }
 
+	public bool VerticallyFlipImagesOnLoad { get; init; }
+
 	public SetupVulkanSettings? VulkanSettings {
 		get;
 		init {

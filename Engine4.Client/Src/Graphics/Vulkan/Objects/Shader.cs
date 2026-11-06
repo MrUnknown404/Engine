@@ -1,7 +1,6 @@
 using System.Reflection;
 using Engine4.Client.Utility;
 using Engine4.Client.Utility.Exceptions;
-using Engine4.Utility;
 using Engine4.Utility.Exceptions;
 using JetBrains.Annotations;
 using OpenTK.Graphics.Vulkan;

@@ -11,12 +11,14 @@ using Engine4.Utility.Versions;
 using NLog;
 using OpenTK.Graphics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using StbiSharp;
 using ImGuiNet = Hexa.NET.ImGui.ImGui;
 using Window = Engine4.Client.Windowing.Window;
 
 namespace Engine4.Client;
 
-// TODO https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/Engine_Architecture/05_rendering_pipeline.html read
+// TODO add way of viewing vulkan resources with ImGui
+// TODO look into https://github.com/KhronosGroup/Vulkan-ValidationLayers/blob/main/docs/debug_printf.md
 
 public abstract class GameClient : GameCore {
 	private static readonly Logger Logger = LoggerH.GetLogger(LogSource.Engine);
@@ -40,6 +42,8 @@ public abstract class GameClient : GameCore {
 		if (coreSettings is not ClientStartupSettings clientSettings) { throw new ArgumentException($"{nameof(coreSettings)} needs to be of type {nameof(ClientStartupSettings)}"); }
 
 		base.SetupInternals(coreSettings);
+
+		Stbi.SetFlipVerticallyOnLoad(clientSettings.VerticallyFlipImagesOnLoad);
 
 		if (clientSettings.EnableGlfw) {
 			if (!clientSettings.EnableVulkan) { Logger.Warn("Glfw is enabled but Vulkan is not. Vulkan is required to draw to a Window"); }

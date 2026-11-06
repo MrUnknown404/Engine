@@ -10,8 +10,6 @@ using ImGuiNet = Hexa.NET.ImGui.ImGui;
 
 namespace Engine4.Client.Graphics.ImGui;
 
-// TODO read https://github.com/ocornut/imgui/blob/master/docs/BACKENDS.md
-
 public unsafe class ImGuiBackend { // TODO
 	private readonly ImGuiContextPtr context;
 	private readonly ImGuiIOPtr imGuiIO;
